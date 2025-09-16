@@ -15,6 +15,8 @@ export const PATIENT_GENDER = ['male', 'female', 'unknown'] as const;
 // User roles and permissions
 export const USER_ROLES = ['врач', 'администратор', 'менеджер', 'менеджер_склада', 'руководитель'] as const;
 export const USER_STATUS = ['active', 'inactive'] as const;
+export const SMS_VERIFICATION_PURPOSE = ['phone_verification', '2fa'] as const;
+export const TWO_FACTOR_METHOD = ['sms', 'disabled'] as const;
 
 // Enhanced users table for role-based authentication
 export const users = pgTable("users", {
@@ -25,6 +27,10 @@ export const users = pgTable("users", {
   fullName: varchar("full_name", { length: 255 }).notNull(),
   role: varchar("role", { length: 50 }).notNull(),
   status: varchar("status", { length: 20 }).default("active"),
+  phone: varchar("phone", { length: 20 }),
+  phoneVerified: boolean("phone_verified").default(false),
+  twoFactorEnabled: boolean("two_factor_enabled").default(false),
+  twoFactorMethod: varchar("two_factor_method", { length: 10 }).default("sms"),
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -32,9 +38,31 @@ export const users = pgTable("users", {
   return {
     roleCheck: check("users_role_check", sql`${table.role} IN ('врач', 'администратор', 'менеджер', 'менеджер_склада', 'руководитель')`),
     statusCheck: check("users_status_check", sql`${table.status} IN ('active', 'inactive')`),
+    twoFactorMethodCheck: check("users_two_factor_method_check", sql`${table.twoFactorMethod} IN ('sms', 'disabled')`),
     usernameIdx: index("users_username_idx").on(table.username),
     roleIdx: index("users_role_idx").on(table.role),
     statusIdx: index("users_status_idx").on(table.status),
+    phoneIdx: index("users_phone_idx").on(table.phone),
+  };
+});
+
+// SMS Verification Codes table
+export const smsVerificationCodes = pgTable("sms_verification_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  codeHash: text("code_hash").notNull(),
+  purpose: varchar("purpose", { length: 20 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  attemptCount: integer("attempt_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    purposeCheck: check("sms_codes_purpose_check", sql`${table.purpose} IN ('phone_verification', '2fa')`),
+    userIdIdx: index("sms_codes_user_id_idx").on(table.userId),
+    phoneIdx: index("sms_codes_phone_idx").on(table.phone),
+    expiresAtIdx: index("sms_codes_expires_at_idx").on(table.expiresAt),
+    purposeIdx: index("sms_codes_purpose_idx").on(table.purpose),
   };
 });
 
@@ -379,6 +407,11 @@ export const insertUserSchema = createInsertSchema(users).omit({
   email: z.string().email("Неверный формат email").optional(),
   fullName: z.string().min(2, "Имя должно содержать минимум 2 символа"),
   username: z.string().min(3, "Логин должен содержать минимум 3 символа"),
+  phone: z.string()
+    .regex(/^\+?[1-9]\d{10,14}$/, "Номер телефона должен содержать от 11 до 15 цифр в формате +7XXXXXXXXXX")
+    .optional(),
+  twoFactorEnabled: z.boolean().default(false).optional(),
+  twoFactorMethod: z.enum(TWO_FACTOR_METHOD).default("sms").optional(),
 });
 
 // Login schema for authentication
@@ -493,9 +526,36 @@ export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
   total: z.coerce.number().min(0, "Total must be positive").transform(val => val.toString()),
 });
 
+// SMS verification schemas
+export const insertSmsVerificationCodeSchema = createInsertSchema(smsVerificationCodes).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  purpose: z.enum(SMS_VERIFICATION_PURPOSE),
+  phone: z.string().regex(/^\+?[1-9]\d{10,14}$/, "Неверный формат номера телефона"),
+  expiresAt: z.coerce.date(),
+});
+
+export const verifySmsCodeSchema = z.object({
+  userId: z.string(),
+  code: z.string().length(6, "SMS код должен содержать 6 цифр"),
+  purpose: z.enum(SMS_VERIFICATION_PURPOSE),
+});
+
+export const sendSmsCodeSchema = z.object({
+  userId: z.string(), 
+  phone: z.string().regex(/^\+?[1-9]\d{10,14}$/, "Неверный формат номера телефона"),
+  purpose: z.enum(SMS_VERIFICATION_PURPOSE),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+export type SmsVerificationCode = typeof smsVerificationCodes.$inferSelect;
+export type InsertSmsVerificationCode = z.infer<typeof insertSmsVerificationCodeSchema>;
+export type VerifySmsCode = z.infer<typeof verifySmsCodeSchema>;
+export type SendSmsCode = z.infer<typeof sendSmsCodeSchema>;
 
 export type Owner = typeof owners.$inferSelect;
 export type InsertOwner = z.infer<typeof insertOwnerSchema>;

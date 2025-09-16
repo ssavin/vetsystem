@@ -52,6 +52,28 @@ export default function UserManagement() {
     }
   })
 
+  // Update user mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ userId, data }: { userId: string, data: UserFormValues }) => {
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      if (!response.ok) throw new Error('Failed to update user')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] })
+      toast({ title: "Успех", description: "Пользователь обновлен" })
+      setEditingUser(null)
+      form.reset()
+    },
+    onError: (error: Error) => {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" })
+    }
+  })
+
   // Delete user mutation
   const deleteMutation = useMutation({
     mutationFn: async (userId: string) => {
@@ -74,13 +96,43 @@ export default function UserManagement() {
       password: "",
       fullName: "",
       email: "",
+      phone: "",
       role: "врач",
       status: "active"
     }
   })
 
   const onSubmit = (values: UserFormValues) => {
-    createMutation.mutate(values)
+    if (editingUser) {
+      // For updates, exclude empty password to prevent overwriting
+      const updateData = { ...values };
+      if (!updateData.password || updateData.password.trim() === '') {
+        delete updateData.password;
+      }
+      updateMutation.mutate({ userId: editingUser.id, data: updateData });
+    } else {
+      createMutation.mutate(values);
+    }
+  }
+
+  const handleEdit = (user: User) => {
+    setEditingUser(user)
+    form.reset({
+      username: user.username,
+      password: "", // Don't prefill password for security
+      fullName: user.fullName,
+      email: user.email || "",
+      phone: user.phone || "", 
+      role: user.role as any,
+      status: user.status as any
+    })
+    setIsCreateDialogOpen(true)
+  }
+
+  const handleCloseDialog = () => {
+    setIsCreateDialogOpen(false)
+    setEditingUser(null)
+    form.reset()
   }
 
   const handleDelete = (userId: string) => {
@@ -112,7 +164,13 @@ export default function UserManagement() {
           </p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) {
+            setEditingUser(null);
+            form.reset();
+          }
+        }}>
           <DialogTrigger asChild>
             <Button data-testid="button-create-user">
               <Plus className="h-4 w-4 mr-2" />
@@ -121,9 +179,9 @@ export default function UserManagement() {
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Создание пользователя</DialogTitle>
+              <DialogTitle>{editingUser ? "Редактирование пользователя" : "Создание пользователя"}</DialogTitle>
               <DialogDescription>
-                Добавьте нового сотрудника в систему
+                {editingUser ? "Обновить данные сотрудника" : "Добавьте нового сотрудника в систему"}
               </DialogDescription>
             </DialogHeader>
             
@@ -187,6 +245,20 @@ export default function UserManagement() {
                 
                 <FormField
                   control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Телефон</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="+7XXXXXXXXXX" data-testid="input-phone" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
                   name="role"
                   render={({ field }) => (
                     <FormItem>
@@ -211,11 +283,18 @@ export default function UserManagement() {
                 />
                 
                 <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={handleCloseDialog}>
                     Отмена
                   </Button>
-                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-user">
-                    {createMutation.isPending ? "Создание..." : "Создать"}
+                  <Button 
+                    type="submit" 
+                    disabled={createMutation.isPending || updateMutation.isPending} 
+                    data-testid="button-save-user"
+                  >
+                    {editingUser 
+                      ? (updateMutation.isPending ? "Обновление..." : "Обновить")
+                      : (createMutation.isPending ? "Создание..." : "Создать")
+                    }
                   </Button>
                 </div>
               </form>
@@ -301,6 +380,7 @@ export default function UserManagement() {
                   <TableHead>Имя</TableHead>
                   <TableHead>Логин</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Телефон</TableHead>
                   <TableHead>Роль</TableHead>
                   <TableHead>Статус</TableHead>
                   <TableHead>Последний вход</TableHead>
@@ -313,6 +393,7 @@ export default function UserManagement() {
                     <TableCell className="font-medium">{user.fullName}</TableCell>
                     <TableCell>{user.username}</TableCell>
                     <TableCell>{user.email || '—'}</TableCell>
+                    <TableCell>{user.phone || '—'}</TableCell>
                     <TableCell>
                       <Badge className={getRoleColor(user.role)}>
                         {user.role === 'менеджер_склада' ? 'менеджер склада' : user.role}
@@ -331,6 +412,14 @@ export default function UserManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(user)}
+                          data-testid={`button-edit-${user.id}`}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"

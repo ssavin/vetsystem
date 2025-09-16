@@ -873,6 +873,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PATCH route for user updates (with safe password handling)
+  app.patch("/api/users/:id", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
+    try {
+      // Create update schema that allows partial updates and optional password
+      const updateUserSchema = insertUserSchema.partial().extend({
+        password: z.string()
+          .min(10, "Пароль должен содержать минимум 10 символов для медицинских систем")
+          .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 
+                 "Пароль должен содержать: строчные и заглавные буквы, цифры и символы")
+          .optional() // Make password optional for updates
+      });
+      
+      const validatedData = updateUserSchema.parse(req.body);
+      
+      // Remove empty password field to prevent overwriting
+      if (validatedData.password === '' || validatedData.password === undefined) {
+        delete validatedData.password;
+      }
+      
+      const updatedUser = await storage.updateUser(req.params.id, validatedData);
+      const { password: _, ...safeUser } = updatedUser;
+      res.json(safeUser);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      console.error("Error updating user:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
   app.put("/api/users/:id", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertUserSchema.partial()), async (req, res) => {
     try {
       const updatedUser = await storage.updateUser(req.params.id, req.body);

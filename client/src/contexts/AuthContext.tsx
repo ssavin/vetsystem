@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { User, ROLE_PERMISSIONS } from '@shared/schema'
-import { apiRequest } from '@/lib/queryClient'
 
 interface AuthContextType {
   user: User | null
