@@ -1,4 +1,4 @@
-import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Settings } from "lucide-react"
+import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Settings, Shield } from "lucide-react"
 import { Link, useLocation } from "wouter"
 import {
   Sidebar,
@@ -51,6 +51,11 @@ const menuItems = [
     title: "Настройки",
     url: "/settings",
     icon: Settings,
+  },
+  {
+    title: "Пользователи",
+    url: "/users",
+    icon: Shield,
   },
 ]
 
