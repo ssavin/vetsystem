@@ -1,109 +1,80 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Search, Plus, Filter, Calendar } from "lucide-react"
 import MedicalRecordCard from "@/components/MedicalRecordCard"
+import MedicalRecordForm from "@/components/MedicalRecordForm"
+import type { MedicalRecord } from "@shared/schema"
 
-// TODO: Remove mock data when connecting to real backend
-const mockRecords = [
-  {
-    id: "1",
-    date: "15.12.2024",
-    patientName: "Барсик",
-    doctorName: "Доктор Петрова",
-    visitType: "Плановый осмотр",
-    complaints: "Снижение аппетита, вялость в течение 3 дней",
-    diagnosis: "Острый гастрит",
-    treatment: [
-      "Общий клинический осмотр",
-      "Взятие крови на анализ", 
-      "УЗИ брюшной полости"
-    ],
-    medications: [
-      {
-        name: "Омепразол",
-        dosage: "20 мг",
-        frequency: "2 раза в день",
-        duration: "7 дней"
-      },
-      {
-        name: "Пробиотик",
-        dosage: "1 капсула",
-        frequency: "1 раз в день",
-        duration: "14 дней"
-      }
-    ],
-    nextVisit: "22.12.2024",
-    status: 'active' as const,
-    notes: "Рекомендована диета, исключить сухой корм на время лечения",
-    temperature: "38.5",
-    weight: "4.2"
-  },
-  {
-    id: "2",
-    date: "14.12.2024",
-    patientName: "Рекс",
-    doctorName: "Доктор Иванов",
-    visitType: "Вакцинация",
-    complaints: "Плановая вакцинация",
-    diagnosis: "Здоровое животное",
-    treatment: [
-      "Предвакцинальный осмотр",
-      "Вакцинация против бешенства",
-      "Вакцинация комплексной вакциной"
-    ],
-    medications: [],
-    nextVisit: "14.01.2025",
-    status: 'completed' as const,
-    temperature: "38.2",
-    weight: "28.5"
-  },
-  {
-    id: "3",
-    date: "12.12.2024",
-    patientName: "Мурка",
-    doctorName: "Доктор Сидоров",
-    visitType: "Консультация",
-    complaints: "Хромота на заднюю лапу после прыжка",
-    diagnosis: "Растяжение связок",
-    treatment: [
-      "Клинический осмотр",
-      "Пальпация конечности",
-      "Рентгенография (исключен перелом)"
-    ],
-    medications: [
-      {
-        name: "Римадил",
-        dosage: "25 мг",
-        frequency: "1 раз в день",
-        duration: "5 дней"
-      }
-    ],
-    nextVisit: "19.12.2024",
-    status: 'follow-up' as const,
-    notes: "Ограничить активность на 1 неделю",
-    temperature: "38.3",
-    weight: "3.8"
-  }
-]
 
 export default function MedicalRecords() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [filteredRecords, setFilteredRecords] = useState(mockRecords)
+
+  // Fetch medical records with patients, doctors, and medications
+  const { data: medicalRecords = [], isLoading, error } = useQuery({
+    queryKey: ['/api/medical-records'],
+  })
+
+  // Fetch patients and doctors for display names
+  const { data: patients = [] } = useQuery({
+    queryKey: ['/api/patients'],
+  })
+
+  const { data: doctors = [] } = useQuery({
+    queryKey: ['/api/doctors'],
+  })
+
+  // Create lookup maps for patient and doctor names
+  const patientMap = useMemo(() => {
+    const map: Record<string, any> = {}
+    patients.forEach((patient: any) => {
+      map[patient.id] = patient
+    })
+    return map
+  }, [patients])
+
+  const doctorMap = useMemo(() => {
+    const map: Record<string, any> = {}
+    doctors.forEach((doctor: any) => {
+      map[doctor.id] = doctor
+    })
+    return map
+  }, [doctors])
+
+  // Transform medical records to include display data
+  const transformedRecords = useMemo(() => {
+    return medicalRecords.map((record: MedicalRecord) => {
+      const patient = patientMap[record.patientId]
+      const doctor = doctorMap[record.doctorId]
+      return {
+        ...record,
+        date: new Date(record.visitDate).toLocaleDateString('ru-RU'),
+        patientName: patient ? patient.name : 'Неизвестный пациент',
+        doctorName: doctor ? doctor.name : 'Неизвестный врач',
+        medications: [], // TODO: Fetch medications separately if needed
+        nextVisit: record.nextVisit ? new Date(record.nextVisit).toLocaleDateString('ru-RU') : undefined,
+        treatment: Array.isArray(record.treatment) ? record.treatment : []
+      }
+    })
+  }, [medicalRecords, patientMap, doctorMap])
+
+  // Filter records based on search term
+  const filteredRecords = useMemo(() => {
+    if (!searchTerm) return transformedRecords
+    
+    return transformedRecords.filter(record => 
+      record.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.doctorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.visitType.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [transformedRecords, searchTerm])
 
   const handleSearch = (term: string) => {
     setSearchTerm(term)
-    if (!term) {
-      setFilteredRecords(mockRecords)
-    } else {
-      const filtered = mockRecords.filter(record => 
-        record.patientName.toLowerCase().includes(term.toLowerCase()) ||
-        record.doctorName.toLowerCase().includes(term.toLowerCase()) ||
-        record.diagnosis.toLowerCase().includes(term.toLowerCase())
-      )
-      setFilteredRecords(filtered)
-    }
   }
 
   return (
@@ -113,10 +84,7 @@ export default function MedicalRecords() {
           <h1 className="text-3xl font-bold" data-testid="text-medical-records-title">Электронные медицинские карты</h1>
           <p className="text-muted-foreground">История болезней и медицинские записи пациентов</p>
         </div>
-        <Button data-testid="button-new-record">
-          <Plus className="h-4 w-4 mr-2" />
-          Новая запись
-        </Button>
+        <MedicalRecordForm />
       </div>
 
       <Card>
@@ -152,9 +120,13 @@ export default function MedicalRecords() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600" data-testid="text-active-treatments">
-                {mockRecords.filter(r => r.status === 'active').length}
-              </p>
+{isLoading ? (
+                <Skeleton className="h-8 w-8 mx-auto" />
+              ) : (
+                <p className="text-2xl font-bold text-blue-600" data-testid="text-active-treatments">
+                  {transformedRecords.filter(r => r.status === 'active').length}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">Активное лечение</p>
             </div>
           </CardContent>
@@ -162,9 +134,13 @@ export default function MedicalRecords() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-yellow-600" data-testid="text-follow-up">
-                {mockRecords.filter(r => r.status === 'follow-up').length}
-              </p>
+              {isLoading ? (
+                <Skeleton className="h-8 w-8 mx-auto" />
+              ) : (
+                <p className="text-2xl font-bold text-yellow-600" data-testid="text-follow-up">
+                  {transformedRecords.filter(r => r.status === 'follow_up_required').length}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">Требует наблюдения</p>
             </div>
           </CardContent>
@@ -172,9 +148,13 @@ export default function MedicalRecords() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-green-600" data-testid="text-completed-treatments">
-                {mockRecords.filter(r => r.status === 'completed').length}
-              </p>
+              {isLoading ? (
+                <Skeleton className="h-8 w-8 mx-auto" />
+              ) : (
+                <p className="text-2xl font-bold text-green-600" data-testid="text-completed-treatments">
+                  {transformedRecords.filter(r => r.status === 'completed').length}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">Завершенных случаев</p>
             </div>
           </CardContent>
@@ -182,20 +162,46 @@ export default function MedicalRecords() {
       </div>
 
       {/* Medical Records List */}
-      <div className="space-y-4">
-        {filteredRecords.map(record => (
-          <MedicalRecordCard key={record.id} record={record} />
-        ))}
-      </div>
-
-      {filteredRecords.length === 0 && (
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : error ? (
         <Card className="text-center py-8">
           <CardContent>
-            <p className="text-muted-foreground">
-              {searchTerm ? 'Медицинские записи не найдены' : 'Медицинские записи отсутствуют'}
+            <p className="text-destructive">
+              Ошибка загрузки медицинских записей: {error instanceof Error ? error.message : 'Неизвестная ошибка'}
             </p>
           </CardContent>
         </Card>
+      ) : (
+        <>
+          <div className="space-y-4">
+            {filteredRecords.map(record => (
+              <MedicalRecordCard key={record.id} record={record} />
+            ))}
+          </div>
+
+          {filteredRecords.length === 0 && (
+            <Card className="text-center py-8">
+              <CardContent>
+                <p className="text-muted-foreground">
+                  {searchTerm ? 'Медицинские записи не найдены' : 'Медицинские записи отсутствуют'}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   )
