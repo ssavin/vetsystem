@@ -2,67 +2,171 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, ChevronLeft, ChevronRight, Plus, Filter } from "lucide-react"
+import { Calendar, ChevronLeft, ChevronRight, Plus, Filter, CalendarDays, Table, Clock } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { type Appointment } from "@shared/schema"
 import AppointmentCard from "@/components/AppointmentCard"
+import { AppointmentCardSkeleton } from "@/components/ui/loading-skeletons"
+import { DayView, WeekView, MonthView } from "@/components/CalendarViews"
 
-// TODO: Remove mock data when connecting to real backend
-const mockAppointments = [
-  {
-    id: "1",
-    time: "09:00",
-    duration: "30 мин",
-    patientName: "Барсик",
-    patientSpecies: "Кот",
-    ownerName: "Иванов И.И.",
-    doctorName: "Доктор Петрова",
-    appointmentType: "Осмотр",
-    status: 'in-progress' as const,
-    notes: "Плановая вакцинация"
-  },
-  {
-    id: "2",
-    time: "09:30",
-    duration: "45 мин",
-    patientName: "Рекс",
-    patientSpecies: "Собака",
-    ownerName: "Сидоров П.К.",
-    doctorName: "Доктор Иванов",
-    appointmentType: "Операция",
-    status: 'confirmed' as const,
-    notes: "Кастрация"
-  },
-  {
-    id: "3",
-    time: "10:15",
-    duration: "20 мин",
-    patientName: "Мурка",
-    patientSpecies: "Кошка",
-    ownerName: "Петрова А.С.",
-    doctorName: "Доктор Сидоров",
-    appointmentType: "Консультация",
-    status: 'scheduled' as const
-  },
-  {
-    id: "4",
-    time: "11:00",
-    duration: "60 мин",
-    patientName: "Бобик",
-    patientSpecies: "Собака",
-    ownerName: "Козлова М.А.",
-    doctorName: "Доктор Петрова",
-    appointmentType: "Диагностика",
-    status: 'confirmed' as const,
-    notes: "УЗИ брюшной полости"
+type ViewMode = 'day' | 'week' | 'month'
+
+// Helper function to format date for API
+const formatDateForAPI = (date: Date) => {
+  return date.toISOString().split('T')[0]
+}
+
+// Helper function to map database appointment status to component status
+const mapAppointmentStatus = (dbStatus: string | null): 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show' => {
+  if (!dbStatus) return 'scheduled'
+  
+  switch (dbStatus) {
+    case 'in_progress':
+      return 'in-progress'
+    case 'no_show':
+      return 'no-show'
+    case 'scheduled':
+    case 'confirmed':
+    case 'completed':
+    case 'cancelled':
+      return dbStatus as 'scheduled' | 'confirmed' | 'completed' | 'cancelled'
+    default:
+      return 'scheduled'
   }
-]
+}
 
-const doctors = ["Все врачи", "Доктор Петрова", "Доктор Иванов", "Доктор Сидоров"]
+// Helper function to format appointment data for AppointmentCard
+const formatAppointmentForCard = (appointment: any) => ({
+  id: appointment.id,
+  time: new Date(appointment.appointmentDate).toLocaleTimeString('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit'
+  }),
+  duration: `${appointment.duration} мин`,
+  appointmentDate: new Date(appointment.appointmentDate),
+  patientName: appointment.patientName || "Пациент",
+  patientSpecies: appointment.patientSpecies || "Животное",
+  ownerName: appointment.ownerName || "Владелец",
+  doctorName: appointment.doctorName || "Доктор",
+  appointmentType: appointment.appointmentType,
+  status: mapAppointmentStatus(appointment.status),
+  notes: appointment.notes || ""
+})
+
+// Filter options - will be populated from actual data
 const appointmentTypes = ["Все типы", "Осмотр", "Операция", "Консультация", "Диагностика", "Вакцинация"]
 
 export default function Schedule() {
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [viewMode, setViewMode] = useState<ViewMode>('day')
   const [selectedDoctor, setSelectedDoctor] = useState("Все врачи")
   const [selectedType, setSelectedType] = useState("Все типы")
+
+  // Helper functions for date range queries
+  const getWeekRange = (date: Date) => {
+    const week = []
+    const startOfWeek = new Date(date)
+    const day = startOfWeek.getDay()
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1)
+    startOfWeek.setDate(diff)
+
+    for (let i = 0; i < 7; i++) {
+      const weekDay = new Date(startOfWeek)
+      weekDay.setDate(startOfWeek.getDate() + i)
+      week.push(formatDateForAPI(weekDay))
+    }
+    return { start: week[0], end: week[6] }
+  }
+
+  const getMonthRange = (date: Date) => {
+    const year = date.getFullYear()
+    const month = date.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    return { 
+      start: formatDateForAPI(firstDay), 
+      end: formatDateForAPI(lastDay) 
+    }
+  }
+
+  // Fetch appointments based on view mode
+  const { 
+    data: appointments, 
+    isLoading: appointmentsLoading, 
+    error: appointmentsError 
+  } = useQuery<any[]>({
+    queryKey: ['/api/appointments', { 
+      viewMode, 
+      date: formatDateForAPI(currentDate),
+      ...(viewMode === 'week' && { weekRange: getWeekRange(currentDate) }),
+      ...(viewMode === 'month' && { monthRange: getMonthRange(currentDate) })
+    }],
+    queryFn: async () => {
+      let url = '/api/appointments'
+      
+      if (viewMode === 'day') {
+        // Single day query
+        url += `?date=${formatDateForAPI(currentDate)}`
+      } else {
+        // For week and month views, fetch all appointments 
+        // and filter on frontend for better performance
+        url += ''
+      }
+      
+      const response = await fetch(url)
+      if (!response.ok) throw new Error('Failed to fetch appointments')
+      return response.json()
+    }
+  })
+
+  // Filter appointments based on date range and filters
+  const getFilteredAppointments = () => {
+    if (!appointments) return []
+    
+    let filtered = appointments.map(formatAppointmentForCard)
+    
+    // Filter by date range based on view mode
+    if (viewMode === 'week') {
+      const weekRange = getWeekRange(currentDate)
+      const startDate = new Date(weekRange.start)
+      const endDate = new Date(weekRange.end)
+      endDate.setHours(23, 59, 59, 999) // Include the full end day
+      
+      filtered = filtered.filter(apt => {
+        const aptDate = new Date(apt.appointmentDate)
+        return aptDate >= startDate && aptDate <= endDate
+      })
+    } else if (viewMode === 'month') {
+      const monthRange = getMonthRange(currentDate)
+      const startDate = new Date(monthRange.start)
+      const endDate = new Date(monthRange.end)
+      endDate.setHours(23, 59, 59, 999) // Include the full end day
+      
+      filtered = filtered.filter(apt => {
+        const aptDate = new Date(apt.appointmentDate)
+        return aptDate >= startDate && aptDate <= endDate
+      })
+    }
+    // For day view, the backend already filters by date
+    
+    // Apply doctor filter
+    if (selectedDoctor !== "Все врачи") {
+      filtered = filtered.filter(apt => apt.doctorName === selectedDoctor)
+    }
+    
+    // Apply appointment type filter
+    if (selectedType !== "Все типы") {
+      filtered = filtered.filter(apt => apt.appointmentType === selectedType)
+    }
+    
+    return filtered
+  }
+
+  // Get filtered appointments for display
+  const formattedAppointments = getFilteredAppointments()
+  
+  // Get unique doctors from appointments for filter
+  const doctors = ["Все врачи", ...new Set(formattedAppointments.map(apt => apt.doctorName).filter(Boolean))]
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('ru-RU', {
@@ -96,10 +200,42 @@ export default function Schedule() {
           <h1 className="text-3xl font-bold" data-testid="text-schedule-title">Расписание приемов</h1>
           <p className="text-muted-foreground">Управление записями и расписанием врачей</p>
         </div>
-        <Button data-testid="button-new-appointment">
-          <Plus className="h-4 w-4 mr-2" />
-          Новая запись
-        </Button>
+        <div className="flex gap-2">
+          {/* View Mode Switcher */}
+          <div className="flex items-center gap-1 border rounded-md p-1">
+            <Button
+              variant={viewMode === 'day' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('day')}
+              data-testid="button-view-day"
+            >
+              <Clock className="h-4 w-4 mr-1" />
+              День
+            </Button>
+            <Button
+              variant={viewMode === 'week' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('week')}
+              data-testid="button-view-week"
+            >
+              <Table className="h-4 w-4 mr-1" />
+              Неделя
+            </Button>
+            <Button
+              variant={viewMode === 'month' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('month')}
+              data-testid="button-view-month"
+            >
+              <CalendarDays className="h-4 w-4 mr-1" />
+              Месяц
+            </Button>
+          </div>
+          <Button data-testid="button-new-appointment">
+            <Plus className="h-4 w-4 mr-2" />
+            Новая запись
+          </Button>
+        </div>
       </div>
 
       {/* Date Navigation */}
@@ -184,7 +320,7 @@ export default function Schedule() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-2xl font-bold" data-testid="text-total-appointments">
-                  {mockAppointments.length}
+                  {formattedAppointments.length}
                 </p>
                 <p className="text-xs text-muted-foreground">Всего записей</p>
               </div>
@@ -197,7 +333,7 @@ export default function Schedule() {
               <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
               <div>
                 <p className="text-2xl font-bold" data-testid="text-confirmed-appointments">
-                  {mockAppointments.filter(a => a.status === 'confirmed').length}
+                  {formattedAppointments.filter((a: any) => a.status === 'confirmed').length}
                 </p>
                 <p className="text-xs text-muted-foreground">Подтверждено</p>
               </div>
@@ -210,7 +346,7 @@ export default function Schedule() {
               <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
               <div>
                 <p className="text-2xl font-bold" data-testid="text-in-progress-appointments">
-                  {mockAppointments.filter(a => a.status === 'in-progress').length}
+                  {formattedAppointments.filter((a: any) => a.status === 'in-progress').length}
                 </p>
                 <p className="text-xs text-muted-foreground">В процессе</p>
               </div>
@@ -223,7 +359,7 @@ export default function Schedule() {
               <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
               <div>
                 <p className="text-2xl font-bold" data-testid="text-scheduled-appointments">
-                  {mockAppointments.filter(a => a.status === 'scheduled').length}
+                  {formattedAppointments.filter((a: any) => a.status === 'scheduled').length}
                 </p>
                 <p className="text-xs text-muted-foreground">Запланировано</p>
               </div>
@@ -232,17 +368,52 @@ export default function Schedule() {
         </Card>
       </div>
 
-      {/* Appointments List */}
+      {/* Calendar Views */}
       <Card>
         <CardHeader>
-          <CardTitle>Записи на {currentDate.toLocaleDateString('ru-RU')}</CardTitle>
+          <CardTitle>
+            {
+              viewMode === 'day' ? `Записи на ${currentDate.toLocaleDateString('ru-RU')}` :
+              viewMode === 'week' ? 'Расписание на неделю' :
+              'Календарь записей'
+            }
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {mockAppointments.map(appointment => (
-              <AppointmentCard key={appointment.id} appointment={appointment} />
-            ))}
-          </div>
+          {viewMode === 'day' && (
+            <DayView
+              appointments={formattedAppointments}
+              currentDate={currentDate}
+              viewMode={viewMode}
+              onDateChange={setCurrentDate}
+              loading={appointmentsLoading}
+            />
+          )}
+          {viewMode === 'week' && (
+            <WeekView
+              appointments={formattedAppointments}
+              currentDate={currentDate}
+              viewMode={viewMode}
+              onDateChange={setCurrentDate}
+              loading={appointmentsLoading}
+            />
+          )}
+          {viewMode === 'month' && (
+            <MonthView
+              appointments={formattedAppointments}
+              currentDate={currentDate}
+              viewMode={viewMode}
+              onDateChange={setCurrentDate}
+              loading={appointmentsLoading}
+            />
+          )}
+          
+          {/* Fallback for errors */}
+          {appointmentsError && (
+            <div className="text-center py-8 text-muted-foreground">
+              Ошибка загрузки расписания
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

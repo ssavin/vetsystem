@@ -308,12 +308,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Appointment methods
-  async getAppointments(date?: Date): Promise<Appointment[]> {
+  async getAppointments(date?: Date): Promise<any[]> {
     return withPerformanceLogging(`getAppointments${date ? '(filtered)' : '(all)'}`, async () => {
       if (date) {
         const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
         const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-        return await db.select().from(appointments)
+        return await db.select({
+          // Appointment fields
+          id: appointments.id,
+          patientId: appointments.patientId,
+          doctorId: appointments.doctorId,
+          appointmentDate: appointments.appointmentDate,
+          duration: appointments.duration,
+          appointmentType: appointments.appointmentType,
+          status: appointments.status,
+          notes: appointments.notes,
+          createdAt: appointments.createdAt,
+          updatedAt: appointments.updatedAt,
+          // Doctor fields
+          doctorName: doctors.name,
+          doctorSpecialization: doctors.specialization,
+          // Patient fields
+          patientName: patients.name,
+          patientSpecies: patients.species,
+          patientBreed: patients.breed,
+          // Owner fields
+          ownerName: owners.name,
+          ownerPhone: owners.phone,
+        })
+          .from(appointments)
+          .leftJoin(doctors, eq(appointments.doctorId, doctors.id))
+          .leftJoin(patients, eq(appointments.patientId, patients.id))
+          .leftJoin(owners, eq(patients.ownerId, owners.id))
           .where(
             and(
               gte(appointments.appointmentDate, startOfDay),
@@ -323,7 +349,34 @@ export class DatabaseStorage implements IStorage {
           .orderBy(appointments.appointmentDate);
       }
       
-      return await db.select().from(appointments).orderBy(appointments.appointmentDate);
+      return await db.select({
+        // Appointment fields
+        id: appointments.id,
+        patientId: appointments.patientId,
+        doctorId: appointments.doctorId,
+        appointmentDate: appointments.appointmentDate,
+        duration: appointments.duration,
+        appointmentType: appointments.appointmentType,
+        status: appointments.status,
+        notes: appointments.notes,
+        createdAt: appointments.createdAt,
+        updatedAt: appointments.updatedAt,
+        // Doctor fields
+        doctorName: doctors.name,
+        doctorSpecialization: doctors.specialization,
+        // Patient fields
+        patientName: patients.name,
+        patientSpecies: patients.species,
+        patientBreed: patients.breed,
+        // Owner fields
+        ownerName: owners.name,
+        ownerPhone: owners.phone,
+      })
+        .from(appointments)
+        .leftJoin(doctors, eq(appointments.doctorId, doctors.id))
+        .leftJoin(patients, eq(appointments.patientId, patients.id))
+        .leftJoin(owners, eq(patients.ownerId, owners.id))
+        .orderBy(appointments.appointmentDate);
     });
   }
 
@@ -779,10 +832,9 @@ export class DatabaseStorage implements IStorage {
         totalPatients: row.total_patients || 0,
         todayAppointments: row.today_appointments || 0,
         activeAppointments: row.active_appointments || 0,
-        totalRevenue: row.revenue || 0,
+        revenue: row.revenue || 0,
         pendingPayments: row.pending_payments || 0,
-        overduePayments: 0, // We'll implement this with another query if needed
-        lowStockCount: row.low_stock || 0
+        lowStock: row.low_stock || 0
       };
     });
   }
