@@ -4,12 +4,42 @@ import { storage } from "./storage";
 import { 
   insertOwnerSchema, insertPatientSchema, insertDoctorSchema,
   insertAppointmentSchema, insertMedicalRecordSchema, insertMedicationSchema,
-  insertServiceSchema, insertProductSchema, insertInvoiceSchema, insertInvoiceItemSchema
+  insertServiceSchema, insertProductSchema, insertInvoiceSchema, insertInvoiceItemSchema,
+  insertUserSchema, loginSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
+import { authenticateToken, requireRole, requireModuleAccess, generateTokens } from "./middleware/auth";
+import cookieParser from "cookie-parser";
+import rateLimit from "express-rate-limit";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Add cookie parser middleware
+  app.use(cookieParser());
+  
+  // Enable trust proxy for rate limiting behind reverse proxy
+  app.set('trust proxy', 1);
+
+  // Rate limiting for authentication endpoints - healthcare security
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // limit each IP to 5 auth requests per windowMs
+    message: { error: 'Слишком много попыток входа. Попробуйте через 15 минут.' },
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  // General API rate limiting
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: { error: 'Превышен лимит запросов. Попробуйте позже.' },
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  app.use('/api/', generalLimiter);
+
   // Helper function to validate request body
   const validateBody = (schema: z.ZodSchema) => {
     return (req: any, res: any, next: any) => {
@@ -22,8 +52,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
-  // OWNER ROUTES
-  app.get("/api/owners", async (req, res) => {
+  // OWNER ROUTES - Protected PHI data
+  app.get("/api/owners", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
       const owners = await storage.getOwners();
       res.json(owners);
@@ -33,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/owners/:id", async (req, res) => {
+  app.get("/api/owners/:id", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
       const owner = await storage.getOwner(req.params.id);
       if (!owner) {
@@ -46,7 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/owners", validateBody(insertOwnerSchema), async (req, res) => {
+  app.post("/api/owners", authenticateToken, requireModuleAccess('owners'), validateBody(insertOwnerSchema), async (req, res) => {
     try {
       const owner = await storage.createOwner(req.body);
       res.status(201).json(owner);
@@ -56,7 +86,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/owners/:id", validateBody(insertOwnerSchema.partial()), async (req, res) => {
+  app.put("/api/owners/:id", authenticateToken, requireModuleAccess('owners'), validateBody(insertOwnerSchema.partial()), async (req, res) => {
     try {
       const owner = await storage.updateOwner(req.params.id, req.body);
       res.json(owner);
@@ -66,7 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/owners/:id", async (req, res) => {
+  app.delete("/api/owners/:id", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
       await storage.deleteOwner(req.params.id);
       res.status(204).send();
@@ -76,7 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/owners/search/:query", async (req, res) => {
+  app.get("/api/owners/search/:query", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
       const owners = await storage.searchOwners(req.params.query);
       res.json(owners);
@@ -86,8 +116,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PATIENT ROUTES
-  app.get("/api/patients", async (req, res) => {
+  // PATIENT ROUTES - Protected PHI data
+  app.get("/api/patients", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
@@ -99,7 +129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/patients/:id", async (req, res) => {
+  app.get("/api/patients/:id", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
       const patient = await storage.getPatient(req.params.id);
       if (!patient) {
@@ -112,7 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/patients/owner/:ownerId", async (req, res) => {
+  app.get("/api/patients/owner/:ownerId", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
       const patients = await storage.getPatientsByOwner(req.params.ownerId);
       res.json(patients);
@@ -122,7 +152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/patients", validateBody(insertPatientSchema), async (req, res) => {
+  app.post("/api/patients", authenticateToken, requireModuleAccess('patients'), validateBody(insertPatientSchema), async (req, res) => {
     try {
       const patient = await storage.createPatient(req.body);
       res.status(201).json(patient);
@@ -132,7 +162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/patients/:id", validateBody(insertPatientSchema.partial()), async (req, res) => {
+  app.put("/api/patients/:id", authenticateToken, requireModuleAccess('patients'), validateBody(insertPatientSchema.partial()), async (req, res) => {
     try {
       const patient = await storage.updatePatient(req.params.id, req.body);
       res.json(patient);
@@ -142,7 +172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/patients/:id", async (req, res) => {
+  app.delete("/api/patients/:id", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
       await storage.deletePatient(req.params.id);
       res.status(204).send();
@@ -152,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/patients/search/:query", async (req, res) => {
+  app.get("/api/patients/search/:query", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
       const patients = await storage.searchPatients(req.params.query);
       res.json(patients);
@@ -162,8 +192,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DOCTOR ROUTES
-  app.get("/api/doctors", async (req, res) => {
+  // DOCTOR ROUTES - Protected PHI data
+  app.get("/api/doctors", authenticateToken, requireModuleAccess('doctors'), async (req, res) => {
     try {
       const doctors = await storage.getDoctors();
       res.json(doctors);
@@ -173,7 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/doctors/active", async (req, res) => {
+  app.get("/api/doctors/active", authenticateToken, requireModuleAccess('doctors'), async (req, res) => {
     try {
       const doctors = await storage.getActiveDoctors();
       res.json(doctors);
@@ -183,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/doctors/:id", async (req, res) => {
+  app.get("/api/doctors/:id", authenticateToken, requireModuleAccess('doctors'), async (req, res) => {
     try {
       const doctor = await storage.getDoctor(req.params.id);
       if (!doctor) {
@@ -196,7 +226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/doctors", validateBody(insertDoctorSchema), async (req, res) => {
+  app.post("/api/doctors", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertDoctorSchema), async (req, res) => {
     try {
       const doctor = await storage.createDoctor(req.body);
       res.status(201).json(doctor);
@@ -206,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/doctors/:id", validateBody(insertDoctorSchema.partial()), async (req, res) => {
+  app.put("/api/doctors/:id", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertDoctorSchema.partial()), async (req, res) => {
     try {
       const doctor = await storage.updateDoctor(req.params.id, req.body);
       res.json(doctor);
@@ -216,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/doctors/:id", async (req, res) => {
+  app.delete("/api/doctors/:id", authenticateToken, requireRole('руководитель'), async (req, res) => {
     try {
       await storage.deleteDoctor(req.params.id);
       res.status(204).send();
@@ -226,8 +256,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // APPOINTMENT ROUTES
-  app.get("/api/appointments", async (req, res) => {
+  // APPOINTMENT ROUTES - Protected PHI data
+  app.get("/api/appointments", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
     try {
       const date = req.query.date ? new Date(req.query.date as string) : undefined;
       const appointments = await storage.getAppointments(date);
@@ -238,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/appointments/:id", async (req, res) => {
+  app.get("/api/appointments/:id", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
     try {
       const appointment = await storage.getAppointment(req.params.id);
       if (!appointment) {
@@ -251,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/appointments/doctor/:doctorId", async (req, res) => {
+  app.get("/api/appointments/doctor/:doctorId", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
     try {
       const date = req.query.date ? new Date(req.query.date as string) : undefined;
       const appointments = await storage.getAppointmentsByDoctor(req.params.doctorId, date);
@@ -262,7 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/appointments/patient/:patientId", async (req, res) => {
+  app.get("/api/appointments/patient/:patientId", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
     try {
       const appointments = await storage.getAppointmentsByPatient(req.params.patientId);
       res.json(appointments);
@@ -272,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/appointments", validateBody(insertAppointmentSchema), async (req, res) => {
+  app.post("/api/appointments", authenticateToken, requireModuleAccess('appointments'), validateBody(insertAppointmentSchema), async (req, res) => {
     try {
       // Check for appointment conflicts
       const hasConflict = await storage.checkAppointmentConflicts(
@@ -293,7 +323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/appointments/:id", validateBody(insertAppointmentSchema.partial()), async (req, res) => {
+  app.put("/api/appointments/:id", authenticateToken, requireModuleAccess('appointments'), validateBody(insertAppointmentSchema.partial()), async (req, res) => {
     try {
       // Check for appointment conflicts if date/time/doctor is being changed
       if (req.body.doctorId || req.body.appointmentDate || req.body.duration) {
@@ -326,7 +356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/appointments/:id", async (req, res) => {
+  app.delete("/api/appointments/:id", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
     try {
       await storage.deleteAppointment(req.params.id);
       res.status(204).send();
@@ -336,8 +366,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // MEDICAL RECORDS ROUTES
-  app.get("/api/medical-records", async (req, res) => {
+  // MEDICAL RECORDS ROUTES - Protected PHI data
+  app.get("/api/medical-records", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
     try {
       const patientId = req.query.patientId as string | undefined;
       const records = await storage.getMedicalRecords(patientId);
@@ -348,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/medical-records/:id", async (req, res) => {
+  app.get("/api/medical-records/:id", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
     try {
       const record = await storage.getMedicalRecord(req.params.id);
       if (!record) {
@@ -361,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/medical-records", validateBody(insertMedicalRecordSchema), async (req, res) => {
+  app.post("/api/medical-records", authenticateToken, requireModuleAccess('medical_records'), validateBody(insertMedicalRecordSchema), async (req, res) => {
     try {
       const record = await storage.createMedicalRecord(req.body);
       res.status(201).json(record);
@@ -371,7 +401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/medical-records/:id", validateBody(insertMedicalRecordSchema.partial()), async (req, res) => {
+  app.put("/api/medical-records/:id", authenticateToken, requireModuleAccess('medical_records'), validateBody(insertMedicalRecordSchema.partial()), async (req, res) => {
     try {
       const record = await storage.updateMedicalRecord(req.params.id, req.body);
       res.json(record);
@@ -381,7 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/medical-records/:id", async (req, res) => {
+  app.delete("/api/medical-records/:id", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
     try {
       await storage.deleteMedicalRecord(req.params.id);
       res.status(204).send();
@@ -392,7 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // MEDICATION ROUTES
-  app.get("/api/medical-records/:recordId/medications", async (req, res) => {
+  app.get("/api/medical-records/:recordId/medications", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
     try {
       const medications = await storage.getMedicationsByRecord(req.params.recordId);
       res.json(medications);
@@ -402,7 +432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/medications", validateBody(insertMedicationSchema), async (req, res) => {
+  app.post("/api/medications", authenticateToken, requireModuleAccess('medical_records'), validateBody(insertMedicationSchema), async (req, res) => {
     try {
       const medication = await storage.createMedication(req.body);
       res.status(201).json(medication);
@@ -412,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/medications/:id", validateBody(insertMedicationSchema.partial()), async (req, res) => {
+  app.put("/api/medications/:id", authenticateToken, requireModuleAccess('medical_records'), validateBody(insertMedicationSchema.partial()), async (req, res) => {
     try {
       const medication = await storage.updateMedication(req.params.id, req.body);
       res.json(medication);
@@ -422,7 +452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/medications/:id", async (req, res) => {
+  app.delete("/api/medications/:id", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
     try {
       await storage.deleteMedication(req.params.id);
       res.status(204).send();
@@ -586,8 +616,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // INVOICE ROUTES
-  app.get("/api/invoices", async (req, res) => {
+  // INVOICE ROUTES - Protected financial data
+  app.get("/api/invoices", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
       const invoices = await storage.getInvoices(status);
@@ -598,7 +628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/invoices/overdue", async (req, res) => {
+  app.get("/api/invoices/overdue", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
       const invoices = await storage.getOverdueInvoices();
       res.json(invoices);
@@ -608,7 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/invoices/:id", async (req, res) => {
+  app.get("/api/invoices/:id", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
@@ -621,7 +651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/invoices/patient/:patientId", async (req, res) => {
+  app.get("/api/invoices/patient/:patientId", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
       const invoices = await storage.getInvoicesByPatient(req.params.patientId);
       res.json(invoices);
@@ -631,7 +661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/invoices", validateBody(insertInvoiceSchema), async (req, res) => {
+  app.post("/api/invoices", authenticateToken, requireModuleAccess('finance'), validateBody(insertInvoiceSchema), async (req, res) => {
     try {
       const invoice = await storage.createInvoice(req.body);
       res.status(201).json(invoice);
@@ -641,7 +671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/invoices/:id", validateBody(insertInvoiceSchema.partial()), async (req, res) => {
+  app.put("/api/invoices/:id", authenticateToken, requireModuleAccess('finance'), validateBody(insertInvoiceSchema.partial()), async (req, res) => {
     try {
       const invoice = await storage.updateInvoice(req.params.id, req.body);
       res.json(invoice);
@@ -651,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/invoices/:id", async (req, res) => {
+  app.delete("/api/invoices/:id", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
       await storage.deleteInvoice(req.params.id);
       res.status(204).send();
@@ -662,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // INVOICE ITEM ROUTES
-  app.get("/api/invoices/:invoiceId/items", async (req, res) => {
+  app.get("/api/invoices/:invoiceId/items", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
       const items = await storage.getInvoiceItems(req.params.invoiceId);
       res.json(items);
@@ -672,7 +702,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/invoice-items", validateBody(insertInvoiceItemSchema), async (req, res) => {
+  app.post("/api/invoice-items", authenticateToken, requireModuleAccess('finance'), validateBody(insertInvoiceItemSchema), async (req, res) => {
     try {
       const item = await storage.createInvoiceItem(req.body);
       res.status(201).json(item);
@@ -682,7 +712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/invoice-items/:id", async (req, res) => {
+  app.delete("/api/invoice-items/:id", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
       await storage.deleteInvoiceItem(req.params.id);
       res.status(204).send();
@@ -739,6 +769,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ error: "Failed to fetch dashboard statistics" });
+    }
+  });
+
+  // AUTHENTICATION ROUTES  
+  app.post("/api/auth/login", authLimiter, validateBody(loginSchema), async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      // Get user by username
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ error: "Неверный логин или пароль" });
+      }
+
+      if (user.status !== 'active') {
+        return res.status(401).json({ error: "Аккаунт заблокирован" });
+      }
+      
+      // Verify password with bcrypt
+      const isValidPassword = await storage.verifyPassword(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Неверный логин или пароль" });
+      }
+      
+      // Generate JWT tokens
+      const { accessToken, refreshToken } = generateTokens({
+        id: user.id,
+        username: user.username,
+        role: user.role
+      });
+
+      // Update last login
+      await storage.updateUserLastLogin(user.id);
+      
+      // Set secure cookies
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000 // 15 minutes - match JWT expiry
+      });
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+      
+      // Return user info (without password)
+      const { password: _, ...userInfo } = user;
+      res.json({ user: userInfo, message: "Успешный вход" });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      // Clear cookies
+      res.clearCookie('accessToken');
+      res.clearCookie('refreshToken');
+      res.json({ message: "Успешный выход" });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.get("/api/auth/me", authenticateToken, async (req, res) => {
+    try {
+      // User data is already validated and attached by authenticateToken middleware
+      res.json({ user: req.user });
+    } catch (error) {
+      console.error("Auth me error:", error);
+      res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  // USER MANAGEMENT ROUTES (for administrators)
+  app.get("/api/users", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      // Remove passwords from response
+      const safeUsers = users.map(({ password, ...user }) => user);
+      res.json(safeUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/users", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertUserSchema), async (req, res) => {
+    try {
+      const newUser = await storage.createUser(req.body);
+      const { password: _, ...safeUser } = newUser;
+      res.status(201).json(safeUser);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  app.put("/api/users/:id", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertUserSchema.partial()), async (req, res) => {
+    try {
+      const updatedUser = await storage.updateUser(req.params.id, req.body);
+      const { password: _, ...safeUser } = updatedUser;
+      res.json(safeUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/users/:id", authenticateToken, requireRole('руководитель'), async (req, res) => {
+    try {
+      await storage.deleteUser(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: "Failed to delete user" });
     }
   });
 

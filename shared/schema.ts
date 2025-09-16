@@ -12,11 +12,30 @@ export const INVOICE_STATUS = ['pending', 'paid', 'overdue', 'cancelled'] as con
 export const INVOICE_ITEM_TYPE = ['service', 'product'] as const;
 export const PATIENT_GENDER = ['male', 'female', 'unknown'] as const;
 
-// Keep the existing users table for system authentication
+// User roles and permissions
+export const USER_ROLES = ['врач', 'администратор', 'менеджер', 'менеджер_склада', 'руководитель'] as const;
+export const USER_STATUS = ['active', 'inactive'] as const;
+
+// Enhanced users table for role-based authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
+  username: varchar("username", { length: 100 }).notNull().unique(),
   password: text("password").notNull(),
+  email: varchar("email", { length: 255 }),
+  fullName: varchar("full_name", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).notNull(),
+  status: varchar("status", { length: 20 }).default("active"),
+  lastLogin: timestamp("last_login"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    roleCheck: check("users_role_check", sql`${table.role} IN ('врач', 'администратор', 'менеджер', 'менеджер_склада', 'руководитель')`),
+    statusCheck: check("users_status_check", sql`${table.status} IN ('active', 'inactive')`),
+    usernameIdx: index("users_username_idx").on(table.username),
+    roleIdx: index("users_role_idx").on(table.role),
+    statusIdx: index("users_status_idx").on(table.status),
+  };
 });
 
 // Owners table
@@ -344,11 +363,38 @@ export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
   }),
 }));
 
-// Keep existing user schema
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+// Enhanced user schema with roles and full user data
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  lastLogin: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  role: z.enum(USER_ROLES),
+  status: z.enum(USER_STATUS).default("active"),
+  password: z.string()
+    .min(10, "Пароль должен содержать минимум 10 символов для медицинских систем")
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 
+           "Пароль должен содержать: строчные и заглавные буквы, цифры и символы"),
+  email: z.string().email("Неверный формат email").optional(),
+  fullName: z.string().min(2, "Имя должно содержать минимум 2 символа"),
+  username: z.string().min(3, "Логин должен содержать минимум 3 символа"),
 });
+
+// Login schema for authentication
+export const loginSchema = z.object({
+  username: z.string().min(1, "Логин обязателен"),
+  password: z.string().min(1, "Пароль обязателен"),
+});
+
+// User role permissions configuration
+export const ROLE_PERMISSIONS = {
+  врач: ['medical-records'],
+  администратор: ['registry', 'patients', 'owners'],
+  менеджер: ['finance', 'reports'],
+  менеджер_склада: ['services-inventory', 'products'],
+  руководитель: ['dashboard', 'reports', 'users', 'settings'],
+} as const;
 
 // Zod schemas for validation
 export const insertOwnerSchema = createInsertSchema(owners).omit({

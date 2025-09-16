@@ -13,7 +13,7 @@ import {
 
 const menuItems = [
   {
-    title: "Дашборд",
+    title: "Начальная страница",
     url: "/",
     icon: BarChart3,
   },
@@ -33,7 +33,7 @@ const menuItems = [
     icon: Stethoscope,
   },
   {
-    title: "Услуги и склад",
+    title: "Продажи и Закупки",
     url: "/services-inventory",
     icon: Package,
   },

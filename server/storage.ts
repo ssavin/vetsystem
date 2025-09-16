@@ -16,6 +16,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, like, and, or, desc, sql, gte, lte } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 // Performance monitoring utilities
 const logSlowQuery = (operation: string, duration: number, threshold = 100) => {
@@ -48,7 +49,12 @@ export interface IStorage {
   // User methods (keep existing for authentication)
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  verifyPassword(password: string, hashedPassword: string): Promise<boolean>;
   createUser(user: InsertUser): Promise<User>;
+  getUsers(): Promise<User[]>;
+  updateUser(id: string, updateData: Partial<InsertUser>): Promise<User>;
+  updateUserLastLogin(id: string): Promise<void>;
+  deleteUser(id: string): Promise<void>;
 
   // Owner methods
   getOwners(): Promise<Owner[]>;
@@ -145,16 +151,66 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user || undefined;
+    return withPerformanceLogging('getUserByUsername', async () => {
+      const [user] = await db.select().from(users).where(eq(users.username, username));
+      return user || undefined;
+    });
+  }
+
+  async verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+    return withPerformanceLogging('verifyPassword', async () => {
+      return await bcrypt.compare(password, hashedPassword);
+    });
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
-    return user;
+    return withPerformanceLogging('createUser', async () => {
+      // Hash password before storing
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
+      
+      const [user] = await db
+        .insert(users)
+        .values({
+          ...insertUser,
+          password: hashedPassword,
+        })
+        .returning();
+      return user;
+    });
+  }
+
+  async getUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(users.createdAt);
+  }
+
+  async updateUser(id: string, updateData: Partial<InsertUser>): Promise<User> {
+    return withPerformanceLogging('updateUser', async () => {
+      // Hash password if it's being updated
+      let dataToUpdate = { ...updateData, updatedAt: new Date() };
+      if (updateData.password) {
+        const saltRounds = 12;
+        dataToUpdate.password = await bcrypt.hash(updateData.password, saltRounds);
+      }
+      
+      const [user] = await db
+        .update(users)
+        .set(dataToUpdate)
+        .where(eq(users.id, id))
+        .returning();
+      return user;
+    });
+  }
+
+  async updateUserLastLogin(id: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLogin: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   // Owner methods

@@ -1,0 +1,353 @@
+import { useState } from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { insertUserSchema, User, USER_ROLES } from "@shared/schema"
+import { z } from "zod"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
+import { Plus, Edit, Trash2, Users, Shield } from "lucide-react"
+import { format } from "date-fns"
+import { ru } from "date-fns/locale"
+
+type UserFormValues = z.infer<typeof insertUserSchema>
+
+export default function UserManagement() {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+
+  // Fetch users
+  const { data: users = [], isLoading } = useQuery<User[]>({
+    queryKey: ['/api/users']
+  })
+
+  // Create user mutation
+  const createMutation = useMutation({
+    mutationFn: async (data: UserFormValues) => {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      if (!response.ok) throw new Error('Failed to create user')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] })
+      toast({ title: "Успех", description: "Пользователь создан" })
+      setIsCreateDialogOpen(false)
+      form.reset()
+    },
+    onError: (error: Error) => {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" })
+    }
+  })
+
+  // Delete user mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await fetch(`/api/users/${userId}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to delete user')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] })
+      toast({ title: "Успех", description: "Пользователь удален" })
+    },
+    onError: (error: Error) => {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" })
+    }
+  })
+
+  const form = useForm<UserFormValues>({
+    resolver: zodResolver(insertUserSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+      fullName: "",
+      email: "",
+      role: "врач",
+      status: "active"
+    }
+  })
+
+  const onSubmit = (values: UserFormValues) => {
+    createMutation.mutate(values)
+  }
+
+  const handleDelete = (userId: string) => {
+    if (confirm("Вы уверены, что хотите удалить этого пользователя?")) {
+      deleteMutation.mutate(userId)
+    }
+  }
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'руководитель': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+      case 'врач': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+      case 'администратор': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+      case 'менеджер': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
+      case 'менеджер_склада': return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+    }
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold" data-testid="text-user-management-title">
+            Управление пользователями
+          </h1>
+          <p className="text-muted-foreground">
+            Создание и управление учетными записями сотрудников системы
+          </p>
+        </div>
+        
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-create-user">
+              <Plus className="h-4 w-4 mr-2" />
+              Новый пользователь
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Создание пользователя</DialogTitle>
+              <DialogDescription>
+                Добавьте нового сотрудника в систему
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Полное имя *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Иван Петрович Сидоров" data-testid="input-fullname" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Логин *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ivan.sidorov" data-testid="input-username-create" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Пароль *</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Минимум 6 символов" data-testid="input-password-create" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="ivan@clinic.ru" data-testid="input-email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Роль *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-role">
+                            <SelectValue placeholder="Выберите роль" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {USER_ROLES.map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {role === 'менеджер_склада' ? 'менеджер склада' : role}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                    Отмена
+                  </Button>
+                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-user">
+                    {createMutation.isPending ? "Создание..." : "Создать"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <div className="ml-2">
+                <p className="text-sm font-medium text-muted-foreground">Всего пользователей</p>
+                <div className="text-2xl font-bold" data-testid="text-total-users">
+                  {users.length}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center">
+              <Shield className="h-4 w-4 text-green-600" />
+              <div className="ml-2">
+                <p className="text-sm font-medium text-muted-foreground">Активные</p>
+                <div className="text-2xl font-bold text-green-600" data-testid="text-active-users">
+                  {users.filter(u => u.status === 'active').length}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center">
+              <Shield className="h-4 w-4 text-purple-600" />
+              <div className="ml-2">
+                <p className="text-sm font-medium text-muted-foreground">Врачи</p>
+                <div className="text-2xl font-bold text-purple-600" data-testid="text-doctor-users">
+                  {users.filter(u => u.role === 'врач').length}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center">
+              <Shield className="h-4 w-4 text-blue-600" />
+              <div className="ml-2">
+                <p className="text-sm font-medium text-muted-foreground">Администраторы</p>
+                <div className="text-2xl font-bold text-blue-600" data-testid="text-admin-users">
+                  {users.filter(u => u.role === 'администратор').length}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Users Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Список пользователей</CardTitle>
+          <CardDescription>
+            Управление учетными записями сотрудников системы
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-4">Загрузка пользователей...</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Имя</TableHead>
+                  <TableHead>Логин</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Роль</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Последний вход</TableHead>
+                  <TableHead className="w-[100px]">Действия</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.fullName}</TableCell>
+                    <TableCell>{user.username}</TableCell>
+                    <TableCell>{user.email || '—'}</TableCell>
+                    <TableCell>
+                      <Badge className={getRoleColor(user.role)}>
+                        {user.role === 'менеджер_склада' ? 'менеджер склада' : user.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                        {user.status === 'active' ? 'Активен' : 'Неактивен'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {user.lastLogin 
+                        ? format(new Date(user.lastLogin), 'dd.MM.yyyy HH:mm', { locale: ru })
+                        : '—'
+                      }
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(user.id)}
+                          data-testid={`button-delete-${user.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
