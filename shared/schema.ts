@@ -28,6 +28,13 @@ export const owners = pgTable("owners", {
   address: text("address"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    nameIdx: index("owners_name_idx").on(table.name),
+    phoneIdx: index("owners_phone_idx").on(table.phone),
+    emailIdx: index("owners_email_idx").on(table.email),
+    createdAtIdx: index("owners_created_at_idx").on(table.createdAt),
+  };
 });
 
 // Patients table
@@ -57,6 +64,10 @@ export const patients = pgTable("patients", {
     ownerIdIdx: index("patients_owner_id_idx").on(table.ownerId),
     microchipIdx: index("patients_microchip_idx").on(table.microchipNumber),
     statusIdx: index("patients_status_idx").on(table.status),
+    createdAtIdx: index("patients_created_at_idx").on(table.createdAt),
+    nameIdx: index("patients_name_idx").on(table.name),
+    speciesIdx: index("patients_species_idx").on(table.species),
+    breedIdx: index("patients_breed_idx").on(table.breed),
   };
 });
 
@@ -70,6 +81,13 @@ export const doctors = pgTable("doctors", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    nameIdx: index("doctors_name_idx").on(table.name),
+    activeIdx: index("doctors_active_idx").on(table.isActive),
+    specializationIdx: index("doctors_specialization_idx").on(table.specialization),
+    createdAtIdx: index("doctors_created_at_idx").on(table.createdAt),
+  };
 });
 
 // Appointments table
@@ -187,6 +205,9 @@ export const products = pgTable("products", {
     categoryIdx: index("products_category_idx").on(table.category),
     activeIdx: index("products_active_idx").on(table.isActive),
     stockIdx: index("products_stock_idx").on(table.stock),
+    lowStockIdx: index("products_low_stock_idx").on(table.stock, table.minStock),
+    activeStockIdx: index("products_active_stock_idx").on(table.isActive, table.stock),
+    createdAtIdx: index("products_created_at_idx").on(table.createdAt),
   };
 });
 
@@ -218,6 +239,10 @@ export const invoices = pgTable("invoices", {
     issueDateIdx: index("invoices_issue_date_idx").on(table.issueDate),
     statusIdx: index("invoices_status_idx").on(table.status),
     dueDateIdx: index("invoices_due_date_idx").on(table.dueDate),
+    statusIssueDateIdx: index("invoices_status_issue_date_idx").on(table.status, table.issueDate),
+    statusDueDateIdx: index("invoices_status_due_date_idx").on(table.status, table.dueDate),
+    invoiceNumberIdx: index("invoices_number_idx").on(table.invoiceNumber),
+    createdAtIdx: index("invoices_created_at_idx").on(table.createdAt),
   };
 });
 

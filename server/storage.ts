@@ -17,6 +17,32 @@ import {
 import { db } from "./db";
 import { eq, like, and, or, desc, sql, gte, lte } from "drizzle-orm";
 
+// Performance monitoring utilities
+const logSlowQuery = (operation: string, duration: number, threshold = 100) => {
+  if (duration > threshold) {
+    console.warn(`🐌 Slow query detected: ${operation} took ${duration}ms (threshold: ${threshold}ms)`);
+  } else {
+    console.log(`⚡ Query: ${operation} completed in ${duration}ms`);
+  }
+};
+
+const withPerformanceLogging = async <T>(
+  operation: string,
+  queryFn: () => Promise<T>
+): Promise<T> => {
+  const startTime = Date.now();
+  try {
+    const result = await queryFn();
+    const duration = Date.now() - startTime;
+    logSlowQuery(operation, duration);
+    return result;
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error(`❌ Query failed: ${operation} after ${duration}ms:`, error);
+    throw error;
+  }
+};
+
 // Enhanced storage interface for veterinary clinic system
 export interface IStorage {
   // User methods (keep existing for authentication)
@@ -179,12 +205,14 @@ export class DatabaseStorage implements IStorage {
 
   // Patient methods
   async getPatients(limit = 50, offset = 0): Promise<Patient[]> {
-    return await db
-      .select()
-      .from(patients)
-      .orderBy(desc(patients.createdAt))
-      .limit(limit)
-      .offset(offset);
+    return withPerformanceLogging('getPatients', async () =>
+      await db
+        .select()
+        .from(patients)
+        .orderBy(desc(patients.createdAt))
+        .limit(limit)
+        .offset(offset)
+    );
   }
 
   async getPatient(id: string): Promise<Patient | undefined> {
@@ -227,19 +255,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchPatients(query: string): Promise<Patient[]> {
-    const searchQuery = `%${query}%`;
-    return await db
-      .select()
-      .from(patients)
-      .where(
-        or(
-          like(patients.name, searchQuery),
-          like(patients.species, searchQuery),
-          like(patients.breed, searchQuery),
-          like(patients.microchipNumber, searchQuery)
+    return withPerformanceLogging('searchPatients', async () => {
+      const searchQuery = `%${query}%`;
+      return await db
+        .select()
+        .from(patients)
+        .where(
+          or(
+            like(patients.name, searchQuery),
+            like(patients.species, searchQuery),
+            like(patients.breed, searchQuery),
+            like(patients.microchipNumber, searchQuery)
+          )
         )
-      )
-      .orderBy(desc(patients.createdAt));
+        .orderBy(desc(patients.createdAt));
+    });
   }
 
   // Doctor methods
@@ -279,20 +309,22 @@ export class DatabaseStorage implements IStorage {
 
   // Appointment methods
   async getAppointments(date?: Date): Promise<Appointment[]> {
-    if (date) {
-      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-      return await db.select().from(appointments)
-        .where(
-          and(
-            gte(appointments.appointmentDate, startOfDay),
-            lte(appointments.appointmentDate, endOfDay)
+    return withPerformanceLogging(`getAppointments${date ? '(filtered)' : '(all)'}`, async () => {
+      if (date) {
+        const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+        return await db.select().from(appointments)
+          .where(
+            and(
+              gte(appointments.appointmentDate, startOfDay),
+              lte(appointments.appointmentDate, endOfDay)
+            )
           )
-        )
-        .orderBy(appointments.appointmentDate);
-    }
-    
-    return await db.select().from(appointments).orderBy(appointments.appointmentDate);
+          .orderBy(appointments.appointmentDate);
+      }
+      
+      return await db.select().from(appointments).orderBy(appointments.appointmentDate);
+    });
   }
 
   async getAppointment(id: string): Promise<Appointment | undefined> {
@@ -705,77 +737,54 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDashboardStats() {
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    return withPerformanceLogging('getDashboardStats', async () => {
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
 
-    // Get total patients count
-    const [totalPatientsResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(patients);
-    
-    // Get today's appointments count
-    const [todayAppointmentsResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(appointments)
-      .where(
-        and(
-          gte(appointments.appointmentDate, startOfDay),
-          lte(appointments.appointmentDate, endOfDay)
+      // Single optimized query using CTEs to get all stats in one round trip
+      const result = await db.execute(sql`
+        WITH dashboard_stats AS (
+          SELECT 
+            (SELECT COUNT(*)::int FROM ${patients}) as total_patients,
+            (SELECT COUNT(*)::int 
+             FROM ${appointments} 
+             WHERE ${appointments.appointmentDate} >= ${startOfDay} 
+             AND ${appointments.appointmentDate} < ${endOfDay}) as today_appointments,
+            (SELECT COUNT(*)::int 
+             FROM ${appointments} 
+             WHERE ${appointments.appointmentDate} >= ${startOfDay} 
+             AND ${appointments.appointmentDate} < ${endOfDay}
+             AND ${appointments.status} = 'in_progress') as active_appointments,
+            (SELECT COALESCE(SUM(CAST(${invoices.total} AS NUMERIC)), 0)::int
+             FROM ${invoices}
+             WHERE ${invoices.status} = 'paid'
+             AND ${invoices.issueDate} >= ${startOfMonth}
+             AND ${invoices.issueDate} < ${endOfMonth}) as revenue,
+            (SELECT COUNT(*)::int 
+             FROM ${invoices} 
+             WHERE ${invoices.status} = 'pending') as pending_payments,
+            (SELECT COUNT(*)::int 
+             FROM ${products} 
+             WHERE ${products.isActive} = true 
+             AND ${products.stock} <= ${products.minStock}) as low_stock
         )
-      );
-    
-    // Get active appointments count (in progress status)
-    const [activeAppointmentsResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(appointments)
-      .where(
-        and(
-          gte(appointments.appointmentDate, startOfDay),
-          lte(appointments.appointmentDate, endOfDay),
-          eq(appointments.status, "in_progress")
-        )
-      );
+        SELECT * FROM dashboard_stats
+      `);
 
-    // Get this month's revenue from paid invoices
-    const [revenueResult] = await db
-      .select({ total: sql<number>`COALESCE(SUM(CAST(${invoices.total} AS NUMERIC)), 0)::int` })
-      .from(invoices)
-      .where(
-        and(
-          eq(invoices.status, "paid"),
-          gte(invoices.issueDate, startOfMonth),
-          lte(invoices.issueDate, endOfMonth)
-        )
-      );
-
-    // Get pending payments count
-    const [pendingPaymentsResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(invoices)
-      .where(eq(invoices.status, "pending"));
-
-    // Get low stock products count
-    const [lowStockResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(products)
-      .where(
-        and(
-          eq(products.isActive, true),
-          sql`${products.stock} <= ${products.minStock}`
-        )
-      );
-
-    return {
-      totalPatients: totalPatientsResult?.count || 0,
-      todayAppointments: todayAppointmentsResult?.count || 0,
-      activeAppointments: activeAppointmentsResult?.count || 0,
-      revenue: revenueResult?.total || 0,
-      pendingPayments: pendingPaymentsResult?.count || 0,
-      lowStock: lowStockResult?.count || 0
-    };
+      const row = result.rows[0] as any;
+      return {
+        totalPatients: row.total_patients || 0,
+        todayAppointments: row.today_appointments || 0,
+        activeAppointments: row.active_appointments || 0,
+        totalRevenue: row.revenue || 0,
+        pendingPayments: row.pending_payments || 0,
+        overduePayments: 0, // We'll implement this with another query if needed
+        lowStockCount: row.low_stock || 0
+      };
+    });
   }
 }
 

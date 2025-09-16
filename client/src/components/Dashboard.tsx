@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query"
 import { type DashboardStats, type Appointment, type Patient } from "@shared/schema"
 import PatientCard from "./PatientCard"
 import AppointmentCard from "./AppointmentCard"
+import { StatCardSkeleton, AppointmentCardSkeleton, PatientCardSkeleton, QuickActionSkeleton, NotificationRowSkeleton } from "./ui/loading-skeletons"
 
 // Helper function to get today's date in YYYY-MM-DD format
 const getTodayDateString = () => {
@@ -132,89 +133,102 @@ export default function Dashboard() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Всего пациентов</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : statsError ? (
-              <div className="text-2xl font-bold text-destructive">Ошибка</div>
-            ) : (
-              <div className="text-2xl font-bold" data-testid="text-total-patients">{stats?.totalPatients || 0}</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Всего в базе данных
-            </p>
-          </CardContent>
-        </Card>
+        {statsLoading ? (
+          <StatCardSkeleton />
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Всего пациентов</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {statsError ? (
+                <div className="text-2xl font-bold text-destructive">Ошибка</div>
+              ) : (
+                <div className="text-2xl font-bold" data-testid="text-total-patients">{stats?.totalPatients || 0}</div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Всего в базе данных
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Записи на сегодня</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : statsError ? (
-              <div className="text-2xl font-bold text-destructive">Ошибка</div>
-            ) : (
-              <div className="text-2xl font-bold" data-testid="text-today-appointments">{stats?.todayAppointments || 0}</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              {stats?.activeAppointments || 0} активных сейчас
-            </p>
-          </CardContent>
-        </Card>
+        {statsLoading ? (
+          <StatCardSkeleton />
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Записи на сегодня</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {statsError ? (
+                <div className="text-2xl font-bold text-destructive">Ошибка</div>
+              ) : (
+                <div className="text-2xl font-bold" data-testid="text-today-appointments">{stats?.todayAppointments || 0}</div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {stats?.activeAppointments || 0} активных сейчас
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Выручка за месяц</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : statsError ? (
-              <div className="text-2xl font-bold text-destructive">Ошибка</div>
-            ) : (
-              <div className="text-2xl font-bold" data-testid="text-revenue">{(stats?.totalRevenue || 0).toLocaleString('ru-RU')} ₽</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Оплаченные счета
-            </p>
-          </CardContent>
-        </Card>
+        {statsLoading ? (
+          <StatCardSkeleton />
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Выручка за месяц</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {statsError ? (
+                <div className="text-2xl font-bold text-destructive">Ошибка</div>
+              ) : (
+                <div className="text-2xl font-bold" data-testid="text-revenue">{(stats?.totalRevenue || 0).toLocaleString('ru-RU')} ₽</div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Оплаченные счета
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Уведомления</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Долги</span>
-                {statsLoading ? (
-                  <Skeleton className="h-5 w-6" />
-                ) : (
+        {statsLoading ? (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-4 rounded" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1">
+                <NotificationRowSkeleton />
+                <NotificationRowSkeleton />
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Уведомления</CardTitle>
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Долги</span>
                   <Badge variant="destructive" className="text-xs">{stats?.pendingPayments || 0}</Badge>
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Мало товара</span>
-                {statsLoading ? (
-                  <Skeleton className="h-5 w-6" />
-                ) : (
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Мало товара</span>
                   <Badge variant="secondary" className="text-xs">{stats?.lowStockCount || 0}</Badge>
-                )}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Today's Schedule */}
@@ -235,10 +249,7 @@ export default function Dashboard() {
             {appointmentsLoading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </div>
+                  <AppointmentCardSkeleton key={i} />
                 ))}
               </div>
             ) : appointmentsError ? (
@@ -274,10 +285,7 @@ export default function Dashboard() {
             {patientsLoading ? (
               <div className="space-y-4">
                 {[1, 2].map(i => (
-                  <div key={i} className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-2/3" />
-                  </div>
+                  <PatientCardSkeleton key={i} />
                 ))}
               </div>
             ) : patientsError ? (
