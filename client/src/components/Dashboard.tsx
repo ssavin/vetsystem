@@ -1,84 +1,128 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Users, Calendar, Clock, TrendingUp, AlertCircle, CheckCircle, DollarSign, Package } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { type DashboardStats, type Appointment, type Patient } from "@shared/schema"
 import PatientCard from "./PatientCard"
 import AppointmentCard from "./AppointmentCard"
 
-// TODO: Remove mock data when connecting to real backend
-const mockStats = {
-  totalPatients: 1247,
-  todayAppointments: 23,
-  activeAppointments: 7,
-  revenue: 145600,
-  pendingPayments: 12,
-  lowStock: 5
-}
+// Helper function to get today's date in YYYY-MM-DD format
+const getTodayDateString = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
 
-const mockTodayAppointments = [
-  {
-    id: "1",
-    time: "09:00",
-    duration: "30 мин",
-    patientName: "Барсик",
-    patientSpecies: "Кот",
-    ownerName: "Иванов И.И.",
-    doctorName: "Доктор Петрова",
-    appointmentType: "Осмотр",
-    status: 'in-progress' as const,
-    notes: "Плановая вакцинация"
-  },
-  {
-    id: "2",
-    time: "09:30",
-    duration: "45 мин",
-    patientName: "Рекс",
-    patientSpecies: "Собака",
-    ownerName: "Сидоров П.К.",
-    doctorName: "Доктор Иванов",
-    appointmentType: "Операция",
-    status: 'confirmed' as const,
-    notes: "Кастрация"
-  },
-  {
-    id: "3",
-    time: "10:15",
-    duration: "20 мин",
-    patientName: "Мурка",
-    patientSpecies: "Кошка",
-    ownerName: "Петрова А.С.",
-    doctorName: "Доктор Сидоров",
-    appointmentType: "Консультация",
-    status: 'scheduled' as const
+// Helper function to map database appointment status to component status
+const mapAppointmentStatus = (dbStatus: string | null): 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show' => {
+  if (!dbStatus) return 'scheduled';
+  
+  switch (dbStatus) {
+    case 'in_progress':
+      return 'in-progress'; // Map underscore to hyphen
+    case 'no_show':
+      return 'no-show'; // Map underscore to hyphen
+    case 'scheduled':
+    case 'confirmed':
+    case 'completed':
+    case 'cancelled':
+      return dbStatus as 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
+    default:
+      return 'scheduled'; // fallback
   }
-]
+};
 
-const mockRecentPatients = [
-  {
-    id: "1",
-    name: "Барсик",
-    species: "Кот",
-    breed: "Персидская",
-    age: "3 года",
-    owner: "Иванов И.И.",
-    ownerPhone: "+7 (999) 123-45-67",
-    status: 'healthy' as const,
-    lastVisit: "15.12.2024"
-  },
-  {
-    id: "2",
-    name: "Рекс",
-    species: "Собака",
-    breed: "Немецкая овчарка",
-    age: "5 лет",
-    owner: "Сидоров П.К.",
-    ownerPhone: "+7 (999) 987-65-43",
-    status: 'treatment' as const,
-    lastVisit: "14.12.2024"
+// Helper function to format appointment data for AppointmentCard
+const formatAppointmentForCard = (appointment: Appointment) => ({
+  id: appointment.id,
+  time: new Date(appointment.appointmentDate).toLocaleTimeString('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit'
+  }),
+  duration: `${appointment.duration} мин`,
+  patientName: "Пациент", // This will be populated when we add relations
+  patientSpecies: "Животное",
+  ownerName: "Владелец",
+  doctorName: "Доктор",
+  appointmentType: appointment.appointmentType,
+  status: mapAppointmentStatus(appointment.status),
+  notes: appointment.notes || ""
+});
+
+// Helper function to map database patient status to component status
+const mapPatientStatus = (dbStatus: string | null): 'healthy' | 'treatment' | 'critical' => {
+  if (!dbStatus) return 'healthy';
+  
+  switch (dbStatus) {
+    case 'healthy':
+      return 'healthy';
+    case 'sick':
+    case 'recovering':
+      return 'treatment'; // Map sick and recovering to treatment
+    case 'deceased':
+      return 'critical'; // Map deceased to critical
+    default:
+      return 'healthy'; // fallback
   }
-]
+};
+
+// Helper function to format patient data for PatientCard
+const formatPatientForCard = (patient: Patient) => ({
+  id: patient.id,
+  name: patient.name,
+  species: patient.species,
+  breed: patient.breed || "Не указано",
+  age: patient.birthDate 
+    ? `${Math.floor((new Date().getTime() - new Date(patient.birthDate).getTime()) / (1000 * 3600 * 24 * 365))} лет`
+    : "Не указан",
+  owner: "Владелец", // This will be populated when we add relations
+  ownerPhone: "",
+  status: mapPatientStatus(patient.status),
+  lastVisit: new Date(patient.updatedAt).toLocaleDateString('ru-RU')
+});
 
 export default function Dashboard() {
+  // Fetch dashboard statistics
+  const { 
+    data: stats, 
+    isLoading: statsLoading, 
+    error: statsError 
+  } = useQuery<DashboardStats>({
+    queryKey: ['/api/dashboard/stats']
+  });
+
+  // Fetch today's appointments
+  const { 
+    data: appointments, 
+    isLoading: appointmentsLoading, 
+    error: appointmentsError 
+  } = useQuery<Appointment[]>({
+    queryKey: ['/api/appointments', { date: getTodayDateString() }],
+    queryFn: async () => {
+      const response = await fetch(`/api/appointments?date=${getTodayDateString()}`);
+      if (!response.ok) throw new Error('Failed to fetch appointments');
+      return response.json();
+    }
+  });
+
+  // Fetch recent patients (limited to 5)
+  const { 
+    data: patients, 
+    isLoading: patientsLoading, 
+    error: patientsError 
+  } = useQuery<Patient[]>({
+    queryKey: ['/api/patients', { limit: 5, offset: 0 }],
+    queryFn: async () => {
+      const response = await fetch('/api/patients?limit=5&offset=0');
+      if (!response.ok) throw new Error('Failed to fetch patients');
+      return response.json();
+    }
+  });
+
+  const todayAppointments = appointments ? appointments.slice(0, 3).map(formatAppointmentForCard) : [];
+  const recentPatients = patients ? patients.slice(0, 2).map(formatPatientForCard) : [];
+
   return (
     <div className="space-y-6 p-6">
       <div>
@@ -94,9 +138,15 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-patients">{mockStats.totalPatients}</div>
+            {statsLoading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : statsError ? (
+              <div className="text-2xl font-bold text-destructive">Ошибка</div>
+            ) : (
+              <div className="text-2xl font-bold" data-testid="text-total-patients">{stats?.totalPatients || 0}</div>
+            )}
             <p className="text-xs text-muted-foreground">
-              +12 за эту неделю
+              Всего в базе данных
             </p>
           </CardContent>
         </Card>
@@ -107,9 +157,15 @@ export default function Dashboard() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-today-appointments">{mockStats.todayAppointments}</div>
+            {statsLoading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : statsError ? (
+              <div className="text-2xl font-bold text-destructive">Ошибка</div>
+            ) : (
+              <div className="text-2xl font-bold" data-testid="text-today-appointments">{stats?.todayAppointments || 0}</div>
+            )}
             <p className="text-xs text-muted-foreground">
-              {mockStats.activeAppointments} активных сейчас
+              {stats?.activeAppointments || 0} активных сейчас
             </p>
           </CardContent>
         </Card>
@@ -120,9 +176,15 @@ export default function Dashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-revenue">{mockStats.revenue.toLocaleString('ru-RU')} ₽</div>
+            {statsLoading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : statsError ? (
+              <div className="text-2xl font-bold text-destructive">Ошибка</div>
+            ) : (
+              <div className="text-2xl font-bold" data-testid="text-revenue">{(stats?.totalRevenue || 0).toLocaleString('ru-RU')} ₽</div>
+            )}
             <p className="text-xs text-muted-foreground">
-              +15% к прошлому месяцу
+              Оплаченные счета
             </p>
           </CardContent>
         </Card>
@@ -136,11 +198,19 @@ export default function Dashboard() {
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-sm">Долги</span>
-                <Badge variant="destructive" className="text-xs">{mockStats.pendingPayments}</Badge>
+                {statsLoading ? (
+                  <Skeleton className="h-5 w-6" />
+                ) : (
+                  <Badge variant="destructive" className="text-xs">{stats?.pendingPayments || 0}</Badge>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">Мало товара</span>
-                <Badge variant="secondary" className="text-xs">{mockStats.lowStock}</Badge>
+                {statsLoading ? (
+                  <Skeleton className="h-5 w-6" />
+                ) : (
+                  <Badge variant="secondary" className="text-xs">{stats?.lowStockCount || 0}</Badge>
+                )}
               </div>
             </div>
           </CardContent>
@@ -162,9 +232,28 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {mockTodayAppointments.map(appointment => (
-              <AppointmentCard key={appointment.id} appointment={appointment} />
-            ))}
+            {appointmentsLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                ))}
+              </div>
+            ) : appointmentsError ? (
+              <div className="text-center py-4 text-muted-foreground">
+                Ошибка загрузки записей
+              </div>
+            ) : todayAppointments.length > 0 ? (
+              todayAppointments.map(appointment => (
+                <AppointmentCard key={appointment.id} appointment={appointment} />
+              ))
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                Нет записей на сегодня
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -182,9 +271,28 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {mockRecentPatients.map(patient => (
-              <PatientCard key={patient.id} patient={patient} />
-            ))}
+            {patientsLoading ? (
+              <div className="space-y-4">
+                {[1, 2].map(i => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </div>
+                ))}
+              </div>
+            ) : patientsError ? (
+              <div className="text-center py-4 text-muted-foreground">
+                Ошибка загрузки пациентов
+              </div>
+            ) : recentPatients.length > 0 ? (
+              recentPatients.map(patient => (
+                <PatientCard key={patient.id} patient={patient} />
+              ))
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                Нет пациентов в базе данных
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
