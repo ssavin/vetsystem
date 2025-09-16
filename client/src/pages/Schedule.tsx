@@ -166,7 +166,7 @@ export default function Schedule() {
   const formattedAppointments = getFilteredAppointments()
   
   // Get unique doctors from appointments for filter
-  const doctors = ["Все врачи", ...new Set(formattedAppointments.map(apt => apt.doctorName).filter(Boolean))]
+  const doctors = ["Все врачи", ...Array.from(new Set(formattedAppointments.map(apt => apt.doctorName).filter(Boolean)))]
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('ru-RU', {
