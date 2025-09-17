@@ -5,7 +5,9 @@ import {
   insertOwnerSchema, insertPatientSchema, insertDoctorSchema,
   insertAppointmentSchema, insertMedicalRecordSchema, insertMedicationSchema,
   insertServiceSchema, insertProductSchema, insertInvoiceSchema, insertInvoiceItemSchema,
-  insertUserSchema, loginSchema, insertPatientFileSchema, FILE_TYPES
+  insertUserSchema, loginSchema, insertPatientFileSchema, FILE_TYPES,
+  insertLabStudySchema, insertLabParameterSchema, insertReferenceRangeSchema,
+  insertLabOrderSchema, insertLabResultDetailSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
@@ -1300,6 +1302,351 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Ошибка удаления файла:", error);
       res.status(500).json({ error: "Ошибка удаления файла" });
+    }
+  });
+
+  // =============================================
+  // LABORATORY MODULE ROUTES - Protected PHI data
+  // =============================================
+
+  // LAB STUDIES ROUTES
+  app.get("/api/lab-studies", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const activeOnly = req.query.activeOnly === 'true';
+      const studies = await storage.getLabStudies(activeOnly);
+      res.json(studies);
+    } catch (error) {
+      console.error("Error fetching lab studies:", error);
+      res.status(500).json({ error: "Failed to fetch lab studies" });
+    }
+  });
+
+  app.get("/api/lab-studies/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const study = await storage.getLabStudy(req.params.id);
+      if (!study) {
+        return res.status(404).json({ error: "Lab study not found" });
+      }
+      res.json(study);
+    } catch (error) {
+      console.error("Error fetching lab study:", error);
+      res.status(500).json({ error: "Failed to fetch lab study" });
+    }
+  });
+
+  app.post("/api/lab-studies", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabStudySchema), async (req, res) => {
+    try {
+      const study = await storage.createLabStudy(req.body);
+      res.status(201).json(study);
+    } catch (error) {
+      console.error("Error creating lab study:", error);
+      res.status(500).json({ error: "Failed to create lab study" });
+    }
+  });
+
+  app.put("/api/lab-studies/:id", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabStudySchema.partial()), async (req, res) => {
+    try {
+      const study = await storage.updateLabStudy(req.params.id, req.body);
+      res.json(study);
+    } catch (error) {
+      console.error("Error updating lab study:", error);
+      res.status(500).json({ error: "Failed to update lab study" });
+    }
+  });
+
+  app.delete("/api/lab-studies/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      await storage.deleteLabStudy(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting lab study:", error);
+      res.status(500).json({ error: "Failed to delete lab study" });
+    }
+  });
+
+  app.get("/api/lab-studies/search/:query", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const studies = await storage.searchLabStudies(req.params.query);
+      res.json(studies);
+    } catch (error) {
+      console.error("Error searching lab studies:", error);
+      res.status(500).json({ error: "Failed to search lab studies" });
+    }
+  });
+
+  // LAB PARAMETERS ROUTES
+  app.get("/api/lab-parameters", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const studyId = req.query.studyId as string | undefined;
+      const parameters = await storage.getLabParameters(studyId);
+      res.json(parameters);
+    } catch (error) {
+      console.error("Error fetching lab parameters:", error);
+      res.status(500).json({ error: "Failed to fetch lab parameters" });
+    }
+  });
+
+  app.get("/api/lab-parameters/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const parameter = await storage.getLabParameter(req.params.id);
+      if (!parameter) {
+        return res.status(404).json({ error: "Lab parameter not found" });
+      }
+      res.json(parameter);
+    } catch (error) {
+      console.error("Error fetching lab parameter:", error);
+      res.status(500).json({ error: "Failed to fetch lab parameter" });
+    }
+  });
+
+  app.post("/api/lab-parameters", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabParameterSchema), async (req, res) => {
+    try {
+      const parameter = await storage.createLabParameter(req.body);
+      res.status(201).json(parameter);
+    } catch (error) {
+      console.error("Error creating lab parameter:", error);
+      res.status(500).json({ error: "Failed to create lab parameter" });
+    }
+  });
+
+  app.put("/api/lab-parameters/:id", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabParameterSchema.partial()), async (req, res) => {
+    try {
+      const parameter = await storage.updateLabParameter(req.params.id, req.body);
+      res.json(parameter);
+    } catch (error) {
+      console.error("Error updating lab parameter:", error);
+      res.status(500).json({ error: "Failed to update lab parameter" });
+    }
+  });
+
+  app.delete("/api/lab-parameters/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      await storage.deleteLabParameter(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting lab parameter:", error);
+      res.status(500).json({ error: "Failed to delete lab parameter" });
+    }
+  });
+
+  // Lab parameters search removed - method not implemented in storage
+
+  // REFERENCE RANGES ROUTES
+  app.get("/api/reference-ranges", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const parameterId = req.query.parameterId as string | undefined;
+      const ranges = await storage.getReferenceRanges(parameterId);
+      res.json(ranges);
+    } catch (error) {
+      console.error("Error fetching reference ranges:", error);
+      res.status(500).json({ error: "Failed to fetch reference ranges" });
+    }
+  });
+
+  app.get("/api/reference-ranges/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const range = await storage.getReferenceRange(req.params.id);
+      if (!range) {
+        return res.status(404).json({ error: "Reference range not found" });
+      }
+      res.json(range);
+    } catch (error) {
+      console.error("Error fetching reference range:", error);
+      res.status(500).json({ error: "Failed to fetch reference range" });
+    }
+  });
+
+  app.get("/api/reference-ranges/applicable/:parameterId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const { parameterId } = req.params;
+      const { species, breed, age, sex } = req.query;
+      const range = await storage.getApplicableReferenceRange(
+        parameterId,
+        species as string,
+        breed as string | undefined,
+        age ? parseInt(age as string) : undefined,
+        sex as string | undefined
+      );
+      if (!range) {
+        return res.status(404).json({ error: "No applicable reference range found" });
+      }
+      res.json(range);
+    } catch (error) {
+      console.error("Error fetching applicable reference range:", error);
+      res.status(500).json({ error: "Failed to fetch applicable reference range" });
+    }
+  });
+
+  app.post("/api/reference-ranges", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertReferenceRangeSchema), async (req, res) => {
+    try {
+      const range = await storage.createReferenceRange(req.body);
+      res.status(201).json(range);
+    } catch (error) {
+      console.error("Error creating reference range:", error);
+      res.status(500).json({ error: "Failed to create reference range" });
+    }
+  });
+
+  app.put("/api/reference-ranges/:id", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertReferenceRangeSchema.partial()), async (req, res) => {
+    try {
+      const range = await storage.updateReferenceRange(req.params.id, req.body);
+      res.json(range);
+    } catch (error) {
+      console.error("Error updating reference range:", error);
+      res.status(500).json({ error: "Failed to update reference range" });
+    }
+  });
+
+  app.delete("/api/reference-ranges/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      await storage.deleteReferenceRange(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting reference range:", error);
+      res.status(500).json({ error: "Failed to delete reference range" });
+    }
+  });
+
+  // LAB ORDERS ROUTES
+  app.get("/api/lab-orders", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const orders = await storage.getLabOrders(status);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching lab orders:", error);
+      res.status(500).json({ error: "Failed to fetch lab orders" });
+    }
+  });
+
+  app.get("/api/lab-orders/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const order = await storage.getLabOrder(req.params.id);
+      if (!order) {
+        return res.status(404).json({ error: "Lab order not found" });
+      }
+      res.json(order);
+    } catch (error) {
+      console.error("Error fetching lab order:", error);
+      res.status(500).json({ error: "Failed to fetch lab order" });
+    }
+  });
+
+  app.get("/api/lab-orders/doctor/:doctorId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const orders = await storage.getLabOrdersByDoctor(req.params.doctorId);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching lab orders by doctor:", error);
+      res.status(500).json({ error: "Failed to fetch lab orders by doctor" });
+    }
+  });
+
+  app.get("/api/lab-orders/appointment/:appointmentId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const orders = await storage.getLabOrdersByAppointment(req.params.appointmentId);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching lab orders by appointment:", error);
+      res.status(500).json({ error: "Failed to fetch lab orders by appointment" });
+    }
+  });
+
+  app.post("/api/lab-orders", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabOrderSchema), async (req, res) => {
+    try {
+      const order = await storage.createLabOrder(req.body);
+      res.status(201).json(order);
+    } catch (error) {
+      console.error("Error creating lab order:", error);
+      res.status(500).json({ error: "Failed to create lab order" });
+    }
+  });
+
+  app.put("/api/lab-orders/:id", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabOrderSchema.partial()), async (req, res) => {
+    try {
+      const order = await storage.updateLabOrder(req.params.id, req.body);
+      res.json(order);
+    } catch (error) {
+      console.error("Error updating lab order:", error);
+      res.status(500).json({ error: "Failed to update lab order" });
+    }
+  });
+
+  app.delete("/api/lab-orders/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      await storage.deleteLabOrder(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting lab order:", error);
+      res.status(500).json({ error: "Failed to delete lab order" });
+    }
+  });
+
+  // LAB RESULT DETAILS ROUTES
+  app.get("/api/lab-result-details", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const orderId = req.query.orderId as string | undefined;
+      const parameterId = req.query.parameterId as string | undefined;
+      const details = orderId 
+        ? await storage.getLabResultDetails(orderId)
+        : await storage.getLabResultDetails();
+      res.json(details);
+    } catch (error) {
+      console.error("Error fetching lab result details:", error);
+      res.status(500).json({ error: "Failed to fetch lab result details" });
+    }
+  });
+
+  app.get("/api/lab-result-details/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const detail = await storage.getLabResultDetail(req.params.id);
+      if (!detail) {
+        return res.status(404).json({ error: "Lab result detail not found" });
+      }
+      res.json(detail);
+    } catch (error) {
+      console.error("Error fetching lab result detail:", error);
+      res.status(500).json({ error: "Failed to fetch lab result detail" });
+    }
+  });
+
+  app.get("/api/lab-result-details/parameter/:parameterId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const details = await storage.getLabResultsByParameter(req.params.parameterId);
+      res.json(details);
+    } catch (error) {
+      console.error("Error fetching lab results by parameter:", error);
+      res.status(500).json({ error: "Failed to fetch lab results by parameter" });
+    }
+  });
+
+  app.post("/api/lab-result-details", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabResultDetailSchema), async (req, res) => {
+    try {
+      const detail = await storage.createLabResultDetail(req.body);
+      res.status(201).json(detail);
+    } catch (error) {
+      console.error("Error creating lab result detail:", error);
+      res.status(500).json({ error: "Failed to create lab result detail" });
+    }
+  });
+
+  app.put("/api/lab-result-details/:id", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabResultDetailSchema.partial()), async (req, res) => {
+    try {
+      const detail = await storage.updateLabResultDetail(req.params.id, req.body);
+      res.json(detail);
+    } catch (error) {
+      console.error("Error updating lab result detail:", error);
+      res.status(500).json({ error: "Failed to update lab result detail" });
+    }
+  });
+
+  app.delete("/api/lab-result-details/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      await storage.deleteLabResultDetail(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting lab result detail:", error);
+      res.status(500).json({ error: "Failed to delete lab result detail" });
     }
   });
 
