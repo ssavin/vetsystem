@@ -104,7 +104,7 @@ export default function UserManagement() {
       phone: "",
       role: "врач",
       status: "active",
-      branchId: ""
+      branchId: "NONE"
     }
   })
 
@@ -115,15 +115,15 @@ export default function UserManagement() {
       if (!updateData.password || updateData.password.trim() === '') {
         delete (updateData as any).password;
       }
-      // Normalize empty branchId to null for API
-      if (updateData.branchId === '') {
+      // Normalize 'NONE' branchId to null for API
+      if (updateData.branchId === 'NONE') {
         updateData.branchId = null;
       }
       updateMutation.mutate({ userId: editingUser.id, data: updateData as UserFormValues });
     } else {
-      // Normalize empty branchId to null for API
+      // Normalize 'NONE' branchId to null for API
       const createData = { ...values };
-      if (createData.branchId === '') {
+      if (createData.branchId === 'NONE') {
         createData.branchId = null;
       }
       
@@ -312,7 +312,7 @@ export default function UserManagement() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Без отделения</SelectItem>
+                          <SelectItem value="NONE">Без отделения</SelectItem>
                           {branches.map((branch) => (
                             <SelectItem key={branch.id} value={branch.id}>
                               {branch.name}
