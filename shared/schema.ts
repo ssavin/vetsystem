@@ -15,6 +15,9 @@ export const PATIENT_GENDER = ['male', 'female', 'unknown'] as const;
 // File and lab analysis enums
 export const FILE_TYPES = ['medical_image', 'xray', 'scan', 'receipt', 'lab_result', 'vaccine_record', 'document', 'other'] as const;
 export const LAB_RESULT_STATUS = ['pending', 'in_progress', 'completed', 'abnormal', 'critical'] as const;
+export const LAB_ORDER_STATUS = ['pending', 'sample_taken', 'in_progress', 'completed', 'cancelled'] as const;
+export const LAB_PARAMETER_STATUS = ['normal', 'low', 'high', 'critical_low', 'critical_high'] as const;
+export const LAB_URGENCY = ['routine', 'urgent', 'stat'] as const;
 
 // User roles and permissions
 export const USER_ROLES = ['врач', 'администратор', 'менеджер', 'менеджер_склада', 'руководитель'] as const;
@@ -383,6 +386,112 @@ export const patientFiles = pgTable("patient_files", {
   };
 });
 
+// Laboratory Studies catalog - справочник исследований
+export const labStudies = pgTable("lab_studies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(), // "Общий анализ крови", "Биохимический анализ"
+  category: varchar("category", { length: 100 }).notNull(), // "гематология", "биохимия", "цитология"
+  code: varchar("code", { length: 50 }).unique(), // internal code for integration
+  description: text("description"),
+  preparationInstructions: text("preparation_instructions"), // подготовка к анализу
+  sampleType: varchar("sample_type", { length: 100 }), // "кровь", "моча", "кал"
+  estimatedDuration: integer("estimated_duration"), // время выполнения в часах
+  price: decimal("price", { precision: 10, scale: 2 }),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    nameIdx: index("lab_studies_name_idx").on(table.name),
+    categoryIdx: index("lab_studies_category_idx").on(table.category),
+    codeIdx: index("lab_studies_code_idx").on(table.code),
+    activeIdx: index("lab_studies_active_idx").on(table.isActive),
+  };
+});
+
+// Laboratory Parameters catalog - справочник показателей
+export const labParameters = pgTable("lab_parameters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studyId: varchar("study_id").references(() => labStudies.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(), // "Гемоглобин", "Эритроциты"
+  code: varchar("code", { length: 50 }), // internal code
+  unit: varchar("unit", { length: 50 }).notNull(), // "г/л", "ммоль/л", "%"
+  dataType: varchar("data_type", { length: 20 }).default("numeric"), // numeric, text, boolean
+  sortOrder: integer("sort_order").default(0), // порядок отображения
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    studyIdIdx: index("lab_parameters_study_id_idx").on(table.studyId),
+    nameIdx: index("lab_parameters_name_idx").on(table.name),
+    codeIdx: index("lab_parameters_code_idx").on(table.code),
+    activeIdx: index("lab_parameters_active_idx").on(table.isActive),
+    sortOrderIdx: index("lab_parameters_sort_order_idx").on(table.studyId, table.sortOrder),
+  };
+});
+
+// Reference Ranges - референсные значения (нормы)
+export const referenceRanges = pgTable("reference_ranges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  parameterId: varchar("parameter_id").references(() => labParameters.id).notNull(),
+  species: varchar("species", { length: 100 }).notNull(), // "собака", "кошка"
+  breed: varchar("breed", { length: 255 }), // порода, null = для всех пород
+  gender: varchar("gender", { length: 10 }), // male, female, null = для всех
+  ageMin: integer("age_min"), // минимальный возраст в месяцах, null = без ограничений
+  ageMax: integer("age_max"), // максимальный возраст в месяцах, null = без ограничений
+  rangeMin: decimal("range_min", { precision: 15, scale: 6 }), // минимальное нормальное значение
+  rangeMax: decimal("range_max", { precision: 15, scale: 6 }), // максимальное нормальное значение
+  criticalMin: decimal("critical_min", { precision: 15, scale: 6 }), // критически низкое
+  criticalMax: decimal("critical_max", { precision: 15, scale: 6 }), // критически высокое
+  notes: text("notes"), // дополнительные заметки
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    parameterIdIdx: index("reference_ranges_parameter_id_idx").on(table.parameterId),
+    speciesIdx: index("reference_ranges_species_idx").on(table.species),
+    breedIdx: index("reference_ranges_breed_idx").on(table.breed),
+    activeIdx: index("reference_ranges_active_idx").on(table.isActive),
+    parameterSpeciesIdx: index("reference_ranges_parameter_species_idx").on(table.parameterId, table.species),
+  };
+});
+
+// Laboratory Orders - заказы на анализы
+export const labOrders = pgTable("lab_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderNumber: varchar("order_number", { length: 50 }).unique().notNull(),
+  patientId: varchar("patient_id").references(() => patients.id).notNull(),
+  doctorId: varchar("doctor_id").references(() => doctors.id).notNull(),
+  appointmentId: varchar("appointment_id").references(() => appointments.id), // привязка к визиту
+  medicalRecordId: varchar("medical_record_id").references(() => medicalRecords.id),
+  studyId: varchar("study_id").references(() => labStudies.id).notNull(),
+  status: varchar("status", { length: 20 }).default("pending"),
+  urgency: varchar("urgency", { length: 20 }).default("routine"),
+  orderedDate: timestamp("ordered_date").defaultNow().notNull(),
+  sampleTakenDate: timestamp("sample_taken_date"),
+  expectedDate: timestamp("expected_date"), // ожидаемая дата готовности
+  completedDate: timestamp("completed_date"),
+  notes: text("notes"),
+  branchId: varchar("branch_id").references(() => branches.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    statusCheck: check("lab_orders_status_check", sql`${table.status} IN ('pending', 'sample_taken', 'in_progress', 'completed', 'cancelled')`),
+    urgencyCheck: check("lab_orders_urgency_check", sql`${table.urgency} IN ('routine', 'urgent', 'stat')`),
+    patientIdIdx: index("lab_orders_patient_id_idx").on(table.patientId),
+    doctorIdIdx: index("lab_orders_doctor_id_idx").on(table.doctorId),
+    studyIdIdx: index("lab_orders_study_id_idx").on(table.studyId),
+    statusIdx: index("lab_orders_status_idx").on(table.status),
+    orderedDateIdx: index("lab_orders_ordered_date_idx").on(table.orderedDate),
+    urgencyIdx: index("lab_orders_urgency_idx").on(table.urgency),
+    orderNumberIdx: index("lab_orders_order_number_idx").on(table.orderNumber),
+    branchIdIdx: index("lab_orders_branch_id_idx").on(table.branchId),
+  };
+});
+
 // Laboratory Results table for storing lab test results
 export const labResults = pgTable("lab_results", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -419,6 +528,31 @@ export const labResults = pgTable("lab_results", {
   };
 });
 
+// Laboratory Result Details - детализированные результаты (новая система)
+export const labResultDetails = pgTable("lab_result_details", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").references(() => labOrders.id).notNull(),
+  parameterId: varchar("parameter_id").references(() => labParameters.id).notNull(),
+  value: varchar("value", { length: 255 }), // значение результата (может быть текстом)
+  numericValue: decimal("numeric_value", { precision: 15, scale: 6 }), // числовое значение для графиков
+  status: varchar("status", { length: 20 }).default("normal"), // normal, low, high, critical_low, critical_high
+  referenceRangeId: varchar("reference_range_id").references(() => referenceRanges.id),
+  flags: varchar("flags", { length: 50 }), // дополнительные флаги (например, "H", "L", "*")
+  notes: text("notes"),
+  reportedDate: timestamp("reported_date").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    statusCheck: check("lab_result_details_status_check", sql`${table.status} IN ('normal', 'low', 'high', 'critical_low', 'critical_high')`),
+    orderIdIdx: index("lab_result_details_order_id_idx").on(table.orderId),
+    parameterIdIdx: index("lab_result_details_parameter_id_idx").on(table.parameterId),
+    statusIdx: index("lab_result_details_status_idx").on(table.status),
+    reportedDateIdx: index("lab_result_details_reported_date_idx").on(table.reportedDate),
+    orderParameterIdx: index("lab_result_details_order_parameter_idx").on(table.orderId, table.parameterId),
+  };
+});
+
 // Define relations
 export const ownersRelations = relations(owners, ({ many }) => ({
   patients: many(patients),
@@ -434,11 +568,14 @@ export const patientsRelations = relations(patients, ({ one, many }) => ({
   invoices: many(invoices),
   files: many(patientFiles),
   labResults: many(labResults),
+  labOrders: many(labOrders),
 }));
 
 export const doctorsRelations = relations(doctors, ({ many }) => ({
   appointments: many(appointments),
   medicalRecords: many(medicalRecords),
+  labResults: many(labResults),
+  labOrders: many(labOrders),
 }));
 
 export const appointmentsRelations = relations(appointments, ({ one, many }) => ({
@@ -526,6 +663,68 @@ export const labResultsRelations = relations(labResults, ({ one }) => ({
   medicalRecord: one(medicalRecords, {
     fields: [labResults.medicalRecordId],
     references: [medicalRecords.id],
+  }),
+}));
+
+// Relations for new laboratory system
+export const labStudiesRelations = relations(labStudies, ({ many }) => ({
+  parameters: many(labParameters),
+  orders: many(labOrders),
+}));
+
+export const labParametersRelations = relations(labParameters, ({ one, many }) => ({
+  study: one(labStudies, {
+    fields: [labParameters.studyId],
+    references: [labStudies.id],
+  }),
+  referenceRanges: many(referenceRanges),
+  resultDetails: many(labResultDetails),
+}));
+
+export const referenceRangesRelations = relations(referenceRanges, ({ one, many }) => ({
+  parameter: one(labParameters, {
+    fields: [referenceRanges.parameterId],
+    references: [labParameters.id],
+  }),
+  resultDetails: many(labResultDetails),
+}));
+
+export const labOrdersRelations = relations(labOrders, ({ one, many }) => ({
+  patient: one(patients, {
+    fields: [labOrders.patientId],
+    references: [patients.id],
+  }),
+  doctor: one(doctors, {
+    fields: [labOrders.doctorId],
+    references: [doctors.id],
+  }),
+  appointment: one(appointments, {
+    fields: [labOrders.appointmentId],
+    references: [appointments.id],
+  }),
+  medicalRecord: one(medicalRecords, {
+    fields: [labOrders.medicalRecordId],
+    references: [medicalRecords.id],
+  }),
+  study: one(labStudies, {
+    fields: [labOrders.studyId],
+    references: [labStudies.id],
+  }),
+  resultDetails: many(labResultDetails),
+}));
+
+export const labResultDetailsRelations = relations(labResultDetails, ({ one }) => ({
+  order: one(labOrders, {
+    fields: [labResultDetails.orderId],
+    references: [labOrders.id],
+  }),
+  parameter: one(labParameters, {
+    fields: [labResultDetails.parameterId],
+    references: [labParameters.id],
+  }),
+  referenceRange: one(referenceRanges, {
+    fields: [labResultDetails.referenceRangeId],
+    references: [referenceRanges.id],
   }),
 }));
 
@@ -710,6 +909,77 @@ export const insertLabResultSchema = createInsertSchema(labResults).omit({
   labTechnicianName: z.string().optional(),
 });
 
+// New Laboratory System Validation Schemas
+export const insertLabStudySchema = createInsertSchema(labStudies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Название исследования обязательно"),
+  category: z.string().min(1, "Категория исследования обязательна"),
+  description: z.string().optional(),
+  sampleType: z.string().min(1, "Тип образца обязателен"),
+  turnaroundTime: z.number().int().min(1, "Время выполнения должно быть больше 0"),
+  isActive: z.boolean().default(true),
+});
+
+export const insertLabParameterSchema = createInsertSchema(labParameters).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Название параметра обязательно"),
+  code: z.string().min(1, "Код параметра обязателен"),
+  unit: z.string().min(1, "Единица измерения обязательна"),
+  dataType: z.enum(["numeric", "text", "boolean"] as const),
+  sortOrder: z.number().int().min(0),
+  isActive: z.boolean().default(true),
+});
+
+export const insertReferenceRangeSchema = createInsertSchema(referenceRanges).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  species: z.string().min(1, "Вид животного обязателен"),
+  breed: z.string().optional(),
+  ageMin: z.number().min(0, "Минимальный возраст не может быть отрицательным").optional(),
+  ageMax: z.number().min(0, "Максимальный возраст не может быть отрицательным").optional(),
+  sex: z.enum(["male", "female", "both"] as const).default("both"),
+  minValue: z.coerce.number().optional(),
+  maxValue: z.coerce.number().optional(),
+  textValue: z.string().optional(),
+  isActive: z.boolean().default(true),
+});
+
+export const insertLabOrderSchema = createInsertSchema(labOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  orderDate: z.coerce.date(),
+  status: z.enum(["ordered", "collected", "processing", "completed", "cancelled"] as const).default("ordered"),
+  urgency: z.enum(["normal", "urgent", "stat"] as const).default("normal"),
+  sampleId: z.string().optional(),
+  sampleCollectedDate: z.coerce.date().optional(),
+  notes: z.string().optional(),
+  requestedBy: z.string().optional(),
+});
+
+export const insertLabResultDetailSchema = createInsertSchema(labResultDetails).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  value: z.string().min(1, "Значение результата обязательно"),
+  numericValue: z.coerce.number().optional(),
+  flag: z.enum(["normal", "low", "high", "critical", "abnormal"] as const).default("normal"),
+  isAbnormal: z.boolean().default(false),
+  testedDate: z.coerce.date().optional(),
+  comments: z.string().optional(),
+  qualityControl: z.record(z.string(), z.any()).optional(),
+});
+
 // SMS verification schemas
 export const insertSmsVerificationCodeSchema = createInsertSchema(smsVerificationCodes).omit({
   id: true,
@@ -780,6 +1050,22 @@ export type InsertPatientFile = z.infer<typeof insertPatientFileSchema>;
 
 export type LabResult = typeof labResults.$inferSelect;
 export type InsertLabResult = z.infer<typeof insertLabResultSchema>;
+
+// New Laboratory System Types
+export type LabStudy = typeof labStudies.$inferSelect;
+export type InsertLabStudy = z.infer<typeof insertLabStudySchema>;
+
+export type LabParameter = typeof labParameters.$inferSelect;
+export type InsertLabParameter = z.infer<typeof insertLabParameterSchema>;
+
+export type ReferenceRange = typeof referenceRanges.$inferSelect;
+export type InsertReferenceRange = z.infer<typeof insertReferenceRangeSchema>;
+
+export type LabOrder = typeof labOrders.$inferSelect;
+export type InsertLabOrder = z.infer<typeof insertLabOrderSchema>;
+
+export type LabResultDetail = typeof labResultDetails.$inferSelect;
+export type InsertLabResultDetail = z.infer<typeof insertLabResultDetailSchema>;
 
 // Dashboard API response types
 export interface DashboardStats {

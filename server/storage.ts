@@ -12,12 +12,19 @@ import {
   type InvoiceItem, type InsertInvoiceItem,
   type Branch, type InsertBranch,
   type PatientFile, type InsertPatientFile,
+  type LabStudy, type InsertLabStudy,
+  type LabParameter, type InsertLabParameter,
+  type ReferenceRange, type InsertReferenceRange,
+  type LabOrder, type InsertLabOrder,
+  type LabResultDetail, type InsertLabResultDetail,
   users, owners, patients, doctors, appointments, 
   medicalRecords, medications, services, products, 
-  invoices, invoiceItems, branches, patientFiles
+  invoices, invoiceItems, branches, patientFiles,
+  labStudies, labParameters, referenceRanges, 
+  labOrders, labResultDetails
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, like, and, or, desc, sql, gte, lte } from "drizzle-orm";
+import { eq, like, and, or, desc, sql, gte, lte, isNull, type SQL } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 // Performance monitoring utilities
@@ -157,6 +164,46 @@ export interface IStorage {
   getPatientFiles(patientId: string, fileType?: string): Promise<PatientFile[]>;
   getPatientFileById(fileId: string): Promise<PatientFile | undefined>;
   deletePatientFile(fileId: string): Promise<void>;
+
+  // Laboratory Study methods
+  getLabStudies(activeOnly?: boolean): Promise<LabStudy[]>;
+  getLabStudy(id: string): Promise<LabStudy | undefined>;
+  createLabStudy(study: InsertLabStudy): Promise<LabStudy>;
+  updateLabStudy(id: string, study: Partial<InsertLabStudy>): Promise<LabStudy>;
+  deleteLabStudy(id: string): Promise<void>;
+  searchLabStudies(query: string): Promise<LabStudy[]>;
+
+  // Laboratory Parameter methods
+  getLabParameters(studyId?: string): Promise<LabParameter[]>;
+  getLabParameter(id: string): Promise<LabParameter | undefined>;
+  createLabParameter(parameter: InsertLabParameter): Promise<LabParameter>;
+  updateLabParameter(id: string, parameter: Partial<InsertLabParameter>): Promise<LabParameter>;
+  deleteLabParameter(id: string): Promise<void>;
+
+  // Reference Range methods
+  getReferenceRanges(parameterId?: string, species?: string): Promise<ReferenceRange[]>;
+  getReferenceRange(id: string): Promise<ReferenceRange | undefined>;
+  createReferenceRange(range: InsertReferenceRange): Promise<ReferenceRange>;
+  updateReferenceRange(id: string, range: Partial<InsertReferenceRange>): Promise<ReferenceRange>;
+  deleteReferenceRange(id: string): Promise<void>;
+  getApplicableReferenceRange(parameterId: string, species: string, breed?: string, age?: number, sex?: string): Promise<ReferenceRange | undefined>;
+
+  // Laboratory Order methods
+  getLabOrders(patientId?: string, status?: string): Promise<LabOrder[]>;
+  getLabOrder(id: string): Promise<LabOrder | undefined>;
+  createLabOrder(order: InsertLabOrder): Promise<LabOrder>;
+  updateLabOrder(id: string, order: Partial<InsertLabOrder>): Promise<LabOrder>;
+  deleteLabOrder(id: string): Promise<void>;
+  getLabOrdersByDoctor(doctorId: string): Promise<LabOrder[]>;
+  getLabOrdersByAppointment(appointmentId: string): Promise<LabOrder[]>;
+
+  // Laboratory Result Detail methods
+  getLabResultDetails(orderId: string): Promise<LabResultDetail[]>;
+  getLabResultDetail(id: string): Promise<LabResultDetail | undefined>;
+  createLabResultDetail(detail: InsertLabResultDetail): Promise<LabResultDetail>;
+  updateLabResultDetail(id: string, detail: Partial<InsertLabResultDetail>): Promise<LabResultDetail>;
+  deleteLabResultDetail(id: string): Promise<void>;
+  getLabResultsByParameter(parameterId: string): Promise<LabResultDetail[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1000,6 +1047,326 @@ export class DatabaseStorage implements IStorage {
   async deletePatientFile(fileId: string): Promise<void> {
     return withPerformanceLogging('deletePatientFile', async () => {
       await db.delete(patientFiles).where(eq(patientFiles.id, fileId));
+    });
+  }
+
+  // Laboratory Study methods implementation
+  async getLabStudies(activeOnly?: boolean): Promise<LabStudy[]> {
+    return withPerformanceLogging('getLabStudies', async () => {
+      const conditions = activeOnly ? [eq(labStudies.isActive, true)] : [];
+      return await db
+        .select()
+        .from(labStudies)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(labStudies.category, labStudies.name);
+    });
+  }
+
+  async getLabStudy(id: string): Promise<LabStudy | undefined> {
+    return withPerformanceLogging('getLabStudy', async () => {
+      const [study] = await db.select().from(labStudies).where(eq(labStudies.id, id));
+      return study || undefined;
+    });
+  }
+
+  async createLabStudy(study: InsertLabStudy): Promise<LabStudy> {
+    return withPerformanceLogging('createLabStudy', async () => {
+      const [newStudy] = await db
+        .insert(labStudies)
+        .values(study)
+        .returning();
+      return newStudy;
+    });
+  }
+
+  async updateLabStudy(id: string, study: Partial<InsertLabStudy>): Promise<LabStudy> {
+    return withPerformanceLogging('updateLabStudy', async () => {
+      const [updated] = await db
+        .update(labStudies)
+        .set({ ...study, updatedAt: new Date() })
+        .where(eq(labStudies.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async deleteLabStudy(id: string): Promise<void> {
+    return withPerformanceLogging('deleteLabStudy', async () => {
+      await db.delete(labStudies).where(eq(labStudies.id, id));
+    });
+  }
+
+  async searchLabStudies(query: string): Promise<LabStudy[]> {
+    return withPerformanceLogging('searchLabStudies', async () => {
+      return await db
+        .select()
+        .from(labStudies)
+        .where(
+          or(
+            like(labStudies.name, `%${query}%`),
+            like(labStudies.category, `%${query}%`),
+            like(labStudies.description, `%${query}%`)
+          )
+        )
+        .orderBy(labStudies.category, labStudies.name);
+    });
+  }
+
+  // Laboratory Parameter methods implementation
+  async getLabParameters(studyId?: string): Promise<LabParameter[]> {
+    return withPerformanceLogging('getLabParameters', async () => {
+      const conditions = studyId ? [eq(labParameters.studyId, studyId)] : [];
+      return await db
+        .select()
+        .from(labParameters)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(labParameters.sortOrder, labParameters.name);
+    });
+  }
+
+  async getLabParameter(id: string): Promise<LabParameter | undefined> {
+    return withPerformanceLogging('getLabParameter', async () => {
+      const [parameter] = await db.select().from(labParameters).where(eq(labParameters.id, id));
+      return parameter || undefined;
+    });
+  }
+
+  async createLabParameter(parameter: InsertLabParameter): Promise<LabParameter> {
+    return withPerformanceLogging('createLabParameter', async () => {
+      const [newParameter] = await db
+        .insert(labParameters)
+        .values(parameter)
+        .returning();
+      return newParameter;
+    });
+  }
+
+  async updateLabParameter(id: string, parameter: Partial<InsertLabParameter>): Promise<LabParameter> {
+    return withPerformanceLogging('updateLabParameter', async () => {
+      const [updated] = await db
+        .update(labParameters)
+        .set({ ...parameter, updatedAt: new Date() })
+        .where(eq(labParameters.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async deleteLabParameter(id: string): Promise<void> {
+    return withPerformanceLogging('deleteLabParameter', async () => {
+      await db.delete(labParameters).where(eq(labParameters.id, id));
+    });
+  }
+
+  // Reference Range methods implementation
+  async getReferenceRanges(parameterId?: string, species?: string): Promise<ReferenceRange[]> {
+    return withPerformanceLogging('getReferenceRanges', async () => {
+      const conditions = [];
+      if (parameterId) conditions.push(eq(referenceRanges.parameterId, parameterId));
+      if (species) conditions.push(eq(referenceRanges.species, species));
+      
+      return await db
+        .select()
+        .from(referenceRanges)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(referenceRanges.species, referenceRanges.breed);
+    });
+  }
+
+  async getReferenceRange(id: string): Promise<ReferenceRange | undefined> {
+    return withPerformanceLogging('getReferenceRange', async () => {
+      const [range] = await db.select().from(referenceRanges).where(eq(referenceRanges.id, id));
+      return range || undefined;
+    });
+  }
+
+  async createReferenceRange(range: InsertReferenceRange): Promise<ReferenceRange> {
+    return withPerformanceLogging('createReferenceRange', async () => {
+      const [newRange] = await db
+        .insert(referenceRanges)
+        .values(range)
+        .returning();
+      return newRange;
+    });
+  }
+
+  async updateReferenceRange(id: string, range: Partial<InsertReferenceRange>): Promise<ReferenceRange> {
+    return withPerformanceLogging('updateReferenceRange', async () => {
+      const [updated] = await db
+        .update(referenceRanges)
+        .set({ ...range, updatedAt: new Date() })
+        .where(eq(referenceRanges.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async deleteReferenceRange(id: string): Promise<void> {
+    return withPerformanceLogging('deleteReferenceRange', async () => {
+      await db.delete(referenceRanges).where(eq(referenceRanges.id, id));
+    });
+  }
+
+  async getApplicableReferenceRange(parameterId: string, species: string, breed?: string, age?: number, sex?: string): Promise<ReferenceRange | undefined> {
+    return withPerformanceLogging('getApplicableReferenceRange', async () => {
+      const conds: (SQL<unknown> | undefined)[] = [
+        eq(referenceRanges.parameterId, parameterId),
+        eq(referenceRanges.species, species),
+        eq(referenceRanges.isActive, true),
+        sex ? or(isNull(referenceRanges.gender), eq(referenceRanges.gender, sex)) : undefined,
+        breed ? or(isNull(referenceRanges.breed), eq(referenceRanges.breed, breed)) : undefined,
+        age !== undefined ? or(isNull(referenceRanges.ageMin), lte(referenceRanges.ageMin, age)) : undefined,
+        age !== undefined ? or(isNull(referenceRanges.ageMax), gte(referenceRanges.ageMax, age)) : undefined,
+      ];
+      const where = and(...conds.filter((c): c is SQL<unknown> => c !== undefined));
+      
+      const [range] = await db
+        .select()
+        .from(referenceRanges)
+        .where(where)
+        .orderBy(
+          sql`CASE WHEN ${referenceRanges.breed} IS NOT NULL THEN 0 ELSE 1 END`,
+          sql`CASE WHEN ${referenceRanges.gender} IS NOT NULL THEN 0 ELSE 1 END`
+        )
+        .limit(1);
+        
+      return range || undefined;
+    });
+  }
+
+  // Laboratory Order methods implementation
+  async getLabOrders(patientId?: string, status?: string): Promise<LabOrder[]> {
+    return withPerformanceLogging('getLabOrders', async () => {
+      const conditions = [];
+      if (patientId) conditions.push(eq(labOrders.patientId, patientId));
+      if (status) conditions.push(eq(labOrders.status, status));
+      
+      return await db
+        .select()
+        .from(labOrders)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(desc(labOrders.orderedDate));
+    });
+  }
+
+  async getLabOrder(id: string): Promise<LabOrder | undefined> {
+    return withPerformanceLogging('getLabOrder', async () => {
+      const [order] = await db.select().from(labOrders).where(eq(labOrders.id, id));
+      return order || undefined;
+    });
+  }
+
+  async createLabOrder(order: InsertLabOrder): Promise<LabOrder> {
+    return withPerformanceLogging('createLabOrder', async () => {
+      const [newOrder] = await db
+        .insert(labOrders)
+        .values(order)
+        .returning();
+      return newOrder;
+    });
+  }
+
+  async updateLabOrder(id: string, order: Partial<InsertLabOrder>): Promise<LabOrder> {
+    return withPerformanceLogging('updateLabOrder', async () => {
+      const [updated] = await db
+        .update(labOrders)
+        .set({ ...order, updatedAt: new Date() })
+        .where(eq(labOrders.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async deleteLabOrder(id: string): Promise<void> {
+    return withPerformanceLogging('deleteLabOrder', async () => {
+      await db.delete(labOrders).where(eq(labOrders.id, id));
+    });
+  }
+
+  async getLabOrdersByDoctor(doctorId: string): Promise<LabOrder[]> {
+    return withPerformanceLogging('getLabOrdersByDoctor', async () => {
+      return await db
+        .select()
+        .from(labOrders)
+        .where(eq(labOrders.doctorId, doctorId))
+        .orderBy(desc(labOrders.orderedDate));
+    });
+  }
+
+  async getLabOrdersByAppointment(appointmentId: string): Promise<LabOrder[]> {
+    return withPerformanceLogging('getLabOrdersByAppointment', async () => {
+      return await db
+        .select()
+        .from(labOrders)
+        .where(eq(labOrders.appointmentId, appointmentId))
+        .orderBy(desc(labOrders.orderedDate));
+    });
+  }
+
+  // Laboratory Result Detail methods implementation
+  async getLabResultDetails(orderId: string): Promise<LabResultDetail[]> {
+    return withPerformanceLogging('getLabResultDetails', async () => {
+      return await db
+        .select()
+        .from(labResultDetails)
+        .where(eq(labResultDetails.orderId, orderId))
+        .orderBy(labResultDetails.createdAt);
+    });
+  }
+
+  async getLabResultDetail(id: string): Promise<LabResultDetail | undefined> {
+    return withPerformanceLogging('getLabResultDetail', async () => {
+      const [detail] = await db.select().from(labResultDetails).where(eq(labResultDetails.id, id));
+      return detail || undefined;
+    });
+  }
+
+  async createLabResultDetail(detail: InsertLabResultDetail): Promise<LabResultDetail> {
+    return withPerformanceLogging('createLabResultDetail', async () => {
+      const values: typeof labResultDetails.$inferInsert = {
+        ...detail,
+        numericValue: detail.numericValue === undefined ? null : String(detail.numericValue),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const [newDetail] = await db
+        .insert(labResultDetails)
+        .values(values)
+        .returning();
+      return newDetail;
+    });
+  }
+
+  async updateLabResultDetail(id: string, detail: Partial<InsertLabResultDetail>): Promise<LabResultDetail> {
+    return withPerformanceLogging('updateLabResultDetail', async () => {
+      const patch: Partial<typeof labResultDetails.$inferInsert> = {
+        ...detail,
+        numericValue: detail.numericValue === undefined ? undefined : String(detail.numericValue),
+        updatedAt: new Date(),
+      };
+      
+      const [updated] = await db
+        .update(labResultDetails)
+        .set(patch)
+        .where(eq(labResultDetails.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async deleteLabResultDetail(id: string): Promise<void> {
+    return withPerformanceLogging('deleteLabResultDetail', async () => {
+      await db.delete(labResultDetails).where(eq(labResultDetails.id, id));
+    });
+  }
+
+  async getLabResultsByParameter(parameterId: string): Promise<LabResultDetail[]> {
+    return withPerformanceLogging('getLabResultsByParameter', async () => {
+      return await db
+        .select()
+        .from(labResultDetails)
+        .where(eq(labResultDetails.parameterId, parameterId))
+        .orderBy(desc(labResultDetails.createdAt));
     });
   }
 }
