@@ -22,11 +22,17 @@ interface MedicalRecordFormProps {
 
 export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
   const [open, setOpen] = useState(false)
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>('')
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
-  // Fetch patients and doctors for dropdowns
-  const { data: patients = [] } = useQuery({
+  // Fetch owners, patients and doctors for dropdowns
+  const { data: owners = [] } = useQuery({
+    queryKey: ['/api/owners'],
+    enabled: open
+  })
+
+  const { data: allPatients = [] } = useQuery({
     queryKey: ['/api/patients'],
     enabled: open
   })
@@ -35,6 +41,11 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
     queryKey: ['/api/doctors'],
     enabled: open
   })
+
+  // Filter patients by selected owner
+  const patients = selectedOwnerId 
+    ? (allPatients as any[]).filter((patient: any) => patient.ownerId === selectedOwnerId)
+    : allPatients
 
   const form = useForm<InsertMedicalRecord>({
     resolver: zodResolver(insertMedicalRecordSchema),
@@ -73,9 +84,10 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/medical-records'] })
       toast({
         title: "Успех",
-        description: "Медицинская запись успешно создана"
+        description: "Клинический случай успешно создан"
       })
       form.reset()
+      setSelectedOwnerId('')
       setOpen(false)
     },
     onError: (error: Error) => {
@@ -108,7 +120,7 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Создать медицинскую запись</DialogTitle>
+          <DialogTitle>Создание клинического случая</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -123,20 +135,50 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Owner Selection */}
+                  <div className="md:col-span-2">
+                    <Label className="flex items-center gap-2 mb-2">
+                      <User className="h-4 w-4" />
+                      Владелец *
+                    </Label>
+                    <Select 
+                      value={selectedOwnerId} 
+                      onValueChange={(value) => {
+                        setSelectedOwnerId(value)
+                        // Reset patient selection when owner changes
+                        form.setValue('patientId', '')
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-owner">
+                        <SelectValue placeholder="Выберите владельца" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(owners as any[]).map((owner: any) => (
+                          <SelectItem key={owner.id} value={owner.id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{owner.name}</span>
+                              <span className="text-sm text-muted-foreground">{owner.phone}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <FormField
                     control={form.control}
                     name="patientId"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Пациент *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedOwnerId}>
                           <FormControl>
                             <SelectTrigger data-testid="select-patient">
-                              <SelectValue placeholder="Выберите пациента" />
+                              <SelectValue placeholder={!selectedOwnerId ? "Сначала выберите владельца" : "Выберите пациента"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {patients.map((patient: any) => (
+                            {(patients as any[]).map((patient: any) => (
                               <SelectItem key={patient.id} value={patient.id}>
                                 {patient.name} ({patient.species})
                               </SelectItem>
@@ -385,7 +427,11 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false)
+                  setSelectedOwnerId('')
+                  form.reset()
+                }}
                 data-testid="button-cancel"
               >
                 <X className="h-4 w-4 mr-2" />
@@ -397,7 +443,7 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
                 data-testid="button-save-record"
               >
                 <Save className="h-4 w-4 mr-2" />
-                {createMutation.isPending ? "Сохранение..." : "Сохранить запись"}
+                {createMutation.isPending ? "Создание..." : "Создать случай"}
               </Button>
             </div>
           </form>
