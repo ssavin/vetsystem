@@ -45,6 +45,33 @@ const ensurePatientAccess = async (user: any, patientId: string): Promise<boolea
   return true;
 };
 
+// 🔒🔒🔒 CRITICAL SECURITY: Ensure user has branchId and return 403 if missing
+const requireValidBranchId = (req: any, res: any): string | null => {
+  const user = req.user;
+  if (!user.branchId) {
+    console.error(`🚨 SECURITY ALERT: User ${user.id} attempted PHI access without branchId`);
+    res.status(403).json({ error: 'Access denied: Invalid branch authorization' });
+    return null;
+  }
+  return user.branchId;
+};
+
+// 🔒🔒🔒 CRITICAL SECURITY: Check entity belongs to user's branch
+const ensureEntityBranchAccess = async (entity: any, userBranchId: string, entityType: string, entityId: string): Promise<boolean> => {
+  if (!entity) {
+    return false;
+  }
+  if (!entity.branchId) {
+    console.error(`🚨 SECURITY ALERT: ${entityType} ${entityId} has no branchId - data integrity issue`);
+    return false;
+  }
+  if (entity.branchId !== userBranchId) {
+    console.warn(`🚨 SECURITY ALERT: Cross-branch access attempt to ${entityType} ${entityId}`);
+    return false;
+  }
+  return true;
+};
+
 // 🔒🔒🔒 SERVER-SIDE FILE SIGNATURE VALIDATION - SECURITY CRITICAL 🔒🔒🔒
 const validateFileTypeServer = async (filePath: string): Promise<{ valid: boolean; detectedMime?: string }> => {
   try {
@@ -155,7 +182,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // OWNER ROUTES - Protected PHI data
   app.get("/api/owners", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
-      const owners = await storage.getOwners();
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      const owners = await storage.getOwners(userBranchId);
       res.json(owners);
     } catch (error) {
       console.error("Error fetching owners:", error);
@@ -165,10 +196,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/owners/:id", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
       const owner = await storage.getOwner(req.params.id);
       if (!owner) {
         return res.status(404).json({ error: "Owner not found" });
       }
+      
+      // 🔒 SECURITY: Enforce branch isolation for PHI data
+      if (!await ensureEntityBranchAccess(owner, userBranchId, 'owner', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Owner not found' });
+      }
+      
       res.json(owner);
     } catch (error) {
       console.error("Error fetching owner:", error);
@@ -178,7 +219,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/owners", authenticateToken, requireModuleAccess('owners'), validateBody(insertOwnerSchema), async (req, res) => {
     try {
-      const owner = await storage.createOwner(req.body);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Force branchId from user token, ignore any branchId in body
+      const ownerData = { ...req.body, branchId: userBranchId };
+      const owner = await storage.createOwner(ownerData);
       res.status(201).json(owner);
     } catch (error) {
       console.error("Error creating owner:", error);
@@ -188,7 +235,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/owners/:id", authenticateToken, requireModuleAccess('owners'), validateBody(insertOwnerSchema.partial()), async (req, res) => {
     try {
-      const owner = await storage.updateOwner(req.params.id, req.body);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Check existing owner belongs to user's branch first
+      const existingOwner = await storage.getOwner(req.params.id);
+      if (!existingOwner) {
+        return res.status(404).json({ error: "Owner not found" });
+      }
+      if (!await ensureEntityBranchAccess(existingOwner, userBranchId, 'owner', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Owner not found' });
+      }
+      
+      // 🔒 SECURITY: Remove branchId from update body - cannot be changed
+      const updateData = { ...req.body };
+      delete updateData.branchId;
+      
+      const owner = await storage.updateOwner(req.params.id, updateData);
       res.json(owner);
     } catch (error) {
       console.error("Error updating owner:", error);
@@ -198,6 +262,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/owners/:id", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Check existing owner belongs to user's branch before deletion
+      const existingOwner = await storage.getOwner(req.params.id);
+      if (!existingOwner) {
+        return res.status(404).json({ error: "Owner not found" });
+      }
+      if (!await ensureEntityBranchAccess(existingOwner, userBranchId, 'owner', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Owner not found' });
+      }
+      
       await storage.deleteOwner(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -208,7 +285,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/owners/search/:query", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
-      const owners = await storage.searchOwners(req.params.query);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      const owners = await storage.searchOwners(req.params.query, userBranchId);
       res.json(owners);
     } catch (error) {
       console.error("Error searching owners:", error);
@@ -219,9 +300,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PATIENT ROUTES - Protected PHI data
   app.get("/api/patients", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
-      const patients = await storage.getPatients(limit, offset);
+      // 🔒 SECURITY: Pass branchId to enforce branch isolation
+      const patients = await storage.getPatients(limit, offset, userBranchId);
       res.json(patients);
     } catch (error) {
       console.error("Error fetching patients:", error);
@@ -231,10 +317,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/patients/:id", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
       const patient = await storage.getPatient(req.params.id);
       if (!patient) {
         return res.status(404).json({ error: "Patient not found" });
       }
+      
+      // 🔒 SECURITY: Enforce branch isolation for PHI data  
+      if (!await ensureEntityBranchAccess(patient, userBranchId, 'patient', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
       res.json(patient);
     } catch (error) {
       console.error("Error fetching patient:", error);
@@ -244,7 +340,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/patients/owner/:ownerId", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
-      const patients = await storage.getPatientsByOwner(req.params.ownerId);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: First check if owner belongs to user's branch
+      const owner = await storage.getOwner(req.params.ownerId);
+      if (!owner) {
+        return res.status(404).json({ error: "Owner not found" });
+      }
+      if (!await ensureEntityBranchAccess(owner, userBranchId, 'owner', req.params.ownerId)) {
+        return res.status(403).json({ error: 'Access denied: Owner not found' });
+      }
+      
+      // 🔒 SECURITY: Pass branchId to ensure only branch patients are returned
+      const patients = await storage.getPatientsByOwner(req.params.ownerId, userBranchId);
       res.json(patients);
     } catch (error) {
       console.error("Error fetching patients by owner:", error);
@@ -254,7 +364,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/patients", authenticateToken, requireModuleAccess('patients'), validateBody(insertPatientSchema), async (req, res) => {
     try {
-      const patient = await storage.createPatient(req.body);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Force branchId from user token, ignore any branchId in body
+      const patientData = { ...req.body, branchId: userBranchId };
+      const patient = await storage.createPatient(patientData);
       res.status(201).json(patient);
     } catch (error) {
       console.error("Error creating patient:", error);
@@ -264,7 +380,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/patients/:id", authenticateToken, requireModuleAccess('patients'), validateBody(insertPatientSchema.partial()), async (req, res) => {
     try {
-      const patient = await storage.updatePatient(req.params.id, req.body);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Check existing patient belongs to user's branch first
+      const existingPatient = await storage.getPatient(req.params.id);
+      if (!existingPatient) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+      if (!await ensureEntityBranchAccess(existingPatient, userBranchId, 'patient', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
+      // 🔒 SECURITY: Remove branchId from update body - cannot be changed
+      const updateData = { ...req.body };
+      delete updateData.branchId;
+      
+      const patient = await storage.updatePatient(req.params.id, updateData);
       res.json(patient);
     } catch (error) {
       console.error("Error updating patient:", error);
@@ -274,6 +407,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/patients/:id", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Check existing patient belongs to user's branch before deletion
+      const existingPatient = await storage.getPatient(req.params.id);
+      if (!existingPatient) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+      if (!await ensureEntityBranchAccess(existingPatient, userBranchId, 'patient', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
       await storage.deletePatient(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -284,7 +430,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/patients/search/:query", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
-      const patients = await storage.searchPatients(req.params.query);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Pass branchId to enforce branch isolation
+      const patients = await storage.searchPatients(req.params.query, userBranchId);
       res.json(patients);
     } catch (error) {
       console.error("Error searching patients:", error);
@@ -295,7 +446,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // DOCTOR ROUTES - Protected PHI data
   app.get("/api/doctors", authenticateToken, requireModuleAccess('doctors'), async (req, res) => {
     try {
-      const doctors = await storage.getDoctors();
+      const user = (req as any).user;
+      const doctors = await storage.getDoctors(user.branchId);
       res.json(doctors);
     } catch (error) {
       console.error("Error fetching doctors:", error);
@@ -305,7 +457,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/doctors/active", authenticateToken, requireModuleAccess('doctors'), async (req, res) => {
     try {
-      const doctors = await storage.getActiveDoctors();
+      const user = (req as any).user;
+      const doctors = await storage.getActiveDoctors(user.branchId);
       res.json(doctors);
     } catch (error) {
       console.error("Error fetching active doctors:", error);
@@ -315,10 +468,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/doctors/:id", authenticateToken, requireModuleAccess('doctors'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
       const doctor = await storage.getDoctor(req.params.id);
       if (!doctor) {
         return res.status(404).json({ error: "Doctor not found" });
       }
+      
+      // 🔒 SECURITY: Enforce branch isolation for PHI data
+      if (!await ensureEntityBranchAccess(doctor, userBranchId, 'doctor', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Doctor not found' });
+      }
+      
       res.json(doctor);
     } catch (error) {
       console.error("Error fetching doctor:", error);
@@ -328,7 +491,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/doctors", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertDoctorSchema), async (req, res) => {
     try {
-      const doctor = await storage.createDoctor(req.body);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Force branchId from user token, ignore any branchId in body
+      const doctorData = { ...req.body, branchId: userBranchId };
+      const doctor = await storage.createDoctor(doctorData);
       res.status(201).json(doctor);
     } catch (error) {
       console.error("Error creating doctor:", error);
@@ -338,7 +507,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/doctors/:id", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertDoctorSchema.partial()), async (req, res) => {
     try {
-      const doctor = await storage.updateDoctor(req.params.id, req.body);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Check existing doctor belongs to user's branch first
+      const existingDoctor = await storage.getDoctor(req.params.id);
+      if (!existingDoctor) {
+        return res.status(404).json({ error: "Doctor not found" });
+      }
+      if (!await ensureEntityBranchAccess(existingDoctor, userBranchId, 'doctor', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Doctor not found' });
+      }
+      
+      // 🔒 SECURITY: Remove branchId from update body - cannot be changed
+      const updateData = { ...req.body };
+      delete updateData.branchId;
+      
+      const doctor = await storage.updateDoctor(req.params.id, updateData);
       res.json(doctor);
     } catch (error) {
       console.error("Error updating doctor:", error);
@@ -348,6 +534,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/doctors/:id", authenticateToken, requireRole('руководитель'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Check existing doctor belongs to user's branch before deletion
+      const existingDoctor = await storage.getDoctor(req.params.id);
+      if (!existingDoctor) {
+        return res.status(404).json({ error: "Doctor not found" });
+      }
+      if (!await ensureEntityBranchAccess(existingDoctor, userBranchId, 'doctor', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Doctor not found' });
+      }
+      
       await storage.deleteDoctor(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -359,8 +558,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // APPOINTMENT ROUTES - Protected PHI data
   app.get("/api/appointments", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
       const date = req.query.date ? new Date(req.query.date as string) : undefined;
-      const appointments = await storage.getAppointments(date);
+      // 🔒 SECURITY: Pass branchId to enforce branch isolation
+      const appointments = await storage.getAppointments(date, userBranchId);
       res.json(appointments);
     } catch (error) {
       console.error("Error fetching appointments:", error);
@@ -370,10 +574,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/appointments/:id", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
       const appointment = await storage.getAppointment(req.params.id);
       if (!appointment) {
         return res.status(404).json({ error: "Appointment not found" });
       }
+      
+      // 🔒 SECURITY: Verify appointment patient belongs to user's branch
+      if (!await ensurePatientAccess(user, appointment.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Appointment not found' });
+      }
+      
       res.json(appointment);
     } catch (error) {
       console.error("Error fetching appointment:", error);
@@ -383,8 +597,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/appointments/doctor/:doctorId", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Check doctor belongs to user's branch first
+      const doctor = await storage.getDoctor(req.params.doctorId);
+      if (!doctor) {
+        return res.status(404).json({ error: "Doctor not found" });
+      }
+      if (!await ensureEntityBranchAccess(doctor, userBranchId, 'doctor', req.params.doctorId)) {
+        return res.status(403).json({ error: 'Access denied: Doctor not found' });
+      }
+      
       const date = req.query.date ? new Date(req.query.date as string) : undefined;
-      const appointments = await storage.getAppointmentsByDoctor(req.params.doctorId, date);
+      // 🔒 SECURITY: Pass branchId to ensure only branch appointments are returned
+      const appointments = await storage.getAppointmentsByDoctor(req.params.doctorId, date, userBranchId);
       res.json(appointments);
     } catch (error) {
       console.error("Error fetching appointments by doctor:", error);
@@ -394,6 +622,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/appointments/patient/:patientId", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      // 🔒 SECURITY: Check patient access first
+      if (!await ensurePatientAccess(user, req.params.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
       const appointments = await storage.getAppointmentsByPatient(req.params.patientId);
       res.json(appointments);
     } catch (error) {
@@ -404,6 +638,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/appointments", authenticateToken, requireModuleAccess('appointments'), validateBody(insertAppointmentSchema), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Verify patient belongs to user's branch
+      if (!await ensurePatientAccess(user, req.body.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
+      // 🔒 SECURITY: Verify doctor belongs to user's branch
+      const doctor = await storage.getDoctor(req.body.doctorId);
+      if (!doctor || !await ensureEntityBranchAccess(doctor, userBranchId, 'doctor', req.body.doctorId)) {
+        return res.status(403).json({ error: 'Access denied: Doctor not found' });
+      }
+      
       // Check for appointment conflicts
       const hasConflict = await storage.checkAppointmentConflicts(
         req.body.doctorId,
@@ -425,13 +674,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/appointments/:id", authenticateToken, requireModuleAccess('appointments'), validateBody(insertAppointmentSchema.partial()), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Check existing appointment access first
+      const current = await storage.getAppointment(req.params.id);
+      if (!current) {
+        return res.status(404).json({ error: "Appointment not found" });
+      }
+      if (!await ensurePatientAccess(user, current.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Appointment not found' });
+      }
+      
+      // 🔒 SECURITY: If changing patient/doctor, verify new ones belong to branch
+      if (req.body.patientId && !await ensurePatientAccess(user, req.body.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      if (req.body.doctorId) {
+        const doctor = await storage.getDoctor(req.body.doctorId);
+        if (!doctor || !await ensureEntityBranchAccess(doctor, userBranchId, 'doctor', req.body.doctorId)) {
+          return res.status(403).json({ error: 'Access denied: Doctor not found' });
+        }
+      }
+      
       // Check for appointment conflicts if date/time/doctor is being changed
       if (req.body.doctorId || req.body.appointmentDate || req.body.duration) {
-        const current = await storage.getAppointment(req.params.id);
-        if (!current) {
-          return res.status(404).json({ error: "Appointment not found" });
-        }
-
         const doctorId = req.body.doctorId || current.doctorId;
         const appointmentDate = req.body.appointmentDate ? new Date(req.body.appointmentDate) : current.appointmentDate;
         const duration = req.body.duration || current.duration;
@@ -458,6 +726,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/appointments/:id", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      // 🔒 SECURITY: Check appointment access before deletion
+      const existingAppointment = await storage.getAppointment(req.params.id);
+      if (!existingAppointment) {
+        return res.status(404).json({ error: "Appointment not found" });
+      }
+      if (!await ensurePatientAccess(user, existingAppointment.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Appointment not found' });
+      }
+      
       await storage.deleteAppointment(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -469,8 +747,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // MEDICAL RECORDS ROUTES - Protected PHI data
   app.get("/api/medical-records", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
       const patientId = req.query.patientId as string | undefined;
-      const records = await storage.getMedicalRecords(patientId);
+      // 🔒 SECURITY: If patientId specified, verify access first
+      if (patientId && !await ensurePatientAccess(user, patientId)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
+      // 🔒 SECURITY: Pass branchId to enforce branch isolation
+      const records = await storage.getMedicalRecords(patientId, userBranchId);
       res.json(records);
     } catch (error) {
       console.error("Error fetching medical records:", error);
@@ -480,10 +768,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/medical-records/:id", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      
       const record = await storage.getMedicalRecord(req.params.id);
       if (!record) {
         return res.status(404).json({ error: "Medical record not found" });
       }
+      
+      // 🔒 SECURITY: Verify patient access for this medical record
+      if (!await ensurePatientAccess(user, record.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Medical record not found' });
+      }
+      
       res.json(record);
     } catch (error) {
       console.error("Error fetching medical record:", error);
@@ -493,6 +789,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/medical-records", authenticateToken, requireModuleAccess('medical_records'), validateBody(insertMedicalRecordSchema), async (req, res) => {
     try {
+      const user = (req as any).user;
+      // 🔒 SECURITY: Verify patient belongs to user's branch
+      if (!await ensurePatientAccess(user, req.body.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
+      // 🔒 SECURITY: If doctorId specified, verify doctor belongs to branch
+      if (req.body.doctorId) {
+        const userBranchId = requireValidBranchId(req, res);
+        if (!userBranchId) return; // 403 already sent
+        
+        const doctor = await storage.getDoctor(req.body.doctorId);
+        if (!doctor || !await ensureEntityBranchAccess(doctor, userBranchId, 'doctor', req.body.doctorId)) {
+          return res.status(403).json({ error: 'Access denied: Doctor not found' });
+        }
+      }
+      
       const record = await storage.createMedicalRecord(req.body);
       res.status(201).json(record);
     } catch (error) {
@@ -503,6 +816,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/medical-records/:id", authenticateToken, requireModuleAccess('medical_records'), validateBody(insertMedicalRecordSchema.partial()), async (req, res) => {
     try {
+      const user = (req as any).user;
+      
+      // 🔒 SECURITY: Check existing record access first
+      const existingRecord = await storage.getMedicalRecord(req.params.id);
+      if (!existingRecord) {
+        return res.status(404).json({ error: "Medical record not found" });
+      }
+      if (!await ensurePatientAccess(user, existingRecord.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Medical record not found' });
+      }
+      
+      // 🔒 SECURITY: If changing patient/doctor, verify new ones belong to branch
+      if (req.body.patientId && !await ensurePatientAccess(user, req.body.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      if (req.body.doctorId) {
+        const userBranchId = requireValidBranchId(req, res);
+        if (!userBranchId) return; // 403 already sent
+        
+        const doctor = await storage.getDoctor(req.body.doctorId);
+        if (!doctor || !await ensureEntityBranchAccess(doctor, userBranchId, 'doctor', req.body.doctorId)) {
+          return res.status(403).json({ error: 'Access denied: Doctor not found' });
+        }
+      }
+      
       const record = await storage.updateMedicalRecord(req.params.id, req.body);
       res.json(record);
     } catch (error) {
@@ -513,6 +851,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/medical-records/:id", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
     try {
+      const user = (req as any).user;
+      
+      // 🔒 SECURITY: Check record access before deletion
+      const existingRecord = await storage.getMedicalRecord(req.params.id);
+      if (!existingRecord) {
+        return res.status(404).json({ error: "Medical record not found" });
+      }
+      if (!await ensurePatientAccess(user, existingRecord.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Medical record not found' });
+      }
+      
       await storage.deleteMedicalRecord(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -1291,14 +1640,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { patientId } = req.params;
       const { fileType } = req.query;
       
+      const user = (req as any).user;
       // 🔒 SECURITY FIX APPLIED: Enforce patient-level access control before listing files
-      console.log(`🔒 SECURITY: Validating file list access for user ${req.user.id} -> patient ${patientId}`);
-      const hasPatientAccess = await ensurePatientAccess(req.user, patientId);
+      console.log(`🔒 SECURITY: Validating file list access for user ${user.id} -> patient ${patientId}`);
+      const hasPatientAccess = await ensurePatientAccess(user, patientId);
       if (!hasPatientAccess) {
-        console.warn(`🚨 SECURITY BLOCKED: User ${req.user.id} denied file list access to patient ${patientId}`);
+        console.warn(`🚨 SECURITY BLOCKED: User ${user.id} denied file list access to patient ${patientId}`);
         return res.status(403).json({ error: "Нет доступа к этому пациенту" });
       }
-      console.log(`✅ SECURITY: File list access validated for user ${req.user.id}`);
+      console.log(`✅ SECURITY: File list access validated for user ${user.id}`);
       
       const files = await storage.getPatientFiles(patientId, fileType as string);
       res.json(files);
@@ -1318,14 +1668,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Файл не найден" });
       }
 
+      const user = (req as any).user;
       // 🔒 SECURITY FIX APPLIED: Check patient access authorization via file's owning patient
-      console.log(`🔒 SECURITY: Validating file download access for user ${req.user.id} -> file ${fileId} (patient ${fileRecord.patientId})`);
-      const hasPatientAccess = await ensurePatientAccess(req.user, fileRecord.patientId);
+      console.log(`🔒 SECURITY: Validating file download access for user ${user.id} -> file ${fileId} (patient ${fileRecord.patientId})`);
+      const hasPatientAccess = await ensurePatientAccess(user, fileRecord.patientId);
       if (!hasPatientAccess) {
-        console.warn(`🚨 SECURITY BLOCKED: User ${req.user.id} denied download access to file ${fileId} from patient ${fileRecord.patientId}`);
+        console.warn(`🚨 SECURITY BLOCKED: User ${user.id} denied download access to file ${fileId} from patient ${fileRecord.patientId}`);
         return res.status(403).json({ error: "Нет доступа к файлам этого пациента" });
       }
-      console.log(`✅ SECURITY: File download access validated for user ${req.user.id}`);
+      console.log(`✅ SECURITY: File download access validated for user ${user.id}`);
 
       // Check if file exists on disk
       try {
@@ -1354,14 +1705,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Файл не найден" });
       }
 
+      const user = (req as any).user;
       // 🔒 SECURITY FIX APPLIED: Check patient access authorization via file's owning patient  
-      console.log(`🔒 SECURITY: Validating file deletion access for user ${req.user.id} -> file ${fileId} (patient ${fileRecord.patientId})`);
-      const hasPatientAccess = await ensurePatientAccess(req.user, fileRecord.patientId);
+      console.log(`🔒 SECURITY: Validating file deletion access for user ${user.id} -> file ${fileId} (patient ${fileRecord.patientId})`);
+      const hasPatientAccess = await ensurePatientAccess(user, fileRecord.patientId);
       if (!hasPatientAccess) {
-        console.warn(`🚨 SECURITY BLOCKED: User ${req.user.id} denied deletion access to file ${fileId} from patient ${fileRecord.patientId}`);
+        console.warn(`🚨 SECURITY BLOCKED: User ${user.id} denied deletion access to file ${fileId} from patient ${fileRecord.patientId}`);
         return res.status(403).json({ error: "Нет доступа к файлам этого пациента" });
       }
-      console.log(`✅ SECURITY: File deletion access validated for user ${req.user.id}`);
+      console.log(`✅ SECURITY: File deletion access validated for user ${user.id}`);
 
       // Delete from database first
       await storage.deletePatientFile(fileId);
@@ -1662,9 +2014,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orderId = req.query.orderId as string | undefined;
       const parameterId = req.query.parameterId as string | undefined;
-      const details = orderId 
-        ? await storage.getLabResultDetails(orderId)
-        : await storage.getLabResultDetails();
+      
+      if (!orderId) {
+        return res.status(400).json({ error: "orderId is required" });
+      }
+      
+      const details = await storage.getLabResultDetails(orderId);
       res.json(details);
     } catch (error) {
       console.error("Error fetching lab result details:", error);

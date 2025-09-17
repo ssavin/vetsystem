@@ -109,6 +109,7 @@ export const owners = pgTable("owners", {
   phone: varchar("phone", { length: 50 }).notNull(),
   email: varchar("email", { length: 255 }),
   address: text("address"),
+  branchId: varchar("branch_id").references(() => branches.id), // Temporarily nullable for migration
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -116,6 +117,7 @@ export const owners = pgTable("owners", {
     nameIdx: index("owners_name_idx").on(table.name),
     phoneIdx: index("owners_phone_idx").on(table.phone),
     emailIdx: index("owners_email_idx").on(table.email),
+    branchIdIdx: index("owners_branch_id_idx").on(table.branchId),
     createdAtIdx: index("owners_created_at_idx").on(table.createdAt),
   };
 });
@@ -164,6 +166,7 @@ export const doctors = pgTable("doctors", {
   phone: varchar("phone", { length: 50 }),
   email: varchar("email", { length: 255 }),
   isActive: boolean("is_active").default(true),
+  branchId: varchar("branch_id").references(() => branches.id), // Temporarily nullable for migration
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -171,6 +174,7 @@ export const doctors = pgTable("doctors", {
     nameIdx: index("doctors_name_idx").on(table.name),
     activeIdx: index("doctors_active_idx").on(table.isActive),
     specializationIdx: index("doctors_specialization_idx").on(table.specialization),
+    branchIdIdx: index("doctors_branch_id_idx").on(table.branchId),
     createdAtIdx: index("doctors_created_at_idx").on(table.createdAt),
   };
 });

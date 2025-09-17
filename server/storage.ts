@@ -77,43 +77,43 @@ export interface IStorage {
   canUserAccessBranch(userId: string, branchId: string): Promise<boolean>;
   getUserAccessibleBranches(userId: string): Promise<Branch[]>;
 
-  // Owner methods
-  getOwners(): Promise<Owner[]>;
+  // Owner methods - 🔒 SECURITY: branchId required for PHI isolation
+  getOwners(branchId: string): Promise<Owner[]>;
   getOwner(id: string): Promise<Owner | undefined>;
   createOwner(owner: InsertOwner): Promise<Owner>;
   updateOwner(id: string, owner: Partial<InsertOwner>): Promise<Owner>;
   deleteOwner(id: string): Promise<void>;
-  searchOwners(query: string): Promise<Owner[]>;
+  searchOwners(query: string, branchId: string): Promise<Owner[]>;
 
-  // Patient methods
-  getPatients(limit?: number, offset?: number): Promise<Patient[]>;
+  // Patient methods - 🔒 SECURITY: branchId required for PHI isolation
+  getPatients(limit: number | undefined, offset: number | undefined, branchId: string): Promise<Patient[]>;
   getPatient(id: string): Promise<Patient | undefined>;
-  getPatientsByOwner(ownerId: string): Promise<Patient[]>;
+  getPatientsByOwner(ownerId: string, branchId: string): Promise<Patient[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
   updatePatient(id: string, patient: Partial<InsertPatient>): Promise<Patient>;
   deletePatient(id: string): Promise<void>;
-  searchPatients(query: string): Promise<Patient[]>;
+  searchPatients(query: string, branchId: string): Promise<Patient[]>;
 
-  // Doctor methods
-  getDoctors(): Promise<Doctor[]>;
+  // Doctor methods - 🔒 SECURITY: branchId required for PHI isolation
+  getDoctors(branchId: string): Promise<Doctor[]>;
   getDoctor(id: string): Promise<Doctor | undefined>;
   createDoctor(doctor: InsertDoctor): Promise<Doctor>;
   updateDoctor(id: string, doctor: Partial<InsertDoctor>): Promise<Doctor>;
   deleteDoctor(id: string): Promise<void>;
-  getActiveDoctors(): Promise<Doctor[]>;
+  getActiveDoctors(branchId: string): Promise<Doctor[]>;
 
-  // Appointment methods
-  getAppointments(date?: Date): Promise<Appointment[]>;
+  // Appointment methods - 🔒 SECURITY: branchId required for PHI isolation
+  getAppointments(date: Date | undefined, branchId: string): Promise<Appointment[]>;
   getAppointment(id: string): Promise<Appointment | undefined>;
-  getAppointmentsByDoctor(doctorId: string, date?: Date): Promise<Appointment[]>;
-  getAppointmentsByPatient(patientId: string): Promise<Appointment[]>;
+  getAppointmentsByDoctor(doctorId: string, date: Date | undefined, branchId: string): Promise<Appointment[]>;
+  getAppointmentsByPatient(patientId: string, branchId: string): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointment(id: string, appointment: Partial<InsertAppointment>): Promise<Appointment>;
   deleteAppointment(id: string): Promise<void>;
   checkAppointmentConflicts(doctorId: string, date: Date, duration: number, excludeId?: string): Promise<boolean>;
 
-  // Medical Record methods
-  getMedicalRecords(patientId?: string): Promise<MedicalRecord[]>;
+  // Medical Record methods - 🔒 SECURITY: branchId required for PHI isolation
+  getMedicalRecords(patientId: string | undefined, branchId: string): Promise<MedicalRecord[]>;
   getMedicalRecord(id: string): Promise<MedicalRecord | undefined>;
   createMedicalRecord(record: InsertMedicalRecord): Promise<MedicalRecord>;
   updateMedicalRecord(id: string, record: Partial<InsertMedicalRecord>): Promise<MedicalRecord>;
@@ -143,17 +143,17 @@ export interface IStorage {
   getLowStockProducts(): Promise<Product[]>;
   updateProductStock(id: string, quantity: number): Promise<Product>;
 
-  // Invoice methods
-  getInvoices(status?: string): Promise<Invoice[]>;
+  // Invoice methods - 🔒 SECURITY: branchId required for PHI isolation
+  getInvoices(status: string | undefined, branchId: string): Promise<Invoice[]>;
   getInvoice(id: string): Promise<Invoice | undefined>;
-  getInvoicesByPatient(patientId: string): Promise<Invoice[]>;
+  getInvoicesByPatient(patientId: string, branchId: string): Promise<Invoice[]>;
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
   updateInvoice(id: string, invoice: Partial<InsertInvoice>): Promise<Invoice>;
   deleteInvoice(id: string): Promise<void>;
   getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]>;
   createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem>;
   deleteInvoiceItem(id: string): Promise<void>;
-  getOverdueInvoices(): Promise<Invoice[]>;
+  getOverdueInvoices(branchId: string): Promise<Invoice[]>;
   getDashboardStats(): Promise<{
     totalPatients: number;
     todayAppointments: number;
@@ -192,14 +192,14 @@ export interface IStorage {
   deleteReferenceRange(id: string): Promise<void>;
   getApplicableReferenceRange(parameterId: string, species: string, breed?: string, age?: number, sex?: string): Promise<ReferenceRange | undefined>;
 
-  // Laboratory Order methods
-  getLabOrders(patientId?: string, status?: string): Promise<LabOrder[]>;
+  // Laboratory Order methods - 🔒 SECURITY: branchId required for PHI isolation
+  getLabOrders(patientId: string | undefined, status: string | undefined, branchId: string): Promise<LabOrder[]>;
   getLabOrder(id: string): Promise<LabOrder | undefined>;
   createLabOrder(order: InsertLabOrder): Promise<LabOrder>;
   updateLabOrder(id: string, order: Partial<InsertLabOrder>): Promise<LabOrder>;
   deleteLabOrder(id: string): Promise<void>;
-  getLabOrdersByDoctor(doctorId: string): Promise<LabOrder[]>;
-  getLabOrdersByAppointment(appointmentId: string): Promise<LabOrder[]>;
+  getLabOrdersByDoctor(doctorId: string, branchId: string): Promise<LabOrder[]>;
+  getLabOrdersByAppointment(appointmentId: string, branchId: string): Promise<LabOrder[]>;
 
   // Laboratory Result Detail methods
   getLabResultDetails(orderId: string): Promise<LabResultDetail[]>;
@@ -280,9 +280,13 @@ export class DatabaseStorage implements IStorage {
     await db.delete(users).where(eq(users.id, id));
   }
 
-  // Owner methods
-  async getOwners(): Promise<Owner[]> {
-    return await db.select().from(owners).orderBy(desc(owners.createdAt));
+  // Owner methods - 🔒 SECURITY: branchId mandatory for PHI isolation
+  async getOwners(branchId: string): Promise<Owner[]> {
+    return withPerformanceLogging('getOwners', async () => {
+      return await db.select().from(owners)
+        .where(eq(owners.branchId, branchId))
+        .orderBy(desc(owners.createdAt));
+    });
   }
 
   async getOwner(id: string): Promise<Owner | undefined> {
@@ -311,30 +315,33 @@ export class DatabaseStorage implements IStorage {
     await db.delete(owners).where(eq(owners.id, id));
   }
 
-  async searchOwners(query: string): Promise<Owner[]> {
-    const searchQuery = `%${query}%`;
-    return await db
-      .select()
-      .from(owners)
-      .where(
-        or(
-          like(owners.name, searchQuery),
-          like(owners.phone, searchQuery),
-          like(owners.email, searchQuery)
-        )
-      )
-      .orderBy(desc(owners.createdAt));
+  async searchOwners(query: string, branchId: string): Promise<Owner[]> {
+    return withPerformanceLogging('searchOwners', async () => {
+      const searchQuery = `%${query}%`;
+      const searchConditions = or(
+        like(owners.name, searchQuery),
+        like(owners.phone, searchQuery),
+        like(owners.email, searchQuery)
+      );
+      
+      return await db
+        .select()
+        .from(owners)
+        .where(and(searchConditions, eq(owners.branchId, branchId)))
+        .orderBy(desc(owners.createdAt));
+    });
   }
 
-  // Patient methods
-  async getPatients(limit = 50, offset = 0): Promise<Patient[]> {
+  // Patient methods - 🔒 SECURITY: branchId mandatory for PHI isolation
+  async getPatients(limit: number | undefined = 50, offset: number | undefined = 0, branchId: string): Promise<Patient[]> {
     return withPerformanceLogging('getPatients', async () =>
       await db
         .select()
         .from(patients)
+        .where(eq(patients.branchId, branchId))
         .orderBy(desc(patients.createdAt))
-        .limit(limit)
-        .offset(offset)
+        .limit(limit || 50)
+        .offset(offset || 0)
     );
   }
 
@@ -343,8 +350,12 @@ export class DatabaseStorage implements IStorage {
     return patient || undefined;
   }
 
-  async getPatientsByOwner(ownerId: string): Promise<Patient[]> {
-    return await db.select().from(patients).where(eq(patients.ownerId, ownerId));
+  async getPatientsByOwner(ownerId: string, branchId: string): Promise<Patient[]> {
+    // 🔒 CRITICAL: branchId now mandatory for security
+    return await db
+      .select()
+      .from(patients)
+      .where(and(eq(patients.ownerId, ownerId), eq(patients.branchId, branchId)));
   }
 
   async createPatient(patient: InsertPatient): Promise<Patient> {
@@ -377,27 +388,32 @@ export class DatabaseStorage implements IStorage {
     await db.delete(patients).where(eq(patients.id, id));
   }
 
-  async searchPatients(query: string): Promise<Patient[]> {
+  async searchPatients(query: string, branchId: string): Promise<Patient[]> {
     return withPerformanceLogging('searchPatients', async () => {
       const searchQuery = `%${query}%`;
+      const searchConditions = or(
+        like(patients.name, searchQuery),
+        like(patients.species, searchQuery),
+        like(patients.breed, searchQuery),
+        like(patients.microchipNumber, searchQuery)
+      );
+      
+      // 🔒 CRITICAL: branchId now mandatory for security
       return await db
         .select()
         .from(patients)
-        .where(
-          or(
-            like(patients.name, searchQuery),
-            like(patients.species, searchQuery),
-            like(patients.breed, searchQuery),
-            like(patients.microchipNumber, searchQuery)
-          )
-        )
+        .where(and(searchConditions, eq(patients.branchId, branchId)))
         .orderBy(desc(patients.createdAt));
     });
   }
 
-  // Doctor methods
-  async getDoctors(): Promise<Doctor[]> {
-    return await db.select().from(doctors).orderBy(desc(doctors.createdAt));
+  // Doctor methods - 🔒 SECURITY: branchId mandatory for PHI isolation
+  async getDoctors(branchId: string): Promise<Doctor[]> {
+    return withPerformanceLogging('getDoctors', async () => {
+      return await db.select().from(doctors)
+        .where(eq(doctors.branchId, branchId))
+        .orderBy(desc(doctors.createdAt));
+    });
   }
 
   async getDoctor(id: string): Promise<Doctor | undefined> {
@@ -426,16 +442,31 @@ export class DatabaseStorage implements IStorage {
     await db.delete(doctors).where(eq(doctors.id, id));
   }
 
-  async getActiveDoctors(): Promise<Doctor[]> {
-    return await db.select().from(doctors).where(eq(doctors.isActive, true));
+  async getActiveDoctors(branchId: string): Promise<Doctor[]> {
+    return withPerformanceLogging('getActiveDoctors', async () => {
+      return await db.select().from(doctors)
+        .where(and(eq(doctors.isActive, true), eq(doctors.branchId, branchId)));
+    });
   }
 
-  // Appointment methods
-  async getAppointments(date?: Date): Promise<any[]> {
+  // Appointment methods - 🔒 SECURITY: branchId mandatory for PHI isolation
+  async getAppointments(date: Date | undefined, branchId: string): Promise<any[]> {
     return withPerformanceLogging(`getAppointments${date ? '(filtered)' : '(all)'}`, async () => {
       if (date) {
         const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
         const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+        
+        // 🔒 CRITICAL: Build query with branch filtering if provided
+        let whereConditions = [
+          gte(appointments.appointmentDate, startOfDay),
+          lte(appointments.appointmentDate, endOfDay)
+        ];
+        
+        // 🔒 Add branch isolation if branchId provided
+        if (branchId) {
+          whereConditions.push(eq(patients.branchId, branchId));
+        }
+        
         return await db.select({
           // Appointment fields
           id: appointments.id,
@@ -463,16 +494,12 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(doctors, eq(appointments.doctorId, doctors.id))
           .leftJoin(patients, eq(appointments.patientId, patients.id))
           .leftJoin(owners, eq(patients.ownerId, owners.id))
-          .where(
-            and(
-              gte(appointments.appointmentDate, startOfDay),
-              lte(appointments.appointmentDate, endOfDay)
-            )
-          )
+          .where(and(...whereConditions))
           .orderBy(appointments.appointmentDate);
       }
       
-      return await db.select({
+      // 🔒 CRITICAL: For all appointments, enforce branch isolation if branchId provided
+      let query = db.select({
         // Appointment fields
         id: appointments.id,
         patientId: appointments.patientId,
@@ -498,8 +525,13 @@ export class DatabaseStorage implements IStorage {
         .from(appointments)
         .leftJoin(doctors, eq(appointments.doctorId, doctors.id))
         .leftJoin(patients, eq(appointments.patientId, patients.id))
-        .leftJoin(owners, eq(patients.ownerId, owners.id))
-        .orderBy(appointments.appointmentDate);
+        .leftJoin(owners, eq(patients.ownerId, owners.id));
+        
+      if (branchId) {
+        query = query.where(eq(patients.branchId, branchId));
+      }
+      
+      return await query.orderBy(appointments.appointmentDate);
     });
   }
 
@@ -508,18 +540,35 @@ export class DatabaseStorage implements IStorage {
     return appointment || undefined;
   }
 
-  async getAppointmentsByDoctor(doctorId: string, date?: Date): Promise<Appointment[]> {
+  async getAppointmentsByDoctor(doctorId: string, date: Date | undefined, branchId: string): Promise<Appointment[]> {
     if (date) {
       const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+      
+      let whereConditions = [
+        eq(appointments.doctorId, doctorId),
+        gte(appointments.appointmentDate, startOfDay),
+        lte(appointments.appointmentDate, endOfDay)
+      ];
+      
+      // 🔒 CRITICAL: Add branch isolation via patient join if branchId provided
+      if (branchId) {
+        return await db.select().from(appointments)
+          .leftJoin(patients, eq(appointments.patientId, patients.id))
+          .where(and(...whereConditions, eq(patients.branchId, branchId)))
+          .orderBy(appointments.appointmentDate);
+      }
+      
       return await db.select().from(appointments)
-        .where(
-          and(
-            eq(appointments.doctorId, doctorId),
-            gte(appointments.appointmentDate, startOfDay),
-            lte(appointments.appointmentDate, endOfDay)
-          )
-        )
+        .where(and(...whereConditions))
+        .orderBy(appointments.appointmentDate);
+    }
+    
+    // 🔒 CRITICAL: For all appointments by doctor, enforce branch isolation if branchId provided
+    if (branchId) {
+      return await db.select().from(appointments)
+        .leftJoin(patients, eq(appointments.patientId, patients.id))
+        .where(and(eq(appointments.doctorId, doctorId), eq(patients.branchId, branchId)))
         .orderBy(appointments.appointmentDate);
     }
     
@@ -528,11 +577,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(appointments.appointmentDate);
   }
 
-  async getAppointmentsByPatient(patientId: string): Promise<Appointment[]> {
+  async getAppointmentsByPatient(patientId: string, branchId: string): Promise<Appointment[]> {
+    // 🔒 CRITICAL: Enforce branch isolation via patient join
     return await db
       .select()
       .from(appointments)
-      .where(eq(appointments.patientId, patientId))
+      .leftJoin(patients, eq(appointments.patientId, patients.id))
+      .where(and(eq(appointments.patientId, patientId), eq(patients.branchId, branchId)))
       .orderBy(desc(appointments.appointmentDate));
   }
 
@@ -590,15 +641,23 @@ export class DatabaseStorage implements IStorage {
     return conflicts.length > 0;
   }
 
-  // Medical Record methods
-  async getMedicalRecords(patientId?: string): Promise<MedicalRecord[]> {
+  // Medical Record methods - 🔒 SECURITY: branchId mandatory for PHI isolation
+  async getMedicalRecords(patientId: string | undefined, branchId: string): Promise<MedicalRecord[]> {
     if (patientId) {
-      return await db.select().from(medicalRecords)
-        .where(eq(medicalRecords.patientId, patientId))
+      // 🔒 CRITICAL: For specific patient, still enforce branch isolation
+      return await db.select()
+        .from(medicalRecords)
+        .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
+        .where(and(eq(medicalRecords.patientId, patientId), eq(patients.branchId, branchId)))
         .orderBy(desc(medicalRecords.visitDate));
     }
     
-    return await db.select().from(medicalRecords).orderBy(desc(medicalRecords.visitDate));
+    // 🔒 CRITICAL: For all medical records, enforce branch isolation via patient join
+    return await db.select()
+      .from(medicalRecords)
+      .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
+      .where(eq(patients.branchId, branchId))
+      .orderBy(desc(medicalRecords.visitDate));
   }
 
   async getMedicalRecord(id: string): Promise<MedicalRecord | undefined> {
@@ -815,15 +874,18 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  // Invoice methods
-  async getInvoices(status?: string): Promise<Invoice[]> {
+  // Invoice methods - 🔒 SECURITY: branchId mandatory for PHI isolation
+  async getInvoices(status: string | undefined, branchId: string): Promise<Invoice[]> {
+    // 🔒 CRITICAL: Enforce branch isolation via patient join
+    let query = db.select().from(invoices)
+      .leftJoin(patients, eq(invoices.patientId, patients.id))
+      .where(eq(patients.branchId, branchId));
+    
     if (status) {
-      return await db.select().from(invoices)
-        .where(eq(invoices.status, status))
-        .orderBy(desc(invoices.issueDate));
+      query = query.where(and(eq(patients.branchId, branchId), eq(invoices.status, status)));
     }
     
-    return await db.select().from(invoices).orderBy(desc(invoices.issueDate));
+    return await query.orderBy(desc(invoices.issueDate));
   }
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
@@ -831,11 +893,13 @@ export class DatabaseStorage implements IStorage {
     return invoice || undefined;
   }
 
-  async getInvoicesByPatient(patientId: string): Promise<Invoice[]> {
+  async getInvoicesByPatient(patientId: string, branchId: string): Promise<Invoice[]> {
+    // 🔒 CRITICAL: Enforce branch isolation via patient join
     return await db
       .select()
       .from(invoices)
-      .where(eq(invoices.patientId, patientId))
+      .leftJoin(patients, eq(invoices.patientId, patients.id))
+      .where(and(eq(invoices.patientId, patientId), eq(patients.branchId, branchId)))
       .orderBy(desc(invoices.issueDate));
   }
 
@@ -898,13 +962,16 @@ export class DatabaseStorage implements IStorage {
     await db.delete(invoiceItems).where(eq(invoiceItems.id, id));
   }
 
-  async getOverdueInvoices(): Promise<Invoice[]> {
+  async getOverdueInvoices(branchId: string): Promise<Invoice[]> {
+    // 🔒 CRITICAL: Enforce branch isolation via patient join
     const now = new Date();
     return await db
       .select()
       .from(invoices)
+      .leftJoin(patients, eq(invoices.patientId, patients.id))
       .where(
         and(
+          eq(patients.branchId, branchId),
           eq(invoices.status, 'pending'),
           lte(invoices.dueDate, now)
         )
@@ -1281,17 +1348,19 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // Laboratory Order methods implementation
-  async getLabOrders(patientId?: string, status?: string): Promise<LabOrder[]> {
+  // Laboratory Order methods implementation - 🔒 SECURITY: branchId mandatory for PHI isolation
+  async getLabOrders(patientId: string | undefined, status: string | undefined, branchId: string): Promise<LabOrder[]> {
     return withPerformanceLogging('getLabOrders', async () => {
-      const conditions = [];
+      const conditions = [eq(patients.branchId, branchId)];
       if (patientId) conditions.push(eq(labOrders.patientId, patientId));
       if (status) conditions.push(eq(labOrders.status, status));
       
+      // 🔒 CRITICAL: Enforce branch isolation via patient join
       return await db
         .select()
         .from(labOrders)
-        .where(conditions.length ? and(...conditions) : undefined)
+        .leftJoin(patients, eq(labOrders.patientId, patients.id))
+        .where(and(...conditions))
         .orderBy(desc(labOrders.orderedDate));
     });
   }
@@ -1330,22 +1399,26 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getLabOrdersByDoctor(doctorId: string): Promise<LabOrder[]> {
+  async getLabOrdersByDoctor(doctorId: string, branchId: string): Promise<LabOrder[]> {
     return withPerformanceLogging('getLabOrdersByDoctor', async () => {
+      // 🔒 CRITICAL: Enforce branch isolation via patient join
       return await db
         .select()
         .from(labOrders)
-        .where(eq(labOrders.doctorId, doctorId))
+        .leftJoin(patients, eq(labOrders.patientId, patients.id))
+        .where(and(eq(labOrders.doctorId, doctorId), eq(patients.branchId, branchId)))
         .orderBy(desc(labOrders.orderedDate));
     });
   }
 
-  async getLabOrdersByAppointment(appointmentId: string): Promise<LabOrder[]> {
+  async getLabOrdersByAppointment(appointmentId: string, branchId: string): Promise<LabOrder[]> {
     return withPerformanceLogging('getLabOrdersByAppointment', async () => {
+      // 🔒 CRITICAL: Enforce branch isolation via patient join
       return await db
         .select()
         .from(labOrders)
-        .where(eq(labOrders.appointmentId, appointmentId))
+        .leftJoin(patients, eq(labOrders.patientId, patients.id))
+        .where(and(eq(labOrders.appointmentId, appointmentId), eq(patients.branchId, branchId)))
         .orderBy(desc(labOrders.orderedDate));
     });
   }
