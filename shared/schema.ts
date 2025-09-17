@@ -17,6 +17,33 @@ export const USER_ROLES = ['врач', 'администратор', 'менед
 export const USER_STATUS = ['active', 'inactive'] as const;
 export const SMS_VERIFICATION_PURPOSE = ['phone_verification', '2fa'] as const;
 export const TWO_FACTOR_METHOD = ['sms', 'disabled'] as const;
+export const BRANCH_STATUS = ['active', 'inactive', 'maintenance'] as const;
+
+// Branches table for multi-location clinic support - MUST be defined before users table
+export const branches = pgTable("branches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  address: text("address").notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  region: varchar("region", { length: 100 }),
+  phone: varchar("phone", { length: 50 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  workingHours: jsonb("working_hours"), // Store schedule as JSON
+  status: varchar("status", { length: 20 }).default("active"),
+  managerId: varchar("manager_id"), // Branch manager - will be linked later
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    statusCheck: check("branches_status_check", sql`${table.status} IN ('active', 'inactive', 'maintenance')`),
+    nameIdx: index("branches_name_idx").on(table.name),
+    cityIdx: index("branches_city_idx").on(table.city),
+    statusIdx: index("branches_status_idx").on(table.status),
+    managerIdIdx: index("branches_manager_id_idx").on(table.managerId),
+    createdAtIdx: index("branches_created_at_idx").on(table.createdAt),
+  };
+});
 
 // Enhanced users table for role-based authentication
 export const users = pgTable("users", {
@@ -31,6 +58,7 @@ export const users = pgTable("users", {
   phoneVerified: boolean("phone_verified").default(false),
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
   twoFactorMethod: varchar("two_factor_method", { length: 10 }).default("sms"),
+  branchId: varchar("branch_id").references(() => branches.id), // Temporarily nullable for migration
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -43,6 +71,7 @@ export const users = pgTable("users", {
     roleIdx: index("users_role_idx").on(table.role),
     statusIdx: index("users_status_idx").on(table.status),
     phoneIdx: index("users_phone_idx").on(table.phone),
+    branchIdIdx: index("users_branch_id_idx").on(table.branchId),
   };
 });
 
@@ -101,6 +130,7 @@ export const patients = pgTable("patients", {
   specialMarks: text("special_marks"),
   status: varchar("status", { length: 20 }).default("healthy"),
   ownerId: varchar("owner_id").references(() => owners.id).notNull(),
+  branchId: varchar("branch_id").references(() => branches.id), // Temporarily nullable for migration
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -115,6 +145,7 @@ export const patients = pgTable("patients", {
     nameIdx: index("patients_name_idx").on(table.name),
     speciesIdx: index("patients_species_idx").on(table.species),
     breedIdx: index("patients_breed_idx").on(table.breed),
+    branchIdIdx: index("patients_branch_id_idx").on(table.branchId),
   };
 });
 
@@ -147,6 +178,7 @@ export const appointments = pgTable("appointments", {
   appointmentType: varchar("appointment_type", { length: 255 }).notNull(),
   status: varchar("status", { length: 20 }).default("scheduled"),
   notes: text("notes"),
+  branchId: varchar("branch_id").references(() => branches.id), // Temporarily nullable for migration
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -157,6 +189,7 @@ export const appointments = pgTable("appointments", {
     doctorIdIdx: index("appointments_doctor_id_idx").on(table.doctorId),
     appointmentDateIdx: index("appointments_date_idx").on(table.appointmentDate),
     statusIdx: index("appointments_status_idx").on(table.status),
+    branchIdIdx: index("appointments_branch_id_idx").on(table.branchId),
     doctorDateIdx: index("appointments_doctor_date_idx").on(table.doctorId, table.appointmentDate),
   };
 });

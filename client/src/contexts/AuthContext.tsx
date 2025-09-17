@@ -1,5 +1,14 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { User, ROLE_PERMISSIONS } from '@shared/schema'
+import type { User } from '@shared/schema'
+
+// Move ROLE_PERMISSIONS to client-only to avoid HMR cascade
+const ROLE_PERMISSIONS = {
+  'врач': ['registry', 'schedule', 'medical-records'],
+  'администратор': ['registry', 'schedule', 'medical-records', 'services-inventory', 'finance', 'reports', 'settings', 'users'],
+  'менеджер': ['registry', 'schedule', 'services-inventory', 'finance'],
+  'менеджер_склада': ['services-inventory'],
+  'руководитель': ['registry', 'schedule', 'medical-records', 'services-inventory', 'finance', 'reports', 'settings', 'users']
+} as const;
 
 interface AuthContextType {
   user: User | null
@@ -10,7 +19,9 @@ interface AuthContextType {
   isLoading: boolean
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+// HMR-stable singleton context
+const globalAny = globalThis as any;
+const AuthContext: React.Context<AuthContextType | undefined> = (globalAny.__auth_ctx ||= createContext<AuthContextType | undefined>(undefined));
 
 interface AuthProviderProps {
   children: ReactNode
