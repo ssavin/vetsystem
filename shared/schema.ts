@@ -12,6 +12,10 @@ export const INVOICE_STATUS = ['pending', 'paid', 'overdue', 'cancelled'] as con
 export const INVOICE_ITEM_TYPE = ['service', 'product'] as const;
 export const PATIENT_GENDER = ['male', 'female', 'unknown'] as const;
 
+// File and lab analysis enums
+export const FILE_TYPES = ['medical_image', 'xray', 'scan', 'receipt', 'lab_result', 'vaccine_record', 'document', 'other'] as const;
+export const LAB_RESULT_STATUS = ['pending', 'in_progress', 'completed', 'abnormal', 'critical'] as const;
+
 // User roles and permissions
 export const USER_ROLES = ['врач', 'администратор', 'менеджер', 'менеджер_склада', 'руководитель'] as const;
 export const USER_STATUS = ['active', 'inactive'] as const;
@@ -351,6 +355,70 @@ export const invoiceItems = pgTable("invoice_items", {
   };
 });
 
+// Patient Files table for storing medical images, receipts, and documents
+export const patientFiles = pgTable("patient_files", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").references(() => patients.id).notNull(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  originalName: varchar("original_name", { length: 255 }).notNull(),
+  fileType: varchar("file_type", { length: 50 }).notNull(),
+  mimeType: varchar("mime_type", { length: 100 }).notNull(),
+  fileSize: integer("file_size").notNull(), // in bytes
+  filePath: text("file_path").notNull(),
+  description: text("description"),
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  medicalRecordId: varchar("medical_record_id").references(() => medicalRecords.id), // optional link to medical record
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    fileTypeCheck: check("patient_files_file_type_check", sql`${table.fileType} IN ('medical_image', 'xray', 'scan', 'receipt', 'lab_result', 'vaccine_record', 'document', 'other')`),
+    fileSizeCheck: check("patient_files_file_size_check", sql`${table.fileSize} > 0`),
+    patientIdIdx: index("patient_files_patient_id_idx").on(table.patientId),
+    fileTypeIdx: index("patient_files_file_type_idx").on(table.fileType),
+    uploadedByIdx: index("patient_files_uploaded_by_idx").on(table.uploadedBy),
+    medicalRecordIdIdx: index("patient_files_medical_record_id_idx").on(table.medicalRecordId),
+    createdAtIdx: index("patient_files_created_at_idx").on(table.createdAt),
+    patientTypeIdx: index("patient_files_patient_type_idx").on(table.patientId, table.fileType),
+  };
+});
+
+// Laboratory Results table for storing lab test results
+export const labResults = pgTable("lab_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").references(() => patients.id).notNull(),
+  doctorId: varchar("doctor_id").references(() => doctors.id).notNull(),
+  medicalRecordId: varchar("medical_record_id").references(() => medicalRecords.id),
+  testType: varchar("test_type", { length: 255 }).notNull(), // e.g., "Биохимический анализ крови", "Общий анализ мочи"
+  testName: varchar("test_name", { length: 255 }).notNull(), // specific test name
+  results: jsonb("results").notNull(), // { "parameter": { "value": "10.5", "unit": "g/dL", "status": "normal|abnormal|critical" } }
+  normalRanges: jsonb("normal_ranges"), // reference ranges for interpretation
+  status: varchar("status", { length: 20 }).default("pending"),
+  performedDate: timestamp("performed_date").notNull(),
+  receivedDate: timestamp("received_date").defaultNow().notNull(),
+  notes: text("notes"),
+  labTechnicianName: varchar("lab_technician_name", { length: 255 }),
+  urgency: varchar("urgency", { length: 20 }).default("normal"), // normal, urgent, stat
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    statusCheck: check("lab_results_status_check", sql`${table.status} IN ('pending', 'in_progress', 'completed', 'abnormal', 'critical')`),
+    urgencyCheck: check("lab_results_urgency_check", sql`${table.urgency} IN ('normal', 'urgent', 'stat')`),
+    patientIdIdx: index("lab_results_patient_id_idx").on(table.patientId),
+    doctorIdIdx: index("lab_results_doctor_id_idx").on(table.doctorId),
+    medicalRecordIdIdx: index("lab_results_medical_record_id_idx").on(table.medicalRecordId),
+    testTypeIdx: index("lab_results_test_type_idx").on(table.testType),
+    statusIdx: index("lab_results_status_idx").on(table.status),
+    performedDateIdx: index("lab_results_performed_date_idx").on(table.performedDate),
+    receivedDateIdx: index("lab_results_received_date_idx").on(table.receivedDate),
+    urgencyIdx: index("lab_results_urgency_idx").on(table.urgency),
+    patientDateIdx: index("lab_results_patient_date_idx").on(table.patientId, table.performedDate),
+    statusDateIdx: index("lab_results_status_date_idx").on(table.status, table.performedDate),
+    createdAtIdx: index("lab_results_created_at_idx").on(table.createdAt),
+  };
+});
+
 // Define relations
 export const ownersRelations = relations(owners, ({ many }) => ({
   patients: many(patients),
@@ -364,6 +432,8 @@ export const patientsRelations = relations(patients, ({ one, many }) => ({
   appointments: many(appointments),
   medicalRecords: many(medicalRecords),
   invoices: many(invoices),
+  files: many(patientFiles),
+  labResults: many(labResults),
 }));
 
 export const doctorsRelations = relations(doctors, ({ many }) => ({
@@ -398,6 +468,8 @@ export const medicalRecordsRelations = relations(medicalRecords, ({ one, many })
     references: [appointments.id],
   }),
   medications: many(medications),
+  files: many(patientFiles),
+  labResults: many(labResults),
 }));
 
 export const medicationsRelations = relations(medications, ({ one }) => ({
@@ -423,6 +495,37 @@ export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
   invoice: one(invoices, {
     fields: [invoiceItems.invoiceId],
     references: [invoices.id],
+  }),
+}));
+
+// Relations for new tables
+export const patientFilesRelations = relations(patientFiles, ({ one }) => ({
+  patient: one(patients, {
+    fields: [patientFiles.patientId],
+    references: [patients.id],
+  }),
+  uploadedByUser: one(users, {
+    fields: [patientFiles.uploadedBy],
+    references: [users.id],
+  }),
+  medicalRecord: one(medicalRecords, {
+    fields: [patientFiles.medicalRecordId],
+    references: [medicalRecords.id],
+  }),
+}));
+
+export const labResultsRelations = relations(labResults, ({ one }) => ({
+  patient: one(patients, {
+    fields: [labResults.patientId],
+    references: [patients.id],
+  }),
+  doctor: one(doctors, {
+    fields: [labResults.doctorId],
+    references: [doctors.id],
+  }),
+  medicalRecord: one(medicalRecords, {
+    fields: [labResults.medicalRecordId],
+    references: [medicalRecords.id],
   }),
 }));
 
@@ -566,6 +669,47 @@ export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
   total: z.coerce.number().min(0, "Total must be positive").transform(val => val.toString()),
 });
 
+// Patient Files schema for validation
+export const insertPatientFileSchema = createInsertSchema(patientFiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  fileType: z.enum(FILE_TYPES),
+  fileSize: z.number().min(1, "Размер файла должен быть больше 0").max(50 * 1024 * 1024, "Размер файла не должен превышать 50MB"),
+  originalName: z.string().min(1, "Имя файла обязательно"),
+  fileName: z.string().min(1, "Имя файла в системе обязательно"),
+  mimeType: z.string().min(1, "MIME тип обязателен"),
+  filePath: z.string().min(1, "Путь к файлу обязателен"),
+  description: z.string().optional(),
+});
+
+// Lab Results schema for validation
+export const insertLabResultSchema = createInsertSchema(labResults).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  status: z.enum(LAB_RESULT_STATUS).default("pending"),
+  urgency: z.enum(["normal", "urgent", "stat"] as const).default("normal"),
+  testType: z.string().min(1, "Тип анализа обязателен"),
+  testName: z.string().min(1, "Название анализа обязательно"),
+  performedDate: z.coerce.date(),
+  receivedDate: z.coerce.date().optional(),
+  results: z.record(z.string(), z.object({
+    value: z.string(),
+    unit: z.string().optional(),
+    status: z.enum(["normal", "abnormal", "critical"] as const).optional(),
+  })).refine(results => Object.keys(results).length > 0, "Результаты анализа не могут быть пустыми"),
+  normalRanges: z.record(z.string(), z.object({
+    min: z.string().optional(),
+    max: z.string().optional(),
+    reference: z.string().optional(),
+  })).optional(),
+  notes: z.string().optional(),
+  labTechnicianName: z.string().optional(),
+});
+
 // SMS verification schemas
 export const insertSmsVerificationCodeSchema = createInsertSchema(smsVerificationCodes).omit({
   id: true,
@@ -629,6 +773,13 @@ export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type Branch = typeof branches.$inferSelect;
 export type InsertBranch = z.infer<typeof insertBranchSchema>;
 export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
+
+// New table types
+export type PatientFile = typeof patientFiles.$inferSelect;
+export type InsertPatientFile = z.infer<typeof insertPatientFileSchema>;
+
+export type LabResult = typeof labResults.$inferSelect;
+export type InsertLabResult = z.infer<typeof insertLabResultSchema>;
 
 // Dashboard API response types
 export interface DashboardStats {
