@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { loginSchema } from "@shared/schema"
@@ -6,11 +6,20 @@ import { z } from "zod"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import { useLocation } from "wouter"
-import { LogIn, Eye, EyeOff } from "lucide-react"
+import { LogIn, Eye, EyeOff, MapPin } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+
+type Branch = {
+  id: string;
+  name: string;
+  city: string;
+  address: string;
+}
 
 type LoginFormValues = z.infer<typeof loginSchema>
 
@@ -19,18 +28,26 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const { login, isLoading } = useAuth()
   const { toast } = useToast()
+  
+  // Fetch available branches
+  const { data: branches = [], isLoading: branchesLoading } = useQuery({
+    queryKey: ['/api/branches/active'],
+    queryFn: () => fetch('/api/branches/active').then(res => res.json()),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
       password: "",
+      branchId: "",
     },
   })
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
-      await login(values.username, values.password)
+      await login(values.username, values.password, values.branchId)
       toast({
         title: "Успешно",
         description: "Добро пожаловать в VetSystem!",
@@ -112,6 +129,37 @@ export default function Login() {
                         </Button>
                       </div>
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="branchId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Филиал клиники
+                    </FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={branchesLoading}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-branch">
+                          <SelectValue placeholder={branchesLoading ? "Загрузка филиалов..." : "Выберите филиал"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {branches.map((branch: Branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{branch.name}</span>
+                              <span className="text-sm text-muted-foreground">{branch.city}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

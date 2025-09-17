@@ -10,9 +10,10 @@ import {
   type Product, type InsertProduct,
   type Invoice, type InsertInvoice,
   type InvoiceItem, type InsertInvoiceItem,
+  type Branch, type InsertBranch,
   users, owners, patients, doctors, appointments, 
   medicalRecords, medications, services, products, 
-  invoices, invoiceItems
+  invoices, invoiceItems, branches
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, like, and, or, desc, sql, gte, lte } from "drizzle-orm";
@@ -55,6 +56,14 @@ export interface IStorage {
   updateUser(id: string, updateData: Partial<InsertUser>): Promise<User>;
   updateUserLastLogin(id: string): Promise<void>;
   deleteUser(id: string): Promise<void>;
+
+  // Branch methods
+  getBranches(): Promise<Branch[]>;
+  getActiveBranches(): Promise<Branch[]>;
+  getBranch(id: string): Promise<Branch | undefined>;
+  createBranch(branch: InsertBranch): Promise<Branch>;
+  updateBranch(id: string, branch: Partial<InsertBranch>): Promise<Branch>;
+  deleteBranch(id: string): Promise<void>;
 
   // Owner methods
   getOwners(): Promise<Owner[]>;
@@ -892,6 +901,55 @@ export class DatabaseStorage implements IStorage {
         pendingPayments: row.pending_payments || 0,
         lowStock: row.low_stock || 0
       };
+    });
+  }
+
+  // Branch methods
+  async getBranches(): Promise<Branch[]> {
+    return await withPerformanceLogging('getBranches', async () => {
+      return await db.select().from(branches).orderBy(desc(branches.createdAt));
+    });
+  }
+
+  async getActiveBranches(): Promise<Branch[]> {
+    return await withPerformanceLogging('getActiveBranches', async () => {
+      return await db.select().from(branches)
+        .where(eq(branches.status, 'active'))
+        .orderBy(branches.name);
+    });
+  }
+
+  async getBranch(id: string): Promise<Branch | undefined> {
+    return await withPerformanceLogging('getBranch', async () => {
+      const [branch] = await db.select().from(branches).where(eq(branches.id, id));
+      return branch || undefined;
+    });
+  }
+
+  async createBranch(branch: InsertBranch): Promise<Branch> {
+    return await withPerformanceLogging('createBranch', async () => {
+      const [newBranch] = await db
+        .insert(branches)
+        .values(branch)
+        .returning();
+      return newBranch;
+    });
+  }
+
+  async updateBranch(id: string, branch: Partial<InsertBranch>): Promise<Branch> {
+    return await withPerformanceLogging('updateBranch', async () => {
+      const [updated] = await db
+        .update(branches)
+        .set({ ...branch, updatedAt: new Date() })
+        .where(eq(branches.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async deleteBranch(id: string): Promise<void> {
+    return await withPerformanceLogging('deleteBranch', async () => {
+      await db.delete(branches).where(eq(branches.id, id));
     });
   }
 }

@@ -449,13 +449,25 @@ export const insertUserSchema = createInsertSchema(users).omit({
   twoFactorMethod: z.enum(TWO_FACTOR_METHOD).default("sms").optional(),
 });
 
-// Login schema for authentication
+// Login schema for authentication  
 export const loginSchema = z.object({
   username: z.string().min(1, "Логин обязателен"),
   password: z.string().min(1, "Пароль обязателен"),
+  branchId: z.string().min(1, "Выбор филиала обязателен"),
 });
 
 // ROLE_PERMISSIONS moved to client/src/contexts/AuthContext.tsx to avoid HMR cascades
+
+// Branch schema for validation
+export const insertBranchSchema = createInsertSchema(branches).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  status: z.enum(["active", "inactive", "maintenance"] as const).default("active"),
+  phone: z.string().regex(/^\+?[1-9]\d{10,14}$/, "Неверный формат номера телефона"),
+  email: z.string().email().optional().or(z.literal("")),
+});
 
 // Zod schemas for validation
 export const insertOwnerSchema = createInsertSchema(owners).omit({
@@ -613,6 +625,9 @@ export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
+
+export type Branch = typeof branches.$inferSelect;
+export type InsertBranch = z.infer<typeof insertBranchSchema>;
 export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
 
 // Dashboard API response types

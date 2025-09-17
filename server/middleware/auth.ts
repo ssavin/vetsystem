@@ -13,6 +13,7 @@ declare global {
         fullName: string;
         role: string;
         email?: string;
+        branchId?: string;
       };
     }
   }
@@ -32,13 +33,15 @@ export interface JWTPayload {
   userId: string;
   username: string;
   role: string;
+  branchId?: string;
 }
 
-export const generateTokens = (user: { id: string; username: string; role: string }) => {
+export const generateTokens = (user: { id: string; username: string; role: string; branchId?: string }) => {
   const payload: JWTPayload = {
     userId: user.id,
     username: user.username,
-    role: user.role
+    role: user.role,
+    branchId: user.branchId
   };
 
   const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -80,7 +83,8 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       username: user.username,
       fullName: user.fullName,
       role: user.role,
-      email: user.email || undefined
+      email: user.email || undefined,
+      branchId: payload.branchId
     };
 
     next();

@@ -5,7 +5,8 @@ import { ROLE_PERMISSIONS } from '../shared/permissions';
 
 interface AuthContextType {
   user: User | null
-  login: (username: string, password: string) => Promise<void>
+  currentBranch: { id: string; name: string } | null
+  login: (username: string, password: string, branchId: string) => Promise<void>
   logout: () => void
   isAuthenticated: boolean
   hasPermission: (module: string) => boolean
@@ -22,6 +23,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
+  const [currentBranch, setCurrentBranch] = useState<{ id: string; name: string } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const hasPermission = (module: string): boolean => {
@@ -36,12 +38,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return allowedModules.some(allowedModule => allowedModule === module)
   }
 
-  const login = async (username: string, password: string): Promise<void> => {
+  const login = async (username: string, password: string, branchId: string): Promise<void> => {
     try {
       setIsLoading(true)
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, branchId }),
         headers: {
           'Content-Type': 'application/json'
         },
@@ -55,6 +57,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const data = await response.json()
       setUser(data.user)
+      setCurrentBranch(data.currentBranch || { id: branchId, name: 'Unknown Branch' })
       
       // Remove localStorage dependency - JWT tokens are now in httpOnly cookies
     } catch (error) {
@@ -75,6 +78,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('Logout error:', error)
     } finally {
       setUser(null)
+      setCurrentBranch(null)
     }
   }
 
@@ -89,6 +93,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (response.ok) {
           const data = await response.json()
           setUser(data.user)
+          setCurrentBranch(data.currentBranch || null)
         }
       } catch (error) {
         console.error('Auth check error:', error)
@@ -104,6 +109,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     <AuthContext.Provider
       value={{
         user,
+        currentBranch,
         login,
         logout,
         isAuthenticated: !!user,

@@ -773,9 +773,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AUTHENTICATION ROUTES  
+  // Get active branches for login selection
+  app.get("/api/branches/active", async (req, res) => {
+    try {
+      const branches = await storage.getActiveBranches();
+      res.json(branches);
+    } catch (error) {
+      console.error("Error fetching active branches:", error);
+      res.status(500).json({ error: "Ошибка получения списка филиалов" });
+    }
+  });
+
   app.post("/api/auth/login", authLimiter, validateBody(loginSchema), async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { username, password, branchId } = req.body;
       
       // Get user by username
       const user = await storage.getUserByUsername(username);
@@ -793,11 +804,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Неверный логин или пароль" });
       }
       
-      // Generate JWT tokens
+      // Verify user has access to the selected branch
+      const selectedBranch = await storage.getBranch(branchId);
+      if (!selectedBranch || selectedBranch.status !== 'active') {
+        return res.status(400).json({ error: "Выбранный филиал недоступен" });
+      }
+      
+      // TODO: Add proper branch access validation based on user.branchId
+      // For now, allow access to all active branches
+
+      // Generate JWT tokens with branch info
       const { accessToken, refreshToken } = generateTokens({
         id: user.id,
         username: user.username,
-        role: user.role
+        role: user.role,
+        branchId: branchId
       });
 
       // Update last login
@@ -818,9 +839,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
       
-      // Return user info (without password)
+      // Return user info (without password) and branch info
       const { password: _, ...userInfo } = user;
-      res.json({ user: userInfo, message: "Успешный вход" });
+      res.json({ 
+        user: userInfo, 
+        currentBranch: { id: selectedBranch.id, name: selectedBranch.name },
+        message: "Успешный вход" 
+      });
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ error: "Ошибка сервера" });
@@ -842,7 +867,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/me", authenticateToken, async (req, res) => {
     try {
       // User data is already validated and attached by authenticateToken middleware
-      res.json({ user: req.user });
+      let currentBranch = null;
+      if (req.user?.branchId) {
+        const branch = await storage.getBranch(req.user.branchId);
+        if (branch) {
+          currentBranch = { id: branch.id, name: branch.name };
+        }
+      }
+      res.json({ user: req.user, currentBranch });
     } catch (error) {
       console.error("Auth me error:", error);
       res.status(500).json({ error: "Ошибка сервера" });
