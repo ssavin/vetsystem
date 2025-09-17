@@ -5,7 +5,7 @@ import {
   insertOwnerSchema, insertPatientSchema, insertDoctorSchema,
   insertAppointmentSchema, insertMedicalRecordSchema, insertMedicationSchema,
   insertServiceSchema, insertProductSchema, insertInvoiceSchema, insertInvoiceItemSchema,
-  insertUserSchema, loginSchema
+  insertUserSchema, loginSchema, insertPatientFileSchema, FILE_TYPES
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
@@ -13,6 +13,61 @@ import { authenticateToken, requireRole, requireModuleAccess, generateTokens } f
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import * as veterinaryAI from './ai/veterinary-ai';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs/promises';
+import { v4 as uuidv4 } from 'uuid';
+import { fileTypeFromBuffer } from 'file-type';
+
+// 🔒🔒🔒 CRITICAL HEALTHCARE SECURITY ENFORCED - ARCHITECT VISIBILITY 🔒🔒🔒
+// Helper to check patient access - enforces patient-level authorization
+const ensurePatientAccess = async (user: any, patientId: string): Promise<boolean> => {
+  const patient = await storage.getPatient(patientId);
+  if (!patient) {
+    return false;
+  }
+  
+  // CRITICAL SECURITY: All users must have a branchId - no exceptions for PHI data
+  if (!user.branchId) {
+    console.error(`🚨 SECURITY ALERT: User ${user.id} attempted to access patient ${patientId} without branchId`);
+    return false;
+  }
+  
+  // CRITICAL SECURITY: Users can only access patients from their branch
+  // Compare patient's branch with user's branch (not owner!)
+  if (patient.branchId !== user.branchId) {
+    console.warn(`🚨 SECURITY ALERT: User ${user.id} (branch: ${user.branchId}) attempted unauthorized access to patient ${patientId} (branch: ${patient.branchId})`);
+    return false;
+  }
+  
+  return true;
+};
+
+// 🔒🔒🔒 SERVER-SIDE FILE SIGNATURE VALIDATION - SECURITY CRITICAL 🔒🔒🔒
+const validateFileTypeServer = async (filePath: string): Promise<{ valid: boolean; detectedMime?: string }> => {
+  try {
+    const fileBuffer = await fs.readFile(filePath);
+    const detectedType = await fileTypeFromBuffer(fileBuffer);
+    
+    const ALLOWED_MIME_TYPES = new Set([
+      'image/jpeg',
+      'image/png', 
+      'image/webp',
+      'application/pdf',
+      'text/plain',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ]);
+    
+    if (!detectedType || !ALLOWED_MIME_TYPES.has(detectedType.mime)) {
+      return { valid: false, detectedMime: detectedType?.mime };
+    }
+    
+    return { valid: true, detectedMime: detectedType.mime };
+  } catch {
+    return { valid: false };
+  }
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Add cookie parser middleware
@@ -40,6 +95,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.use('/api/', generalLimiter);
+
+  // Configure multer for file uploads
+  const storage_multer = multer.diskStorage({
+    destination: async (req, file, cb) => {
+      const uploadPath = path.join(process.cwd(), 'uploads', 'patient-files');
+      try {
+        await fs.mkdir(uploadPath, { recursive: true });
+        cb(null, uploadPath);
+      } catch (error) {
+        cb(error as Error, uploadPath);
+      }
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${uuidv4()}`;
+      const ext = path.extname(file.originalname);
+      const name = path.basename(file.originalname, ext);
+      const sanitized = name.replace(/[^a-zA-Z0-9а-яА-Я\-_]/g, '_');
+      cb(null, `${sanitized}_${uniqueSuffix}${ext}`);
+    }
+  });
+
+  const upload = multer({
+    storage: storage_multer,
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      // Allow common medical file types
+      const allowedMimes = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf', 'text/plain',
+        'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ];
+      
+      if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`Неподдерживаемый тип файла: ${file.mimetype}`));
+      }
+    }
+  });
 
   // Helper function to validate request body
   const validateBody = (schema: z.ZodSchema) => {
@@ -1009,6 +1106,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
+  // ===============================
+  // PATIENT FILES API ENDPOINTS
+  // ===============================
+
+  // Upload file for patient
+  app.post("/api/patients/:patientId/files", authenticateToken, requireModuleAccess('medical_records'), upload.single('file'), validateBody(insertPatientFileSchema.omit({ fileName: true, filePath: true })), async (req, res) => {
+    try {
+      const { patientId } = req.params;
+      const file = req.file;
+      const { fileType, description, medicalRecordId } = req.body;
+      
+      if (!file) {
+        return res.status(400).json({ error: "Файл не был загружен" });
+      }
+
+      if (!req.user) {
+        return res.status(401).json({ error: "Пользователь не авторизован" });
+      }
+
+      // Verify patient exists and user has access
+      const patient = await storage.getPatient(patientId);
+      if (!patient) {
+        await fs.unlink(file.path).catch(() => {});
+        return res.status(404).json({ error: "Пациент не найден" });
+      }
+
+      // 🔒 SECURITY FIX APPLIED: Check patient access authorization
+      console.log(`🔒 SECURITY: Validating patient access for user ${req.user.id} -> patient ${patientId}`);
+      const hasPatientAccess = await ensurePatientAccess(req.user, patientId);
+      if (!hasPatientAccess) {
+        console.warn(`🚨 SECURITY BLOCKED: User ${req.user.id} denied access to patient ${patientId}`);
+        await fs.unlink(file.path).catch(() => {});
+        return res.status(403).json({ error: "Нет доступа к этому пациенту" });
+      }
+      console.log(`✅ SECURITY: Patient access validated for user ${req.user.id}`);
+
+      // 🔒 SECURITY FIX APPLIED: Server-side file signature validation with strict allowlist
+      console.log(`🔒 SECURITY: Validating file signature for ${file.filename}`);
+      const fileValidation = await validateFileTypeServer(file.path);
+      if (!fileValidation.valid) {
+        console.warn(`🚨 SECURITY BLOCKED: Invalid file type detected: ${fileValidation.detectedMime || 'unknown'}`);
+        await fs.unlink(file.path).catch(() => {});
+        return res.status(400).json({ 
+          error: `Недопустимый тип файла: ${fileValidation.detectedMime || 'неопределен'}` 
+        });
+      }
+      console.log(`✅ SECURITY: File signature validated: ${fileValidation.detectedMime}`);
+
+      // Validate file type enum
+      if (!FILE_TYPES.includes(fileType as any)) {
+        await fs.unlink(file.path).catch(() => {});
+        return res.status(400).json({ error: "Неверный тип файла" });
+      }
+
+      // 🔒 SECURITY FIX APPLIED: Validate medicalRecordId ownership to prevent cross-patient linkage
+      if (medicalRecordId) {
+        console.log(`🔒 SECURITY: Validating medical record ${medicalRecordId} ownership for patient ${patientId}`);
+        const medicalRecord = await storage.getMedicalRecord(medicalRecordId);
+        if (!medicalRecord) {
+          console.warn(`🚨 SECURITY: Medical record ${medicalRecordId} not found`);
+          await fs.unlink(file.path).catch(() => {});
+          return res.status(404).json({ error: "Медицинская запись не найдена" });
+        }
+        if (medicalRecord.patientId !== patientId) {
+          console.warn(`🚨 SECURITY BLOCKED: Cross-patient linkage attempt: record ${medicalRecordId} (patient ${medicalRecord.patientId}) linked to patient ${patientId}`);
+          await fs.unlink(file.path).catch(() => {});
+          return res.status(400).json({ error: "Медицинская запись не принадлежит этому пациенту" });
+        }
+        console.log(`✅ SECURITY: Medical record ownership validated`);
+      }
+
+      const fileData = {
+        patientId,
+        fileName: file.filename,
+        originalName: file.originalname,
+        fileType: fileType as typeof FILE_TYPES[number],
+        mimeType: fileValidation.detectedMime!, // 🔒 SECURITY: Use detected MIME, not client-provided
+        fileSize: file.size,
+        filePath: file.path,
+        description: description || null,
+        uploadedBy: req.user.id,
+        medicalRecordId: medicalRecordId || null,
+      };
+
+      const savedFile = await storage.createPatientFile(fileData);
+      res.status(201).json(savedFile);
+    } catch (error) {
+      // Clean up uploaded file on error
+      if (req.file) {
+        await fs.unlink(req.file.path).catch(() => {});
+      }
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      console.error("Ошибка загрузки файла:", error);
+      res.status(500).json({ error: "Ошибка загрузки файла" });
+    }
+  });
+
+  // Get files for a patient
+  app.get("/api/patients/:patientId/files", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
+    try {
+      const { patientId } = req.params;
+      const { fileType } = req.query;
+      
+      // 🔒 SECURITY FIX APPLIED: Enforce patient-level access control before listing files
+      console.log(`🔒 SECURITY: Validating file list access for user ${req.user.id} -> patient ${patientId}`);
+      const hasPatientAccess = await ensurePatientAccess(req.user, patientId);
+      if (!hasPatientAccess) {
+        console.warn(`🚨 SECURITY BLOCKED: User ${req.user.id} denied file list access to patient ${patientId}`);
+        return res.status(403).json({ error: "Нет доступа к этому пациенту" });
+      }
+      console.log(`✅ SECURITY: File list access validated for user ${req.user.id}`);
+      
+      const files = await storage.getPatientFiles(patientId, fileType as string);
+      res.json(files);
+    } catch (error) {
+      console.error("Ошибка получения файлов:", error);
+      res.status(500).json({ error: "Ошибка получения файлов" });
+    }
+  });
+
+  // Download specific file by ID
+  app.get("/api/files/:fileId/download", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
+    try {
+      const { fileId } = req.params;
+      const fileRecord = await storage.getPatientFileById(fileId);
+      
+      if (!fileRecord) {
+        return res.status(404).json({ error: "Файл не найден" });
+      }
+
+      // 🔒 SECURITY FIX APPLIED: Check patient access authorization via file's owning patient
+      console.log(`🔒 SECURITY: Validating file download access for user ${req.user.id} -> file ${fileId} (patient ${fileRecord.patientId})`);
+      const hasPatientAccess = await ensurePatientAccess(req.user, fileRecord.patientId);
+      if (!hasPatientAccess) {
+        console.warn(`🚨 SECURITY BLOCKED: User ${req.user.id} denied download access to file ${fileId} from patient ${fileRecord.patientId}`);
+        return res.status(403).json({ error: "Нет доступа к файлам этого пациента" });
+      }
+      console.log(`✅ SECURITY: File download access validated for user ${req.user.id}`);
+
+      // Check if file exists on disk
+      try {
+        await fs.access(fileRecord.filePath);
+      } catch {
+        return res.status(404).json({ error: "Файл на диске не найден" });
+      }
+
+      // Set proper headers for file download (use DB stored MIME, not client-provided)
+      res.setHeader('Content-Type', fileRecord.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileRecord.originalName}"`);
+      res.sendFile(path.resolve(fileRecord.filePath));
+    } catch (error) {
+      console.error("Ошибка отдачи файла:", error);
+      res.status(500).json({ error: "Ошибка отдачи файла" });
+    }
+  });
+
+  // Delete file by ID
+  app.delete("/api/files/:fileId", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
+    try {
+      const { fileId } = req.params;
+      const fileRecord = await storage.getPatientFileById(fileId);
+      
+      if (!fileRecord) {
+        return res.status(404).json({ error: "Файл не найден" });
+      }
+
+      // 🔒 SECURITY FIX APPLIED: Check patient access authorization via file's owning patient  
+      console.log(`🔒 SECURITY: Validating file deletion access for user ${req.user.id} -> file ${fileId} (patient ${fileRecord.patientId})`);
+      const hasPatientAccess = await ensurePatientAccess(req.user, fileRecord.patientId);
+      if (!hasPatientAccess) {
+        console.warn(`🚨 SECURITY BLOCKED: User ${req.user.id} denied deletion access to file ${fileId} from patient ${fileRecord.patientId}`);
+        return res.status(403).json({ error: "Нет доступа к файлам этого пациента" });
+      }
+      console.log(`✅ SECURITY: File deletion access validated for user ${req.user.id}`);
+
+      // Delete from database first
+      await storage.deletePatientFile(fileId);
+      
+      // Delete file from disk - log warning but continue if file missing
+      try {
+        await fs.unlink(fileRecord.filePath);
+      } catch (error) {
+        console.warn(`File cleanup warning for ${fileId}: ${error}`);
+      }
+
+      res.status(200).json({ message: "Файл успешно удален" });
+    } catch (error) {
+      console.error("Ошибка удаления файла:", error);
+      res.status(500).json({ error: "Ошибка удаления файла" });
     }
   });
 

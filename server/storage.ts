@@ -11,9 +11,10 @@ import {
   type Invoice, type InsertInvoice,
   type InvoiceItem, type InsertInvoiceItem,
   type Branch, type InsertBranch,
+  type PatientFile, type InsertPatientFile,
   users, owners, patients, doctors, appointments, 
   medicalRecords, medications, services, products, 
-  invoices, invoiceItems, branches
+  invoices, invoiceItems, branches, patientFiles
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, like, and, or, desc, sql, gte, lte } from "drizzle-orm";
@@ -150,6 +151,12 @@ export interface IStorage {
     pendingPayments: number;
     lowStock: number;
   }>;
+
+  // Patient File methods
+  createPatientFile(file: InsertPatientFile): Promise<PatientFile>;
+  getPatientFiles(patientId: string, fileType?: string): Promise<PatientFile[]>;
+  getPatientFileById(fileId: string): Promise<PatientFile | undefined>;
+  deletePatientFile(fileId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -950,6 +957,49 @@ export class DatabaseStorage implements IStorage {
   async deleteBranch(id: string): Promise<void> {
     return await withPerformanceLogging('deleteBranch', async () => {
       await db.delete(branches).where(eq(branches.id, id));
+    });
+  }
+
+  // Patient File methods implementation
+  async createPatientFile(file: InsertPatientFile): Promise<PatientFile> {
+    return withPerformanceLogging('createPatientFile', async () => {
+      const [newFile] = await db
+        .insert(patientFiles)
+        .values(file)
+        .returning();
+      return newFile;
+    });
+  }
+
+  async getPatientFiles(patientId: string, fileType?: string): Promise<PatientFile[]> {
+    return withPerformanceLogging('getPatientFiles', async () => {
+      const conditions = [eq(patientFiles.patientId, patientId)];
+      
+      if (fileType) {
+        conditions.push(eq(patientFiles.fileType, fileType));
+      }
+
+      return await db
+        .select()
+        .from(patientFiles)
+        .where(and(...conditions))
+        .orderBy(desc(patientFiles.createdAt));
+    });
+  }
+
+  async getPatientFileById(fileId: string): Promise<PatientFile | undefined> {
+    return withPerformanceLogging('getPatientFileById', async () => {
+      const [file] = await db
+        .select()
+        .from(patientFiles)
+        .where(eq(patientFiles.id, fileId));
+      return file || undefined;
+    });
+  }
+
+  async deletePatientFile(fileId: string): Promise<void> {
+    return withPerformanceLogging('deletePatientFile', async () => {
+      await db.delete(patientFiles).where(eq(patientFiles.id, fileId));
     });
   }
 }
