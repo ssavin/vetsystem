@@ -72,6 +72,10 @@ export interface IStorage {
   createBranch(branch: InsertBranch): Promise<Branch>;
   updateBranch(id: string, branch: Partial<InsertBranch>): Promise<Branch>;
   deleteBranch(id: string): Promise<void>;
+  
+  // 🔒 SECURITY: Branch access control methods
+  canUserAccessBranch(userId: string, branchId: string): Promise<boolean>;
+  getUserAccessibleBranches(userId: string): Promise<Branch[]>;
 
   // Owner methods
   getOwners(): Promise<Owner[]>;
@@ -1004,6 +1008,49 @@ export class DatabaseStorage implements IStorage {
   async deleteBranch(id: string): Promise<void> {
     return await withPerformanceLogging('deleteBranch', async () => {
       await db.delete(branches).where(eq(branches.id, id));
+    });
+  }
+
+  // 🔒 SECURITY: Branch access control implementations
+  async canUserAccessBranch(userId: string, branchId: string): Promise<boolean> {
+    return await withPerformanceLogging('canUserAccessBranch', async () => {
+      const user = await this.getUser(userId);
+      if (!user) {
+        return false;
+      }
+
+      // Руководители имеют доступ ко всем активным филиалам
+      if (user.role === 'руководитель') {
+        const branch = await this.getBranch(branchId);
+        return !!(branch && branch.status === 'active');
+      }
+
+      // Остальные пользователи могут переключаться только на свой филиал
+      return user.branchId === branchId;
+    });
+  }
+
+  async getUserAccessibleBranches(userId: string): Promise<Branch[]> {
+    return await withPerformanceLogging('getUserAccessibleBranches', async () => {
+      const user = await this.getUser(userId);
+      if (!user) {
+        return [];
+      }
+
+      // Руководители видят все активные филиалы
+      if (user.role === 'руководитель') {
+        return await this.getActiveBranches();
+      }
+
+      // Остальные пользователи видят только свой филиал
+      if (user.branchId) {
+        const userBranch = await this.getBranch(user.branchId);
+        if (userBranch && userBranch.status === 'active') {
+          return [userBranch];
+        }
+      }
+
+      return [];
     });
   }
 

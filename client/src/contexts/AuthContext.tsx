@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { User } from '@shared/schema'
+import { queryClient } from '@/lib/queryClient'
 
 import { ROLE_PERMISSIONS } from '../shared/permissions';
 
@@ -8,6 +9,7 @@ interface AuthContextType {
   currentBranch: { id: string; name: string } | null
   login: (username: string, password: string, branchId: string) => Promise<void>
   logout: () => void
+  switchBranch: (branchId: string) => Promise<void>
   isAuthenticated: boolean
   hasPermission: (module: string) => boolean
   isLoading: boolean
@@ -82,6 +84,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  const switchBranch = async (branchId: string): Promise<void> => {
+    try {
+      const response = await fetch('/api/auth/switch-branch', {
+        method: 'POST',
+        body: JSON.stringify({ branchId }),
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include' // Important: send cookies
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Ошибка при смене филиала')
+      }
+
+      const data = await response.json()
+      setCurrentBranch(data.currentBranch)
+      
+      // 🚀 UX IMPROVEMENT: Invalidate cache instead of page reload for better UX
+      queryClient.invalidateQueries()
+    } catch (error) {
+      console.error('Switch branch error:', error)
+      throw error
+    }
+  }
+
   // Проверяем аутентификацию через защищенный роут при загрузке
   useEffect(() => {
     const checkAuth = async () => {
@@ -112,6 +141,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         currentBranch,
         login,
         logout,
+        switchBranch,
         isAuthenticated: !!user,
         hasPermission,
         isLoading

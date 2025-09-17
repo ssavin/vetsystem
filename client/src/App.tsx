@@ -23,6 +23,7 @@ import AITestPage from "@/pages/AITestPage";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
+import BranchSelector from "@/components/BranchSelector";
 
 function AuthenticatedApp() {
   const { user, logout } = useAuth();
@@ -40,6 +41,7 @@ function AuthenticatedApp() {
           <header className="flex items-center justify-between p-4 border-b bg-background">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center space-x-4">
+              <BranchSelector />
               <div className="flex items-center space-x-2">
                 <User className="h-4 w-4" />
                 <span className="text-sm font-medium">{user?.fullName}</span>

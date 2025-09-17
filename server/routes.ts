@@ -1035,6 +1035,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🔒 SECURITY: Personalized branches endpoint - only returns branches user can access
+  app.get("/api/user/available-branches", authenticateToken, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Пользователь не аутентифицирован" });
+      }
+      
+      const availableBranches = await storage.getUserAccessibleBranches(req.user.id);
+      res.json(availableBranches);
+    } catch (error) {
+      console.error("Error fetching user available branches:", error);
+      res.status(500).json({ error: "Ошибка получения доступных филиалов" });
+    }
+  });
+
+  // Switch branch endpoint
+  app.post("/api/auth/switch-branch", authenticateToken, validateBody(z.object({
+    branchId: z.string().min(1, "ID филиала обязателен")
+  })), async (req, res) => {
+    try {
+      const { branchId } = req.body;
+      
+      // Verify branch exists and is active
+      const selectedBranch = await storage.getBranch(branchId);
+      if (!selectedBranch || selectedBranch.status !== 'active') {
+        return res.status(400).json({ error: "Выбранный филиал недоступен" });
+      }
+      
+      // Ensure user exists (should be guaranteed by authenticateToken middleware)
+      if (!req.user) {
+        return res.status(401).json({ error: "Пользователь не аутентифицирован" });
+      }
+
+      // 🔒 CRITICAL SECURITY CHECK: Verify user has access to selected branch
+      const hasAccess = await storage.canUserAccessBranch(req.user.id, branchId);
+      if (!hasAccess) {
+        console.warn(`🚨 SECURITY ALERT: User ${req.user.id} (${req.user.username}) attempted unauthorized branch switch to ${branchId}`);
+        return res.status(403).json({ 
+          error: "У вас нет доступа к выбранному филиалу. Обратитесь к администратору." 
+        });
+      }
+
+      // Generate new JWT tokens with updated branch info
+      const { accessToken, refreshToken } = generateTokens({
+        id: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
+        branchId: branchId
+      });
+      
+      // Set secure cookies with new tokens
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000 // 15 minutes
+      });
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+      
+      res.json({ 
+        currentBranch: { id: selectedBranch.id, name: selectedBranch.name },
+        message: "Филиал успешно изменен" 
+      });
+    } catch (error) {
+      console.error("Switch branch error:", error);
+      res.status(500).json({ error: "Ошибка при смене филиала" });
+    }
+  });
+
   // USER MANAGEMENT ROUTES (for administrators)
   app.get("/api/users", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
     try {
