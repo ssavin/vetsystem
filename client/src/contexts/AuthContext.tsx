@@ -1,14 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { User } from '@shared/schema'
 
-// Move ROLE_PERMISSIONS to client-only to avoid HMR cascade
-const ROLE_PERMISSIONS = {
-  'врач': ['registry', 'schedule', 'medical-records'],
-  'администратор': ['registry', 'schedule', 'medical-records', 'services-inventory', 'finance', 'reports', 'settings', 'users'],
-  'менеджер': ['registry', 'schedule', 'services-inventory', 'finance'],
-  'менеджер_склада': ['services-inventory'],
-  'руководитель': ['registry', 'schedule', 'medical-records', 'services-inventory', 'finance', 'reports', 'settings', 'users']
-} as const;
+import { ROLE_PERMISSIONS } from '../shared/permissions';
 
 interface AuthContextType {
   user: User | null

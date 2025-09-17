@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
-import { ROLE_PERMISSIONS } from '@shared/schema';
+import { ROLE_PERMISSIONS } from '../shared/permissions';
 
 // Extend Express Request type to include user
 declare global {

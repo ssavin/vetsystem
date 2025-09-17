@@ -210,6 +210,7 @@ export const medicalRecords = pgTable("medical_records", {
   nextVisit: timestamp("next_visit"),
   status: varchar("status", { length: 20 }).default("active"),
   notes: text("notes"),
+  branchId: varchar("branch_id").references(() => branches.id), // Temporarily nullable for migration
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -221,6 +222,7 @@ export const medicalRecords = pgTable("medical_records", {
     doctorIdIdx: index("medical_records_doctor_id_idx").on(table.doctorId),
     visitDateIdx: index("medical_records_visit_date_idx").on(table.visitDate),
     statusIdx: index("medical_records_status_idx").on(table.status),
+    branchIdIdx: index("medical_records_branch_id_idx").on(table.branchId),
     patientDateIdx: index("medical_records_patient_date_idx").on(table.patientId, table.visitDate),
   };
 });
@@ -453,14 +455,7 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Пароль обязателен"),
 });
 
-// User role permissions configuration
-export const ROLE_PERMISSIONS = {
-  врач: ['medical-records'],
-  администратор: ['registry', 'patients', 'owners'],
-  менеджер: ['finance', 'reports'],
-  менеджер_склада: ['services-inventory', 'products'],
-  руководитель: ['dashboard', 'reports', 'users', 'settings'],
-} as const;
+// ROLE_PERMISSIONS moved to client/src/contexts/AuthContext.tsx to avoid HMR cascades
 
 // Zod schemas for validation
 export const insertOwnerSchema = createInsertSchema(owners).omit({
