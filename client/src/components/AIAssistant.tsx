@@ -390,15 +390,39 @@ export default function AIAssistant({ patientData, onSuggestionApply }: AIAssist
         </Card>
       )}
 
-      {/* Другие вкладки можно добавить позже... */}
-      {activeTab !== 'diagnosis' && (
+      {/* Остальные вкладки ИИ */}
+      {activeTab === 'soap' && (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Автогенерация SOAP заметок - в разработке</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'image' && (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <Camera className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Анализ медицинских изображений - в разработке</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'treatment' && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Функционал "{activeTab === 'soap' ? 'SOAP заметки' : 
-                              activeTab === 'image' ? 'Анализ изображений' :
-                              activeTab === 'treatment' ? 'План лечения' :
-                              'ИИ-Консультант'}" в разработке</p>
+            <p>Персонализированный план лечения - в разработке</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'chat' && (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>ИИ-Консультант для владельцев - в разработке</p>
           </CardContent>
         </Card>
       )}
