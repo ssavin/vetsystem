@@ -12,6 +12,7 @@ import { seedDatabase } from "./seed-data";
 import { authenticateToken, requireRole, requireModuleAccess, generateTokens } from "./middleware/auth";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
+import * as veterinaryAI from './ai/veterinary-ai';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Add cookie parser middleware
@@ -734,6 +735,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // DASHBOARD/STATISTICS ROUTES
+  // AI ASSISTANCE ROUTES
+  app.post("/api/ai/analyze-symptoms", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
+    try {
+      const analysis = await veterinaryAI.analyzeSymptoms(req.body);
+      res.json(analysis);
+    } catch (error) {
+      console.error("AI symptom analysis error:", error);
+      res.status(500).json({ error: "Ошибка анализа симптомов ИИ" });
+    }
+  });
+
+  app.post("/api/ai/generate-soap", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
+    try {
+      const soapNotes = await veterinaryAI.generateSOAPNotes(req.body);
+      res.json(soapNotes);
+    } catch (error) {
+      console.error("AI SOAP generation error:", error);
+      res.status(500).json({ error: "Ошибка генерации SOAP заметки" });
+    }
+  });
+
+  app.post("/api/ai/analyze-image", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
+    try {
+      const { base64Image, imageType, context } = req.body;
+      const analysis = await veterinaryAI.analyzeVeterinaryImage(base64Image, imageType, context);
+      res.json(analysis);
+    } catch (error) {
+      console.error("AI image analysis error:", error);
+      res.status(500).json({ error: "Ошибка анализа изображения" });
+    }
+  });
+
+  app.post("/api/ai/treatment-plan", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
+    try {
+      const treatmentPlan = await veterinaryAI.generateTreatmentPlan(req.body);
+      res.json(treatmentPlan);
+    } catch (error) {
+      console.error("AI treatment plan error:", error);
+      res.status(500).json({ error: "Ошибка создания плана лечения" });
+    }
+  });
+
+  app.post("/api/ai/chat", authenticateToken, async (req, res) => {
+    try {
+      const { question, conversationHistory } = req.body;
+      const response = await veterinaryAI.clientChatAssistant(question, conversationHistory);
+      res.json({ response });
+    } catch (error) {
+      console.error("AI chat error:", error);
+      res.status(500).json({ error: "Ошибка ИИ-консультанта" });
+    }
+  });
+
+  // DASHBOARD ROUTES
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       const today = new Date();

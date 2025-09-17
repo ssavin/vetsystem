@@ -4,14 +4,17 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Plus, Filter, Calendar } from "lucide-react"
+import { Search, Plus, Filter, Calendar, Brain } from "lucide-react"
 import MedicalRecordCard from "@/components/MedicalRecordCard"
 import MedicalRecordForm from "@/components/MedicalRecordForm"
+import AIAssistant from "@/components/AIAssistant"
 import type { MedicalRecord } from "@shared/schema"
 
 
 export default function MedicalRecords() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [showAIAssistant, setShowAIAssistant] = useState(false)
+  const [selectedPatientForAI, setSelectedPatientForAI] = useState<any>(null)
 
   // Fetch medical records with patients, doctors, and medications
   const { data: medicalRecords = [], isLoading, error } = useQuery({
@@ -111,9 +114,37 @@ export default function MedicalRecords() {
               <Calendar className="h-4 w-4 mr-2" />
               Период
             </Button>
+            <Button
+              variant={showAIAssistant ? "default" : "outline"}
+              onClick={() => setShowAIAssistant(!showAIAssistant)}
+              data-testid="button-toggle-ai"
+            >
+              <Brain className="h-4 w-4 mr-2" />
+              ИИ-Помощник
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* ИИ-Помощник */}
+      {showAIAssistant && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-blue-500" />
+              Ветеринарный ИИ-Помощник
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AIAssistant 
+              patientData={selectedPatientForAI}
+              onSuggestionApply={(suggestion) => {
+                console.log('Применяем рекомендацию ИИ:', suggestion)
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -17,6 +17,7 @@ import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
 import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
+import AITestPage from "@/pages/AITestPage";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
@@ -64,6 +65,7 @@ function AuthenticatedApp() {
               <Route path="/reports" component={Reports} />
               <Route path="/settings" component={Settings} />
               <Route path="/users" component={UserManagement} />
+              <Route path="/ai-test" component={AITestPage} />
               <Route component={NotFound} />
             </Switch>
           </main>
