@@ -17,6 +17,10 @@ import {
   User,
   AlertCircle
 } from "lucide-react"
+import LabStudyDialog from "@/components/LabStudyDialog"
+import LabOrderDialog from "@/components/LabOrderDialog"
+import LabResultDialog from "@/components/LabResultDialog"
+import LabParameterDialog from "@/components/LabParameterDialog"
 import type { 
   LabStudy, 
   LabOrder, 
@@ -126,10 +130,7 @@ export default function Laboratory() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Лабораторные исследования</h3>
-        <Button data-testid="button-add-study">
-          <Plus className="h-4 w-4 mr-2" />
-          Добавить исследование
-        </Button>
+        <LabStudyDialog />
       </div>
       {studiesLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -161,9 +162,16 @@ export default function Laboratory() {
                   <Badge variant={study.isActive ? "default" : "secondary"}>
                     {study.isActive ? "Активно" : "Неактивно"}
                   </Badge>
-                  <Button variant="ghost" size="sm" data-testid={`button-view-study-${study.id}`}>
-                    Подробнее
-                  </Button>
+                  <div className="flex space-x-1">
+                    <LabParameterDialog studyId={study.id}>
+                      <Button variant="outline" size="sm" data-testid={`button-parameters-${study.id}`}>
+                        Параметры
+                      </Button>
+                    </LabParameterDialog>
+                    <Button variant="ghost" size="sm" data-testid={`button-view-study-${study.id}`}>
+                      Подробнее
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -177,10 +185,7 @@ export default function Laboratory() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Заказы анализов</h3>
-        <Button data-testid="button-add-order">
-          <Plus className="h-4 w-4 mr-2" />
-          Новый заказ
-        </Button>
+        <LabOrderDialog />
       </div>
       {ordersLoading ? (
         <div className="space-y-4">
@@ -214,8 +219,8 @@ export default function Laboratory() {
                         Заказ #{order.id.slice(-8)}
                       </p>
                     </div>
-                    <Badge variant={getStatusBadgeVariant(order.status)}>
-                      {getStatusText(order.status)}
+                    <Badge variant={getStatusBadgeVariant(order.status || 'pending')}>
+                      {getStatusText(order.status || 'pending')}
                     </Badge>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -259,10 +264,7 @@ export default function Laboratory() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Результаты анализов</h3>
-        <Button data-testid="button-add-result">
-          <Plus className="h-4 w-4 mr-2" />
-          Добавить результат
-        </Button>
+        <LabResultDialog />
       </div>
       {resultsLoading ? (
         <div className="space-y-4">
