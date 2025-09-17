@@ -115,9 +115,19 @@ export default function UserManagement() {
       if (!updateData.password || updateData.password.trim() === '') {
         delete (updateData as any).password;
       }
+      // Normalize empty branchId to null for API
+      if (updateData.branchId === '') {
+        updateData.branchId = null;
+      }
       updateMutation.mutate({ userId: editingUser.id, data: updateData as UserFormValues });
     } else {
-      createMutation.mutate(values);
+      // Normalize empty branchId to null for API
+      const createData = { ...values };
+      if (createData.branchId === '') {
+        createData.branchId = null;
+      }
+      
+      createMutation.mutate(createData);
     }
   }
 
@@ -295,7 +305,7 @@ export default function UserManagement() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Отделение</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value ?? ""}>
                         <FormControl>
                           <SelectTrigger data-testid="select-branch">
                             <SelectValue placeholder="Выберите отделение" />
