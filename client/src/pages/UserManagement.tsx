@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { insertUserSchema, User, USER_ROLES } from "@shared/schema"
+import { insertUserSchema, User, USER_ROLES, Branch } from "@shared/schema"
 import { z } from "zod"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,11 @@ export default function UserManagement() {
   // Fetch users
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ['/api/users']
+  })
+
+  // Fetch active branches for user assignment
+  const { data: branches = [] } = useQuery<Branch[]>({
+    queryKey: ['/api/branches/active']
   })
 
   // Create user mutation
@@ -98,18 +103,19 @@ export default function UserManagement() {
       email: "",
       phone: "",
       role: "врач",
-      status: "active"
+      status: "active",
+      branchId: ""
     }
   })
 
   const onSubmit = (values: UserFormValues) => {
     if (editingUser) {
       // For updates, exclude empty password to prevent overwriting
-      const updateData = { ...values };
+      const updateData = { ...values } as Partial<UserFormValues>;
       if (!updateData.password || updateData.password.trim() === '') {
-        delete updateData.password;
+        delete (updateData as any).password;
       }
-      updateMutation.mutate({ userId: editingUser.id, data: updateData });
+      updateMutation.mutate({ userId: editingUser.id, data: updateData as UserFormValues });
     } else {
       createMutation.mutate(values);
     }
@@ -124,7 +130,8 @@ export default function UserManagement() {
       email: user.email || "",
       phone: user.phone || "", 
       role: user.role as any,
-      status: user.status as any
+      status: user.status as any,
+      branchId: user.branchId || ""
     })
     setIsCreateDialogOpen(true)
   }
@@ -282,6 +289,32 @@ export default function UserManagement() {
                   )}
                 />
                 
+                <FormField
+                  control={form.control}
+                  name="branchId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Отделение</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-branch">
+                            <SelectValue placeholder="Выберите отделение" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">Без отделения</SelectItem>
+                          {branches.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {branch.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
                 <div className="flex justify-end space-x-2 pt-4">
                   <Button type="button" variant="outline" onClick={handleCloseDialog}>
                     Отмена
@@ -382,6 +415,7 @@ export default function UserManagement() {
                   <TableHead>Email</TableHead>
                   <TableHead>Телефон</TableHead>
                   <TableHead>Роль</TableHead>
+                  <TableHead>Отделение</TableHead>
                   <TableHead>Статус</TableHead>
                   <TableHead>Последний вход</TableHead>
                   <TableHead className="w-[100px]">Действия</TableHead>
@@ -398,6 +432,13 @@ export default function UserManagement() {
                       <Badge className={getRoleColor(user.role)}>
                         {user.role === 'менеджер_склада' ? 'менеджер склада' : user.role}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {user.branchId ? (
+                        branches.find(b => b.id === user.branchId)?.name || 'Неизвестно'
+                      ) : (
+                        <span className="text-muted-foreground">Без отделения</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
