@@ -1,0 +1,107 @@
+root@5674494:/var/www/vetsystem# sudo systemctl status nginx
+● nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (/lib/systemd/system/nginx.service; enabled; vendor preset: enabled)
+     Active: active (running) since Thu 2025-09-18 10:30:28 UTC; 1 day 12h ago
+       Docs: man:nginx(8)
+   Main PID: 1897 (nginx)
+      Tasks: 5 (limit: 9388)
+     Memory: 7.2M
+        CPU: 901ms
+     CGroup: /system.slice/nginx.service
+             ├─ 1897 "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"
+             ├─30122 "nginx: worker process" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
+             ├─30123 "nginx: worker process" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
+             ├─30124 "nginx: worker process" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
+             └─30125 "nginx: worker process" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
+
+Sep 18 10:30:28 5674494.ru systemd[1]: Starting A high performance web server and a reverse proxy server...
+Sep 18 10:30:28 5674494.ru systemd[1]: Started A high performance web server and a reverse proxy server.
+Sep 19 16:31:46 5674494.ru systemd[1]: Reloading A high performance web server and a reverse proxy server...
+Sep 19 16:31:46 5674494.ru systemd[1]: Reloaded A high performance web server and a reverse proxy server.
+Sep 19 19:10:26 5674494.ru systemd[1]: Reloading A high performance web server and a reverse proxy server...
+Sep 19 19:10:26 5674494.ru systemd[1]: Reloaded A high performance web server and a reverse proxy server.
+root@5674494:/var/www/vetsystem# sudo systemctl status postgresql
+● postgresql.service - PostgreSQL RDBMS
+     Loaded: loaded (/lib/systemd/system/postgresql.service; enabled; vendor preset: enabled)
+     Active: active (exited) since Thu 2025-09-18 15:34:41 UTC; 1 day 7h ago
+   Main PID: 5880 (code=exited, status=0/SUCCESS)
+        CPU: 1ms
+
+Sep 18 15:34:41 5674494.ru systemd[1]: Starting PostgreSQL RDBMS...
+Sep 18 15:34:41 5674494.ru systemd[1]: Finished PostgreSQL RDBMS.
+root@5674494:/var/www/vetsystem# ls -la /etc/nginx/sites-enabled/
+total 8
+drwxr-xr-x 2 root root 4096 Sep 19 16:31 .
+drwxr-xr-x 8 root root 4096 Sep 19 19:12 ..
+lrwxrwxrwx 1 root root   36 Sep 19 16:31 vetsystem -> /etc/nginx/sites-available/vetsystem
+root@5674494:/var/www/vetsystem# cat /etc/nginx/sites-enabled/default
+cat: /etc/nginx/sites-enabled/default: No such file or directory
+root@5674494:/var/www/vetsystem# ^C
+root@5674494:/var/www/vetsystem# sudo nano /etc/nginx/sites-available/vetsystem
+root@5674494:/var/www/vetsystem# sudo ln -sf /etc/nginx/sites-available/vetsystem /etc/nginx/sites-enabled/
+root@5674494:/var/www/vetsystem# sudo nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+root@5674494:/var/www/vetsystem# sudo systemctl reload nginx
+root@5674494:/var/www/vetsystem# curl http://localhost:5000
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>VetSystem - Система управления ветеринарной клиникой</title>
+    <meta name="description" content="Комплексная система управления ветеринарной клиникой с регистратурой, расписанием, электронными медкартами и складским учетом" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="/assets/index-CNjlxkTg.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BkJStkPH.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
+    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+  </body>
+</html>root@5674494:/var/www/vetsystem# curl http://localhost
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>VetSystem - Система управления ветеринарной клиникой</title>
+    <meta name="description" content="Комплексная система управления ветеринарной клиникой с регистратурой, расписанием, электронными медкартами и складским учетом" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="/assets/index-CNjlxkTg.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BkJStkPH.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
+    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+  </body>
+</html>root@5674494:/var/www/vetscurl -H "Host: www.vetsystemai.ru" http://localhostcalhost
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>VetSystem - Система управления ветеринарной клиникой</title>
+    <meta name="description" content="Комплексная система управления ветеринарной клиникой с регистратурой, расписанием, электронными медкартами и складским учетом" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="/assets/index-CNjlxkTg.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BkJStkPH.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
+    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+  </body>
+</html>root@5674494:/var/www/vetsystem# curl ifconfig.me
+194.5.78.182root@5674494:/var/www/vetsystem# dig vetsystemai.ru +short
+194.5.78.182
+root@5674494:/var/www/vetsystem# dig www.vetsystemai.ru +short
+194.5.78.182
