@@ -1,0 +1,153 @@
+npm install --production
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: '@tokenizer/inflate@0.2.7',
+npm WARN EBADENGINE   required: { node: '>=18' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: '@vitejs/plugin-react@4.3.3',
+npm WARN EBADENGINE   required: { node: '^14.18.0 || >=16.0.0' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'connect-pg-simple@10.0.0',
+npm WARN EBADENGINE   required: { node: '^18.18.0 || ^20.9.0 || >=22.0.0' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'esbuild@0.25.0',
+npm WARN EBADENGINE   required: { node: '>=18' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'express-rate-limit@8.1.0',
+npm WARN EBADENGINE   required: { node: '>= 16' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'file-type@21.0.0',
+npm WARN EBADENGINE   required: { node: '>=20' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'foreground-child@3.3.0',
+npm WARN EBADENGINE   required: { node: '>=14' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'lilconfig@3.1.3',
+npm WARN EBADENGINE   required: { node: '>=14' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'minimatch@9.0.5',
+npm WARN EBADENGINE   required: { node: '>=16 || 14 >=14.17' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'minipass@7.1.2',
+npm WARN EBADENGINE   required: { node: '>=16 || 14 >=14.17' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'path-scurry@1.11.1',
+npm WARN EBADENGINE   required: { node: '>=16 || 14 >=14.18' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'postcss-import@15.1.0',
+npm WARN EBADENGINE   required: { node: '>=14.0.0' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'postcss-load-config@4.0.2',
+npm WARN EBADENGINE   required: { node: '>= 14' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'react-hook-form@7.55.0',
+npm WARN EBADENGINE   required: { node: '>=18.0.0' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'recharts@2.15.2',
+npm WARN EBADENGINE   required: { node: '>=14' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'rollup@4.24.4',
+npm WARN EBADENGINE   required: { node: '>=18.0.0', npm: '>=8.0.0' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'signal-exit@4.1.0',
+npm WARN EBADENGINE   required: { node: '>=14' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'strtok3@10.3.4',
+npm WARN EBADENGINE   required: { node: '>=18' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'sucrase@3.35.0',
+npm WARN EBADENGINE   required: { node: '>=16 || 14 >=14.17' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'tailwindcss@3.4.17',
+npm WARN EBADENGINE   required: { node: '>=14.0.0' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'token-types@6.1.1',
+npm WARN EBADENGINE   required: { node: '>=14.16' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'tsx@4.19.2',
+npm WARN EBADENGINE   required: { node: '>=18.0.0' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'esbuild@0.23.1',
+npm WARN EBADENGINE   required: { node: '>=18' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'typescript@5.6.3',
+npm WARN EBADENGINE   required: { node: '>=14.17' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'uint8array-extras@1.5.0',
+npm WARN EBADENGINE   required: { node: '>=18' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'vite@5.4.19',
+npm WARN EBADENGINE   required: { node: '^18.0.0 || >=20.0.0' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'yaml@2.6.0',
+npm WARN EBADENGINE   required: { node: '>= 14' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'zod-validation-error@3.4.0',
+npm WARN EBADENGINE   required: { node: '>=18.0.0' },
+npm WARN EBADENGINE   current: { node: 'v12.22.9', npm: '8.5.1' }
+npm WARN EBADENGINE }
+
+up to date, audited 428 packages in 2s
+
+62 packages are looking for funding
+  run `npm fund` for details
+
+3 low severity vulnerabilities
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
