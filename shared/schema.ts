@@ -35,21 +35,12 @@ export const branches = pgTable("branches", {
   region: varchar("region", { length: 100 }),
   phone: varchar("phone", { length: 50 }).notNull(),
   email: varchar("email", { length: 255 }),
-  workingHours: jsonb("working_hours"), // Store schedule as JSON
+  workingHours: jsonb("working_hours"),
   status: varchar("status", { length: 20 }).default("active"),
-  managerId: varchar("manager_id"), // Branch manager - will be linked later
+  managerId: varchar("manager_id"),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => {
-  return {
-    statusCheck: check("branches_status_check", sql`${table.status} IN ('active', 'inactive', 'maintenance')`),
-    nameIdx: index("branches_name_idx").on(table.name),
-    cityIdx: index("branches_city_idx").on(table.city),
-    statusIdx: index("branches_status_idx").on(table.status),
-    managerIdIdx: index("branches_manager_id_idx").on(table.managerId),
-    createdAtIdx: index("branches_created_at_idx").on(table.createdAt),
-  };
 });
 
 // Enhanced users table for role-based authentication
