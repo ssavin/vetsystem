@@ -51,12 +51,15 @@ sudo mkdir -p /var/www/vetsystem/uploads/patient-files
 sudo chown -R $USER:$USER /var/www/vetsystem
 ```
 
-### Шаг 2: Клонирование кода из Replit
+### Шаг 2: Перенос кода из Replit
 
+**Способ 1: Через ZIP архив (рекомендуется) ⭐**
 ```bash
+# 1. В Replit: правый клик на корневую папку проекта → Download
+# 2. Загрузить ZIP файл на Ubuntu сервер
+# 3. Распаковать:
 cd /var/www/
-# Клонируйте репозиторий из Replit Git
-git clone <YOUR_REPLIT_GIT_URL> vetsystem
+unzip имя_вашего_проекта.zip -d vetsystem
 cd vetsystem
 
 # Установка зависимостей
@@ -64,6 +67,16 @@ npm ci
 
 # Проверка структуры
 ls -la
+```
+
+**Способ 2: Через Git SSH (если доступен)**
+```bash
+cd /var/www/
+# В Replit найдите кнопку + → SSH для получения Git URL
+# Формат: git@ВАШ_REPL_ID.ssh.replit.com:/home/runner/vetsystem
+git clone git@ВАШ_REPL_ID.ssh.replit.com:/home/runner/vetsystem vetsystem
+cd vetsystem
+npm ci
 ```
 
 ### Шаг 3: Настройка базы данных PostgreSQL
