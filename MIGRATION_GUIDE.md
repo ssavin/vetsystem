@@ -62,8 +62,11 @@ cd /var/www/
 unzip имя_вашего_проекта.zip -d vetsystem
 cd vetsystem
 
-# Установка зависимостей
-npm ci
+# Установка зависимостей (с обходом конфликтов)
+npm ci --legacy-peer-deps
+
+# Если ошибка персистирует, используйте:
+# npm install --legacy-peer-deps
 
 # Проверка структуры
 ls -la
@@ -76,7 +79,7 @@ cd /var/www/
 # Формат: git@ВАШ_REPL_ID.ssh.replit.com:/home/runner/vetsystem
 git clone git@ВАШ_REPL_ID.ssh.replit.com:/home/runner/vetsystem vetsystem
 cd vetsystem
-npm ci
+npm ci --legacy-peer-deps
 ```
 
 ### Шаг 3: Настройка базы данных PostgreSQL

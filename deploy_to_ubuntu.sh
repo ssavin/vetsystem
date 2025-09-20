@@ -188,7 +188,7 @@ cat << EOF
    # git clone git@ВАШ_REPL_ID.ssh.replit.com:/home/runner/vetsystem vetsystem
    
 2️⃣ Установите зависимости и соберите:
-   npm ci
+   npm ci --legacy-peer-deps
    npm run build
 
 3️⃣ Импортируйте базу данных:
