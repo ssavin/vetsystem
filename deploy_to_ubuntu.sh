@@ -46,6 +46,7 @@ echo "✅ Зависимости установлены!"
 
 echo "📁 Шаг 2: Создание директорий..."
 sudo mkdir -p $VETSYSTEM_DIR
+sudo mkdir -p $VETSYSTEM_DIR/uploads/patient-files
 sudo chown -R $USER:$USER $VETSYSTEM_DIR
 
 echo "💾 Шаг 3: Настройка базы данных..."
@@ -66,6 +67,9 @@ CREATE DATABASE vetsystem OWNER vetuser;
 GRANT ALL PRIVILEGES ON DATABASE vetsystem TO vetuser;
 \q
 EOF
+
+# Создание расширения pgcrypto для UUID функций
+sudo -u postgres psql -d vetsystem -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
 
 echo "✅ База данных настроена!"
 echo "🔑 Пароль БД: $DB_PASSWORD"
@@ -109,15 +113,23 @@ server {
     listen 80;
     server_name $DOMAIN www.$DOMAIN;
     
-    root $VETSYSTEM_DIR/dist/public;
+    # Корневая папка для Vite сборки
+    root $VETSYSTEM_DIR/dist;
     index index.html;
     
-    # Статические файлы
+    # Статические файлы (CSS, JS)
     location /assets/ {
-        root $VETSYSTEM_DIR/dist/public;
+        root $VETSYSTEM_DIR/dist;
         expires 1y;
         add_header Cache-Control "public, immutable";
         try_files \$uri =404;
+    }
+    
+    # Загруженные файлы пациентов
+    location /uploads/ {
+        alias $VETSYSTEM_DIR/uploads/;
+        expires 30d;
+        add_header Cache-Control "public";
     }
     
     # API запросы
@@ -176,13 +188,14 @@ cat << EOF
    npm run build
 
 3️⃣ Импортируйте базу данных:
-   psql "postgresql://vetuser:$DB_PASSWORD@localhost:5432/vetsystem" < vetsystem_dump.sql
+   psql "postgresql://vetuser:$DB_PASSWORD@localhost:5432/vetsystem" < $VETSYSTEM_DIR/vetsystem_dump.sql
 
 4️⃣ Добавьте OPENAI_API_KEY в .env:
    nano $VETSYSTEM_DIR/.env
 
 5️⃣ Установите права и запустите:
    sudo chown -R www-data:www-data $VETSYSTEM_DIR
+   sudo chmod -R 775 $VETSYSTEM_DIR/uploads
    sudo systemctl daemon-reload
    sudo systemctl enable vetsystem
    sudo systemctl start vetsystem

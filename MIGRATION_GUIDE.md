@@ -45,8 +45,9 @@ sudo apt install nginx -y
 # Установка дополнительных пакетов
 sudo apt install git curl build-essential -y
 
-# Создание папки для приложения
+# Создание папки для приложения и uploads
 sudo mkdir -p /var/www/vetsystem
+sudo mkdir -p /var/www/vetsystem/uploads/patient-files
 sudo chown -R $USER:$USER /var/www/vetsystem
 ```
 
@@ -77,8 +78,11 @@ CREATE DATABASE vetsystem OWNER vetuser;
 GRANT ALL PRIVILEGES ON DATABASE vetsystem TO vetuser;
 \q
 
-# Импорт данных из дампа
-psql -h localhost -U vetuser -d vetsystem < vetsystem_dump.sql
+# Создание необходимых расширений PostgreSQL
+sudo -u postgres psql -d vetsystem -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+# Импорт данных из дампа (используем абсолютный путь)
+psql -h localhost -U vetuser -d vetsystem < /var/www/vetsystem/vetsystem_dump.sql
 
 # Проверка импорта
 psql -h localhost -U vetuser -d vetsystem -c "\dt"
@@ -115,7 +119,7 @@ npm run build
 
 # Проверка что dist создан
 ls -la dist/
-ls -la dist/public/assets/
+ls -la dist/assets/
 ```
 
 ### Шаг 6: Настройка systemd сервиса
@@ -151,6 +155,8 @@ WantedBy=multi-user.target
 # Установка прав
 sudo chown -R www-data:www-data /var/www/vetsystem
 sudo chmod -R 755 /var/www/vetsystem
+# Специальные права для папки uploads
+sudo chmod -R 775 /var/www/vetsystem/uploads
 
 # Запуск сервиса
 sudo systemctl daemon-reload
@@ -174,16 +180,23 @@ server {
     listen 80;
     server_name ваш-домен.com www.ваш-домен.com;
     
-    # Корневая папка для статических файлов
-    root /var/www/vetsystem/dist/public;
+    # Корневая папка для Vite сборки
+    root /var/www/vetsystem/dist;
     index index.html;
     
-    # Статические файлы (CSS, JS)
+    # Статические файлы (CSS, JS) - Vite создает assets в dist/assets
     location /assets/ {
-        root /var/www/vetsystem/dist/public;
+        root /var/www/vetsystem/dist;
         expires 1y;
         add_header Cache-Control "public, immutable";
         try_files $uri =404;
+    }
+    
+    # Загруженные файлы пациентов
+    location /uploads/ {
+        alias /var/www/vetsystem/uploads/;
+        expires 30d;
+        add_header Cache-Control "public";
     }
     
     # API запросы к приложению
