@@ -628,7 +628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Access denied: Patient not found' });
       }
       
-      const appointments = await storage.getAppointmentsByPatient(req.params.patientId);
+      const appointments = await storage.getAppointmentsByPatient(req.params.patientId, user.branchId);
       res.json(appointments);
     } catch (error) {
       console.error("Error fetching appointments by patient:", error);
@@ -1069,7 +1069,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/invoices", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
-      const invoices = await storage.getInvoices(status);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const invoices = await storage.getInvoices(status, userBranchId);
       res.json(invoices);
     } catch (error) {
       console.error("Error fetching invoices:", error);
@@ -1079,7 +1082,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/invoices/overdue", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
-      const invoices = await storage.getOverdueInvoices();
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const invoices = await storage.getOverdueInvoices(userBranchId);
       res.json(invoices);
     } catch (error) {
       console.error("Error fetching overdue invoices:", error);
@@ -1102,7 +1108,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/invoices/patient/:patientId", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
-      const invoices = await storage.getInvoicesByPatient(req.params.patientId);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const invoices = await storage.getInvoicesByPatient(req.params.patientId, userBranchId);
       res.json(invoices);
     } catch (error) {
       console.error("Error fetching invoices by patient:", error);
@@ -1237,8 +1246,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // DASHBOARD ROUTES
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", authenticateToken, async (req, res) => {
     try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -1250,12 +1263,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pendingInvoices,
         paidInvoices
       ] = await Promise.all([
-        storage.getPatients(1000, 0), // Get all patients for count
-        storage.getAppointments(today),
+        storage.getPatients(1000, 0, user.branchId), // Get branch patients for count
+        storage.getAppointments(today, user.branchId),
         storage.getLowStockProducts(),
-        storage.getOverdueInvoices(),
-        storage.getInvoices('pending'),
-        storage.getInvoices('paid')
+        storage.getOverdueInvoices(user.branchId),
+        storage.getInvoices('pending', user.branchId),
+        storage.getInvoices('paid', user.branchId)
       ]);
 
       const stats = {
@@ -1938,7 +1951,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/lab-orders", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
-      const orders = await storage.getLabOrders(status);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const orders = await storage.getLabOrders(undefined, status, userBranchId);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching lab orders:", error);
@@ -1961,7 +1977,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/lab-orders/doctor/:doctorId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
     try {
-      const orders = await storage.getLabOrdersByDoctor(req.params.doctorId);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const orders = await storage.getLabOrdersByDoctor(req.params.doctorId, userBranchId);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching lab orders by doctor:", error);
@@ -1971,7 +1990,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/lab-orders/appointment/:appointmentId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
     try {
-      const orders = await storage.getLabOrdersByAppointment(req.params.appointmentId);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const orders = await storage.getLabOrdersByAppointment(req.params.appointmentId, userBranchId);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching lab orders by appointment:", error);

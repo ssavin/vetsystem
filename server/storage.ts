@@ -23,7 +23,7 @@ import {
   labStudies, labParameters, referenceRanges, 
   labOrders, labResultDetails
 } from "@shared/schema";
-import { db } from "./db";
+import { db } from "./db-local";
 import { eq, like, and, or, desc, sql, gte, lte, isNull, type SQL } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
