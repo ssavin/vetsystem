@@ -1,0 +1,51 @@
+sudo journalctl -u vetsystem --lines=50
+Sep 20 13:18:15 5674494.ru npm[81716]:     _extensions: {},
+Sep 20 13:18:15 5674494.ru npm[81716]:     _paused: false,
+Sep 20 13:18:15 5674494.ru npm[81716]:     _protocol: '',
+Sep 20 13:18:15 5674494.ru npm[81716]:     _readyState: 3,
+Sep 20 13:18:15 5674494.ru npm[81716]:     _receiver: null,
+Sep 20 13:18:15 5674494.ru npm[81716]:     _sender: null,
+Sep 20 13:18:15 5674494.ru npm[81716]:     _socket: null,
+Sep 20 13:18:15 5674494.ru npm[81716]:     _bufferedAmount: 0,
+Sep 20 13:18:15 5674494.ru npm[81716]:     _isServer: false,
+Sep 20 13:18:15 5674494.ru npm[81716]:     _redirects: 0,
+Sep 20 13:18:15 5674494.ru npm[81716]:     _autoPong: true,
+Sep 20 13:18:15 5674494.ru npm[81716]:     _url: 'wss://localhost/v2',
+Sep 20 13:18:15 5674494.ru npm[81716]:     _req: null,
+Sep 20 13:18:15 5674494.ru npm[81716]:     [Symbol(shapeMode)]: false,
+Sep 20 13:18:15 5674494.ru npm[81716]:     [Symbol(kCapture)]: false
+Sep 20 13:18:15 5674494.ru npm[81716]:   },
+Sep 20 13:18:15 5674494.ru npm[81716]:   [Symbol(kType)]: 'error',
+Sep 20 13:18:15 5674494.ru npm[81716]:   [Symbol(kError)]: Error [ERR_TLS_CERT_ALTNAME_INVALID]: Hostname/IP does not match certific>
+Sep 20 13:18:15 5674494.ru npm[81716]:       at Object.checkServerIdentity (node:tls:316:12)
+Sep 20 13:18:15 5674494.ru npm[81716]:       at TLSSocket.onConnectSecure (node:_tls_wrap:1687:27)
+Sep 20 13:18:15 5674494.ru npm[81716]:       at TLSSocket.emit (node:events:524:28)
+Sep 20 13:18:15 5674494.ru npm[81716]:       at TLSSocket._finishInit (node:_tls_wrap:1076:8)
+Sep 20 13:18:15 5674494.ru npm[81716]:       at ssl.onhandshakedone (node:_tls_wrap:862:12) {
+Sep 20 13:18:15 5674494.ru npm[81716]:     code: 'ERR_TLS_CERT_ALTNAME_INVALID',
+Sep 20 13:18:15 5674494.ru npm[81716]:     reason: "Host: localhost. is not in the cert's altnames: DNS:vetsystemai.ru, DNS:www.vets>
+Sep 20 13:18:15 5674494.ru npm[81716]:     host: 'localhost',
+Sep 20 13:18:15 5674494.ru npm[81716]:     cert: {
+Sep 20 13:18:15 5674494.ru npm[81716]:       subject: [Object: null prototype],
+Sep 20 13:18:15 5674494.ru npm[81716]:       issuer: [Object: null prototype],
+Sep 20 13:18:15 5674494.ru npm[81716]:       subjectaltname: 'DNS:vetsystemai.ru, DNS:www.vetsystemai.ru',
+Sep 20 13:18:15 5674494.ru npm[81716]:       infoAccess: [Object: null prototype],
+Sep 20 13:18:15 5674494.ru npm[81716]:       ca: false,
+Sep 20 13:18:15 5674494.ru npm[81716]:       modulus: 'C9FE04A1C91BA80E80A146CCB75E0EFF2D5A4F5296DC86B2C0475F125945157661B0B79B71560>
+Sep 20 13:18:15 5674494.ru npm[81716]:       bits: 2048,
+Sep 20 13:18:15 5674494.ru npm[81716]:       exponent: '0x10001',
+Sep 20 13:18:15 5674494.ru npm[81716]:       pubkey: <Buffer 30 82 01 22 30 0d 06 09 2a 86 48 86 f7 0d 01 01 01 05 00 03 82 01 0f 00>
+Sep 20 13:18:15 5674494.ru npm[81716]:       valid_from: 'Sep 20 06:43:41 2025 GMT',
+Sep 20 13:18:15 5674494.ru npm[81716]:       valid_to: 'Dec 19 06:43:40 2025 GMT',
+Sep 20 13:18:15 5674494.ru npm[81716]:       fingerprint: '83:0B:B9:6E:DE:BB:83:6D:86:FD:D5:98:DA:0B:B4:D3:1B:C3:8E:CC',
+Sep 20 13:18:15 5674494.ru npm[81716]:       fingerprint256: '49:CF:CB:6A:A7:13:25:AE:75:80:44:C7:56:BE:36:32:75:B5:1B:E9:B4:A0:6D:D>
+Sep 20 13:18:15 5674494.ru npm[81716]:       fingerprint512: '44:BD:6B:D0:5A:3C:0E:28:7C:42:43:75:A9:1D:94:A7:19:65:6D:E3:E0:9C:48:C>
+Sep 20 13:18:15 5674494.ru npm[81716]:       ext_key_usage: [Array],
+Sep 20 13:18:15 5674494.ru npm[81716]:       serialNumber: '0583C9C640CD5EEB5397404A22985A9BD836',
+Sep 20 13:18:15 5674494.ru npm[81716]:       raw: <Buffer 30 82 05 0c 30 82 03 f4 a0 03 02 01 02 02 12 05 83 c9 c6 40 cd 5e eb 53 97>
+Sep 20 13:18:15 5674494.ru npm[81716]:       issuerCertificate: [Object]
+Sep 20 13:18:15 5674494.ru npm[81716]:     }
+Sep 20 13:18:15 5674494.ru npm[81716]:   },
+Sep 20 13:18:15 5674494.ru npm[81716]:   [Symbol(kMessage)]: "Hostname/IP does not match certificate's altnames: Host: localhost. is>
+Sep 20 13:18:15 5674494.ru npm[81716]: }
+Sep 20 13:18:15 5674494.ru npm[81716]: 1:18:15 PM [express] HEAD /api/branches/active 500 in 59ms
