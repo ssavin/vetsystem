@@ -1,0 +1,39 @@
+sudo systemctl status vetsystem
+● vetsystem.service - VetSystem Application
+     Loaded: loaded (/etc/systemd/system/vetsystem.service; enabled; vendor preset: enabled)
+     Active: active (running) since Sat 2025-09-20 20:04:43 UTC; 11s ago
+   Main PID: 2439 (npm start)
+      Tasks: 23 (limit: 9388)
+     Memory: 63.4M
+        CPU: 1.412s
+     CGroup: /system.slice/vetsystem.service
+             ├─2439 "npm start" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
+             ├─2451 sh -c "NODE_ENV=production node dist/index.js"
+             └─2452 node dist/index.js
+
+Sep 20 20:04:43 5674494.ru systemd[1]: Started VetSystem Application.
+Sep 20 20:04:44 5674494.ru npm[2439]: > rest-express@1.0.0 start
+Sep 20 20:04:44 5674494.ru npm[2439]: > NODE_ENV=production node dist/index.js
+Sep 20 20:04:44 5674494.ru npm[2452]: 8:04:44 PM [express] serving on port 5000
+root@5674494:/var/www/vetsystem# sudo journalctl -u vetsystem -f --lines=20
+Sep 20 19:54:44 5674494.ru npm[2296]:   where: undefined,
+Sep 20 19:54:44 5674494.ru npm[2296]:   schema: undefined,
+Sep 20 19:54:44 5674494.ru npm[2296]:   table: undefined,
+Sep 20 19:54:44 5674494.ru npm[2296]:   column: undefined,
+Sep 20 19:54:44 5674494.ru npm[2296]:   dataType: undefined,
+Sep 20 19:54:44 5674494.ru npm[2296]:   constraint: undefined,
+Sep 20 19:54:44 5674494.ru npm[2296]:   file: 'aclchk.c',
+Sep 20 19:54:44 5674494.ru npm[2296]:   line: '3452',
+Sep 20 19:54:44 5674494.ru npm[2296]:   routine: 'aclcheck_error'
+Sep 20 19:54:44 5674494.ru npm[2296]: }
+Sep 20 19:54:44 5674494.ru npm[2296]: 7:54:44 PM [express] GET /api/branches/active 500 in 16ms
+Sep 20 20:04:43 5674494.ru systemd[1]: Stopping VetSystem Application...
+Sep 20 20:04:43 5674494.ru systemd[1]: vetsystem.service: Killing process 2306 (node) with signal SIGKILL.
+Sep 20 20:04:43 5674494.ru systemd[1]: vetsystem.service: Deactivated successfully.
+Sep 20 20:04:43 5674494.ru systemd[1]: Stopped VetSystem Application.
+Sep 20 20:04:43 5674494.ru systemd[1]: vetsystem.service: Consumed 1.827s CPU time.
+Sep 20 20:04:43 5674494.ru systemd[1]: Started VetSystem Application.
+Sep 20 20:04:44 5674494.ru npm[2439]: > rest-express@1.0.0 start
+Sep 20 20:04:44 5674494.ru npm[2439]: > NODE_ENV=production node dist/index.js
+Sep 20 20:04:44 5674494.ru npm[2452]: 8:04:44 PM [express] serving on port 5000
+
