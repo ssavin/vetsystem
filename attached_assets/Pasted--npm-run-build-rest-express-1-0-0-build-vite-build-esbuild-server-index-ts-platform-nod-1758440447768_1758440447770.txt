@@ -1,0 +1,44 @@
+ npm run build
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+vite v7.1.6 building for production...
+✓ 2707 modules transformed.
+../dist/public/index.html                   2.58 kB │ gzip:   1.09 kB
+../dist/public/assets/index-BkJStkPH.css    6.10 kB │ gzip:   1.25 kB
+../dist/public/assets/index-DMr91qBr.js   748.62 kB │ gzip: 207.13 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 5.55s
+
+  dist/index.js  212.6kb
+
+⚡ Done in 20ms
+root@5674494:/var/www/vetsystem# ls -la dist/public/assets/
+total 748
+drwxr-xr-x 2 root root   4096 Sep 21 07:38 .
+drwxr-xr-x 3 root root   4096 Sep 21 07:38 ..
+-rw-r--r-- 1 root root   6100 Sep 21 07:38 index-BkJStkPH.css
+-rw-r--r-- 1 root root 748623 Sep 21 07:38 index-DMr91qBr.js
+root@5674494:/var/www/vetsystem# sudo systemctl restart vetsystem.service
+root@5674494:/var/www/vetsystem# sudo systemctl status vetsystem.service
+● vetsystem.service - VetSystem Application
+     Loaded: loaded (/etc/systemd/system/vetsystem.service; enabled; vendor preset: enabled)
+     Active: active (running) since Sun 2025-09-21 07:39:02 UTC; 15s ago
+   Main PID: 6676 (npm start)
+      Tasks: 23 (limit: 9388)
+     Memory: 63.6M
+        CPU: 1.534s
+     CGroup: /system.slice/vetsystem.service
+             ├─6676 "npm start" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
+             ├─6688 sh -c "NODE_ENV=production node dist/index.js"
+             └─6689 node dist/index.js
+
+Sep 21 07:39:02 5674494.ru systemd[1]: Started VetSystem Application.
+Sep 21 07:39:02 5674494.ru npm[6676]: > rest-express@1.0.0 start
+Sep 21 07:39:02 5674494.ru npm[6676]: > NODE_ENV=production node dist/index.js
+Sep 21 07:39:03 5674494.ru npm[6689]: 7:39:03 AM [express] serving on port 5000
