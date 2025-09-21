@@ -57,7 +57,7 @@ const withPerformanceLogging = async <T>(
 export interface IStorage {
   // User methods (keep existing for authentication)
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   verifyPassword(password: string, hashedPassword: string): Promise<boolean>;
   createUser(user: InsertUser): Promise<User>;
   getUsers(): Promise<User[]>;
@@ -217,9 +217,9 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return withPerformanceLogging('getUserByUsername', async () => {
-      const [user] = await db.select().from(users).where(eq(users.username, username));
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return withPerformanceLogging('getUserByEmail', async () => {
+      const [user] = await db.select().from(users).where(eq(users.email, email));
       return user || undefined;
     });
   }
@@ -232,16 +232,9 @@ export class DatabaseStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     return withPerformanceLogging('createUser', async () => {
-      // Hash password before storing
-      const saltRounds = 12;
-      const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
-      
       const [user] = await db
         .insert(users)
-        .values({
-          ...insertUser,
-          password: hashedPassword,
-        })
+        .values(insertUser)
         .returning();
       return user;
     });
@@ -253,16 +246,9 @@ export class DatabaseStorage implements IStorage {
 
   async updateUser(id: string, updateData: Partial<InsertUser>): Promise<User> {
     return withPerformanceLogging('updateUser', async () => {
-      // Hash password if it's being updated
-      let dataToUpdate = { ...updateData, updatedAt: new Date() };
-      if (updateData.password) {
-        const saltRounds = 12;
-        dataToUpdate.password = await bcrypt.hash(updateData.password, saltRounds);
-      }
-      
       const [user] = await db
         .update(users)
-        .set(dataToUpdate)
+        .set({ ...updateData, updatedAt: new Date() })
         .where(eq(users.id, id))
         .returning();
       return user;
