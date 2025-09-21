@@ -1,0 +1,76 @@
+1. Вижу только поля ввода логина и пароля без форматирования и не очень красиво. 
+2. При F12 ошибок в консоли нет
+3. Результат команды curl -v https://vetsystemai.ru/api/branches/active
+*   Trying 194.5.78.182:443...
+* Connected to vetsystemai.ru (194.5.78.182) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+*  CAfile: /etc/ssl/certs/ca-certificates.crt
+*  CApath: /etc/ssl/certs
+* TLSv1.0 (OUT), TLS header, Certificate Status (22):
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.2 (IN), TLS header, Certificate Status (22):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.2 (IN), TLS header, Finished (20):
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* TLSv1.3 (IN), TLS handshake, CERT verify (15):
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* TLSv1.3 (IN), TLS handshake, Finished (20):
+* TLSv1.2 (OUT), TLS header, Finished (20):
+* TLSv1.3 (OUT), TLS change cipher, Change cipher spec (1):
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+* TLSv1.3 (OUT), TLS handshake, Finished (20):
+* SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384
+* ALPN, server accepted to use h2
+* Server certificate:
+*  subject: CN=vetsystemai.ru
+*  start date: Sep 20 06:43:41 2025 GMT
+*  expire date: Dec 19 06:43:40 2025 GMT
+*  subjectAltName: host "vetsystemai.ru" matched cert's "vetsystemai.ru"
+*  issuer: C=US; O=Let's Encrypt; CN=R13
+*  SSL certificate verify ok.
+* Using HTTP2, server supports multiplexing
+* Connection state changed (HTTP/2 confirmed)
+* Copying HTTP/2 data in stream buffer to connection buffer after upgrade: len=0
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+* Using Stream ID: 1 (easy handle 0x5597b98569f0)
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+> GET /api/branches/active HTTP/2
+> Host: vetsystemai.ru
+> user-agent: curl/7.81.0
+> accept: */*
+>
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* old SSL session ID is stale, removing
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* Connection state changed (MAX_CONCURRENT_STREAMS == 128)!
+* TLSv1.2 (OUT), TLS header, Supplemental data (23):
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+* TLSv1.2 (IN), TLS header, Supplemental data (23):
+< HTTP/2 200
+< server: nginx/1.18.0 (Ubuntu)
+< date: Sun, 21 Sep 2025 14:00:46 GMT
+< content-type: application/json; charset=utf-8
+< content-length: 371
+< x-powered-by: Express
+< ratelimit-policy: 100;w=900
+< ratelimit-limit: 100
+< ratelimit-remaining: 99
+< ratelimit-reset: 900
+< etag: W/"173-nxDHIHoFWHomfYzcvtZGpGxEJoQ"
+< x-frame-options: SAMEORIGIN
+< x-content-type-options: nosniff
+< x-xss-protection: 1; mode=block
+< referrer-policy: strict-origin-when-cross-origin
+<
+* Connection #0 to host vetsystemai.ru left intact
+[{"id":"2d4fdb80-db4d-4a49-9c9b-3589c4f794bf","name":"Главный филиал","address":"ул. Ветеринарная 1","city":"Москва","region":null,"phone":"+7(495)123-4567","email":"main@vetsystem.ru","workingHours":null,"status":"active","managerId":null,"description":null,"createdAt":"2025-09-20T20:03:19.766Z","updatedAt":"2025-09-20T20:03:19.766Z"}]root@5674494:/var/www/vetsystem#
