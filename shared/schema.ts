@@ -43,25 +43,29 @@ export const branches = pgTable("branches", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Enhanced users table for role-based authentication - MATCHES PRODUCTION SCHEMA
+// Enhanced users table for role-based authentication - MATCHES REPLIT ORIGINAL SCHEMA
 export const users = pgTable("users", {
-  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-  firstName: varchar("first_name", { length: 255 }).notNull(),
-  lastName: varchar("last_name", { length: 255 }).notNull(),
-  role: varchar("role", { length: 50 }).notNull().default("user"),
-  branchId: integer("branch_id"),
-  isActive: boolean("is_active").default(true),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: varchar("username", { length: 100 }).notNull().unique(),
+  password: text("password").notNull(),
+  email: varchar("email", { length: 255 }),
+  fullName: varchar("full_name", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).notNull(),
+  status: varchar("status", { length: 20 }).default("active"),
   lastLogin: timestamp("last_login"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  phone: varchar("phone", { length: 20 }),
+  phoneVerified: boolean("phone_verified").default(false),
+  twoFactorEnabled: boolean("two_factor_enabled").default(false),
+  twoFactorMethod: varchar("two_factor_method", { length: 10 }).default("sms"),
+  branchId: varchar("branch_id"),
 });
 
 // SMS Verification Codes table
 export const smsVerificationCodes = pgTable("sms_verification_codes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   phone: varchar("phone", { length: 20 }).notNull(),
   codeHash: text("code_hash").notNull(),
   purpose: varchar("purpose", { length: 20 }).notNull(),
@@ -708,7 +712,7 @@ export const labResultDetailsRelations = relations(labResultDetails, ({ one }) =
   }),
 }));
 
-// Enhanced user schema with roles and full user data - MATCHES PRODUCTION SCHEMA
+// Enhanced user schema with roles and full user data - MATCHES REPLIT ORIGINAL SCHEMA
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   lastLogin: true,
@@ -716,16 +720,20 @@ export const insertUserSchema = createInsertSchema(users).omit({
   updatedAt: true,
 }).extend({
   role: z.enum(["admin", "user", "врач", "администратор", "менеджер"] as const),
-  isActive: z.boolean().default(true),
-  passwordHash: z.string().min(1, "Хеш пароля обязателен"),
-  email: z.string().email("Неверный формат email"),
-  firstName: z.string().min(2, "Имя должно содержать минимум 2 символа"),
-  lastName: z.string().min(2, "Фамилия должна содержать минимум 2 символа"),
+  status: z.enum(["active", "inactive"] as const).default("active"),
+  password: z.string().min(1, "Пароль обязателен"),
+  username: z.string().min(3, "Имя пользователя должно содержать минимум 3 символа"),
+  fullName: z.string().min(2, "Полное имя должно содержать минимум 2 символа"),
+  email: z.string().email("Неверный формат email").optional(),
+  phone: z.string().optional(),
+  phoneVerified: z.boolean().default(false),
+  twoFactorEnabled: z.boolean().default(false),
+  twoFactorMethod: z.enum(["sms", "disabled"] as const).default("sms"),
 });
 
-// Login schema for authentication - MATCHES PRODUCTION SCHEMA
+// Login schema for authentication - MATCHES REPLIT ORIGINAL SCHEMA
 export const loginSchema = z.object({
-  email: z.string().email("Неверный формат email"),
+  username: z.string().min(1, "Имя пользователя обязательно"),
   password: z.string().min(1, "Пароль обязателен"),
   branchId: z.string().min(1, "Выбор филиала обязателен"),
 });

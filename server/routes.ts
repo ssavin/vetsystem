@@ -1302,20 +1302,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/login", authLimiter, validateBody(loginSchema), async (req, res) => {
     try {
-      const { email, password, branchId } = req.body;
+      const { username, password, branchId } = req.body;
       
-      // Get user by email
-      const user = await storage.getUserByEmail(email);
+      // Get user by username
+      const user = await storage.getUserByUsername(username);
       if (!user) {
         return res.status(401).json({ error: "Неверный логин или пароль" });
       }
 
-      if (!user.isActive) {
+      if (user.status !== 'active') {
         return res.status(401).json({ error: "Аккаунт заблокирован" });
       }
       
       // Verify password with bcrypt
-      const isValidPassword = await storage.verifyPassword(password, user.passwordHash);
+      const isValidPassword = await storage.verifyPassword(password, user.password);
       if (!isValidPassword) {
         return res.status(401).json({ error: "Неверный логин или пароль" });
       }
@@ -1332,7 +1332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate JWT tokens with branch info
       const { accessToken, refreshToken } = generateTokens({
         id: user.id,
-        email: user.email,
+        username: user.username,
         role: user.role,
         branchId: branchId
       });
@@ -1356,7 +1356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Return user info (without password) and branch info
-      const { passwordHash: _, ...userInfo } = user;
+      const { password: _, ...userInfo } = user;
       res.json({ 
         user: userInfo, 
         currentBranch: { id: selectedBranch.id, name: selectedBranch.name },

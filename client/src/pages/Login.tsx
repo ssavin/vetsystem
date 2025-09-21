@@ -39,7 +39,7 @@ export default function Login() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
       branchId: "",
     },
@@ -47,7 +47,7 @@ export default function Login() {
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
-      await login(values.email, values.password, values.branchId)
+      await login(values.username, values.password, values.branchId)
       toast({
         title: "Успешно",
         description: "Добро пожаловать в VetSystem!",
@@ -81,16 +81,16 @@ export default function Login() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Имя пользователя</FormLabel>
                     <FormControl>
                       <Input
-                        type="email"
-                        placeholder="Введите email"
-                        autoComplete="email"
-                        data-testid="input-email"
+                        type="text"
+                        placeholder="Введите имя пользователя"
+                        autoComplete="username"
+                        data-testid="input-username"
                         {...field}
                       />
                     </FormControl>
