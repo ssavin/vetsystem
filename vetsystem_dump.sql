@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 16.9 (02a153c)
+-- Dumped from database version 16.9 (63f4182)
 -- Dumped by pg_dump version 16.9
 
 SET statement_timeout = 0;
@@ -16,12 +16,201 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+ALTER TABLE IF EXISTS ONLY public.users DROP CONSTRAINT IF EXISTS users_branch_id_branches_id_fk;
+ALTER TABLE IF EXISTS ONLY public.sms_verification_codes DROP CONSTRAINT IF EXISTS sms_verification_codes_user_id_users_id_fk;
+ALTER TABLE IF EXISTS ONLY public.reference_ranges DROP CONSTRAINT IF EXISTS reference_ranges_parameter_id_lab_parameters_id_fk;
+ALTER TABLE IF EXISTS ONLY public.patients DROP CONSTRAINT IF EXISTS patients_owner_id_owners_id_fk;
+ALTER TABLE IF EXISTS ONLY public.patients DROP CONSTRAINT IF EXISTS patients_branch_id_branches_id_fk;
+ALTER TABLE IF EXISTS ONLY public.patient_files DROP CONSTRAINT IF EXISTS patient_files_uploaded_by_users_id_fk;
+ALTER TABLE IF EXISTS ONLY public.patient_files DROP CONSTRAINT IF EXISTS patient_files_patient_id_patients_id_fk;
+ALTER TABLE IF EXISTS ONLY public.patient_files DROP CONSTRAINT IF EXISTS patient_files_medical_record_id_medical_records_id_fk;
+ALTER TABLE IF EXISTS ONLY public.owners DROP CONSTRAINT IF EXISTS owners_branch_id_branches_id_fk;
+ALTER TABLE IF EXISTS ONLY public.medications DROP CONSTRAINT IF EXISTS medications_record_id_medical_records_id_fk;
+ALTER TABLE IF EXISTS ONLY public.medical_records DROP CONSTRAINT IF EXISTS medical_records_patient_id_patients_id_fk;
+ALTER TABLE IF EXISTS ONLY public.medical_records DROP CONSTRAINT IF EXISTS medical_records_doctor_id_doctors_id_fk;
+ALTER TABLE IF EXISTS ONLY public.medical_records DROP CONSTRAINT IF EXISTS medical_records_branch_id_branches_id_fk;
+ALTER TABLE IF EXISTS ONLY public.medical_records DROP CONSTRAINT IF EXISTS medical_records_appointment_id_appointments_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_results DROP CONSTRAINT IF EXISTS lab_results_patient_id_patients_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_results DROP CONSTRAINT IF EXISTS lab_results_medical_record_id_medical_records_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_results DROP CONSTRAINT IF EXISTS lab_results_doctor_id_doctors_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_result_details DROP CONSTRAINT IF EXISTS lab_result_details_reference_range_id_reference_ranges_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_result_details DROP CONSTRAINT IF EXISTS lab_result_details_parameter_id_lab_parameters_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_result_details DROP CONSTRAINT IF EXISTS lab_result_details_order_id_lab_orders_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_parameters DROP CONSTRAINT IF EXISTS lab_parameters_study_id_lab_studies_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_orders DROP CONSTRAINT IF EXISTS lab_orders_study_id_lab_studies_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_orders DROP CONSTRAINT IF EXISTS lab_orders_patient_id_patients_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_orders DROP CONSTRAINT IF EXISTS lab_orders_medical_record_id_medical_records_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_orders DROP CONSTRAINT IF EXISTS lab_orders_doctor_id_doctors_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_orders DROP CONSTRAINT IF EXISTS lab_orders_branch_id_branches_id_fk;
+ALTER TABLE IF EXISTS ONLY public.lab_orders DROP CONSTRAINT IF EXISTS lab_orders_appointment_id_appointments_id_fk;
+ALTER TABLE IF EXISTS ONLY public.invoices DROP CONSTRAINT IF EXISTS invoices_patient_id_patients_id_fk;
+ALTER TABLE IF EXISTS ONLY public.invoices DROP CONSTRAINT IF EXISTS invoices_appointment_id_appointments_id_fk;
+ALTER TABLE IF EXISTS ONLY public.invoice_items DROP CONSTRAINT IF EXISTS invoice_items_invoice_id_invoices_id_fk;
+ALTER TABLE IF EXISTS ONLY public.doctors DROP CONSTRAINT IF EXISTS doctors_branch_id_branches_id_fk;
+ALTER TABLE IF EXISTS ONLY public.appointments DROP CONSTRAINT IF EXISTS appointments_patient_id_patients_id_fk;
+ALTER TABLE IF EXISTS ONLY public.appointments DROP CONSTRAINT IF EXISTS appointments_doctor_id_doctors_id_fk;
+ALTER TABLE IF EXISTS ONLY public.appointments DROP CONSTRAINT IF EXISTS appointments_branch_id_branches_id_fk;
+DROP INDEX IF EXISTS public.users_username_idx;
+DROP INDEX IF EXISTS public.users_status_idx;
+DROP INDEX IF EXISTS public.users_role_idx;
+DROP INDEX IF EXISTS public.users_phone_idx;
+DROP INDEX IF EXISTS public.users_branch_id_idx;
+DROP INDEX IF EXISTS public.sms_codes_user_id_idx;
+DROP INDEX IF EXISTS public.sms_codes_purpose_idx;
+DROP INDEX IF EXISTS public.sms_codes_phone_idx;
+DROP INDEX IF EXISTS public.sms_codes_expires_at_idx;
+DROP INDEX IF EXISTS public.services_name_idx;
+DROP INDEX IF EXISTS public.services_category_idx;
+DROP INDEX IF EXISTS public.services_active_idx;
+DROP INDEX IF EXISTS public.reference_ranges_species_idx;
+DROP INDEX IF EXISTS public.reference_ranges_parameter_species_idx;
+DROP INDEX IF EXISTS public.reference_ranges_parameter_id_idx;
+DROP INDEX IF EXISTS public.reference_ranges_breed_idx;
+DROP INDEX IF EXISTS public.reference_ranges_active_idx;
+DROP INDEX IF EXISTS public.products_stock_idx;
+DROP INDEX IF EXISTS public.products_name_idx;
+DROP INDEX IF EXISTS public.products_low_stock_idx;
+DROP INDEX IF EXISTS public.products_created_at_idx;
+DROP INDEX IF EXISTS public.products_category_idx;
+DROP INDEX IF EXISTS public.products_active_stock_idx;
+DROP INDEX IF EXISTS public.products_active_idx;
+DROP INDEX IF EXISTS public.patients_status_idx;
+DROP INDEX IF EXISTS public.patients_species_idx;
+DROP INDEX IF EXISTS public.patients_owner_id_idx;
+DROP INDEX IF EXISTS public.patients_name_idx;
+DROP INDEX IF EXISTS public.patients_microchip_idx;
+DROP INDEX IF EXISTS public.patients_created_at_idx;
+DROP INDEX IF EXISTS public.patients_breed_idx;
+DROP INDEX IF EXISTS public.patients_branch_id_idx;
+DROP INDEX IF EXISTS public.patient_files_uploaded_by_idx;
+DROP INDEX IF EXISTS public.patient_files_patient_type_idx;
+DROP INDEX IF EXISTS public.patient_files_patient_id_idx;
+DROP INDEX IF EXISTS public.patient_files_medical_record_id_idx;
+DROP INDEX IF EXISTS public.patient_files_file_type_idx;
+DROP INDEX IF EXISTS public.patient_files_created_at_idx;
+DROP INDEX IF EXISTS public.owners_phone_idx;
+DROP INDEX IF EXISTS public.owners_name_idx;
+DROP INDEX IF EXISTS public.owners_email_idx;
+DROP INDEX IF EXISTS public.owners_created_at_idx;
+DROP INDEX IF EXISTS public.owners_branch_id_idx;
+DROP INDEX IF EXISTS public.medications_record_id_idx;
+DROP INDEX IF EXISTS public.medications_name_idx;
+DROP INDEX IF EXISTS public.medical_records_visit_date_idx;
+DROP INDEX IF EXISTS public.medical_records_status_idx;
+DROP INDEX IF EXISTS public.medical_records_patient_id_idx;
+DROP INDEX IF EXISTS public.medical_records_patient_date_idx;
+DROP INDEX IF EXISTS public.medical_records_doctor_id_idx;
+DROP INDEX IF EXISTS public.medical_records_branch_id_idx;
+DROP INDEX IF EXISTS public.lab_studies_name_idx;
+DROP INDEX IF EXISTS public.lab_studies_code_idx;
+DROP INDEX IF EXISTS public.lab_studies_category_idx;
+DROP INDEX IF EXISTS public.lab_studies_active_idx;
+DROP INDEX IF EXISTS public.lab_results_urgency_idx;
+DROP INDEX IF EXISTS public.lab_results_test_type_idx;
+DROP INDEX IF EXISTS public.lab_results_status_idx;
+DROP INDEX IF EXISTS public.lab_results_status_date_idx;
+DROP INDEX IF EXISTS public.lab_results_received_date_idx;
+DROP INDEX IF EXISTS public.lab_results_performed_date_idx;
+DROP INDEX IF EXISTS public.lab_results_patient_id_idx;
+DROP INDEX IF EXISTS public.lab_results_patient_date_idx;
+DROP INDEX IF EXISTS public.lab_results_medical_record_id_idx;
+DROP INDEX IF EXISTS public.lab_results_doctor_id_idx;
+DROP INDEX IF EXISTS public.lab_results_created_at_idx;
+DROP INDEX IF EXISTS public.lab_result_details_status_idx;
+DROP INDEX IF EXISTS public.lab_result_details_reported_date_idx;
+DROP INDEX IF EXISTS public.lab_result_details_parameter_id_idx;
+DROP INDEX IF EXISTS public.lab_result_details_order_parameter_idx;
+DROP INDEX IF EXISTS public.lab_result_details_order_id_idx;
+DROP INDEX IF EXISTS public.lab_parameters_study_id_idx;
+DROP INDEX IF EXISTS public.lab_parameters_sort_order_idx;
+DROP INDEX IF EXISTS public.lab_parameters_name_idx;
+DROP INDEX IF EXISTS public.lab_parameters_code_idx;
+DROP INDEX IF EXISTS public.lab_parameters_active_idx;
+DROP INDEX IF EXISTS public.lab_orders_urgency_idx;
+DROP INDEX IF EXISTS public.lab_orders_study_id_idx;
+DROP INDEX IF EXISTS public.lab_orders_status_idx;
+DROP INDEX IF EXISTS public.lab_orders_patient_id_idx;
+DROP INDEX IF EXISTS public.lab_orders_ordered_date_idx;
+DROP INDEX IF EXISTS public.lab_orders_order_number_idx;
+DROP INDEX IF EXISTS public.lab_orders_doctor_id_idx;
+DROP INDEX IF EXISTS public.lab_orders_branch_id_idx;
+DROP INDEX IF EXISTS public.invoices_status_issue_date_idx;
+DROP INDEX IF EXISTS public.invoices_status_idx;
+DROP INDEX IF EXISTS public.invoices_status_due_date_idx;
+DROP INDEX IF EXISTS public.invoices_patient_id_idx;
+DROP INDEX IF EXISTS public.invoices_number_idx;
+DROP INDEX IF EXISTS public.invoices_issue_date_idx;
+DROP INDEX IF EXISTS public.invoices_due_date_idx;
+DROP INDEX IF EXISTS public.invoices_created_at_idx;
+DROP INDEX IF EXISTS public.invoice_items_item_type_idx;
+DROP INDEX IF EXISTS public.invoice_items_item_id_idx;
+DROP INDEX IF EXISTS public.invoice_items_invoice_id_idx;
+DROP INDEX IF EXISTS public.doctors_specialization_idx;
+DROP INDEX IF EXISTS public.doctors_name_idx;
+DROP INDEX IF EXISTS public.doctors_created_at_idx;
+DROP INDEX IF EXISTS public.doctors_branch_id_idx;
+DROP INDEX IF EXISTS public.doctors_active_idx;
+DROP INDEX IF EXISTS public.branches_status_idx;
+DROP INDEX IF EXISTS public.branches_name_idx;
+DROP INDEX IF EXISTS public.branches_manager_id_idx;
+DROP INDEX IF EXISTS public.branches_created_at_idx;
+DROP INDEX IF EXISTS public.branches_city_idx;
+DROP INDEX IF EXISTS public.appointments_status_idx;
+DROP INDEX IF EXISTS public.appointments_patient_id_idx;
+DROP INDEX IF EXISTS public.appointments_doctor_id_idx;
+DROP INDEX IF EXISTS public.appointments_doctor_date_idx;
+DROP INDEX IF EXISTS public.appointments_date_idx;
+DROP INDEX IF EXISTS public.appointments_branch_id_idx;
+ALTER TABLE IF EXISTS ONLY public.users DROP CONSTRAINT IF EXISTS users_username_unique;
+ALTER TABLE IF EXISTS ONLY public.users DROP CONSTRAINT IF EXISTS users_pkey;
+ALTER TABLE IF EXISTS ONLY public.sms_verification_codes DROP CONSTRAINT IF EXISTS sms_verification_codes_pkey;
+ALTER TABLE IF EXISTS ONLY public.services DROP CONSTRAINT IF EXISTS services_pkey;
+ALTER TABLE IF EXISTS ONLY public.reference_ranges DROP CONSTRAINT IF EXISTS reference_ranges_pkey;
+ALTER TABLE IF EXISTS ONLY public.products DROP CONSTRAINT IF EXISTS products_pkey;
+ALTER TABLE IF EXISTS ONLY public.patients DROP CONSTRAINT IF EXISTS patients_pkey;
+ALTER TABLE IF EXISTS ONLY public.patient_files DROP CONSTRAINT IF EXISTS patient_files_pkey;
+ALTER TABLE IF EXISTS ONLY public.owners DROP CONSTRAINT IF EXISTS owners_pkey;
+ALTER TABLE IF EXISTS ONLY public.medications DROP CONSTRAINT IF EXISTS medications_pkey;
+ALTER TABLE IF EXISTS ONLY public.medical_records DROP CONSTRAINT IF EXISTS medical_records_pkey;
+ALTER TABLE IF EXISTS ONLY public.lab_studies DROP CONSTRAINT IF EXISTS lab_studies_pkey;
+ALTER TABLE IF EXISTS ONLY public.lab_studies DROP CONSTRAINT IF EXISTS lab_studies_code_unique;
+ALTER TABLE IF EXISTS ONLY public.lab_results DROP CONSTRAINT IF EXISTS lab_results_pkey;
+ALTER TABLE IF EXISTS ONLY public.lab_result_details DROP CONSTRAINT IF EXISTS lab_result_details_pkey;
+ALTER TABLE IF EXISTS ONLY public.lab_parameters DROP CONSTRAINT IF EXISTS lab_parameters_pkey;
+ALTER TABLE IF EXISTS ONLY public.lab_orders DROP CONSTRAINT IF EXISTS lab_orders_pkey;
+ALTER TABLE IF EXISTS ONLY public.lab_orders DROP CONSTRAINT IF EXISTS lab_orders_order_number_unique;
+ALTER TABLE IF EXISTS ONLY public.invoices DROP CONSTRAINT IF EXISTS invoices_pkey;
+ALTER TABLE IF EXISTS ONLY public.invoices DROP CONSTRAINT IF EXISTS invoices_invoice_number_unique;
+ALTER TABLE IF EXISTS ONLY public.invoice_items DROP CONSTRAINT IF EXISTS invoice_items_pkey;
+ALTER TABLE IF EXISTS ONLY public.doctors DROP CONSTRAINT IF EXISTS doctors_pkey;
+ALTER TABLE IF EXISTS ONLY public.branches DROP CONSTRAINT IF EXISTS branches_pkey;
+ALTER TABLE IF EXISTS ONLY public.appointments DROP CONSTRAINT IF EXISTS appointments_pkey;
+DROP TABLE IF EXISTS public.users;
+DROP TABLE IF EXISTS public.sms_verification_codes;
+DROP TABLE IF EXISTS public.services;
+DROP TABLE IF EXISTS public.reference_ranges;
+DROP TABLE IF EXISTS public.products;
+DROP TABLE IF EXISTS public.patients;
+DROP TABLE IF EXISTS public.patient_files;
+DROP TABLE IF EXISTS public.owners;
+DROP TABLE IF EXISTS public.medications;
+DROP TABLE IF EXISTS public.medical_records;
+DROP TABLE IF EXISTS public.lab_studies;
+DROP TABLE IF EXISTS public.lab_results;
+DROP TABLE IF EXISTS public.lab_result_details;
+DROP TABLE IF EXISTS public.lab_parameters;
+DROP TABLE IF EXISTS public.lab_orders;
+DROP TABLE IF EXISTS public.invoices;
+DROP TABLE IF EXISTS public.invoice_items;
+DROP TABLE IF EXISTS public.doctors;
+DROP TABLE IF EXISTS public.branches;
+DROP TABLE IF EXISTS public.appointments;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: appointments; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: appointments; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.appointments (
@@ -41,10 +230,8 @@ CREATE TABLE public.appointments (
 );
 
 
-ALTER TABLE public.appointments OWNER TO neondb_owner;
-
 --
--- Name: branches; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: branches; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.branches (
@@ -65,10 +252,8 @@ CREATE TABLE public.branches (
 );
 
 
-ALTER TABLE public.branches OWNER TO neondb_owner;
-
 --
--- Name: doctors; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: doctors; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.doctors (
@@ -84,10 +269,8 @@ CREATE TABLE public.doctors (
 );
 
 
-ALTER TABLE public.doctors OWNER TO neondb_owner;
-
 --
--- Name: invoice_items; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: invoice_items; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.invoice_items (
@@ -107,10 +290,8 @@ CREATE TABLE public.invoice_items (
 );
 
 
-ALTER TABLE public.invoice_items OWNER TO neondb_owner;
-
 --
--- Name: invoices; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: invoices; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.invoices (
@@ -137,10 +318,8 @@ CREATE TABLE public.invoices (
 );
 
 
-ALTER TABLE public.invoices OWNER TO neondb_owner;
-
 --
--- Name: lab_orders; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: lab_orders; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.lab_orders (
@@ -166,10 +345,8 @@ CREATE TABLE public.lab_orders (
 );
 
 
-ALTER TABLE public.lab_orders OWNER TO neondb_owner;
-
 --
--- Name: lab_parameters; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: lab_parameters; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.lab_parameters (
@@ -186,10 +363,8 @@ CREATE TABLE public.lab_parameters (
 );
 
 
-ALTER TABLE public.lab_parameters OWNER TO neondb_owner;
-
 --
--- Name: lab_result_details; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: lab_result_details; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.lab_result_details (
@@ -209,10 +384,8 @@ CREATE TABLE public.lab_result_details (
 );
 
 
-ALTER TABLE public.lab_result_details OWNER TO neondb_owner;
-
 --
--- Name: lab_results; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: lab_results; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.lab_results (
@@ -237,10 +410,8 @@ CREATE TABLE public.lab_results (
 );
 
 
-ALTER TABLE public.lab_results OWNER TO neondb_owner;
-
 --
--- Name: lab_studies; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: lab_studies; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.lab_studies (
@@ -259,10 +430,8 @@ CREATE TABLE public.lab_studies (
 );
 
 
-ALTER TABLE public.lab_studies OWNER TO neondb_owner;
-
 --
--- Name: medical_records; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: medical_records; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.medical_records (
@@ -289,10 +458,8 @@ CREATE TABLE public.medical_records (
 );
 
 
-ALTER TABLE public.medical_records OWNER TO neondb_owner;
-
 --
--- Name: medications; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: medications; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.medications (
@@ -307,10 +474,8 @@ CREATE TABLE public.medications (
 );
 
 
-ALTER TABLE public.medications OWNER TO neondb_owner;
-
 --
--- Name: owners; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: owners; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.owners (
@@ -325,10 +490,8 @@ CREATE TABLE public.owners (
 );
 
 
-ALTER TABLE public.owners OWNER TO neondb_owner;
-
 --
--- Name: patient_files; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: patient_files; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.patient_files (
@@ -350,10 +513,8 @@ CREATE TABLE public.patient_files (
 );
 
 
-ALTER TABLE public.patient_files OWNER TO neondb_owner;
-
 --
--- Name: patients; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: patients; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.patients (
@@ -381,10 +542,8 @@ CREATE TABLE public.patients (
 );
 
 
-ALTER TABLE public.patients OWNER TO neondb_owner;
-
 --
--- Name: products; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: products; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.products (
@@ -405,10 +564,8 @@ CREATE TABLE public.products (
 );
 
 
-ALTER TABLE public.products OWNER TO neondb_owner;
-
 --
--- Name: reference_ranges; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: reference_ranges; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.reference_ranges (
@@ -430,10 +587,8 @@ CREATE TABLE public.reference_ranges (
 );
 
 
-ALTER TABLE public.reference_ranges OWNER TO neondb_owner;
-
 --
--- Name: services; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: services; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.services (
@@ -451,10 +606,8 @@ CREATE TABLE public.services (
 );
 
 
-ALTER TABLE public.services OWNER TO neondb_owner;
-
 --
--- Name: sms_verification_codes; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: sms_verification_codes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.sms_verification_codes (
@@ -470,10 +623,8 @@ CREATE TABLE public.sms_verification_codes (
 );
 
 
-ALTER TABLE public.sms_verification_codes OWNER TO neondb_owner;
-
 --
--- Name: users; Type: TABLE; Schema: public; Owner: neondb_owner
+-- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.users (
@@ -498,10 +649,8 @@ CREATE TABLE public.users (
 );
 
 
-ALTER TABLE public.users OWNER TO neondb_owner;
-
 --
--- Data for Name: appointments; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: appointments; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.appointments (id, patient_id, doctor_id, appointment_date, duration, appointment_type, status, notes, created_at, updated_at, branch_id) FROM stdin;
@@ -512,7 +661,7 @@ c52a7ad6-7d51-4fc0-a92b-34cda6443e8b	b105cdbd-3a1a-4f8d-82b3-f9f209cd7146	871aa7
 
 
 --
--- Data for Name: branches; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: branches; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.branches (id, name, address, city, region, phone, email, working_hours, status, manager_id, description, created_at, updated_at) FROM stdin;
@@ -522,7 +671,7 @@ f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed	Главный филиал	ул. Вете�
 
 
 --
--- Data for Name: doctors; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: doctors; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.doctors (id, name, specialization, phone, email, is_active, created_at, updated_at, branch_id) FROM stdin;
@@ -533,7 +682,7 @@ b53f4cca-b68c-4b33-b7d5-fb5b1eeca575	Доктор Петрова А.И.	Тера
 
 
 --
--- Data for Name: invoice_items; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: invoice_items; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.invoice_items (id, invoice_id, item_type, item_id, item_name, quantity, price, total, created_at) FROM stdin;
@@ -544,7 +693,7 @@ c8d765de-e382-498f-ba26-3ef0ebe0df3e	87bd1634-3fbf-4a3f-b19f-3efd92a032c8	produc
 
 
 --
--- Data for Name: invoices; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: invoices; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.invoices (id, invoice_number, patient_id, appointment_id, issue_date, due_date, subtotal, discount, total, status, payment_method, paid_date, notes, created_at, updated_at) FROM stdin;
@@ -553,7 +702,7 @@ COPY public.invoices (id, invoice_number, patient_id, appointment_id, issue_date
 
 
 --
--- Data for Name: lab_orders; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: lab_orders; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.lab_orders (id, order_number, patient_id, doctor_id, appointment_id, medical_record_id, study_id, status, urgency, ordered_date, sample_taken_date, expected_date, completed_date, notes, branch_id, created_at, updated_at) FROM stdin;
@@ -561,7 +710,7 @@ COPY public.lab_orders (id, order_number, patient_id, doctor_id, appointment_id,
 
 
 --
--- Data for Name: lab_parameters; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: lab_parameters; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.lab_parameters (id, study_id, name, code, unit, data_type, sort_order, is_active, created_at, updated_at) FROM stdin;
@@ -569,7 +718,7 @@ COPY public.lab_parameters (id, study_id, name, code, unit, data_type, sort_orde
 
 
 --
--- Data for Name: lab_result_details; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: lab_result_details; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.lab_result_details (id, order_id, parameter_id, value, numeric_value, status, reference_range_id, flags, notes, reported_date, created_at, updated_at) FROM stdin;
@@ -577,7 +726,7 @@ COPY public.lab_result_details (id, order_id, parameter_id, value, numeric_value
 
 
 --
--- Data for Name: lab_results; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: lab_results; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.lab_results (id, patient_id, doctor_id, medical_record_id, test_type, test_name, results, normal_ranges, status, performed_date, received_date, notes, lab_technician_name, urgency, created_at, updated_at) FROM stdin;
@@ -585,7 +734,7 @@ COPY public.lab_results (id, patient_id, doctor_id, medical_record_id, test_type
 
 
 --
--- Data for Name: lab_studies; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: lab_studies; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.lab_studies (id, name, category, code, description, preparation_instructions, sample_type, estimated_duration, price, is_active, created_at, updated_at) FROM stdin;
@@ -593,7 +742,7 @@ COPY public.lab_studies (id, name, category, code, description, preparation_inst
 
 
 --
--- Data for Name: medical_records; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: medical_records; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.medical_records (id, patient_id, doctor_id, appointment_id, visit_date, visit_type, complaints, diagnosis, treatment, temperature, weight, next_visit, status, notes, created_at, updated_at, branch_id) FROM stdin;
@@ -602,7 +751,7 @@ ff1d7af9-57d9-4c34-9c9a-6a643f211289	349735c2-d364-4a29-b33f-b5a8913da4e0	b53f4c
 
 
 --
--- Data for Name: medications; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: medications; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.medications (id, record_id, name, dosage, frequency, duration, instructions, created_at) FROM stdin;
@@ -612,7 +761,7 @@ COPY public.medications (id, record_id, name, dosage, frequency, duration, instr
 
 
 --
--- Data for Name: owners; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: owners; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.owners (id, name, phone, email, address, created_at, updated_at, branch_id) FROM stdin;
@@ -623,7 +772,7 @@ COPY public.owners (id, name, phone, email, address, created_at, updated_at, bra
 
 
 --
--- Data for Name: patient_files; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: patient_files; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.patient_files (id, patient_id, file_name, original_name, file_type, mime_type, file_size, file_path, description, uploaded_by, medical_record_id, created_at, updated_at) FROM stdin;
@@ -631,7 +780,7 @@ COPY public.patient_files (id, patient_id, file_name, original_name, file_type, 
 
 
 --
--- Data for Name: patients; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: patients; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.patients (id, name, species, breed, gender, birth_date, color, weight, microchip_number, is_neutered, allergies, chronic_conditions, special_marks, status, owner_id, created_at, updated_at, branch_id) FROM stdin;
@@ -642,7 +791,7 @@ b105cdbd-3a1a-4f8d-82b3-f9f209cd7146	Мурка	Кошка	Британская 
 
 
 --
--- Data for Name: products; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: products; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.products (id, name, category, price, stock, min_stock, unit, description, is_active, created_at, updated_at) FROM stdin;
@@ -653,7 +802,7 @@ daa1ef14-4837-4ce2-8453-524309a9c2c8	Антибиотик широкого сп�
 
 
 --
--- Data for Name: reference_ranges; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: reference_ranges; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.reference_ranges (id, parameter_id, species, breed, gender, age_min, age_max, range_min, range_max, critical_min, critical_max, notes, is_active, created_at, updated_at) FROM stdin;
@@ -661,7 +810,7 @@ COPY public.reference_ranges (id, parameter_id, species, breed, gender, age_min,
 
 
 --
--- Data for Name: services; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: services; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.services (id, name, category, price, duration, description, is_active, created_at, updated_at) FROM stdin;
@@ -673,7 +822,7 @@ COPY public.services (id, name, category, price, duration, description, is_activ
 
 
 --
--- Data for Name: sms_verification_codes; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: sms_verification_codes; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.sms_verification_codes (id, user_id, phone, code_hash, purpose, expires_at, attempt_count, created_at) FROM stdin;
@@ -681,18 +830,18 @@ COPY public.sms_verification_codes (id, user_id, phone, code_hash, purpose, expi
 
 
 --
--- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: neondb_owner
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.users (id, username, password, email, full_name, role, status, last_login, created_at, updated_at, phone, phone_verified, two_factor_enabled, two_factor_method, branch_id) FROM stdin;
+81be9b16-f825-4bc7-9ff6-7177d9d953e2	demo	$2b$12$R/pPpqNdITB8NsClQ13gte8FxQMRPB5vL0BhaFjiYme0Ia2h7MPg2	\N	Демо Пользователь	администратор	active	2025-09-22 00:59:51.542	2025-09-17 18:01:04.579589	2025-09-17 18:01:04.579589	\N	f	f	sms	\N
 e2b1a026-8404-4938-969c-0c7a7684d645	testadmin	$2b$12$LyLPkRJpgLCXwgZjXvowxO7SX0J4t5l.YgJ6ZZl2RtQKwmJL2SqnC	test@admin.com	Тестовый Администратор	администратор	active	\N	2025-09-17 01:39:39.77831	2025-09-17 01:39:39.77831	\N	f	f	sms	4360ed52-9417-4ce1-b9ea-6543898d162a
 1e62a7c8-b942-4506-bf1d-8e0385f632b2	admin	admin123	s.mailbox@bk.ru	Системный Администратор	администратор	active	2025-09-17 17:40:05.836	2025-09-17 00:09:11.195933	2025-09-17 00:41:15.076	+79268949839	f	f	disabled	f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed
-81be9b16-f825-4bc7-9ff6-7177d9d953e2	demo	$2b$12$R/pPpqNdITB8NsClQ13gte8FxQMRPB5vL0BhaFjiYme0Ia2h7MPg2	\N	Демо Пользователь	администратор	active	2025-09-17 20:23:20.679	2025-09-17 18:01:04.579589	2025-09-17 18:01:04.579589	\N	f	f	sms	\N
 \.
 
 
 --
--- Name: appointments appointments_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: appointments appointments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.appointments
@@ -700,7 +849,7 @@ ALTER TABLE ONLY public.appointments
 
 
 --
--- Name: branches branches_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: branches branches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.branches
@@ -708,7 +857,7 @@ ALTER TABLE ONLY public.branches
 
 
 --
--- Name: doctors doctors_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: doctors doctors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.doctors
@@ -716,7 +865,7 @@ ALTER TABLE ONLY public.doctors
 
 
 --
--- Name: invoice_items invoice_items_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: invoice_items invoice_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.invoice_items
@@ -724,7 +873,7 @@ ALTER TABLE ONLY public.invoice_items
 
 
 --
--- Name: invoices invoices_invoice_number_unique; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: invoices invoices_invoice_number_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.invoices
@@ -732,7 +881,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- Name: invoices invoices_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: invoices invoices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.invoices
@@ -740,7 +889,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- Name: lab_orders lab_orders_order_number_unique; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_orders lab_orders_order_number_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_orders
@@ -748,7 +897,7 @@ ALTER TABLE ONLY public.lab_orders
 
 
 --
--- Name: lab_orders lab_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_orders lab_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_orders
@@ -756,7 +905,7 @@ ALTER TABLE ONLY public.lab_orders
 
 
 --
--- Name: lab_parameters lab_parameters_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_parameters lab_parameters_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_parameters
@@ -764,7 +913,7 @@ ALTER TABLE ONLY public.lab_parameters
 
 
 --
--- Name: lab_result_details lab_result_details_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_result_details lab_result_details_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_result_details
@@ -772,7 +921,7 @@ ALTER TABLE ONLY public.lab_result_details
 
 
 --
--- Name: lab_results lab_results_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_results lab_results_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_results
@@ -780,7 +929,7 @@ ALTER TABLE ONLY public.lab_results
 
 
 --
--- Name: lab_studies lab_studies_code_unique; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_studies lab_studies_code_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_studies
@@ -788,7 +937,7 @@ ALTER TABLE ONLY public.lab_studies
 
 
 --
--- Name: lab_studies lab_studies_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_studies lab_studies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_studies
@@ -796,7 +945,7 @@ ALTER TABLE ONLY public.lab_studies
 
 
 --
--- Name: medical_records medical_records_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: medical_records medical_records_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.medical_records
@@ -804,7 +953,7 @@ ALTER TABLE ONLY public.medical_records
 
 
 --
--- Name: medications medications_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: medications medications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.medications
@@ -812,7 +961,7 @@ ALTER TABLE ONLY public.medications
 
 
 --
--- Name: owners owners_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: owners owners_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.owners
@@ -820,7 +969,7 @@ ALTER TABLE ONLY public.owners
 
 
 --
--- Name: patient_files patient_files_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: patient_files patient_files_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patient_files
@@ -828,7 +977,7 @@ ALTER TABLE ONLY public.patient_files
 
 
 --
--- Name: patients patients_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: patients patients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patients
@@ -836,7 +985,7 @@ ALTER TABLE ONLY public.patients
 
 
 --
--- Name: products products_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: products products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.products
@@ -844,7 +993,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- Name: reference_ranges reference_ranges_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: reference_ranges reference_ranges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.reference_ranges
@@ -852,7 +1001,7 @@ ALTER TABLE ONLY public.reference_ranges
 
 
 --
--- Name: services services_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: services services_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.services
@@ -860,7 +1009,7 @@ ALTER TABLE ONLY public.services
 
 
 --
--- Name: sms_verification_codes sms_verification_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: sms_verification_codes sms_verification_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sms_verification_codes
@@ -868,7 +1017,7 @@ ALTER TABLE ONLY public.sms_verification_codes
 
 
 --
--- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -876,7 +1025,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: users users_username_unique; Type: CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users users_username_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -884,784 +1033,784 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: appointments_branch_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: appointments_branch_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX appointments_branch_id_idx ON public.appointments USING btree (branch_id);
 
 
 --
--- Name: appointments_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: appointments_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX appointments_date_idx ON public.appointments USING btree (appointment_date);
 
 
 --
--- Name: appointments_doctor_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: appointments_doctor_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX appointments_doctor_date_idx ON public.appointments USING btree (doctor_id, appointment_date);
 
 
 --
--- Name: appointments_doctor_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: appointments_doctor_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX appointments_doctor_id_idx ON public.appointments USING btree (doctor_id);
 
 
 --
--- Name: appointments_patient_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: appointments_patient_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX appointments_patient_id_idx ON public.appointments USING btree (patient_id);
 
 
 --
--- Name: appointments_status_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: appointments_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX appointments_status_idx ON public.appointments USING btree (status);
 
 
 --
--- Name: branches_city_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: branches_city_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX branches_city_idx ON public.branches USING btree (city);
 
 
 --
--- Name: branches_created_at_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: branches_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX branches_created_at_idx ON public.branches USING btree (created_at);
 
 
 --
--- Name: branches_manager_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: branches_manager_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX branches_manager_id_idx ON public.branches USING btree (manager_id);
 
 
 --
--- Name: branches_name_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: branches_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX branches_name_idx ON public.branches USING btree (name);
 
 
 --
--- Name: branches_status_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: branches_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX branches_status_idx ON public.branches USING btree (status);
 
 
 --
--- Name: doctors_active_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: doctors_active_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX doctors_active_idx ON public.doctors USING btree (is_active);
 
 
 --
--- Name: doctors_branch_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: doctors_branch_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX doctors_branch_id_idx ON public.doctors USING btree (branch_id);
 
 
 --
--- Name: doctors_created_at_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: doctors_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX doctors_created_at_idx ON public.doctors USING btree (created_at);
 
 
 --
--- Name: doctors_name_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: doctors_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX doctors_name_idx ON public.doctors USING btree (name);
 
 
 --
--- Name: doctors_specialization_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: doctors_specialization_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX doctors_specialization_idx ON public.doctors USING btree (specialization);
 
 
 --
--- Name: invoice_items_invoice_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoice_items_invoice_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoice_items_invoice_id_idx ON public.invoice_items USING btree (invoice_id);
 
 
 --
--- Name: invoice_items_item_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoice_items_item_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoice_items_item_id_idx ON public.invoice_items USING btree (item_id);
 
 
 --
--- Name: invoice_items_item_type_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoice_items_item_type_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoice_items_item_type_idx ON public.invoice_items USING btree (item_type);
 
 
 --
--- Name: invoices_created_at_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoices_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoices_created_at_idx ON public.invoices USING btree (created_at);
 
 
 --
--- Name: invoices_due_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoices_due_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoices_due_date_idx ON public.invoices USING btree (due_date);
 
 
 --
--- Name: invoices_issue_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoices_issue_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoices_issue_date_idx ON public.invoices USING btree (issue_date);
 
 
 --
--- Name: invoices_number_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoices_number_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoices_number_idx ON public.invoices USING btree (invoice_number);
 
 
 --
--- Name: invoices_patient_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoices_patient_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoices_patient_id_idx ON public.invoices USING btree (patient_id);
 
 
 --
--- Name: invoices_status_due_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoices_status_due_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoices_status_due_date_idx ON public.invoices USING btree (status, due_date);
 
 
 --
--- Name: invoices_status_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoices_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoices_status_idx ON public.invoices USING btree (status);
 
 
 --
--- Name: invoices_status_issue_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: invoices_status_issue_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX invoices_status_issue_date_idx ON public.invoices USING btree (status, issue_date);
 
 
 --
--- Name: lab_orders_branch_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_orders_branch_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_orders_branch_id_idx ON public.lab_orders USING btree (branch_id);
 
 
 --
--- Name: lab_orders_doctor_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_orders_doctor_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_orders_doctor_id_idx ON public.lab_orders USING btree (doctor_id);
 
 
 --
--- Name: lab_orders_order_number_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_orders_order_number_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_orders_order_number_idx ON public.lab_orders USING btree (order_number);
 
 
 --
--- Name: lab_orders_ordered_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_orders_ordered_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_orders_ordered_date_idx ON public.lab_orders USING btree (ordered_date);
 
 
 --
--- Name: lab_orders_patient_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_orders_patient_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_orders_patient_id_idx ON public.lab_orders USING btree (patient_id);
 
 
 --
--- Name: lab_orders_status_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_orders_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_orders_status_idx ON public.lab_orders USING btree (status);
 
 
 --
--- Name: lab_orders_study_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_orders_study_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_orders_study_id_idx ON public.lab_orders USING btree (study_id);
 
 
 --
--- Name: lab_orders_urgency_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_orders_urgency_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_orders_urgency_idx ON public.lab_orders USING btree (urgency);
 
 
 --
--- Name: lab_parameters_active_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_parameters_active_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_parameters_active_idx ON public.lab_parameters USING btree (is_active);
 
 
 --
--- Name: lab_parameters_code_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_parameters_code_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_parameters_code_idx ON public.lab_parameters USING btree (code);
 
 
 --
--- Name: lab_parameters_name_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_parameters_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_parameters_name_idx ON public.lab_parameters USING btree (name);
 
 
 --
--- Name: lab_parameters_sort_order_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_parameters_sort_order_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_parameters_sort_order_idx ON public.lab_parameters USING btree (study_id, sort_order);
 
 
 --
--- Name: lab_parameters_study_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_parameters_study_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_parameters_study_id_idx ON public.lab_parameters USING btree (study_id);
 
 
 --
--- Name: lab_result_details_order_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_result_details_order_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_result_details_order_id_idx ON public.lab_result_details USING btree (order_id);
 
 
 --
--- Name: lab_result_details_order_parameter_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_result_details_order_parameter_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_result_details_order_parameter_idx ON public.lab_result_details USING btree (order_id, parameter_id);
 
 
 --
--- Name: lab_result_details_parameter_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_result_details_parameter_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_result_details_parameter_id_idx ON public.lab_result_details USING btree (parameter_id);
 
 
 --
--- Name: lab_result_details_reported_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_result_details_reported_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_result_details_reported_date_idx ON public.lab_result_details USING btree (reported_date);
 
 
 --
--- Name: lab_result_details_status_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_result_details_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_result_details_status_idx ON public.lab_result_details USING btree (status);
 
 
 --
--- Name: lab_results_created_at_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_created_at_idx ON public.lab_results USING btree (created_at);
 
 
 --
--- Name: lab_results_doctor_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_doctor_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_doctor_id_idx ON public.lab_results USING btree (doctor_id);
 
 
 --
--- Name: lab_results_medical_record_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_medical_record_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_medical_record_id_idx ON public.lab_results USING btree (medical_record_id);
 
 
 --
--- Name: lab_results_patient_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_patient_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_patient_date_idx ON public.lab_results USING btree (patient_id, performed_date);
 
 
 --
--- Name: lab_results_patient_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_patient_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_patient_id_idx ON public.lab_results USING btree (patient_id);
 
 
 --
--- Name: lab_results_performed_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_performed_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_performed_date_idx ON public.lab_results USING btree (performed_date);
 
 
 --
--- Name: lab_results_received_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_received_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_received_date_idx ON public.lab_results USING btree (received_date);
 
 
 --
--- Name: lab_results_status_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_status_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_status_date_idx ON public.lab_results USING btree (status, performed_date);
 
 
 --
--- Name: lab_results_status_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_status_idx ON public.lab_results USING btree (status);
 
 
 --
--- Name: lab_results_test_type_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_test_type_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_test_type_idx ON public.lab_results USING btree (test_type);
 
 
 --
--- Name: lab_results_urgency_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_results_urgency_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_results_urgency_idx ON public.lab_results USING btree (urgency);
 
 
 --
--- Name: lab_studies_active_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_studies_active_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_studies_active_idx ON public.lab_studies USING btree (is_active);
 
 
 --
--- Name: lab_studies_category_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_studies_category_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_studies_category_idx ON public.lab_studies USING btree (category);
 
 
 --
--- Name: lab_studies_code_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_studies_code_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_studies_code_idx ON public.lab_studies USING btree (code);
 
 
 --
--- Name: lab_studies_name_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: lab_studies_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX lab_studies_name_idx ON public.lab_studies USING btree (name);
 
 
 --
--- Name: medical_records_branch_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: medical_records_branch_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX medical_records_branch_id_idx ON public.medical_records USING btree (branch_id);
 
 
 --
--- Name: medical_records_doctor_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: medical_records_doctor_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX medical_records_doctor_id_idx ON public.medical_records USING btree (doctor_id);
 
 
 --
--- Name: medical_records_patient_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: medical_records_patient_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX medical_records_patient_date_idx ON public.medical_records USING btree (patient_id, visit_date);
 
 
 --
--- Name: medical_records_patient_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: medical_records_patient_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX medical_records_patient_id_idx ON public.medical_records USING btree (patient_id);
 
 
 --
--- Name: medical_records_status_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: medical_records_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX medical_records_status_idx ON public.medical_records USING btree (status);
 
 
 --
--- Name: medical_records_visit_date_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: medical_records_visit_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX medical_records_visit_date_idx ON public.medical_records USING btree (visit_date);
 
 
 --
--- Name: medications_name_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: medications_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX medications_name_idx ON public.medications USING btree (name);
 
 
 --
--- Name: medications_record_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: medications_record_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX medications_record_id_idx ON public.medications USING btree (record_id);
 
 
 --
--- Name: owners_branch_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: owners_branch_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX owners_branch_id_idx ON public.owners USING btree (branch_id);
 
 
 --
--- Name: owners_created_at_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: owners_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX owners_created_at_idx ON public.owners USING btree (created_at);
 
 
 --
--- Name: owners_email_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: owners_email_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX owners_email_idx ON public.owners USING btree (email);
 
 
 --
--- Name: owners_name_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: owners_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX owners_name_idx ON public.owners USING btree (name);
 
 
 --
--- Name: owners_phone_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: owners_phone_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX owners_phone_idx ON public.owners USING btree (phone);
 
 
 --
--- Name: patient_files_created_at_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patient_files_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patient_files_created_at_idx ON public.patient_files USING btree (created_at);
 
 
 --
--- Name: patient_files_file_type_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patient_files_file_type_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patient_files_file_type_idx ON public.patient_files USING btree (file_type);
 
 
 --
--- Name: patient_files_medical_record_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patient_files_medical_record_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patient_files_medical_record_id_idx ON public.patient_files USING btree (medical_record_id);
 
 
 --
--- Name: patient_files_patient_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patient_files_patient_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patient_files_patient_id_idx ON public.patient_files USING btree (patient_id);
 
 
 --
--- Name: patient_files_patient_type_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patient_files_patient_type_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patient_files_patient_type_idx ON public.patient_files USING btree (patient_id, file_type);
 
 
 --
--- Name: patient_files_uploaded_by_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patient_files_uploaded_by_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patient_files_uploaded_by_idx ON public.patient_files USING btree (uploaded_by);
 
 
 --
--- Name: patients_branch_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patients_branch_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patients_branch_id_idx ON public.patients USING btree (branch_id);
 
 
 --
--- Name: patients_breed_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patients_breed_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patients_breed_idx ON public.patients USING btree (breed);
 
 
 --
--- Name: patients_created_at_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patients_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patients_created_at_idx ON public.patients USING btree (created_at);
 
 
 --
--- Name: patients_microchip_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patients_microchip_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patients_microchip_idx ON public.patients USING btree (microchip_number);
 
 
 --
--- Name: patients_name_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patients_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patients_name_idx ON public.patients USING btree (name);
 
 
 --
--- Name: patients_owner_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patients_owner_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patients_owner_id_idx ON public.patients USING btree (owner_id);
 
 
 --
--- Name: patients_species_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patients_species_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patients_species_idx ON public.patients USING btree (species);
 
 
 --
--- Name: patients_status_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: patients_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX patients_status_idx ON public.patients USING btree (status);
 
 
 --
--- Name: products_active_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: products_active_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX products_active_idx ON public.products USING btree (is_active);
 
 
 --
--- Name: products_active_stock_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: products_active_stock_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX products_active_stock_idx ON public.products USING btree (is_active, stock);
 
 
 --
--- Name: products_category_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: products_category_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX products_category_idx ON public.products USING btree (category);
 
 
 --
--- Name: products_created_at_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: products_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX products_created_at_idx ON public.products USING btree (created_at);
 
 
 --
--- Name: products_low_stock_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: products_low_stock_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX products_low_stock_idx ON public.products USING btree (stock, min_stock);
 
 
 --
--- Name: products_name_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: products_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX products_name_idx ON public.products USING btree (name);
 
 
 --
--- Name: products_stock_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: products_stock_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX products_stock_idx ON public.products USING btree (stock);
 
 
 --
--- Name: reference_ranges_active_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: reference_ranges_active_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX reference_ranges_active_idx ON public.reference_ranges USING btree (is_active);
 
 
 --
--- Name: reference_ranges_breed_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: reference_ranges_breed_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX reference_ranges_breed_idx ON public.reference_ranges USING btree (breed);
 
 
 --
--- Name: reference_ranges_parameter_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: reference_ranges_parameter_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX reference_ranges_parameter_id_idx ON public.reference_ranges USING btree (parameter_id);
 
 
 --
--- Name: reference_ranges_parameter_species_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: reference_ranges_parameter_species_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX reference_ranges_parameter_species_idx ON public.reference_ranges USING btree (parameter_id, species);
 
 
 --
--- Name: reference_ranges_species_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: reference_ranges_species_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX reference_ranges_species_idx ON public.reference_ranges USING btree (species);
 
 
 --
--- Name: services_active_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: services_active_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX services_active_idx ON public.services USING btree (is_active);
 
 
 --
--- Name: services_category_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: services_category_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX services_category_idx ON public.services USING btree (category);
 
 
 --
--- Name: services_name_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: services_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX services_name_idx ON public.services USING btree (name);
 
 
 --
--- Name: sms_codes_expires_at_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: sms_codes_expires_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX sms_codes_expires_at_idx ON public.sms_verification_codes USING btree (expires_at);
 
 
 --
--- Name: sms_codes_phone_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: sms_codes_phone_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX sms_codes_phone_idx ON public.sms_verification_codes USING btree (phone);
 
 
 --
--- Name: sms_codes_purpose_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: sms_codes_purpose_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX sms_codes_purpose_idx ON public.sms_verification_codes USING btree (purpose);
 
 
 --
--- Name: sms_codes_user_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: sms_codes_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX sms_codes_user_id_idx ON public.sms_verification_codes USING btree (user_id);
 
 
 --
--- Name: users_branch_id_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: users_branch_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX users_branch_id_idx ON public.users USING btree (branch_id);
 
 
 --
--- Name: users_phone_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: users_phone_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX users_phone_idx ON public.users USING btree (phone);
 
 
 --
--- Name: users_role_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: users_role_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX users_role_idx ON public.users USING btree (role);
 
 
 --
--- Name: users_status_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: users_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX users_status_idx ON public.users USING btree (status);
 
 
 --
--- Name: users_username_idx; Type: INDEX; Schema: public; Owner: neondb_owner
+-- Name: users_username_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX users_username_idx ON public.users USING btree (username);
 
 
 --
--- Name: appointments appointments_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: appointments appointments_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.appointments
@@ -1669,7 +1818,7 @@ ALTER TABLE ONLY public.appointments
 
 
 --
--- Name: appointments appointments_doctor_id_doctors_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: appointments appointments_doctor_id_doctors_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.appointments
@@ -1677,7 +1826,7 @@ ALTER TABLE ONLY public.appointments
 
 
 --
--- Name: appointments appointments_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: appointments appointments_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.appointments
@@ -1685,7 +1834,7 @@ ALTER TABLE ONLY public.appointments
 
 
 --
--- Name: doctors doctors_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: doctors doctors_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.doctors
@@ -1693,7 +1842,7 @@ ALTER TABLE ONLY public.doctors
 
 
 --
--- Name: invoice_items invoice_items_invoice_id_invoices_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: invoice_items invoice_items_invoice_id_invoices_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.invoice_items
@@ -1701,7 +1850,7 @@ ALTER TABLE ONLY public.invoice_items
 
 
 --
--- Name: invoices invoices_appointment_id_appointments_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: invoices invoices_appointment_id_appointments_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.invoices
@@ -1709,7 +1858,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- Name: invoices invoices_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: invoices invoices_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.invoices
@@ -1717,7 +1866,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- Name: lab_orders lab_orders_appointment_id_appointments_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_orders lab_orders_appointment_id_appointments_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_orders
@@ -1725,7 +1874,7 @@ ALTER TABLE ONLY public.lab_orders
 
 
 --
--- Name: lab_orders lab_orders_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_orders lab_orders_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_orders
@@ -1733,7 +1882,7 @@ ALTER TABLE ONLY public.lab_orders
 
 
 --
--- Name: lab_orders lab_orders_doctor_id_doctors_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_orders lab_orders_doctor_id_doctors_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_orders
@@ -1741,7 +1890,7 @@ ALTER TABLE ONLY public.lab_orders
 
 
 --
--- Name: lab_orders lab_orders_medical_record_id_medical_records_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_orders lab_orders_medical_record_id_medical_records_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_orders
@@ -1749,7 +1898,7 @@ ALTER TABLE ONLY public.lab_orders
 
 
 --
--- Name: lab_orders lab_orders_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_orders lab_orders_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_orders
@@ -1757,7 +1906,7 @@ ALTER TABLE ONLY public.lab_orders
 
 
 --
--- Name: lab_orders lab_orders_study_id_lab_studies_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_orders lab_orders_study_id_lab_studies_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_orders
@@ -1765,7 +1914,7 @@ ALTER TABLE ONLY public.lab_orders
 
 
 --
--- Name: lab_parameters lab_parameters_study_id_lab_studies_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_parameters lab_parameters_study_id_lab_studies_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_parameters
@@ -1773,7 +1922,7 @@ ALTER TABLE ONLY public.lab_parameters
 
 
 --
--- Name: lab_result_details lab_result_details_order_id_lab_orders_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_result_details lab_result_details_order_id_lab_orders_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_result_details
@@ -1781,7 +1930,7 @@ ALTER TABLE ONLY public.lab_result_details
 
 
 --
--- Name: lab_result_details lab_result_details_parameter_id_lab_parameters_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_result_details lab_result_details_parameter_id_lab_parameters_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_result_details
@@ -1789,7 +1938,7 @@ ALTER TABLE ONLY public.lab_result_details
 
 
 --
--- Name: lab_result_details lab_result_details_reference_range_id_reference_ranges_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_result_details lab_result_details_reference_range_id_reference_ranges_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_result_details
@@ -1797,7 +1946,7 @@ ALTER TABLE ONLY public.lab_result_details
 
 
 --
--- Name: lab_results lab_results_doctor_id_doctors_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_results lab_results_doctor_id_doctors_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_results
@@ -1805,7 +1954,7 @@ ALTER TABLE ONLY public.lab_results
 
 
 --
--- Name: lab_results lab_results_medical_record_id_medical_records_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_results lab_results_medical_record_id_medical_records_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_results
@@ -1813,7 +1962,7 @@ ALTER TABLE ONLY public.lab_results
 
 
 --
--- Name: lab_results lab_results_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: lab_results lab_results_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_results
@@ -1821,7 +1970,7 @@ ALTER TABLE ONLY public.lab_results
 
 
 --
--- Name: medical_records medical_records_appointment_id_appointments_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: medical_records medical_records_appointment_id_appointments_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.medical_records
@@ -1829,7 +1978,7 @@ ALTER TABLE ONLY public.medical_records
 
 
 --
--- Name: medical_records medical_records_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: medical_records medical_records_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.medical_records
@@ -1837,7 +1986,7 @@ ALTER TABLE ONLY public.medical_records
 
 
 --
--- Name: medical_records medical_records_doctor_id_doctors_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: medical_records medical_records_doctor_id_doctors_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.medical_records
@@ -1845,7 +1994,7 @@ ALTER TABLE ONLY public.medical_records
 
 
 --
--- Name: medical_records medical_records_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: medical_records medical_records_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.medical_records
@@ -1853,7 +2002,7 @@ ALTER TABLE ONLY public.medical_records
 
 
 --
--- Name: medications medications_record_id_medical_records_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: medications medications_record_id_medical_records_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.medications
@@ -1861,7 +2010,7 @@ ALTER TABLE ONLY public.medications
 
 
 --
--- Name: owners owners_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: owners owners_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.owners
@@ -1869,7 +2018,7 @@ ALTER TABLE ONLY public.owners
 
 
 --
--- Name: patient_files patient_files_medical_record_id_medical_records_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: patient_files patient_files_medical_record_id_medical_records_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patient_files
@@ -1877,7 +2026,7 @@ ALTER TABLE ONLY public.patient_files
 
 
 --
--- Name: patient_files patient_files_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: patient_files patient_files_patient_id_patients_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patient_files
@@ -1885,7 +2034,7 @@ ALTER TABLE ONLY public.patient_files
 
 
 --
--- Name: patient_files patient_files_uploaded_by_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: patient_files patient_files_uploaded_by_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patient_files
@@ -1893,7 +2042,7 @@ ALTER TABLE ONLY public.patient_files
 
 
 --
--- Name: patients patients_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: patients patients_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patients
@@ -1901,7 +2050,7 @@ ALTER TABLE ONLY public.patients
 
 
 --
--- Name: patients patients_owner_id_owners_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: patients patients_owner_id_owners_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patients
@@ -1909,7 +2058,7 @@ ALTER TABLE ONLY public.patients
 
 
 --
--- Name: reference_ranges reference_ranges_parameter_id_lab_parameters_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: reference_ranges reference_ranges_parameter_id_lab_parameters_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.reference_ranges
@@ -1917,7 +2066,7 @@ ALTER TABLE ONLY public.reference_ranges
 
 
 --
--- Name: sms_verification_codes sms_verification_codes_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: sms_verification_codes sms_verification_codes_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sms_verification_codes
@@ -1925,25 +2074,11 @@ ALTER TABLE ONLY public.sms_verification_codes
 
 
 --
--- Name: users users_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+-- Name: users users_branch_id_branches_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_branch_id_branches_id_fk FOREIGN KEY (branch_id) REFERENCES public.branches(id);
-
-
---
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: public; Owner: cloud_admin
---
-
-ALTER DEFAULT PRIVILEGES FOR ROLE cloud_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO neon_superuser WITH GRANT OPTION;
-
-
---
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: cloud_admin
---
-
-ALTER DEFAULT PRIVILEGES FOR ROLE cloud_admin IN SCHEMA public GRANT ALL ON TABLES TO neon_superuser WITH GRANT OPTION;
 
 
 --
