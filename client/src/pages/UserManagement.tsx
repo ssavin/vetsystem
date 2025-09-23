@@ -95,14 +95,14 @@ export default function UserManagement() {
   })
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(editingUser ? updateUserSchema : insertUserSchema),
+    resolver: zodResolver(insertUserSchema),
     defaultValues: {
       username: "",
       password: "",
       fullName: "",
       email: "",
       phone: "",
-      role: "врач",
+      role: "врач", 
       status: "active",
       branchId: "NONE"
     }
@@ -152,7 +152,16 @@ export default function UserManagement() {
   const handleCloseDialog = () => {
     setIsCreateDialogOpen(false)
     setEditingUser(null)
-    form.reset()
+    form.reset({
+      username: "",
+      password: "",
+      fullName: "",
+      email: "",
+      phone: "",
+      role: "врач",
+      status: "active",
+      branchId: "NONE"
+    })
   }
 
   const handleDelete = (userId: string) => {
@@ -238,13 +247,19 @@ export default function UserManagement() {
                 <FormField
                   control={form.control}
                   name="password"
+                  rules={editingUser ? { required: false } : undefined}
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Пароль {editingUser ? '' : '*'}</FormLabel>
                       <FormControl>
                         <Input type="password" placeholder={editingUser ? "Оставьте пустым для сохранения текущего" : "Минимум 10 символов, буквы, цифры, символы"} data-testid="input-password-create" {...field} />
                       </FormControl>
-                      <FormMessage />
+                      {editingUser && field.value && field.value.length > 0 && field.value.length < 10 && (
+                        <p className="text-xs text-red-500 mt-1">
+                          Если указан пароль, он должен содержать минимум 10 символов с буквами, цифрами и символами
+                        </p>
+                      )}
+                      {!editingUser && <FormMessage />}
                       {!editingUser && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Пароль должен содержать: заглавные и строчные буквы, цифры и специальные символы (@$!%*?&)
