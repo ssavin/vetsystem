@@ -734,6 +734,29 @@ export const insertUserSchema = createInsertSchema(users).omit({
   twoFactorMethod: z.enum(["sms", "disabled"] as const).default("sms"),
 });
 
+// Schema for updating user - password is optional for editing
+export const updateUserSchema = createInsertSchema(users).omit({
+  id: true,
+  lastLogin: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  role: z.enum(["admin", "user", "врач", "администратор", "менеджер"] as const),
+  status: z.enum(["active", "inactive"] as const).default("active"),
+  password: z.string()
+    .min(10, "Пароль должен содержать минимум 10 символов для медицинских систем")
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 
+           "Пароль должен содержать: строчные и заглавные буквы, цифры и символы")
+    .optional(), // Password is optional for updates
+  username: z.string().min(3, "Имя пользователя должно содержать минимум 3 символа"),
+  fullName: z.string().min(2, "Полное имя должно содержать минимум 2 символа"),
+  email: z.string().email("Неверный формат email").optional(),
+  phone: z.string().optional(),
+  phoneVerified: z.boolean().default(false),
+  twoFactorEnabled: z.boolean().default(false),
+  twoFactorMethod: z.enum(["sms", "disabled"] as const).default("sms"),
+});
+
 // Login schema for authentication - MATCHES REPLIT ORIGINAL SCHEMA
 export const loginSchema = z.object({
   username: z.string().min(1, "Имя пользователя обязательно"),
@@ -990,6 +1013,7 @@ export const sendSmsCodeSchema = z.object({
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpdateUser = z.infer<typeof updateUserSchema>;
 export type User = typeof users.$inferSelect;
 
 export type SmsVerificationCode = typeof smsVerificationCodes.$inferSelect;
