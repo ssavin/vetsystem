@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Users, Calendar, Clock, AlertCircle, DollarSign, Package } from "lucide-react"
+import { Users, Calendar, Clock, AlertCircle, Banknote, Package } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 import { type DashboardStats, type Appointment } from "@shared/schema"
@@ -221,7 +221,7 @@ export default function Dashboard() {
               onClick={() => navigate('/finance')}
               data-testid="button-new-invoice"
             >
-              <DollarSign className="h-5 w-5" />
+              <Banknote className="h-5 w-5" />
               <span>Создать счет</span>
             </Button>
             <Button 

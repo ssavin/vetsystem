@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Plus, DollarSign, TrendingUp, AlertCircle, FileText } from "lucide-react"
+import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText } from "lucide-react"
 import InvoiceCard from "@/components/InvoiceCard"
 
 // TODO: Remove mock data when connecting to real backend
@@ -134,7 +134,7 @@ export default function Finance() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" data-testid="button-cash-register">
-            <DollarSign className="h-4 w-4 mr-2" />
+            <Banknote className="h-4 w-4 mr-2" />
             Касса
           </Button>
           <Button data-testid="button-new-invoice">
@@ -163,7 +163,7 @@ export default function Finance() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-blue-500" />
+              <Banknote className="h-4 w-4 text-blue-500" />
               <div>
                 <p className="text-2xl font-bold text-blue-600" data-testid="text-paid-amount">
                   {paidAmount.toLocaleString('ru-RU')} ₽

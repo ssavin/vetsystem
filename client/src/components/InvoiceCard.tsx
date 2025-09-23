@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Calendar, User, DollarSign, FileText, Printer, CreditCard, Check } from "lucide-react"
+import { Calendar, User, Banknote, FileText, Printer, CreditCard, Check } from "lucide-react"
 import { useState } from "react"
 
 interface InvoiceItem {

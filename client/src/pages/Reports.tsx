@@ -6,7 +6,7 @@ import {
   BarChart3, 
   Users, 
   Calendar, 
-  DollarSign, 
+  Banknote, 
   Package, 
   TrendingUp, 
   Download,
@@ -48,7 +48,7 @@ const reportCategories = [
   },
   {
     title: "Финансовые отчеты",
-    icon: DollarSign,
+    icon: Banknote,
     reports: [
       { name: "Выручка по услугам", description: "Доходность различных услуг", color: "green" },
       { name: "Выручка по врачам", description: "Производительность врачей", color: "blue" },

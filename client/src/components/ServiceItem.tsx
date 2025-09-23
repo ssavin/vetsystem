@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Package, Plus, Minus, AlertTriangle, Clock, DollarSign } from "lucide-react"
+import { Package, Plus, Minus, AlertTriangle, Clock, Banknote } from "lucide-react"
 import { useState } from "react"
 
 interface ServiceItemProps {
@@ -129,14 +129,14 @@ export default function ServiceItem({ service }: ServiceItemProps) {
           
           {service.type === 'service' && (
             <div className="flex items-center gap-1 px-3 py-2 bg-muted rounded-md text-sm">
-              <DollarSign className="h-3 w-3" />
+              <Banknote className="h-3 w-3" />
               {(service.price * quantity).toLocaleString('ru-RU')} ₽
             </div>
           )}
           
           {service.type === 'product' && (
             <div className="flex items-center gap-1 px-3 py-2 bg-muted rounded-md text-sm">
-              <DollarSign className="h-3 w-3" />
+              <Banknote className="h-3 w-3" />
               {(service.price * quantity).toLocaleString('ru-RU')} ₽
             </div>
           )}
