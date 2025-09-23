@@ -1,10 +1,36 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-async function throwIfResNotOk(res: Response) {
+async function refreshAccessToken(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    });
+    return res.ok;
+  } catch (error) {
+    console.error("Failed to refresh token:", error);
+    return false;
+  }
+}
+
+async function throwIfResNotOk(res: Response, originalRequest?: () => Promise<Response>) {
   if (!res.ok) {
+    // If we get a 401 and this isn't already a refresh request, try to refresh token
+    if (res.status === 401 && originalRequest && !res.url.includes('/api/auth/refresh')) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        // Retry original request with new token
+        const retryRes = await originalRequest();
+        if (retryRes.ok) {
+          return retryRes;
+        }
+      }
+    }
+    
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
+  return res;
 }
 
 export async function apiRequest(
@@ -12,15 +38,15 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const makeRequest = async () => fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
-  return res;
+  const res = await makeRequest();
+  return await throwIfResNotOk(res, makeRequest);
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -29,15 +55,27 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = queryKey.join("/") as string;
+    const makeRequest = async () => fetch(url, {
       credentials: "include",
     });
 
+    const res = await makeRequest();
+
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      // Try to refresh token first
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        // Retry request with new token
+        const retryRes = await makeRequest();
+        if (retryRes.ok) {
+          return await retryRes.json();
+        }
+      }
       return null;
     }
 
-    await throwIfResNotOk(res);
+    await throwIfResNotOk(res, makeRequest);
     return await res.json();
   };
 

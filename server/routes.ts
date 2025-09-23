@@ -1368,6 +1368,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/auth/refresh", async (req, res) => {
+    try {
+      const refreshToken = req.cookies.refreshToken;
+      
+      if (!refreshToken) {
+        return res.status(401).json({ error: "Refresh token отсутствует" });
+      }
+
+      // Verify refresh token
+      const payload = verifyToken(refreshToken);
+      if (!payload) {
+        return res.status(401).json({ error: "Недействительный refresh token" });
+      }
+
+      // Get fresh user data
+      const user = await storage.getUserById(payload.userId);
+      if (!user) {
+        return res.status(401).json({ error: "Пользователь не найден" });
+      }
+
+      // Generate new access token
+      const { accessToken } = generateTokens({
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        branchId: payload.branchId
+      });
+
+      // Set new access token cookie
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000 // 15 minutes
+      });
+
+      res.json({ message: "Токен обновлен" });
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      res.status(500).json({ error: "Ошибка при обновлении токена" });
+    }
+  });
+
   app.post("/api/auth/logout", async (req, res) => {
     try {
       // Clear cookies
