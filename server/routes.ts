@@ -5,7 +5,7 @@ import {
   insertOwnerSchema, insertPatientSchema, insertDoctorSchema,
   insertAppointmentSchema, insertMedicalRecordSchema, insertMedicationSchema,
   insertServiceSchema, insertProductSchema, insertInvoiceSchema, insertInvoiceItemSchema,
-  insertUserSchema, loginSchema, insertPatientFileSchema, FILE_TYPES,
+  insertUserSchema, insertBranchSchema, loginSchema, insertPatientFileSchema, FILE_TYPES,
   insertLabStudySchema, insertLabParameterSchema, insertReferenceRangeSchema,
   insertLabOrderSchema, insertLabResultDetailSchema
 } from "@shared/schema";
@@ -1469,6 +1469,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Switch branch error:", error);
       res.status(500).json({ error: "Ошибка при смене филиала" });
+    }
+  });
+
+  // ===============================
+  // BRANCH MANAGEMENT API ENDPOINTS
+  // ===============================
+
+  // Get all branches
+  app.get("/api/branches", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
+    try {
+      const branches = await storage.getBranches();
+      res.json(branches);
+    } catch (error) {
+      console.error("Error fetching branches:", error);
+      res.status(500).json({ error: "Failed to fetch branches" });
+    }
+  });
+
+  // Get branch by ID
+  app.get("/api/branches/:id", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
+    try {
+      const branch = await storage.getBranch(req.params.id);
+      if (!branch) {
+        return res.status(404).json({ error: "Branch not found" });
+      }
+      res.json(branch);
+    } catch (error) {
+      console.error("Error fetching branch:", error);
+      res.status(500).json({ error: "Failed to fetch branch" });
+    }
+  });
+
+  // Create new branch
+  app.post("/api/branches", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertBranchSchema), async (req, res) => {
+    try {
+      const branch = await storage.createBranch(req.body);
+      res.status(201).json(branch);
+    } catch (error) {
+      console.error("Error creating branch:", error);
+      res.status(500).json({ error: "Failed to create branch" });
+    }
+  });
+
+  // Update branch
+  app.put("/api/branches/:id", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertBranchSchema.partial()), async (req, res) => {
+    try {
+      const existingBranch = await storage.getBranch(req.params.id);
+      if (!existingBranch) {
+        return res.status(404).json({ error: "Branch not found" });
+      }
+      
+      const updatedBranch = await storage.updateBranch(req.params.id, req.body);
+      res.json(updatedBranch);
+    } catch (error) {
+      console.error("Error updating branch:", error);
+      res.status(500).json({ error: "Failed to update branch" });
+    }
+  });
+
+  // Delete branch
+  app.delete("/api/branches/:id", authenticateToken, requireRole('руководитель'), async (req, res) => {
+    try {
+      const existingBranch = await storage.getBranch(req.params.id);
+      if (!existingBranch) {
+        return res.status(404).json({ error: "Branch not found" });
+      }
+      
+      // TODO: Add check if branch has associated data (users, patients, etc.)
+      // For now, allow deletion but consider adding safety checks
+      
+      await storage.deleteBranch(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting branch:", error);
+      res.status(500).json({ error: "Failed to delete branch" });
     }
   });
 
