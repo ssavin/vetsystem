@@ -115,15 +115,15 @@ export default function UserManagement() {
       if (!updateData.password || updateData.password.trim() === '') {
         delete (updateData as any).password;
       }
-      // Normalize 'NONE' branchId to null for API
-      if (updateData.branchId === 'NONE') {
+      // Normalize 'NONE' or empty branchId to null for API
+      if (updateData.branchId === 'NONE' || updateData.branchId === '' || !updateData.branchId) {
         updateData.branchId = null;
       }
       updateMutation.mutate({ userId: editingUser.id, data: updateData as UserFormValues });
     } else {
-      // Normalize 'NONE' branchId to null for API
+      // Normalize 'NONE' or empty branchId to null for API
       const createData = { ...values };
-      if (createData.branchId === 'NONE') {
+      if (createData.branchId === 'NONE' || createData.branchId === '' || !createData.branchId) {
         createData.branchId = null;
       }
       
@@ -141,7 +141,7 @@ export default function UserManagement() {
       phone: user.phone || "", 
       role: user.role as any,
       status: user.status as any,
-      branchId: user.branchId || ""
+      branchId: user.branchId || "NONE"
     })
     setIsCreateDialogOpen(true)
   }
