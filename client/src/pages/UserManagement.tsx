@@ -237,11 +237,16 @@ export default function UserManagement() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Пароль *</FormLabel>
+                      <FormLabel>Пароль {editingUser ? '' : '*'}</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="Минимум 6 символов" data-testid="input-password-create" {...field} />
+                        <Input type="password" placeholder={editingUser ? "Оставьте пустым для сохранения текущего" : "Минимум 10 символов, буквы, цифры, символы"} data-testid="input-password-create" {...field} />
                       </FormControl>
                       <FormMessage />
+                      {!editingUser && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Пароль должен содержать: заглавные и строчные буквы, цифры и специальные символы (@$!%*?&)
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />
