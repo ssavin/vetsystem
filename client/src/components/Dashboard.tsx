@@ -2,12 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Users, Calendar, Clock, TrendingUp, AlertCircle, CheckCircle, DollarSign, Package } from "lucide-react"
+import { Users, Calendar, Clock, AlertCircle, DollarSign, Package } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { useLocation } from "wouter"
-import { type DashboardStats, type Appointment, type Patient } from "@shared/schema"
+import { type DashboardStats, type Appointment } from "@shared/schema"
 import AppointmentCard from "./AppointmentCard"
-import { StatCardSkeleton, AppointmentCardSkeleton, QuickActionSkeleton, NotificationRowSkeleton } from "./ui/loading-skeletons"
+import { StatCardSkeleton, AppointmentCardSkeleton, NotificationRowSkeleton } from "./ui/loading-skeletons"
 
 // Helper function to get today's date in YYYY-MM-DD format
 const getTodayDateString = () => {
@@ -51,22 +51,6 @@ const formatAppointmentForCard = (appointment: Appointment) => ({
   notes: appointment.notes || ""
 });
 
-// Helper function to map database patient status to component status
-const mapPatientStatus = (dbStatus: string | null): 'healthy' | 'treatment' | 'critical' => {
-  if (!dbStatus) return 'healthy';
-  
-  switch (dbStatus) {
-    case 'healthy':
-      return 'healthy';
-    case 'sick':
-    case 'recovering':
-      return 'treatment'; // Map sick and recovering to treatment
-    case 'deceased':
-      return 'critical'; // Map deceased to critical
-    default:
-      return 'healthy'; // fallback
-  }
-};
 
 
 export default function Dashboard() {
@@ -119,7 +103,7 @@ export default function Dashboard() {
               {statsError ? (
                 <div className="text-2xl font-bold text-destructive">Ошибка</div>
               ) : (
-                <div className="text-2xl font-bold" data-testid="text-total-patients">{stats?.totalPatients || 0}</div>
+                <div className="text-2xl font-bold" data-testid="text-total-patients">{appointments?.length || 0}</div>
               )}
               <p className="text-xs text-muted-foreground">
                 На приеме в клинике
