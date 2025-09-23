@@ -287,7 +287,7 @@ export default function Dashboard() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => navigate('/patients')}
+                onClick={() => navigate('/registry')}
                 data-testid="button-view-all-patients"
               >
                 Все пациенты
@@ -328,7 +328,7 @@ export default function Dashboard() {
             <Button 
               className="h-16 flex-col gap-2" 
               variant="outline" 
-              onClick={() => navigate('/patients')}
+              onClick={() => navigate('/registry')}
               data-testid="button-new-patient"
             >
               <Users className="h-5 w-5" />
@@ -355,7 +355,7 @@ export default function Dashboard() {
             <Button 
               className="h-16 flex-col gap-2" 
               variant="outline" 
-              onClick={() => navigate('/inventory')}
+              onClick={() => navigate('/services-inventory')}
               data-testid="button-inventory"
             >
               <Package className="h-5 w-5" />

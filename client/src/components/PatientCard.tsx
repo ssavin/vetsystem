@@ -93,7 +93,7 @@ export default function PatientCard({ patient }: PatientCardProps) {
               variant="outline" 
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/patients/${patient.id}/medical-records`);
+                navigate('/medical-records');
               }}
               data-testid={`button-view-records-${patient.id}`}
             >
