@@ -1,8 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { insertUserSchema, User, USER_ROLES, Branch } from "@shared/schema"
+import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch } from "@shared/schema"
 import { z } from "zod"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -95,7 +95,7 @@ export default function UserManagement() {
   })
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(insertUserSchema),
+    resolver: zodResolver(editingUser ? updateUserSchema : insertUserSchema),
     defaultValues: {
       username: "",
       password: "",
@@ -107,6 +107,9 @@ export default function UserManagement() {
       branchId: "NONE"
     }
   })
+
+  // Form key to recreate form when switching between create/edit modes
+  const formKey = editingUser ? `edit-${editingUser.id}` : 'create';
 
   const onSubmit = (values: UserFormValues) => {
     if (editingUser) {
@@ -202,7 +205,7 @@ export default function UserManagement() {
               </DialogDescription>
             </DialogHeader>
             
-            <Form {...form}>
+            <Form {...form} key={formKey}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
