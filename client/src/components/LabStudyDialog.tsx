@@ -28,12 +28,15 @@ import { Plus, Microscope } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 
-// Form validation schema
-const labStudySchema = z.object({
-  name: z.string().min(1, "Название исследования обязательно").max(200, "Название слишком длинное"),
-  description: z.string().optional(),
-  category: z.string().optional(),
-  isActive: z.boolean().default(true),
+// Import shared schema for consistency
+import { insertLabStudySchema } from "@shared/schema"
+
+// Form validation schema - use shared schema subset for form fields
+const labStudySchema = insertLabStudySchema.pick({
+  name: true,
+  category: true,
+  description: true,
+  isActive: true,
 })
 
 type LabStudyFormData = z.infer<typeof labStudySchema>
@@ -129,7 +132,7 @@ export default function LabStudyDialog({ children }: LabStudyDialogProps) {
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Категория</FormLabel>
+                  <FormLabel>Категория *</FormLabel>
                   <FormControl>
                     <Input 
                       placeholder="Например: Гематология" 

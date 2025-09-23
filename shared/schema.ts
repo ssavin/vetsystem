@@ -895,11 +895,14 @@ export const insertLabStudySchema = createInsertSchema(labStudies).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
-  name: z.string().min(1, "Название исследования обязательно"),
-  category: z.string().min(1, "Категория исследования обязательна"),
+  name: z.string().min(1, "Название исследования обязательно").max(255, "Название слишком длинное"),
+  category: z.string().min(1, "Категория исследования обязательна").max(100, "Категория слишком длинная"),
+  code: z.string().max(50, "Код слишком длинный").optional(),
   description: z.string().optional(),
-  sampleType: z.string().min(1, "Тип образца обязателен"),
-  turnaroundTime: z.number().int().min(1, "Время выполнения должно быть больше 0"),
+  preparationInstructions: z.string().optional(),
+  sampleType: z.string().optional(),
+  estimatedDuration: z.number().int().min(1).optional(),
+  price: z.number().min(0).optional(),
   isActive: z.boolean().default(true),
 });
 
