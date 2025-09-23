@@ -734,7 +734,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   twoFactorMethod: z.enum(["sms", "disabled"] as const).default("sms"),
 });
 
-// Schema for updating user - password is optional for editing
+// Schema for updating user - password is completely optional for editing
 export const updateUserSchema = createInsertSchema(users).omit({
   id: true,
   lastLogin: true,
@@ -743,11 +743,7 @@ export const updateUserSchema = createInsertSchema(users).omit({
 }).extend({
   role: z.enum(["admin", "user", "врач", "администратор", "менеджер"] as const),
   status: z.enum(["active", "inactive"] as const).default("active"),
-  password: z.string()
-    .min(10, "Пароль должен содержать минимум 10 символов для медицинских систем")
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 
-           "Пароль должен содержать: строчные и заглавные буквы, цифры и символы")
-    .optional(), // Password is optional for updates
+  password: z.string().optional(), // Completely optional - no validation when empty
   username: z.string().min(3, "Имя пользователя должно содержать минимум 3 символа"),
   fullName: z.string().min(2, "Полное имя должно содержать минимум 2 символа"),
   email: z.string().email("Неверный формат email").optional(),

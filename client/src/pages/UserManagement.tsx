@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -95,7 +95,7 @@ export default function UserManagement() {
   })
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(insertUserSchema),
+    resolver: zodResolver(updateUserSchema), // Always use update schema to allow optional password
     defaultValues: {
       username: "",
       password: "",
@@ -116,22 +116,22 @@ export default function UserManagement() {
     console.log('Form errors:', form.formState.errors);
     
     if (editingUser) {
-      // For updates, validate manually and exclude empty password to prevent overwriting
-      const updateData = { ...values } as Partial<UserFormValues>;
-      
-      // Remove empty password
-      if (!updateData.password || updateData.password.trim() === '') {
-        delete (updateData as any).password;
-      } else {
-        // If password is provided, validate it manually
+      // For updates, validate password manually if provided
+      if (values.password && values.password.trim() !== '') {
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
-        if (updateData.password.length < 10 || !passwordRegex.test(updateData.password)) {
+        if (values.password.length < 10 || !passwordRegex.test(values.password)) {
           form.setError('password', {
             type: 'manual',
             message: 'Пароль должен содержать минимум 10 символов для медицинских систем и включать: строчные и заглавные буквы, цифры и символы'
           });
           return;
         }
+      }
+      
+      // For updates, exclude empty password to prevent overwriting
+      const updateData = { ...values } as Partial<UserFormValues>;
+      if (!updateData.password || updateData.password.trim() === '') {
+        delete (updateData as any).password;
       }
       
       // Normalize 'NONE' or empty branchId to null for API
@@ -142,6 +142,24 @@ export default function UserManagement() {
       console.log('Sending update data:', updateData);
       updateMutation.mutate({ userId: editingUser.id, data: updateData as UserFormValues });
     } else {
+      // For create, validate password is required and strong
+      if (!values.password || values.password.trim() === '') {
+        form.setError('password', {
+          type: 'manual',
+          message: 'Пароль обязателен при создании пользователя'
+        });
+        return;
+      }
+      
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+      if (values.password.length < 10 || !passwordRegex.test(values.password)) {
+        form.setError('password', {
+          type: 'manual',
+          message: 'Пароль должен содержать минимум 10 символов для медицинских систем и включать: строчные и заглавные буквы, цифры и символы'
+        });
+        return;
+      }
+      
       // Normalize 'NONE' or empty branchId to null for API
       const createData = { ...values };
       if (createData.branchId === 'NONE' || createData.branchId === '' || !createData.branchId) {
