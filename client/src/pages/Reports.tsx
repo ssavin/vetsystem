@@ -208,11 +208,11 @@ export default function Reports() {
             <div className="text-center space-y-4 p-6 border rounded-lg hover-elevate cursor-pointer">
               <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground" />
               <div>
-                <h3 className="font-medium">Дашборд аналитики</h3>
+                <h3 className="font-medium">Начальная страница аналитики</h3>
                 <p className="text-sm text-muted-foreground">Интерактивная панель</p>
               </div>
               <Button variant="outline" data-testid="button-analytics-dashboard">
-                Открыть дашборд
+                Открыть начальную страницу
               </Button>
             </div>
 

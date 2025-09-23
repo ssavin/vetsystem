@@ -130,7 +130,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold" data-testid="text-dashboard-title">Дашборд VetSystem</h1>
+        <h1 className="text-3xl font-bold" data-testid="text-dashboard-title">Начальная страница VetSystem</h1>
         <p className="text-muted-foreground">Обзор деятельности клиники</p>
       </div>
 
