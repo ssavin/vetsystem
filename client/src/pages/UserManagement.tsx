@@ -112,16 +112,34 @@ export default function UserManagement() {
   const formKey = editingUser ? `edit-${editingUser.id}` : 'create';
 
   const onSubmit = (values: UserFormValues) => {
+    console.log('Form submitted with values:', values);
+    console.log('Form errors:', form.formState.errors);
+    
     if (editingUser) {
-      // For updates, exclude empty password to prevent overwriting
+      // For updates, validate manually and exclude empty password to prevent overwriting
       const updateData = { ...values } as Partial<UserFormValues>;
+      
+      // Remove empty password
       if (!updateData.password || updateData.password.trim() === '') {
         delete (updateData as any).password;
+      } else {
+        // If password is provided, validate it manually
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+        if (updateData.password.length < 10 || !passwordRegex.test(updateData.password)) {
+          form.setError('password', {
+            type: 'manual',
+            message: 'Пароль должен содержать минимум 10 символов для медицинских систем и включать: строчные и заглавные буквы, цифры и символы'
+          });
+          return;
+        }
       }
+      
       // Normalize 'NONE' or empty branchId to null for API
       if (updateData.branchId === 'NONE' || updateData.branchId === '' || !updateData.branchId) {
         updateData.branchId = null;
       }
+      
+      console.log('Sending update data:', updateData);
       updateMutation.mutate({ userId: editingUser.id, data: updateData as UserFormValues });
     } else {
       // Normalize 'NONE' or empty branchId to null for API
@@ -130,6 +148,7 @@ export default function UserManagement() {
         createData.branchId = null;
       }
       
+      console.log('Sending create data:', createData);
       createMutation.mutate(createData);
     }
   }
@@ -247,22 +266,21 @@ export default function UserManagement() {
                 <FormField
                   control={form.control}
                   name="password"
-                  rules={editingUser ? { required: false } : undefined}
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Пароль {editingUser ? '' : '*'}</FormLabel>
                       <FormControl>
                         <Input type="password" placeholder={editingUser ? "Оставьте пустым для сохранения текущего" : "Минимум 10 символов, буквы, цифры, символы"} data-testid="input-password-create" {...field} />
                       </FormControl>
-                      {editingUser && field.value && field.value.length > 0 && field.value.length < 10 && (
-                        <p className="text-xs text-red-500 mt-1">
-                          Если указан пароль, он должен содержать минимум 10 символов с буквами, цифрами и символами
-                        </p>
-                      )}
-                      {!editingUser && <FormMessage />}
+                      <FormMessage />
                       {!editingUser && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Пароль должен содержать: заглавные и строчные буквы, цифры и специальные символы (@$!%*?&)
+                        </p>
+                      )}
+                      {editingUser && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Оставьте пустым, чтобы сохранить текущий пароль. Если заполните - минимум 10 символов с буквами, цифрами и символами.
                         </p>
                       )}
                     </FormItem>
