@@ -11,7 +11,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
-import { authenticateToken, requireRole, requireModuleAccess, generateTokens } from "./middleware/auth";
+import { authenticateToken, requireRole, requireModuleAccess, generateTokens, verifyToken } from "./middleware/auth";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import * as veterinaryAI from './ai/veterinary-ai';
