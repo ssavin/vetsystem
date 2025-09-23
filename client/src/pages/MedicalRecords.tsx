@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Search, Plus, Filter, Calendar, Brain } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import MedicalRecordCard from "@/components/MedicalRecordCard"
 import MedicalRecordForm from "@/components/MedicalRecordForm"
 import AIAssistant from "@/components/AIAssistant"
@@ -15,6 +16,7 @@ export default function MedicalRecords() {
   const [searchTerm, setSearchTerm] = useState("")
   const [showAIAssistant, setShowAIAssistant] = useState(false)
   const [selectedPatientForAI, setSelectedPatientForAI] = useState<any>(null)
+  const { toast } = useToast()
 
   // Fetch medical records with patients, doctors, and medications
   const { data: medicalRecords = [], isLoading, error } = useQuery({
@@ -80,6 +82,32 @@ export default function MedicalRecords() {
     setSearchTerm(term)
   }
 
+  const handleFiltersClick = () => {
+    toast({
+      title: "Фильтры",
+      description: "Функция фильтрации находится в разработке",
+    })
+  }
+
+  const handlePeriodClick = () => {
+    toast({
+      title: "Выбор периода",
+      description: "Функция выбора временного периода находится в разработке",
+    })
+  }
+
+  const handleAIAssistantToggle = () => {
+    if (!showAIAssistant && !selectedPatientForAI) {
+      toast({
+        title: "Выберите пациента",
+        description: "Для использования ИИ-помощника необходимо выбрать пациента",
+        variant: "destructive",
+      })
+      return
+    }
+    setShowAIAssistant(!showAIAssistant)
+  }
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -106,17 +134,17 @@ export default function MedicalRecords() {
                 data-testid="input-search-records"
               />
             </div>
-            <Button variant="outline" data-testid="button-filter-records">
+            <Button variant="outline" onClick={handleFiltersClick} data-testid="button-filter-records">
               <Filter className="h-4 w-4 mr-2" />
               Фильтры
             </Button>
-            <Button variant="outline" data-testid="button-date-range">
+            <Button variant="outline" onClick={handlePeriodClick} data-testid="button-date-range">
               <Calendar className="h-4 w-4 mr-2" />
               Период
             </Button>
             <Button
               variant={showAIAssistant ? "default" : "outline"}
-              onClick={() => setShowAIAssistant(!showAIAssistant)}
+              onClick={handleAIAssistantToggle}
               data-testid="button-toggle-ai"
             >
               <Brain className="h-4 w-4 mr-2" />
