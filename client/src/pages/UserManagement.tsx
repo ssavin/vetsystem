@@ -95,7 +95,7 @@ export default function UserManagement() {
   })
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(updateUserSchema), // Always use update schema to allow optional password
+    resolver: zodResolver(insertUserSchema), // Use insertUserSchema by default
     defaultValues: {
       username: "",
       password: "",
@@ -112,13 +112,10 @@ export default function UserManagement() {
   const formKey = editingUser ? `edit-${editingUser.id}` : 'create';
 
   const onSubmit = (values: UserFormValues) => {
-    console.log('Form submitted with values:', values);
-    console.log('Form errors:', form.formState.errors);
-    
     if (editingUser) {
-      // For updates, validate password manually if provided
+      // For updates, password is optional but if provided must be valid
       if (values.password && values.password.trim() !== '') {
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
         if (values.password.length < 10 || !passwordRegex.test(values.password)) {
           form.setError('password', {
             type: 'manual',
@@ -139,7 +136,6 @@ export default function UserManagement() {
         updateData.branchId = null;
       }
       
-      console.log('Sending update data:', updateData);
       updateMutation.mutate({ userId: editingUser.id, data: updateData as UserFormValues });
     } else {
       // For create, validate password is required and strong
@@ -151,7 +147,7 @@ export default function UserManagement() {
         return;
       }
       
-      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
       if (values.password.length < 10 || !passwordRegex.test(values.password)) {
         form.setError('password', {
           type: 'manual',
@@ -166,7 +162,6 @@ export default function UserManagement() {
         createData.branchId = null;
       }
       
-      console.log('Sending create data:', createData);
       createMutation.mutate(createData);
     }
   }
@@ -189,16 +184,7 @@ export default function UserManagement() {
   const handleCloseDialog = () => {
     setIsCreateDialogOpen(false)
     setEditingUser(null)
-    form.reset({
-      username: "",
-      password: "",
-      fullName: "",
-      email: "",
-      phone: "",
-      role: "врач",
-      status: "active",
-      branchId: "NONE"
-    })
+    form.reset()
   }
 
   const handleDelete = (userId: string) => {
