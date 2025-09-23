@@ -44,7 +44,7 @@ const menuItems = [
     module: "laboratory",
   },
   {
-    title: "Продажи и Закупки",
+    title: "Прейскурант",
     url: "/services-inventory",
     icon: Package,
     module: "services",

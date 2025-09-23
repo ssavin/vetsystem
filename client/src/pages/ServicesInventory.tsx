@@ -127,8 +127,8 @@ export default function ServicesInventory() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-services-inventory-title">Услуги и склад</h1>
-          <p className="text-muted-foreground">Управление услугами клиники и складскими запасами</p>
+          <h1 className="text-3xl font-bold" data-testid="text-services-inventory-title">Цены на услуги и товары</h1>
+          <p className="text-muted-foreground">Прейскурант ветеринарных услуг и товаров клиники</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" data-testid="button-add-service">
