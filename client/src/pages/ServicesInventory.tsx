@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Package, Clock, AlertTriangle } from "lucide-react"
+import { Search, Plus } from "lucide-react"
 import ServiceItem from "@/components/ServiceItem"
 
 // TODO: Remove mock data when connecting to real backend
@@ -116,12 +116,6 @@ export default function ServicesInventory() {
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const lowStockProducts = mockProducts.filter(p => 
-    p.stock !== undefined && p.minStock !== undefined && p.stock <= p.minStock
-  )
-
-  const totalProducts = mockProducts.reduce((sum, p) => sum + (p.stock || 0), 0)
-  const totalServices = mockServices.length
 
   return (
     <div className="space-y-6 p-6">
@@ -141,80 +135,6 @@ export default function ServicesInventory() {
           </Button>
         </div>
       </div>
-
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-blue-500" />
-              <div>
-                <p className="text-2xl font-bold" data-testid="text-total-services">
-                  {totalServices}
-                </p>
-                <p className="text-xs text-muted-foreground">Всего услуг</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Package className="h-4 w-4 text-green-500" />
-              <div>
-                <p className="text-2xl font-bold" data-testid="text-total-products">
-                  {totalProducts}
-                </p>
-                <p className="text-xs text-muted-foreground">Товаров на складе</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              <div>
-                <p className="text-2xl font-bold text-red-600" data-testid="text-low-stock">
-                  {lowStockProducts.length}
-                </p>
-                <p className="text-xs text-muted-foreground">Мало товара</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div>
-              <p className="text-2xl font-bold" data-testid="text-categories">
-                {Array.from(new Set([...mockServices, ...mockProducts].map(item => item.category))).length}
-              </p>
-              <p className="text-xs text-muted-foreground">Категорий</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Low Stock Alert */}
-      {lowStockProducts.length > 0 && (
-        <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-red-800 dark:text-red-300">
-              <AlertTriangle className="h-5 w-5" />
-              Товары с низким остатком
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {lowStockProducts.map(product => (
-                <Badge key={product.id} variant="destructive" className="text-xs">
-                  {product.name}: {product.stock} {product.unit}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Search */}
       <Card>
