@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Calendar, User, Phone, FileText } from "lucide-react"
 import { useState } from "react"
+import { useLocation } from "wouter"
 
 interface PatientCardProps {
   patient: {
@@ -22,6 +23,7 @@ interface PatientCardProps {
 
 export default function PatientCard({ patient }: PatientCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [, navigate] = useLocation()
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -86,11 +88,27 @@ export default function PatientCard({ patient }: PatientCardProps) {
         
         {isExpanded && (
           <div className="flex gap-2 pt-2 border-t">
-            <Button size="sm" variant="outline" data-testid={`button-view-records-${patient.id}`}>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/patients/${patient.id}/medical-records`);
+              }}
+              data-testid={`button-view-records-${patient.id}`}
+            >
               <FileText className="h-3 w-3 mr-1" />
               Мед. карта
             </Button>
-            <Button size="sm" variant="outline" data-testid={`button-schedule-appointment-${patient.id}`}>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/schedule');
+              }}
+              data-testid={`button-schedule-appointment-${patient.id}`}
+            >
               <Calendar className="h-3 w-3 mr-1" />
               Записать
             </Button>

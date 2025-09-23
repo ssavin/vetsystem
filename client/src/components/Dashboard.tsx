@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Users, Calendar, Clock, TrendingUp, AlertCircle, CheckCircle, DollarSign, Package } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
+import { useLocation } from "wouter"
 import { type DashboardStats, type Appointment, type Patient } from "@shared/schema"
 import PatientCard from "./PatientCard"
 import AppointmentCard from "./AppointmentCard"
@@ -84,6 +85,8 @@ const formatPatientForCard = (patient: Patient) => ({
 });
 
 export default function Dashboard() {
+  const [, navigate] = useLocation()
+
   // Fetch dashboard statistics
   const { 
     data: stats, 
@@ -240,7 +243,12 @@ export default function Dashboard() {
                 <Clock className="h-5 w-5" />
                 Расписание на сегодня
               </CardTitle>
-              <Button variant="outline" size="sm" data-testid="button-view-full-schedule">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/schedule')}
+                data-testid="button-view-full-schedule"
+              >
                 Весь день
               </Button>
             </div>
@@ -276,7 +284,12 @@ export default function Dashboard() {
                 <Users className="h-5 w-5" />
                 Недавние пациенты
               </CardTitle>
-              <Button variant="outline" size="sm" data-testid="button-view-all-patients">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/patients')}
+                data-testid="button-view-all-patients"
+              >
                 Все пациенты
               </Button>
             </div>
@@ -312,19 +325,39 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button className="h-16 flex-col gap-2" variant="outline" data-testid="button-new-patient">
+            <Button 
+              className="h-16 flex-col gap-2" 
+              variant="outline" 
+              onClick={() => navigate('/patients')}
+              data-testid="button-new-patient"
+            >
               <Users className="h-5 w-5" />
               <span>Новый пациент</span>
             </Button>
-            <Button className="h-16 flex-col gap-2" variant="outline" data-testid="button-new-appointment">
+            <Button 
+              className="h-16 flex-col gap-2" 
+              variant="outline" 
+              onClick={() => navigate('/schedule')}
+              data-testid="button-new-appointment"
+            >
               <Calendar className="h-5 w-5" />
               <span>Запись на прием</span>
             </Button>
-            <Button className="h-16 flex-col gap-2" variant="outline" data-testid="button-new-invoice">
+            <Button 
+              className="h-16 flex-col gap-2" 
+              variant="outline" 
+              onClick={() => navigate('/finance')}
+              data-testid="button-new-invoice"
+            >
               <DollarSign className="h-5 w-5" />
               <span>Создать счет</span>
             </Button>
-            <Button className="h-16 flex-col gap-2" variant="outline" data-testid="button-inventory">
+            <Button 
+              className="h-16 flex-col gap-2" 
+              variant="outline" 
+              onClick={() => navigate('/inventory')}
+              data-testid="button-inventory"
+            >
               <Package className="h-5 w-5" />
               <span>Склад</span>
             </Button>
