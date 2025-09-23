@@ -246,8 +246,8 @@ export default function MedicalRecords() {
       ) : (
         <>
           <div className="space-y-4">
-            {filteredRecords.map(record => (
-              <MedicalRecordCard key={record.id} record={record} />
+            {filteredRecords.map((record, index) => (
+              <MedicalRecordCard key={record.id || `record-${index}`} record={record} />
             ))}
           </div>
 

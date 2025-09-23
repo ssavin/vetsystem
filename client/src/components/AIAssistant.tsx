@@ -213,27 +213,42 @@ export default function AIAssistant({ patientData, onSuggestionApply }: AIAssist
     severe: <Zap className="h-4 w-4 text-red-500" />
   }
 
+  // Если пациент не выбран, показываем сообщение
+  if (!patientData) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="text-center py-8">
+            <Brain className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2">Пациент не выбран</h3>
+            <p className="text-muted-foreground">
+              Для использования ИИ-помощника необходимо выбрать пациента из медицинских записей
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Заголовок с информацией о пациенте */}
-      {patientData && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-blue-500" />
-              ИИ-Ассистент для {patientData.name}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div><strong>Вид:</strong> {patientData.species}</div>
-              <div><strong>Порода:</strong> {patientData.breed || 'не указана'}</div>
-              <div><strong>Возраст:</strong> {patientData.age} лет</div>
-              <div><strong>Вес:</strong> {patientData.weight || 'не указан'} кг</div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-blue-500" />
+            ИИ-Ассистент для {patientData.name}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div><strong>Вид:</strong> {patientData.species}</div>
+            <div><strong>Порода:</strong> {patientData.breed || 'не указана'}</div>
+            <div><strong>Возраст:</strong> {patientData.age} лет</div>
+            <div><strong>Вес:</strong> {patientData.weight || 'не указан'} кг</div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Навигация */}
       <div className="flex flex-wrap gap-2">
