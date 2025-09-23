@@ -6,9 +6,8 @@ import { Users, Calendar, Clock, TrendingUp, AlertCircle, CheckCircle, DollarSig
 import { useQuery } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 import { type DashboardStats, type Appointment, type Patient } from "@shared/schema"
-import PatientCard from "./PatientCard"
 import AppointmentCard from "./AppointmentCard"
-import { StatCardSkeleton, AppointmentCardSkeleton, PatientCardSkeleton, QuickActionSkeleton, NotificationRowSkeleton } from "./ui/loading-skeletons"
+import { StatCardSkeleton, AppointmentCardSkeleton, QuickActionSkeleton, NotificationRowSkeleton } from "./ui/loading-skeletons"
 
 // Helper function to get today's date in YYYY-MM-DD format
 const getTodayDateString = () => {
@@ -69,20 +68,6 @@ const mapPatientStatus = (dbStatus: string | null): 'healthy' | 'treatment' | 'c
   }
 };
 
-// Helper function to format patient data for PatientCard
-const formatPatientForCard = (patient: Patient) => ({
-  id: patient.id,
-  name: patient.name,
-  species: patient.species,
-  breed: patient.breed || "Не указано",
-  age: patient.birthDate 
-    ? `${Math.floor((new Date().getTime() - new Date(patient.birthDate).getTime()) / (1000 * 3600 * 24 * 365))} лет`
-    : "Не указан",
-  owner: "Владелец", // This will be populated when we add relations
-  ownerPhone: "",
-  status: mapPatientStatus(patient.status),
-  lastVisit: new Date(patient.updatedAt).toLocaleDateString('ru-RU')
-});
 
 export default function Dashboard() {
   const [, navigate] = useLocation()
@@ -110,22 +95,8 @@ export default function Dashboard() {
     }
   });
 
-  // Fetch recent patients (limited to 5)
-  const { 
-    data: patients, 
-    isLoading: patientsLoading, 
-    error: patientsError 
-  } = useQuery<Patient[]>({
-    queryKey: ['/api/patients', { limit: 5, offset: 0 }],
-    queryFn: async () => {
-      const response = await fetch('/api/patients?limit=5&offset=0');
-      if (!response.ok) throw new Error('Failed to fetch patients');
-      return response.json();
-    }
-  });
 
   const todayAppointments = appointments ? appointments.slice(0, 3).map(formatAppointmentForCard) : [];
-  const recentPatients = patients ? patients.slice(0, 2).map(formatPatientForCard) : [];
 
   return (
     <div className="space-y-6 p-6">
@@ -135,13 +106,13 @@ export default function Dashboard() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {statsLoading ? (
           <StatCardSkeleton />
         ) : (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Всего пациентов</CardTitle>
+              <CardTitle className="text-sm font-medium">Всего пациентов сегодня</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -151,53 +122,13 @@ export default function Dashboard() {
                 <div className="text-2xl font-bold" data-testid="text-total-patients">{stats?.totalPatients || 0}</div>
               )}
               <p className="text-xs text-muted-foreground">
-                Всего в базе данных
+                На приеме в клинике
               </p>
             </CardContent>
           </Card>
         )}
 
-        {statsLoading ? (
-          <StatCardSkeleton />
-        ) : (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Записи на сегодня</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {statsError ? (
-                <div className="text-2xl font-bold text-destructive">Ошибка</div>
-              ) : (
-                <div className="text-2xl font-bold" data-testid="text-today-appointments">{stats?.todayAppointments || 0}</div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {stats?.activeAppointments || 0} активных сейчас
-              </p>
-            </CardContent>
-          </Card>
-        )}
 
-        {statsLoading ? (
-          <StatCardSkeleton />
-        ) : (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Выручка за месяц</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {statsError ? (
-                <div className="text-2xl font-bold text-destructive">Ошибка</div>
-              ) : (
-                <div className="text-2xl font-bold" data-testid="text-revenue">{(stats?.totalRevenue || 0).toLocaleString('ru-RU')} ₽</div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Оплаченные счета
-              </p>
-            </CardContent>
-          </Card>
-        )}
 
         {statsLoading ? (
           <Card>
@@ -235,88 +166,45 @@ export default function Dashboard() {
       </div>
 
       {/* Today's Schedule */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Расписание на сегодня
-              </CardTitle>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => navigate('/schedule')}
-                data-testid="button-view-full-schedule"
-              >
-                Весь день
-              </Button>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Расписание на сегодня
+            </CardTitle>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/schedule')}
+              data-testid="button-view-full-schedule"
+            >
+              Весь день
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {appointmentsLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => (
+                <AppointmentCardSkeleton key={i} />
+              ))}
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {appointmentsLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map(i => (
-                  <AppointmentCardSkeleton key={i} />
-                ))}
-              </div>
-            ) : appointmentsError ? (
-              <div className="text-center py-4 text-muted-foreground">
-                Ошибка загрузки записей
-              </div>
-            ) : todayAppointments.length > 0 ? (
-              todayAppointments.map(appointment => (
-                <AppointmentCard key={appointment.id} appointment={appointment} />
-              ))
-            ) : (
-              <div className="text-center py-4 text-muted-foreground">
-                Нет записей на сегодня
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Patients */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Недавние пациенты
-              </CardTitle>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => navigate('/registry')}
-                data-testid="button-view-all-patients"
-              >
-                Все пациенты
-              </Button>
+          ) : appointmentsError ? (
+            <div className="text-center py-4 text-muted-foreground">
+              Ошибка загрузки записей
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {patientsLoading ? (
-              <div className="space-y-4">
-                {[1, 2].map(i => (
-                  <PatientCardSkeleton key={i} />
-                ))}
-              </div>
-            ) : patientsError ? (
-              <div className="text-center py-4 text-muted-foreground">
-                Ошибка загрузки пациентов
-              </div>
-            ) : recentPatients.length > 0 ? (
-              recentPatients.map(patient => (
-                <PatientCard key={patient.id} patient={patient} />
-              ))
-            ) : (
-              <div className="text-center py-4 text-muted-foreground">
-                Нет пациентов в базе данных
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          ) : todayAppointments.length > 0 ? (
+            todayAppointments.map(appointment => (
+              <AppointmentCard key={appointment.id} appointment={appointment} />
+            ))
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              Нет записей на сегодня
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <Card>
