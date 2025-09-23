@@ -6,6 +6,7 @@ import { Calendar, ChevronLeft, ChevronRight, Plus, Filter, CalendarDays, Table,
 import { useQuery } from "@tanstack/react-query"
 import { type Appointment } from "@shared/schema"
 import AppointmentCard from "@/components/AppointmentCard"
+import AppointmentDialog from "@/components/AppointmentDialog"
 import { AppointmentCardSkeleton } from "@/components/ui/loading-skeletons"
 import { DayView, WeekView, MonthView } from "@/components/CalendarViews"
 
@@ -231,10 +232,7 @@ export default function Schedule() {
               Месяц
             </Button>
           </div>
-          <Button data-testid="button-new-appointment">
-            <Plus className="h-4 w-4 mr-2" />
-            Новая запись
-          </Button>
+          <AppointmentDialog defaultDate={currentDate} />
         </div>
       </div>
 
