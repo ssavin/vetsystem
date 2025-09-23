@@ -119,7 +119,7 @@ export default function UserManagement() {
         if (values.password.length < 10 || !passwordRegex.test(values.password)) {
           form.setError('password', {
             type: 'manual',
-            message: 'Пароль должен содержать минимум 10 символов для медицинских систем и включать: строчные и заглавные буквы, цифры и символы'
+            message: 'Пароль должен содержать: строчные буквы (a-z), заглавные буквы (A-Z), цифры (0-9) и специальные символы (@$!%*?&)'
           });
           return;
         }
@@ -151,7 +151,7 @@ export default function UserManagement() {
       if (values.password.length < 10 || !passwordRegex.test(values.password)) {
         form.setError('password', {
           type: 'manual',
-          message: 'Пароль должен содержать минимум 10 символов для медицинских систем и включать: строчные и заглавные буквы, цифры и символы'
+          message: 'Пароль должен содержать: строчные буквы (a-z), заглавные буквы (A-Z), цифры (0-9) и специальные символы (@$!%*?&)'
         });
         return;
       }
