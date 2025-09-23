@@ -2,10 +2,10 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus } from "lucide-react"
-import ServiceItem from "@/components/ServiceItem"
+import { Search, Plus, Clock, Package, AlertTriangle } from "lucide-react"
 
 // TODO: Remove mock data when connecting to real backend
 const mockServices = [
@@ -167,37 +167,134 @@ export default function ServicesInventory() {
         </TabsList>
 
         <TabsContent value="services" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredServices.map(service => (
-              <ServiceItem key={service.id} service={service} />
-            ))}
-          </div>
-          {filteredServices.length === 0 && (
-            <Card className="text-center py-8">
-              <CardContent>
-                <p className="text-muted-foreground">
-                  {searchTerm ? 'Услуги не найдены' : 'Услуги отсутствуют'}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>Название</TableHead>
+                  <TableHead>Категория</TableHead>
+                  <TableHead>Цена</TableHead>
+                  <TableHead>Длительность</TableHead>
+                  <TableHead>Статус</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredServices.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      {searchTerm ? 'Услуги не найдены' : 'Услуги отсутствуют'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredServices.map(service => (
+                    <TableRow key={service.id} className={!service.isActive ? 'opacity-50' : ''}>
+                      <TableCell>
+                        <Clock className="h-4 w-4 text-blue-500" />
+                      </TableCell>
+                      <TableCell className="font-medium" data-testid={`text-service-name-${service.id}`}>
+                        {service.name}
+                        {service.description && (
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {service.description}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>{service.category}</TableCell>
+                      <TableCell data-testid={`text-service-price-${service.id}`}>
+                        {service.price.toLocaleString('ru-RU')} ₽
+                      </TableCell>
+                      <TableCell>
+                        {service.duration ? (
+                          <Badge variant="secondary">{service.duration} мин</Badge>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {service.isActive ? (
+                          <Badge variant="default">Активно</Badge>
+                        ) : (
+                          <Badge variant="destructive">Неактивно</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
         </TabsContent>
 
         <TabsContent value="products" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredProducts.map(product => (
-              <ServiceItem key={product.id} service={product} />
-            ))}
-          </div>
-          {filteredProducts.length === 0 && (
-            <Card className="text-center py-8">
-              <CardContent>
-                <p className="text-muted-foreground">
-                  {searchTerm ? 'Товары не найдены' : 'Товары отсутствуют'}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>Название</TableHead>
+                  <TableHead>Категория</TableHead>
+                  <TableHead>Цена</TableHead>
+                  <TableHead>Остаток</TableHead>
+                  <TableHead>Единица</TableHead>
+                  <TableHead>Статус</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      {searchTerm ? 'Товары не найдены' : 'Товары отсутствуют'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredProducts.map(product => {
+                    const isLowStock = product.stock !== undefined && product.minStock !== undefined && product.stock <= product.minStock;
+                    return (
+                      <TableRow key={product.id} className={!product.isActive ? 'opacity-50' : ''}>
+                        <TableCell>
+                          <Package className="h-4 w-4 text-green-500" />
+                        </TableCell>
+                        <TableCell className="font-medium" data-testid={`text-product-name-${product.id}`}>
+                          {product.name}
+                          {product.description && (
+                            <div className="text-sm text-muted-foreground mt-1">
+                              {product.description}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{product.category}</TableCell>
+                        <TableCell data-testid={`text-product-price-${product.id}`}>
+                          {product.price.toLocaleString('ru-RU')} ₽
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className={isLowStock ? 'text-red-600 font-medium' : ''}>
+                              {product.stock || 0}
+                            </span>
+                            {isLowStock && (
+                              <Badge variant="destructive" className="flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Мало
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{product.unit || '-'}</TableCell>
+                        <TableCell>
+                          {product.isActive ? (
+                            <Badge variant="default">Активно</Badge>
+                          ) : (
+                            <Badge variant="destructive">Неактивно</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
