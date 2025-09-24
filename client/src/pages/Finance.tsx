@@ -178,7 +178,7 @@ export default function Finance() {
   }
 
   const filteredInvoices = invoices.filter((invoice: any) =>
-    invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (invoice.id && invoice.id.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (invoice.ownerName && invoice.ownerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (invoice.patientName && invoice.patientName.toLowerCase().includes(searchTerm.toLowerCase()))
   )
