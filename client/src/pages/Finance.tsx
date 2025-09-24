@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText, Edit, Trash2, Eye } from "lucide-react"
+import InvoiceDialog from "@/components/InvoiceDialog"
 import { 
   Table, 
   TableBody, 

@@ -26,6 +26,17 @@ export const SMS_VERIFICATION_PURPOSE = ['phone_verification', '2fa'] as const;
 export const TWO_FACTOR_METHOD = ['sms', 'disabled'] as const;
 export const BRANCH_STATUS = ['active', 'inactive', 'maintenance'] as const;
 
+// Integration and fiscal compliance enums
+export const INTEGRATION_TYPE = ['1c_kassa', 'moysklad', 'yookassa', 'honest_sign'] as const;
+export const INTEGRATION_STATUS = ['active', 'inactive', 'error', 'testing'] as const;
+export const CATALOG_ITEM_TYPE = ['service', 'product', 'medication'] as const;
+export const VAT_RATE = ['0', '10', '20', 'not_applicable'] as const;
+export const MARKING_STATUS = ['required', 'not_required', 'marked', 'validation_error'] as const;
+export const FISCAL_RECEIPT_STATUS = ['draft', 'pending', 'registered', 'failed', 'cancelled'] as const;
+export const PAYMENT_INTENT_STATUS = ['pending', 'processing', 'succeeded', 'failed', 'cancelled'] as const;
+export const INTEGRATION_JOB_STATUS = ['pending', 'running', 'completed', 'failed', 'retrying'] as const;
+export const PAYMENT_METHOD = ['cash', 'card', 'online', 'mixed'] as const;
+
 // Branches table for multi-location clinic support - MUST be defined before users table
 export const branches = pgTable("branches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -281,6 +292,251 @@ export const products = pgTable("products", {
     lowStockIdx: index("products_low_stock_idx").on(table.stock, table.minStock),
     activeStockIdx: index("products_active_stock_idx").on(table.isActive, table.stock),
     createdAtIdx: index("products_created_at_idx").on(table.createdAt),
+  };
+});
+
+// Catalog Items table - unified catalog for services, products, and medications
+export const catalogItems = pgTable("catalog_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // 'service', 'product', 'medication'
+  category: varchar("category", { length: 255 }).notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  unit: varchar("unit", { length: 50 }).notNull(),
+  vatRate: varchar("vat_rate", { length: 20 }).default("20"), // НДС ставка для 54-ФЗ
+  markingStatus: varchar("marking_status", { length: 20 }).default("not_required"),
+  externalId: varchar("external_id", { length: 255 }), // ID во внешней системе (1С, МойСклад)
+  integrationSource: varchar("integration_source", { length: 20 }), // источник данных
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  // Для товаров
+  stock: integer("stock").default(0),
+  minStock: integer("min_stock").default(0),
+  // Для услуг
+  duration: integer("duration"), // продолжительность в минутах
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    typeCheck: check("catalog_items_type_check", sql`${table.type} IN ('service', 'product', 'medication')`),
+    vatRateCheck: check("catalog_items_vat_rate_check", sql`${table.vatRate} IN ('0', '10', '20', 'not_applicable')`),
+    markingStatusCheck: check("catalog_items_marking_status_check", sql`${table.markingStatus} IN ('required', 'not_required', 'marked', 'validation_error')`),
+    priceCheck: check("catalog_items_price_check", sql`${table.price} >= 0`),
+    stockCheck: check("catalog_items_stock_check", sql`${table.stock} >= 0`),
+    nameIdx: index("catalog_items_name_idx").on(table.name),
+    typeIdx: index("catalog_items_type_idx").on(table.type),
+    categoryIdx: index("catalog_items_category_idx").on(table.category),
+    activeIdx: index("catalog_items_active_idx").on(table.isActive),
+    externalIdIdx: index("catalog_items_external_id_idx").on(table.externalId),
+    integrationSourceIdx: index("catalog_items_integration_source_idx").on(table.integrationSource),
+    createdAtIdx: index("catalog_items_created_at_idx").on(table.createdAt),
+  };
+});
+
+// Catalog Item Markings table - DataMatrix codes for product marking
+export const catalogItemMarkings = pgTable("catalog_item_markings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  catalogItemId: varchar("catalog_item_id").references(() => catalogItems.id).notNull(),
+  dataMatrixCode: text("data_matrix_code").notNull().unique(), // Полный DataMatrix код
+  gtin: varchar("gtin", { length: 100 }), // Составной идентификатор  
+  serialNumber: varchar("serial_number", { length: 255 }), // Серийный номер
+  cryptoTail: text("crypto_tail"), // Криптохвост
+  productionDate: timestamp("production_date"),
+  expiryDate: timestamp("expiry_date"),
+  isUsed: boolean("is_used").default(false), // Введен ли в оборот
+  validationStatus: varchar("validation_status", { length: 20 }).default("pending"),
+  honestSignResponse: jsonb("honest_sign_response"), // Ответ от системы "Честный ЗНАК"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    validationStatusCheck: check("catalog_item_markings_validation_status_check", sql`${table.validationStatus} IN ('pending', 'valid', 'invalid', 'expired')`),
+    catalogItemIdIdx: index("catalog_item_markings_catalog_item_id_idx").on(table.catalogItemId),
+    dataMatrixCodeIdx: index("catalog_item_markings_data_matrix_code_idx").on(table.dataMatrixCode),
+    gtinIdx: index("catalog_item_markings_gtin_idx").on(table.gtin),
+    isUsedIdx: index("catalog_item_markings_is_used_idx").on(table.isUsed),
+    validationStatusIdx: index("catalog_item_markings_validation_status_idx").on(table.validationStatus),
+  };
+});
+
+// Integration Accounts table - settings for external integrations
+export const integrationAccounts = pgTable("integration_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(), // Название интеграции
+  type: varchar("type", { length: 20 }).notNull(), // '1c_kassa', 'moysklad', 'yookassa', 'honest_sign'
+  status: varchar("status", { length: 20 }).default("inactive"),
+  apiCredentials: jsonb("api_credentials").notNull(), // Зашифрованные API ключи
+  settings: jsonb("settings"), // Настройки интеграции
+  lastSyncAt: timestamp("last_sync_at"),
+  lastErrorAt: timestamp("last_error_at"),
+  lastError: text("last_error"),
+  syncFrequency: integer("sync_frequency").default(3600), // Частота синхронизации в секундах
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    typeCheck: check("integration_accounts_type_check", sql`${table.type} IN ('1c_kassa', 'moysklad', 'yookassa', 'honest_sign')`),
+    statusCheck: check("integration_accounts_status_check", sql`${table.status} IN ('active', 'inactive', 'error', 'testing')`),
+    nameIdx: index("integration_accounts_name_idx").on(table.name),
+    typeIdx: index("integration_accounts_type_idx").on(table.type),
+    statusIdx: index("integration_accounts_status_idx").on(table.status),
+    lastSyncAtIdx: index("integration_accounts_last_sync_at_idx").on(table.lastSyncAt),
+  };
+});
+
+// Integration Mappings table - mapping between external and internal IDs
+export const integrationMappings = pgTable("integration_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  integrationAccountId: varchar("integration_account_id").references(() => integrationAccounts.id).notNull(),
+  externalId: varchar("external_id", { length: 255 }).notNull(),
+  internalId: varchar("internal_id", { length: 255 }).notNull(),
+  entityType: varchar("entity_type", { length: 50 }).notNull(), // 'catalog_item', 'patient', 'invoice'
+  metadata: jsonb("metadata"), // Дополнительные данные маппинга
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    integrationAccountIdIdx: index("integration_mappings_integration_account_id_idx").on(table.integrationAccountId),
+    externalIdIdx: index("integration_mappings_external_id_idx").on(table.externalId),
+    internalIdIdx: index("integration_mappings_internal_id_idx").on(table.internalId),
+    entityTypeIdx: index("integration_mappings_entity_type_idx").on(table.entityType),
+    uniqueMapping: index("integration_mappings_unique_mapping_idx").on(table.integrationAccountId, table.externalId, table.entityType),
+  };
+});
+
+// Fiscal Receipts table - 54-FZ compliant fiscal documents
+export const fiscalReceipts = pgTable("fiscal_receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").references(() => invoices.id).notNull(),
+  receiptNumber: varchar("receipt_number", { length: 255 }),
+  status: varchar("status", { length: 20 }).default("draft"),
+  receiptType: varchar("receipt_type", { length: 20 }).default("sale"), // Признак расчета: sale, return, expense, etc.
+  paymentMethod: varchar("payment_method", { length: 20 }).notNull(),
+  customerEmail: varchar("customer_email", { length: 255 }),
+  customerPhone: varchar("customer_phone", { length: 50 }),
+  
+  // 54-ФЗ обязательные поля
+  taxationSystem: varchar("taxation_system", { length: 20 }).notNull().default("common"), // Система налогообложения
+  operatorName: varchar("operator_name", { length: 255 }), // ФИО кассира
+  operatorInn: varchar("operator_inn", { length: 12 }), // ИНН кассира
+  
+  // Суммы и налоги
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }).default("0"),
+  cashAmount: decimal("cash_amount", { precision: 10, scale: 2 }).default("0"), // Наличные
+  cardAmount: decimal("card_amount", { precision: 10, scale: 2 }).default("0"), // Электронные
+  
+  // Позиции чека - структурированные данные
+  items: jsonb("items").notNull(), // Позиции чека согласно 54-ФЗ
+  markingStatus: varchar("marking_status", { length: 20 }).default("not_required"),
+  
+  // Интеграция и данные ККТ
+  fiscalData: jsonb("fiscal_data"), // Фискальные данные от ККТ (ФП, ФД, ФН)
+  integrationAccountId: varchar("integration_account_id").references(() => integrationAccounts.id),
+  externalReceiptId: varchar("external_receipt_id", { length: 255 }),
+  
+  // Статус и ошибки
+  errorMessage: text("error_message"),
+  sentAt: timestamp("sent_at"), // Время отправки в ОФД
+  registeredAt: timestamp("registered_at"), // Время регистрации в ФНС
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    statusCheck: check("fiscal_receipts_status_check", sql`${table.status} IN ('draft', 'pending', 'registered', 'failed', 'cancelled')`),
+    paymentMethodCheck: check("fiscal_receipts_payment_method_check", sql`${table.paymentMethod} IN ('cash', 'card', 'online', 'mixed')`),
+    totalAmountCheck: check("fiscal_receipts_total_amount_check", sql`${table.totalAmount} >= 0`),
+    invoiceIdIdx: index("fiscal_receipts_invoice_id_idx").on(table.invoiceId),
+    statusIdx: index("fiscal_receipts_status_idx").on(table.status),
+    receiptNumberIdx: index("fiscal_receipts_receipt_number_idx").on(table.receiptNumber),
+    integrationAccountIdIdx: index("fiscal_receipts_integration_account_id_idx").on(table.integrationAccountId),
+    externalReceiptIdIdx: index("fiscal_receipts_external_receipt_id_idx").on(table.externalReceiptId),
+    createdAtIdx: index("fiscal_receipts_created_at_idx").on(table.createdAt),
+  };
+});
+
+// Payment Intents table - payment processing tracking
+export const paymentIntents = pgTable("payment_intents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").references(() => invoices.id).notNull(),
+  fiscalReceiptId: varchar("fiscal_receipt_id").references(() => fiscalReceipts.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("RUB"),
+  paymentMethod: varchar("payment_method", { length: 20 }).notNull(),
+  status: varchar("status", { length: 20 }).default("pending"),
+  integrationAccountId: varchar("integration_account_id").references(() => integrationAccounts.id),
+  externalPaymentId: varchar("external_payment_id", { length: 255 }),
+  paymentData: jsonb("payment_data"), // Данные платежа от платежной системы
+  confirmedAt: timestamp("confirmed_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    statusCheck: check("payment_intents_status_check", sql`${table.status} IN ('pending', 'processing', 'succeeded', 'failed', 'cancelled')`),
+    paymentMethodCheck: check("payment_intents_payment_method_check", sql`${table.paymentMethod} IN ('cash', 'card', 'online', 'mixed')`),
+    amountCheck: check("payment_intents_amount_check", sql`${table.amount} > 0`),
+    invoiceIdIdx: index("payment_intents_invoice_id_idx").on(table.invoiceId),
+    fiscalReceiptIdIdx: index("payment_intents_fiscal_receipt_id_idx").on(table.fiscalReceiptId),
+    statusIdx: index("payment_intents_status_idx").on(table.status),
+    integrationAccountIdIdx: index("payment_intents_integration_account_id_idx").on(table.integrationAccountId),
+    externalPaymentIdIdx: index("payment_intents_external_payment_id_idx").on(table.externalPaymentId),
+    createdAtIdx: index("payment_intents_created_at_idx").on(table.createdAt),
+  };
+});
+
+// Integration Jobs table - background sync and processing tasks
+export const integrationJobs = pgTable("integration_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  integrationAccountId: varchar("integration_account_id").references(() => integrationAccounts.id).notNull(),
+  jobType: varchar("job_type", { length: 50 }).notNull(), // 'sync_catalog', 'send_receipt', 'validate_marking'
+  status: varchar("status", { length: 20 }).default("pending"),
+  priority: integer("priority").default(5), // 1-10, где 1 - наивысший приоритет
+  payload: jsonb("payload"), // Данные для обработки
+  result: jsonb("result"), // Результат выполнения
+  errorMessage: text("error_message"),
+  attemptCount: integer("attempt_count").default(0),
+  maxAttempts: integer("max_attempts").default(3),
+  nextAttemptAt: timestamp("next_attempt_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    statusCheck: check("integration_jobs_status_check", sql`${table.status} IN ('pending', 'running', 'completed', 'failed', 'retrying')`),
+    priorityCheck: check("integration_jobs_priority_check", sql`${table.priority} >= 1 AND ${table.priority} <= 10`),
+    integrationAccountIdIdx: index("integration_jobs_integration_account_id_idx").on(table.integrationAccountId),
+    jobTypeIdx: index("integration_jobs_job_type_idx").on(table.jobType),
+    statusIdx: index("integration_jobs_status_idx").on(table.status),
+    priorityIdx: index("integration_jobs_priority_idx").on(table.priority),
+    nextAttemptAtIdx: index("integration_jobs_next_attempt_at_idx").on(table.nextAttemptAt),
+    createdAtIdx: index("integration_jobs_created_at_idx").on(table.createdAt),
+  };
+});
+
+// Integration Logs table - audit trail for all integration activities
+export const integrationLogs = pgTable("integration_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  integrationAccountId: varchar("integration_account_id").references(() => integrationAccounts.id),
+  jobId: varchar("job_id").references(() => integrationJobs.id),
+  level: varchar("level", { length: 10 }).default("info"), // 'debug', 'info', 'warn', 'error'
+  event: varchar("event", { length: 100 }).notNull(), // Тип события
+  message: text("message").notNull(),
+  metadata: jsonb("metadata"), // Дополнительные данные
+  userId: varchar("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    levelCheck: check("integration_logs_level_check", sql`${table.level} IN ('debug', 'info', 'warn', 'error')`),
+    integrationAccountIdIdx: index("integration_logs_integration_account_id_idx").on(table.integrationAccountId),
+    jobIdIdx: index("integration_logs_job_id_idx").on(table.jobId),
+    levelIdx: index("integration_logs_level_idx").on(table.level),
+    eventIdx: index("integration_logs_event_idx").on(table.event),
+    userIdIdx: index("integration_logs_user_id_idx").on(table.userId),
+    createdAtIdx: index("integration_logs_created_at_idx").on(table.createdAt),
+    eventTimeIdx: index("integration_logs_event_time_idx").on(table.event, table.createdAt),
   };
 });
 
@@ -712,6 +968,83 @@ export const labResultDetailsRelations = relations(labResultDetails, ({ one }) =
   }),
 }));
 
+// Integration and fiscal tables relations
+export const catalogItemsRelations = relations(catalogItems, ({ many }) => ({
+  markings: many(catalogItemMarkings),
+}));
+
+export const catalogItemMarkingsRelations = relations(catalogItemMarkings, ({ one }) => ({
+  catalogItem: one(catalogItems, {
+    fields: [catalogItemMarkings.catalogItemId],
+    references: [catalogItems.id],
+  }),
+}));
+
+export const integrationAccountsRelations = relations(integrationAccounts, ({ many }) => ({
+  mappings: many(integrationMappings),
+  fiscalReceipts: many(fiscalReceipts),
+  paymentIntents: many(paymentIntents),
+  jobs: many(integrationJobs),
+  logs: many(integrationLogs),
+}));
+
+export const integrationMappingsRelations = relations(integrationMappings, ({ one }) => ({
+  integrationAccount: one(integrationAccounts, {
+    fields: [integrationMappings.integrationAccountId],
+    references: [integrationAccounts.id],
+  }),
+}));
+
+export const fiscalReceiptsRelations = relations(fiscalReceipts, ({ one, many }) => ({
+  invoice: one(invoices, {
+    fields: [fiscalReceipts.invoiceId],
+    references: [invoices.id],
+  }),
+  integrationAccount: one(integrationAccounts, {
+    fields: [fiscalReceipts.integrationAccountId],
+    references: [integrationAccounts.id],
+  }),
+  paymentIntents: many(paymentIntents),
+}));
+
+export const paymentIntentsRelations = relations(paymentIntents, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [paymentIntents.invoiceId],
+    references: [invoices.id],
+  }),
+  fiscalReceipt: one(fiscalReceipts, {
+    fields: [paymentIntents.fiscalReceiptId],
+    references: [fiscalReceipts.id],
+  }),
+  integrationAccount: one(integrationAccounts, {
+    fields: [paymentIntents.integrationAccountId],
+    references: [integrationAccounts.id],
+  }),
+}));
+
+export const integrationJobsRelations = relations(integrationJobs, ({ one, many }) => ({
+  integrationAccount: one(integrationAccounts, {
+    fields: [integrationJobs.integrationAccountId],
+    references: [integrationAccounts.id],
+  }),
+  logs: many(integrationLogs),
+}));
+
+export const integrationLogsRelations = relations(integrationLogs, ({ one }) => ({
+  integrationAccount: one(integrationAccounts, {
+    fields: [integrationLogs.integrationAccountId],
+    references: [integrationAccounts.id],
+  }),
+  job: one(integrationJobs, {
+    fields: [integrationLogs.jobId],
+    references: [integrationJobs.id],
+  }),
+  user: one(users, {
+    fields: [integrationLogs.userId],
+    references: [users.id],
+  }),
+}));
+
 // Enhanced user schema with roles and full user data - MATCHES REPLIT ORIGINAL SCHEMA
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -985,6 +1318,105 @@ export const insertLabResultDetailSchema = createInsertSchema(labResultDetails).
   qualityControl: z.record(z.string(), z.any()).optional(),
 });
 
+// Integration and fiscal schemas
+export const insertCatalogItemSchema = createInsertSchema(catalogItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  type: z.enum(CATALOG_ITEM_TYPE),
+  vatRate: z.enum(VAT_RATE).default("20"),
+  markingStatus: z.enum(MARKING_STATUS).default("not_required"),
+  name: z.string().min(1, "Название обязательно"),
+  price: z.coerce.number().min(0, "Цена не может быть отрицательной"),
+  stock: z.coerce.number().min(0, "Остаток не может быть отрицательным").optional(),
+  minStock: z.coerce.number().min(0, "Минимальный остаток не может быть отрицательным").optional(),
+  duration: z.coerce.number().min(1, "Длительность должна быть положительной").optional(),
+});
+
+export const insertCatalogItemMarkingSchema = createInsertSchema(catalogItemMarkings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  dataMatrixCode: z.string().min(1, "DataMatrix код обязателен"),
+  gtin: z.string().optional(),
+  serialNumber: z.string().optional(),
+  productionDate: z.coerce.date().optional(),
+  expiryDate: z.coerce.date().optional(),
+});
+
+export const insertIntegrationAccountSchema = createInsertSchema(integrationAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Название интеграции обязательно"),
+  type: z.enum(INTEGRATION_TYPE),
+  status: z.enum(INTEGRATION_STATUS).default("inactive"),
+  apiCredentials: z.record(z.string(), z.any()),
+  settings: z.record(z.string(), z.any()).optional(),
+  syncFrequency: z.coerce.number().min(60, "Частота синхронизации минимум 60 секунд").default(3600),
+});
+
+export const insertIntegrationMappingSchema = createInsertSchema(integrationMappings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  externalId: z.string().min(1, "Внешний ID обязателен"),
+  internalId: z.string().min(1, "Внутренний ID обязателен"),
+  entityType: z.string().min(1, "Тип сущности обязателен"),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
+
+export const insertFiscalReceiptSchema = createInsertSchema(fiscalReceipts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  status: z.enum(FISCAL_RECEIPT_STATUS).default("draft"),
+  paymentMethod: z.enum(PAYMENT_METHOD),
+  items: z.array(z.record(z.string(), z.any())).min(1, "Должна быть хотя бы одна позиция"),
+  totalAmount: z.coerce.number().min(0, "Сумма не может быть отрицательной"),
+  vatAmount: z.coerce.number().min(0, "НДС не может быть отрицательным").default(0),
+  customerEmail: z.string().email("Неверный формат email").optional(),
+  customerPhone: z.string().regex(/^\+?[1-9]\d{10,14}$/, "Неверный формат телефона").optional(),
+});
+
+export const insertPaymentIntentSchema = createInsertSchema(paymentIntents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  amount: z.coerce.number().min(0.01, "Сумма должна быть больше 0"),
+  currency: z.string().length(3, "Код валюты должен содержать 3 символа").default("RUB"),
+  paymentMethod: z.enum(PAYMENT_METHOD),
+  status: z.enum(PAYMENT_INTENT_STATUS).default("pending"),
+});
+
+export const insertIntegrationJobSchema = createInsertSchema(integrationJobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  jobType: z.string().min(1, "Тип задачи обязателен"),
+  status: z.enum(INTEGRATION_JOB_STATUS).default("pending"),
+  priority: z.coerce.number().min(1).max(10, "Приоритет должен быть от 1 до 10").default(5),
+  payload: z.record(z.string(), z.any()).optional(),
+  maxAttempts: z.coerce.number().min(1, "Максимум попыток должно быть больше 0").default(3),
+});
+
+export const insertIntegrationLogSchema = createInsertSchema(integrationLogs).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  level: z.enum(["debug", "info", "warn", "error"] as const).default("info"),
+  event: z.string().min(1, "Событие обязательно"),
+  message: z.string().min(1, "Сообщение обязательно"),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
+
 // SMS verification schemas
 export const insertSmsVerificationCodeSchema = createInsertSchema(smsVerificationCodes).omit({
   id: true,
@@ -1072,6 +1504,31 @@ export type InsertLabOrder = z.infer<typeof insertLabOrderSchema>;
 
 export type LabResultDetail = typeof labResultDetails.$inferSelect;
 export type InsertLabResultDetail = z.infer<typeof insertLabResultDetailSchema>;
+
+// Integration and fiscal types
+export type CatalogItem = typeof catalogItems.$inferSelect;
+export type InsertCatalogItem = z.infer<typeof insertCatalogItemSchema>;
+
+export type CatalogItemMarking = typeof catalogItemMarkings.$inferSelect;
+export type InsertCatalogItemMarking = z.infer<typeof insertCatalogItemMarkingSchema>;
+
+export type IntegrationAccount = typeof integrationAccounts.$inferSelect;
+export type InsertIntegrationAccount = z.infer<typeof insertIntegrationAccountSchema>;
+
+export type IntegrationMapping = typeof integrationMappings.$inferSelect;
+export type InsertIntegrationMapping = z.infer<typeof insertIntegrationMappingSchema>;
+
+export type FiscalReceipt = typeof fiscalReceipts.$inferSelect;
+export type InsertFiscalReceipt = z.infer<typeof insertFiscalReceiptSchema>;
+
+export type PaymentIntent = typeof paymentIntents.$inferSelect;
+export type InsertPaymentIntent = z.infer<typeof insertPaymentIntentSchema>;
+
+export type IntegrationJob = typeof integrationJobs.$inferSelect;
+export type InsertIntegrationJob = z.infer<typeof insertIntegrationJobSchema>;
+
+export type IntegrationLog = typeof integrationLogs.$inferSelect;
+export type InsertIntegrationLog = z.infer<typeof insertIntegrationLogSchema>;
 
 // Dashboard API response types
 export interface DashboardStats {
