@@ -60,7 +60,7 @@ import {
   Search,
   Users
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -85,6 +85,7 @@ const branchSchema = z.object({
 
 type BranchFormData = z.infer<typeof branchSchema>
 type UserFormValues = z.infer<typeof insertUserSchema>
+type UpdateUserFormValues = z.infer<typeof updateUserSchema>
 
 export default function Settings() {
   const [clinicName, setClinicName] = useState("Ветеринарная клиника \"Здоровый питомец\"")
@@ -143,8 +144,14 @@ export default function Settings() {
     },
   })
 
-  const userForm = useForm<UserFormValues>({
-    resolver: zodResolver(insertUserSchema),
+  // Dynamic schema resolver based on edit mode
+  const userFormSchema = useMemo(() => 
+    editingUser ? updateUserSchema : insertUserSchema,
+    [editingUser]
+  );
+
+  const userForm = useForm<UserFormValues | UpdateUserFormValues>({
+    resolver: zodResolver(userFormSchema),
     defaultValues: {
       username: "",
       password: "",
