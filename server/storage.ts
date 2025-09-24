@@ -21,7 +21,8 @@ import {
   medicalRecords, medications, services, products, 
   invoices, invoiceItems, branches, patientFiles,
   labStudies, labParameters, referenceRanges, 
-  labOrders, labResultDetails
+  labOrders, labResultDetails, paymentIntents, fiscalReceipts,
+  catalogItems
 } from "@shared/schema";
 import { db } from "./db-local";
 import { eq, like, and, or, desc, sql, gte, lte, isNull, type SQL } from "drizzle-orm";
@@ -208,6 +209,70 @@ export interface IStorage {
   updateLabResultDetail(id: string, detail: Partial<InsertLabResultDetail>): Promise<LabResultDetail>;
   deleteLabResultDetail(id: string): Promise<void>;
   getLabResultsByParameter(parameterId: string): Promise<LabResultDetail[]>;
+
+  // Payment Intent methods
+  createPaymentIntent(paymentIntent: {
+    invoiceId: string;
+    amount: number;
+    currency: string;
+    paymentMethod: string;
+    status: string;
+    integrationAccountId: string | null;
+    externalPaymentId: string;
+    paymentData: any;
+    errorMessage: string | null;
+  }): Promise<string>;
+  updatePaymentIntent(id: string, updates: {
+    status?: string;
+    confirmedAt?: Date;
+    errorMessage?: string | null;
+  }): Promise<void>;
+  
+  // Fiscal Receipt methods
+  createFiscalReceipt(fiscalReceipt: {
+    invoiceId: string;
+    receiptNumber: string | null;
+    status: string;
+    receiptType: string;
+    paymentMethod: string;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    taxationSystem: string;
+    operatorName: string;
+    operatorInn: string | null;
+    totalAmount: number;
+    vatAmount: number;
+    cashAmount: number;
+    cardAmount: number;
+    items: any;
+    markingStatus: string;
+    fiscalData: any;
+    integrationAccountId: string | null;
+    externalReceiptId: string | null;
+    errorMessage: string | null;
+  }): Promise<string>;
+  updateFiscalReceipt(id: string, updates: {
+    receiptNumber?: string;
+    externalReceiptId?: string;
+    status?: string;
+    fiscalData?: any;
+    registeredAt?: Date;
+    errorMessage?: string | null;
+  }): Promise<void>;
+  
+  // Additional methods for YooKassa integration
+  getPaymentIntentsByInvoice(invoiceId: string): Promise<{
+    id: string;
+    status: string;
+    paymentData: any;
+  }[]>;
+  getCatalogItemById(id: string): Promise<{
+    id: string;
+    type: string;
+    vatRate: string;
+    externalId: string | null;
+    markingStatus: string;
+  } | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1487,6 +1552,170 @@ export class DatabaseStorage implements IStorage {
         .from(labResultDetails)
         .where(eq(labResultDetails.parameterId, parameterId))
         .orderBy(desc(labResultDetails.createdAt));
+    });
+  }
+
+  // Payment Intent methods
+  async createPaymentIntent(paymentIntentData: {
+    invoiceId: string;
+    amount: number;
+    currency: string;
+    paymentMethod: string;
+    status: string;
+    integrationAccountId: string | null;
+    externalPaymentId: string;
+    paymentData: any;
+    errorMessage: string | null;
+  }): Promise<string> {
+    return withPerformanceLogging('createPaymentIntent', async () => {
+      const [created] = await db
+        .insert(paymentIntents)
+        .values({
+          invoiceId: paymentIntentData.invoiceId,
+          amount: paymentIntentData.amount.toString(),
+          currency: paymentIntentData.currency,
+          paymentMethod: paymentIntentData.paymentMethod,
+          status: paymentIntentData.status,
+          integrationAccountId: paymentIntentData.integrationAccountId,
+          externalPaymentId: paymentIntentData.externalPaymentId,
+          paymentData: paymentIntentData.paymentData,
+          errorMessage: paymentIntentData.errorMessage,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning({ id: paymentIntents.id });
+      return created.id;
+    });
+  }
+
+  async updatePaymentIntent(id: string, updates: {
+    status?: string;
+    confirmedAt?: Date;
+    errorMessage?: string | null;
+  }): Promise<void> {
+    return withPerformanceLogging('updatePaymentIntent', async () => {
+      await db
+        .update(paymentIntents)
+        .set({
+          ...updates,
+          updatedAt: new Date(),
+        })
+        .where(eq(paymentIntents.id, id));
+    });
+  }
+  
+  // Fiscal Receipt methods
+  async createFiscalReceipt(fiscalReceiptData: {
+    invoiceId: string;
+    receiptNumber: string | null;
+    status: string;
+    receiptType: string;
+    paymentMethod: string;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    taxationSystem: string;
+    operatorName: string;
+    operatorInn: string | null;
+    totalAmount: number;
+    vatAmount: number;
+    cashAmount: number;
+    cardAmount: number;
+    items: any;
+    markingStatus: string;
+    fiscalData: any;
+    integrationAccountId: string | null;
+    externalReceiptId: string | null;
+    errorMessage: string | null;
+  }): Promise<string> {
+    return withPerformanceLogging('createFiscalReceipt', async () => {
+      const [created] = await db
+        .insert(fiscalReceipts)
+        .values({
+          invoiceId: fiscalReceiptData.invoiceId,
+          receiptNumber: fiscalReceiptData.receiptNumber,
+          status: fiscalReceiptData.status,
+          receiptType: fiscalReceiptData.receiptType,
+          paymentMethod: fiscalReceiptData.paymentMethod,
+          customerEmail: fiscalReceiptData.customerEmail,
+          customerPhone: fiscalReceiptData.customerPhone,
+          taxationSystem: fiscalReceiptData.taxationSystem,
+          operatorName: fiscalReceiptData.operatorName,
+          operatorInn: fiscalReceiptData.operatorInn,
+          totalAmount: fiscalReceiptData.totalAmount.toString(),
+          vatAmount: fiscalReceiptData.vatAmount.toString(),
+          cashAmount: fiscalReceiptData.cashAmount.toString(),
+          cardAmount: fiscalReceiptData.cardAmount.toString(),
+          items: fiscalReceiptData.items,
+          markingStatus: fiscalReceiptData.markingStatus,
+          fiscalData: fiscalReceiptData.fiscalData,
+          integrationAccountId: fiscalReceiptData.integrationAccountId,
+          externalReceiptId: fiscalReceiptData.externalReceiptId,
+          errorMessage: fiscalReceiptData.errorMessage,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning({ id: fiscalReceipts.id });
+      return created.id;
+    });
+  }
+
+  async updateFiscalReceipt(id: string, updates: {
+    receiptNumber?: string;
+    externalReceiptId?: string;
+    status?: string;
+    fiscalData?: any;
+    registeredAt?: Date;
+    errorMessage?: string | null;
+  }): Promise<void> {
+    return withPerformanceLogging('updateFiscalReceipt', async () => {
+      await db
+        .update(fiscalReceipts)
+        .set({
+          ...updates,
+          updatedAt: new Date(),
+        })
+        .where(eq(fiscalReceipts.id, id));
+    });
+  }
+  
+  // Additional methods for YooKassa integration
+  async getPaymentIntentsByInvoice(invoiceId: string): Promise<{
+    id: string;
+    status: string;
+    paymentData: any;
+  }[]> {
+    return withPerformanceLogging('getPaymentIntentsByInvoice', async () => {
+      return await db
+        .select({
+          id: paymentIntents.id,
+          status: paymentIntents.status,
+          paymentData: paymentIntents.paymentData
+        })
+        .from(paymentIntents)
+        .where(eq(paymentIntents.invoiceId, invoiceId))
+        .orderBy(desc(paymentIntents.createdAt));
+    });
+  }
+  
+  async getCatalogItemById(id: string): Promise<{
+    id: string;
+    type: string;
+    vatRate: string;
+    externalId: string | null;
+    markingStatus: string;
+  } | undefined> {
+    return withPerformanceLogging('getCatalogItemById', async () => {
+      const [item] = await db
+        .select({
+          id: catalogItems.id,
+          type: catalogItems.type,
+          vatRate: catalogItems.vatRate,
+          externalId: catalogItems.externalId,
+          markingStatus: catalogItems.markingStatus
+        })
+        .from(catalogItems)
+        .where(eq(catalogItems.id, id));
+      return item || undefined;
     });
   }
 }

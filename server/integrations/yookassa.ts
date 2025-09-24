@@ -244,15 +244,23 @@ export function getPaymentSubjectForItem(itemType: 'service' | 'product'): YooKa
 }
 
 /**
- * Helper function to determine VAT code
- * For veterinary services, usually 20% VAT (code 4) or no VAT (code 1)
+ * Helper function to determine VAT code (54-ФЗ compliant)
+ * VAT codes: 1=без НДС, 2=0%, 3=10%, 4=20%, 5=10/110, 6=20/120
  */
-export function getVatCodeForItem(hasVat: boolean): YooKassaReceiptItem['vat_code'] {
-  return hasVat ? 4 : 1  // 4 = 20%, 1 = без НДС
+export function getVatCodeForItem(vatRate?: string | number): YooKassaReceiptItem['vat_code'] {
+  const rate = typeof vatRate === 'string' ? vatRate : String(vatRate);
+  
+  switch (rate) {
+    case '0': return 2    // 0%
+    case '10': return 3   // 10%
+    case '20': return 4   // 20%
+    case 'not_applicable': return 1 // без НДС
+    default: return 1   // без НДС (по умолчанию для ветеринарных услуг)
+  }
 }
 
 /**
- * Convert invoice data to YooKassa payment format
+ * Convert invoice data to YooKassa payment format with proper 54-ФЗ compliance
  */
 export function convertInvoiceToPayment(invoiceData: {
   patientId: string
@@ -262,13 +270,16 @@ export function convertInvoiceToPayment(invoiceData: {
   ownerPhone?: string
   items: Array<{
     name: string
-    type: 'service' | 'product'
+    type: 'service' | 'product' | 'medication'
     quantity: number
     price: number
     total: number
+    vatRate?: string
     productCode?: string
+    markingStatus?: string
   }>
   total: number
+  vatTotal: number
   description?: string
 }): CreatePaymentRequest {
   
@@ -278,7 +289,7 @@ export function convertInvoiceToPayment(invoiceData: {
       value: item.total.toFixed(2),
       currency: 'RUB'
     },
-    vat_code: getVatCodeForItem(true), // Assume 20% VAT for now
+    vat_code: getVatCodeForItem(item.vatRate || (item.type === 'service' ? 'not_applicable' : '20')),
     quantity: item.quantity.toString(),
     payment_mode: getPaymentModeForItem(item.type),
     payment_subject: getPaymentSubjectForItem(item.type),
@@ -301,7 +312,7 @@ export function convertInvoiceToPayment(invoiceData: {
         phone: invoiceData.ownerPhone
       },
       items: receiptItems,
-      tax_system_code: 1, // General taxation system
+      tax_system_code: 2, // УСН доходы (код 2, наиболее распространенный для ветклиник)
       email: invoiceData.ownerEmail,
       phone: invoiceData.ownerPhone,
       send: true

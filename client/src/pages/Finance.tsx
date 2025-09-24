@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -120,6 +121,12 @@ export default function Finance() {
   const [activeTab, setActiveTab] = useState("invoices")
   const { toast } = useToast()
 
+  // Fetch real invoices from API
+  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery({
+    queryKey: ['invoices'],
+    queryFn: () => fetch('/api/invoices').then(res => res.json())
+  })
+
   // Обработчик создания платежа через ЮKassa
   const handleYooKassaPayment = async (invoiceId: string) => {
     try {
@@ -170,10 +177,10 @@ export default function Finance() {
     }
   }
 
-  const filteredInvoices = mockInvoices.filter(invoice =>
+  const filteredInvoices = invoices.filter((invoice: any) =>
     invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.patientName.toLowerCase().includes(searchTerm.toLowerCase())
+    (invoice.ownerName && invoice.ownerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (invoice.patientName && invoice.patientName.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
 

@@ -2266,6 +2266,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get invoice items
       const invoiceItems = await storage.getInvoiceItems(invoiceId);
 
+      // Check if payment intent already exists for this invoice
+      const existingPaymentIntents = await storage.getPaymentIntentsByInvoice(invoiceId);
+      const pendingPaymentIntent = existingPaymentIntents.find(pi => pi.status === 'pending');
+      
+      if (pendingPaymentIntent) {
+        return res.json({
+          paymentIntentId: pendingPaymentIntent.id,
+          payment: pendingPaymentIntent.paymentData,
+          confirmationUrl: pendingPaymentIntent.paymentData?.confirmation?.confirmation_url,
+          message: "Payment already in progress"
+        });
+      }
+
+      // Get catalog items for VAT calculation
+      const catalogItems = await Promise.all(
+        invoiceItems.map(item => storage.getCatalogItemById(item.catalogItemId))
+      );
+
+      // Calculate VAT total
+      let vatTotal = 0;
+      const enrichedItems = invoiceItems.map((item, index) => {
+        const catalogItem = catalogItems[index];
+        const vatRate = catalogItem?.vatRate || 'not_applicable';
+        const itemVat = vatRate === '20' ? parseFloat(item.total) * 0.2 / 1.2 : 
+                      vatRate === '10' ? parseFloat(item.total) * 0.1 / 1.1 : 0;
+        vatTotal += itemVat;
+        
+        return {
+          name: item.itemName,
+          type: (catalogItem?.type || 'service') as 'service' | 'product' | 'medication',
+          quantity: item.quantity,
+          price: parseFloat(item.price),
+          total: parseFloat(item.total),
+          vatRate: vatRate,
+          productCode: catalogItem?.externalId,
+          markingStatus: catalogItem?.markingStatus
+        };
+      });
+
       // Convert to YooKassa payment format
       const paymentData = yookassa.convertInvoiceToPayment({
         patientId: patient.id,
@@ -2273,28 +2312,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ownerName: owner.name,
         ownerEmail: customerData?.email || owner.email || undefined,
         ownerPhone: customerData?.phone || owner.phone || undefined,
-        items: invoiceItems.map(item => ({
-          name: item.itemName,
-          type: item.itemType as 'service' | 'product',
-          quantity: item.quantity,
-          price: parseFloat(item.price),
-          total: parseFloat(item.total),
-          productCode: undefined // TODO: Add productCode field to invoice_items table
-        })),
+        items: enrichedItems,
         total: parseFloat(invoice.total),
-        description: `Счет ${invoice.id} - Ветеринарные услуги для ${patient.name}`
+        vatTotal: vatTotal,
+        description: `Счет ${invoice.id} - ветеринарные услуги для ${patient.name}`
       });
 
       // Create payment in YooKassa
       const payment = await yookassa.createPayment(paymentData);
 
-      // Update invoice with payment reference
+      // Create payment intent record
+      const paymentIntentId = await storage.createPaymentIntent({
+        invoiceId: invoiceId,
+        amount: parseFloat(invoice.total),
+        currency: 'RUB',
+        paymentMethod: 'yookassa',
+        status: 'pending',
+        integrationAccountId: null, // TODO: Add YooKassa integration account
+        externalPaymentId: payment.id,
+        paymentData: {
+          ...payment,
+          vatTotal: vatTotal, // Store calculated VAT for later reconciliation
+          enrichedItems: enrichedItems
+        },
+        errorMessage: null
+      });
+
+      // Update invoice with payment method
       await storage.updateInvoice(invoiceId, {
         paymentMethod: 'yookassa',
-        // Note: paymentId and paymentUrl fields need to be added to schema and storage layer
+        status: 'payment_pending'
       });
 
       res.json({
+        paymentIntentId,
         payment,
         confirmationUrl: payment.confirmation?.confirmation_url
       });
@@ -2422,19 +2473,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         send: true
       };
 
-      // Create standalone receipt
+      // Create fiscal receipt record first
+      const fiscalReceiptId = await storage.createFiscalReceipt({
+        invoiceId: invoiceId,
+        receiptNumber: null, // Will be filled after YooKassa response
+        status: 'pending',
+        receiptType: receiptType,
+        paymentMethod: 'cash', // Standalone receipt is typically for cash
+        customerEmail: customerData?.email || owner.email || null,
+        customerPhone: customerData?.phone || owner.phone || null,
+        taxationSystem: 'usn_income',
+        operatorName: user.name,
+        operatorInn: null, // TODO: Get from user profile or settings
+        totalAmount: parseFloat(invoice.total),
+        vatAmount: 0, // Calculate based on items
+        cashAmount: parseFloat(invoice.total),
+        cardAmount: 0,
+        items: receiptData.items,
+        markingStatus: 'not_required',
+        fiscalData: null,
+        integrationAccountId: null, // TODO: Add YooKassa integration account
+        externalReceiptId: null, // Will be filled after YooKassa response
+        errorMessage: null
+      });
+
+      // Create standalone receipt in YooKassa
       const receipt = await yookassa.createReceipt({
         type: receiptType,
         receipt: receiptData
       });
 
-      // Note: Receipt fields would need to be added to storage layer
-      // await storage.updateInvoice(invoiceId, {
-      //   fiscalReceiptId: receipt.id,
-      //   fiscalReceiptUrl: receipt.fiscal_receipt_url
-      // });
+      // Update fiscal receipt with YooKassa response
+      await storage.updateFiscalReceipt(fiscalReceiptId, {
+        receiptNumber: receipt.id,
+        externalReceiptId: receipt.id,
+        status: 'registered',
+        fiscalData: receipt,
+        registeredAt: new Date()
+      });
 
-      res.json(receipt);
+      // Update invoice status
+      await storage.updateInvoice(invoiceId, {
+        status: 'paid', // Cash payment is considered paid immediately
+        fiscalReceiptId: fiscalReceiptId
+      });
+
+      res.json({
+        fiscalReceiptId,
+        receipt
+      });
     } catch (error) {
       console.error("Error creating YooKassa receipt:", error);
       res.status(500).json({ 
