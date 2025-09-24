@@ -100,9 +100,9 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
 
   const createMutation = useMutation({
     mutationFn: async (data: InvoiceFormData) => {
-      // Calculate totals
-      const subtotal = data.items.reduce((sum, item) => sum + item.total, 0)
-      const total = subtotal - data.discount
+      // Calculate totals (ensure numbers, not strings)
+      const subtotal = data.items.reduce((sum, item) => sum + Number(item.total), 0)
+      const total = subtotal - Number(data.discount)
 
       const processedData = {
         ...data,
@@ -148,8 +148,8 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
   const calculateTotals = () => {
     const items = form.getValues("items")
     const discount = form.getValues("discount")
-    const subtotal = items.reduce((sum, item) => sum + item.total, 0)
-    return { subtotal, total: subtotal - discount }
+    const subtotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0)
+    return { subtotal, total: subtotal - Number(discount || 0) }
   }
 
   const addServiceOrProduct = (itemType: "service" | "product", itemId: string) => {
