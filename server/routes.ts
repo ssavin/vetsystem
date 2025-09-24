@@ -1122,6 +1122,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/invoices", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
+      console.log("=== POST /api/invoices called ===");
+      console.log("User:", (req as any).user?.username || "no user");
       console.log("Creating invoice with data:", JSON.stringify(req.body, null, 2));
       
       // Validate request body
