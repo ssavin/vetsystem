@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useMutation, queryClient } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { insertServiceSchema, type InsertService } from "@shared/schema"
 import { useToast } from "@/hooks/use-toast"
-import { apiRequest } from "@/lib/queryClient"
+import { queryClient, apiRequest } from "@/lib/queryClient"
 
 interface ServiceDialogProps {
   open: boolean
@@ -33,11 +33,7 @@ export default function ServiceDialog({ open, onOpenChange }: ServiceDialogProps
   })
 
   const createServiceMutation = useMutation({
-    mutationFn: (data: InsertService) => apiRequest('/api/services', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
-    }),
+    mutationFn: (data: InsertService) => apiRequest('/api/services', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/services'] })
       toast({
@@ -148,6 +144,7 @@ export default function ServiceDialog({ open, onOpenChange }: ServiceDialogProps
                       placeholder="Краткое описание услуги" 
                       data-testid="textarea-service-description" 
                       {...field} 
+                      value={field.value ?? ""}
                     />
                   </FormControl>
                   <FormMessage />
