@@ -1120,14 +1120,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/invoices", authenticateToken, requireModuleAccess('finance'), validateBody(insertInvoiceSchema), async (req, res) => {
+  app.post("/api/invoices", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
+      console.log("Creating invoice with data:", JSON.stringify(req.body, null, 2));
+      
+      // Validate request body
+      const validation = insertInvoiceSchema.safeParse(req.body);
+      if (!validation.success) {
+        console.error("Invoice validation failed:", validation.error.issues);
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validation.error.issues 
+        });
+      }
+      
       const user = (req as any).user;
       const userBranchId = requireValidBranchId(req, res);
       if (!userBranchId) return; // 403 already sent
       
       // 🔒 SECURITY: Force branchId from user token, ignore any branchId in body
-      const invoiceData = { ...req.body, branchId: userBranchId };
+      const invoiceData = { ...validation.data, branchId: userBranchId };
       const invoice = await storage.createInvoice(invoiceData);
       res.status(201).json(invoice);
     } catch (error) {
