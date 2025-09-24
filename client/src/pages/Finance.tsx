@@ -4,8 +4,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText } from "lucide-react"
-import InvoiceCard from "@/components/InvoiceCard"
+import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText, Edit, Trash2, Eye } from "lucide-react"
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table"
 
 // TODO: Remove mock data when connecting to real backend
 const mockInvoices = [
@@ -115,15 +122,6 @@ export default function Finance() {
     invoice.patientName.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // Calculate statistics
-  const totalRevenue = mockInvoices.reduce((sum, inv) => sum + inv.total, 0)
-  const paidInvoices = mockInvoices.filter(inv => inv.status === 'paid')
-  const pendingInvoices = mockInvoices.filter(inv => inv.status === 'pending')
-  const overdueInvoices = mockInvoices.filter(inv => inv.status === 'overdue')
-  
-  const paidAmount = paidInvoices.reduce((sum, inv) => sum + inv.total, 0)
-  const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + inv.total, 0)
-  const overdueAmount = overdueInvoices.reduce((sum, inv) => sum + inv.total, 0)
 
   return (
     <div className="space-y-6 p-6">
@@ -144,85 +142,7 @@ export default function Finance() {
         </div>
       </div>
 
-      {/* Financial Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-green-500" />
-              <div>
-                <p className="text-2xl font-bold text-green-600" data-testid="text-total-revenue">
-                  {totalRevenue.toLocaleString('ru-RU')} ₽
-                </p>
-                <p className="text-xs text-muted-foreground">Общая выручка</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Banknote className="h-4 w-4 text-blue-500" />
-              <div>
-                <p className="text-2xl font-bold text-blue-600" data-testid="text-paid-amount">
-                  {paidAmount.toLocaleString('ru-RU')} ₽
-                </p>
-                <p className="text-xs text-muted-foreground">Оплачено ({paidInvoices.length})</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-yellow-500" />
-              <div>
-                <p className="text-2xl font-bold text-yellow-600" data-testid="text-pending-amount">
-                  {pendingAmount.toLocaleString('ru-RU')} ₽
-                </p>
-                <p className="text-xs text-muted-foreground">Ожидается ({pendingInvoices.length})</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-red-500" />
-              <div>
-                <p className="text-2xl font-bold text-red-600" data-testid="text-overdue-amount">
-                  {overdueAmount.toLocaleString('ru-RU')} ₽
-                </p>
-                <p className="text-xs text-muted-foreground">Просрочено ({overdueInvoices.length})</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Overdue Invoices Alert */}
-      {overdueInvoices.length > 0 && (
-        <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-red-800 dark:text-red-300">
-              <AlertCircle className="h-5 w-5" />
-              Просроченные счета
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {overdueInvoices.map(invoice => (
-                <Badge key={invoice.id} variant="destructive" className="text-xs">
-                  {invoice.id}: {invoice.total.toLocaleString('ru-RU')} ₽
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Search */}
       <Card>
@@ -255,17 +175,83 @@ export default function Finance() {
         </TabsList>
 
         <TabsContent value="invoices" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredInvoices.map(invoice => (
-              <InvoiceCard key={invoice.id} invoice={invoice} />
-            ))}
-          </div>
-          {filteredInvoices.length === 0 && (
+          {filteredInvoices.length === 0 ? (
             <Card className="text-center py-8">
               <CardContent>
                 <p className="text-muted-foreground">
                   {searchTerm ? 'Счета не найдены' : 'Счета отсутствуют'}
                 </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>№ счета</TableHead>
+                      <TableHead>Дата</TableHead>
+                      <TableHead>Пациент</TableHead>
+                      <TableHead>Владелец</TableHead>
+                      <TableHead>Сумма</TableHead>
+                      <TableHead>Статус</TableHead>
+                      <TableHead>Срок оплаты</TableHead>
+                      <TableHead className="text-right">Действия</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInvoices.map(invoice => (
+                      <TableRow key={invoice.id} className="hover-elevate">
+                        <TableCell className="font-medium">{invoice.id}</TableCell>
+                        <TableCell>{invoice.date}</TableCell>
+                        <TableCell>{invoice.patientName}</TableCell>
+                        <TableCell>{invoice.ownerName}</TableCell>
+                        <TableCell className="font-medium">
+                          {invoice.total.toLocaleString('ru-RU')} ₽
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            invoice.status === 'paid' ? 'default' : 
+                            invoice.status === 'pending' ? 'secondary' : 
+                            'destructive'
+                          }>
+                            {invoice.status === 'paid' ? 'Оплачен' : 
+                             invoice.status === 'pending' ? 'Ожидает' : 
+                             'Просрочен'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {invoice.dueDate || '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end space-x-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              data-testid={`button-view-invoice-${invoice.id}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              data-testid={`button-edit-invoice-${invoice.id}`}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              data-testid={`button-delete-invoice-${invoice.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           )}
