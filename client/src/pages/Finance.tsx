@@ -122,9 +122,14 @@ export default function Finance() {
   const { toast } = useToast()
 
   // Fetch real invoices from API
-  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery({
+  const { data: invoices = [], isLoading: isLoadingInvoices, error } = useQuery({
     queryKey: ['invoices'],
-    queryFn: () => fetch('/api/invoices').then(res => res.json())
+    queryFn: () => fetch('/api/invoices').then(res => {
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      return res.json();
+    })
   })
 
   // Обработчик создания платежа через ЮKassa
@@ -177,11 +182,11 @@ export default function Finance() {
     }
   }
 
-  const filteredInvoices = invoices.filter((invoice: any) =>
+  const filteredInvoices = Array.isArray(invoices) ? invoices.filter((invoice: any) =>
     (invoice.id && invoice.id.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (invoice.ownerName && invoice.ownerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (invoice.patientName && invoice.patientName.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  ) : []
 
 
   return (
