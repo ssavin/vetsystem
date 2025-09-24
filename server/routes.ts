@@ -939,6 +939,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/services", validateBody(insertServiceSchema), async (req, res) => {
     try {
+      console.log("=== POST /api/services called ===");
+      console.log("Request body:", JSON.stringify(req.body, null, 2));
       const service = await storage.createService(req.body);
       res.status(201).json(service);
     } catch (error) {
@@ -1014,6 +1016,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/products", validateBody(insertProductSchema), async (req, res) => {
     try {
+      console.log("=== POST /api/products called ===");
+      console.log("Request body:", JSON.stringify(req.body, null, 2));
       const product = await storage.createProduct(req.body);
       res.status(201).json(product);
     } catch (error) {
@@ -1404,7 +1408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get fresh user data
-      const user = await storage.getUserById(payload.userId);
+      const user = await storage.getUser(payload.userId);
       if (!user) {
         return res.status(401).json({ error: "Пользователь не найден" });
       }

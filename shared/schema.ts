@@ -1261,7 +1261,10 @@ export const insertLabStudySchema = createInsertSchema(labStudies).omit({
   preparationInstructions: z.string().optional(),
   sampleType: z.string().optional(),
   estimatedDuration: z.number().int().min(1).optional(),
-  price: z.number().min(0).optional(),
+  price: z.string().optional().refine(
+    (val) => !val || (!isNaN(Number(val)) && Number(val) >= 0),
+    "Цена должна быть положительным числом"
+  ),
   isActive: z.boolean().default(true),
 });
 
