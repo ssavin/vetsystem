@@ -73,12 +73,6 @@ const menuItems = [
     icon: Shield,
     module: "users",
   },
-  {
-    title: "Отделения",
-    url: "/branches",
-    icon: Building2,
-    module: "branches",
-  },
 ]
 
 export default function AppSidebar() {
