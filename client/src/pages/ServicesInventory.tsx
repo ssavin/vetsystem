@@ -1,120 +1,50 @@
 import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Search, Plus, Clock, Package, AlertTriangle } from "lucide-react"
+import ServiceDialog from "@/components/ServiceDialog"
+import ProductDialog from "@/components/ProductDialog"
+import type { Service, Product } from "@shared/schema"
 
-// TODO: Remove mock data when connecting to real backend
-const mockServices = [
-  {
-    id: "1",
-    name: "Общий клинический осмотр",
-    category: "Диагностика",
-    type: 'service' as const,
-    price: 800,
-    duration: 30,
-    description: "Полный осмотр животного с проверкой всех систем организма",
-    isActive: true
-  },
-  {
-    id: "2",
-    name: "Вакцинация против бешенства",
-    category: "Профилактика",
-    type: 'service' as const,
-    price: 1500,
-    duration: 30,
-    description: "Комплексная вакцинация животного против бешенства с предварительным осмотром",
-    isActive: true
-  },
-  {
-    id: "3",
-    name: "Хирургическая операция",
-    category: "Хирургия",
-    type: 'service' as const,
-    price: 8500,
-    duration: 120,
-    description: "Плановая хирургическая операция под общей анестезией",
-    isActive: true
-  },
-  {
-    id: "4",
-    name: "УЗИ диагностика",
-    category: "Диагностика",
-    type: 'service' as const,
-    price: 2200,
-    duration: 45,
-    description: "Ультразвуковая диагностика органов брюшной полости",
-    isActive: true
-  }
-]
-
-const mockProducts = [
-  {
-    id: "5",
-    name: "Корм Royal Canin для кошек",
-    category: "Корма",
-    type: 'product' as const,
-    price: 850,
-    stock: 3,
-    minStock: 5,
-    unit: "уп",
-    description: "Сухой корм для взрослых кошек всех пород. Полнорационное питание с оптимальным балансом белков и жиров",
-    isActive: true
-  },
-  {
-    id: "6",
-    name: "Витамины для собак",
-    category: "Препараты",
-    type: 'product' as const,
-    price: 450,
-    stock: 15,
-    minStock: 10,
-    unit: "шт",
-    description: "Комплекс витаминов и минералов для поддержания здоровья собак",
-    isActive: true
-  },
-  {
-    id: "7",
-    name: "Антибиотик широкого спектра",
-    category: "Медикаменты",
-    type: 'product' as const,
-    price: 320,
-    stock: 2,
-    minStock: 8,
-    unit: "фл",
-    description: "Антибактериальный препарат для лечения инфекционных заболеваний",
-    isActive: true
-  },
-  {
-    id: "8",
-    name: "Игрушка для кошек",
-    category: "Аксессуары",
-    type: 'product' as const,
-    price: 180,
-    stock: 25,
-    minStock: 15,
-    unit: "шт",
-    description: "Интерактивная игрушка для активных игр и развлечения кошек",
-    isActive: true
-  }
-]
+// Real API data fetching
 
 export default function ServicesInventory() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("services")
+  const [serviceDialogOpen, setServiceDialogOpen] = useState(false)
+  const [productDialogOpen, setProductDialogOpen] = useState(false)
 
-  const filteredServices = mockServices.filter(service =>
+  // Fetch real services data
+  const { data: services = [], isLoading: servicesLoading } = useQuery<Service[]>({
+    queryKey: ['/api/services'],
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
+
+  // Fetch real products data
+  const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
+    queryKey: ['/api/products'],
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
+
+  const filteredServices = services.filter(service =>
     service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     service.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const filteredProducts = mockProducts.filter(product =>
+  const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  if (servicesLoading || productsLoading) {
+    return <div className="flex justify-center items-center h-64">Загрузка...</div>
+  }
 
 
   return (
@@ -125,11 +55,18 @@ export default function ServicesInventory() {
           <p className="text-muted-foreground">Прейскурант ветеринарных услуг и товаров клиники</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" data-testid="button-add-service">
+          <Button 
+            variant="outline" 
+            onClick={() => setServiceDialogOpen(true)}
+            data-testid="button-add-service"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Добавить услугу
           </Button>
-          <Button data-testid="button-add-product">
+          <Button 
+            onClick={() => setProductDialogOpen(true)}
+            data-testid="button-add-product"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Добавить товар
           </Button>
@@ -297,6 +234,16 @@ export default function ServicesInventory() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialogs */}
+      <ServiceDialog 
+        open={serviceDialogOpen} 
+        onOpenChange={setServiceDialogOpen} 
+      />
+      <ProductDialog 
+        open={productDialogOpen} 
+        onOpenChange={setProductDialogOpen} 
+      />
     </div>
   )
 }
