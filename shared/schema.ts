@@ -554,6 +554,10 @@ export const invoices = pgTable("invoices", {
   status: varchar("status", { length: 20 }).default("pending"),
   paymentMethod: varchar("payment_method", { length: 100 }),
   paidDate: timestamp("paid_date"),
+  paymentId: varchar("payment_id", { length: 255 }), // YooKassa payment ID
+  paymentUrl: varchar("payment_url", { length: 500 }), // YooKassa confirmation URL
+  fiscalReceiptId: varchar("fiscal_receipt_id", { length: 255 }), // Receipt ID for 54-FZ
+  fiscalReceiptUrl: varchar("fiscal_receipt_url", { length: 500 }), // Receipt URL
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

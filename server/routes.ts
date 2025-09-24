@@ -15,6 +15,7 @@ import { authenticateToken, requireRole, requireModuleAccess, generateTokens, ve
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import * as veterinaryAI from './ai/veterinary-ai';
+import * as yookassa from './integrations/yookassa';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -1121,7 +1122,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/invoices", authenticateToken, requireModuleAccess('finance'), validateBody(insertInvoiceSchema), async (req, res) => {
     try {
-      const invoice = await storage.createInvoice(req.body);
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      // 🔒 SECURITY: Force branchId from user token, ignore any branchId in body
+      const invoiceData = { ...req.body, branchId: userBranchId };
+      const invoice = await storage.createInvoice(invoiceData);
       res.status(201).json(invoice);
     } catch (error) {
       console.error("Error creating invoice:", error);
@@ -2217,6 +2224,223 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting lab result detail:", error);
       res.status(500).json({ error: "Failed to delete lab result detail" });
+    }
+  });
+
+  // YooKassa payment request schema
+  const yookassaPaymentSchema = z.object({
+    invoiceId: z.string().uuid("Invalid invoice ID format"),
+    customerData: z.object({
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+    }).optional()
+  })
+
+  // YOOKASSA PAYMENT INTEGRATION ROUTES
+  // Create payment with fiscal receipt (54-FZ compliant)
+  app.post("/api/payments/yookassa", authenticateToken, requireModuleAccess('finance'), validateBody(yookassaPaymentSchema), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+
+      const { invoiceId, customerData } = req.body;
+      
+      // Get invoice data
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      // Get patient and owner data for receipt
+      const patient = await storage.getPatient(invoice.patientId);
+      if (!patient || !await ensurePatientAccess(user, patient.id)) {
+        return res.status(403).json({ error: "Access denied to patient data" });
+      }
+
+      const owner = await storage.getOwner(patient.ownerId);
+      if (!owner) {
+        return res.status(404).json({ error: "Owner not found" });
+      }
+
+      // Get invoice items
+      const invoiceItems = await storage.getInvoiceItems(invoiceId);
+
+      // Convert to YooKassa payment format
+      const paymentData = yookassa.convertInvoiceToPayment({
+        patientId: patient.id,
+        patientName: patient.name,
+        ownerName: owner.name,
+        ownerEmail: customerData?.email || owner.email || undefined,
+        ownerPhone: customerData?.phone || owner.phone || undefined,
+        items: invoiceItems.map(item => ({
+          name: item.itemName,
+          type: item.itemType as 'service' | 'product',
+          quantity: item.quantity,
+          price: parseFloat(item.price),
+          total: parseFloat(item.total),
+          productCode: undefined // TODO: Add productCode field to invoice_items table
+        })),
+        total: parseFloat(invoice.total),
+        description: `Счет ${invoice.id} - Ветеринарные услуги для ${patient.name}`
+      });
+
+      // Create payment in YooKassa
+      const payment = await yookassa.createPayment(paymentData);
+
+      // Update invoice with payment reference
+      await storage.updateInvoice(invoiceId, {
+        paymentMethod: 'yookassa',
+        // Note: paymentId and paymentUrl fields need to be added to schema and storage layer
+      });
+
+      res.json({
+        payment,
+        confirmationUrl: payment.confirmation?.confirmation_url
+      });
+    } catch (error) {
+      console.error("Error creating YooKassa payment:", error);
+      res.status(500).json({ 
+        error: "Failed to create payment", 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get payment status from YooKassa
+  app.get("/api/payments/yookassa/:paymentId", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
+    try {
+      const payment = await yookassa.getPayment(req.params.paymentId);
+      res.json(payment);
+    } catch (error) {
+      console.error("Error getting YooKassa payment:", error);
+      res.status(500).json({ 
+        error: "Failed to get payment", 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // YooKassa webhook for payment notifications
+  app.post("/api/webhooks/yookassa", async (req, res) => {
+    try {
+      const notification = req.body;
+      console.log('YooKassa webhook received:', notification);
+
+      if (notification.event === 'payment.succeeded') {
+        const paymentId = notification.object.id;
+        console.log(`Payment succeeded: ${paymentId}`);
+        // Note: Invoice lookup by paymentId needs to be implemented after storage layer update
+      } else if (notification.event === 'payment.canceled') {
+        const paymentId = notification.object.id;
+        console.log(`Payment canceled: ${paymentId}`);
+        // Note: Invoice lookup by paymentId needs to be implemented after storage layer update
+      }
+
+      res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("Error processing YooKassa webhook:", error);
+      res.status(500).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  // Cancel YooKassa payment
+  app.post("/api/payments/yookassa/:paymentId/cancel", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
+    try {
+      const { reason } = req.body;
+      const payment = await yookassa.cancelPayment(req.params.paymentId, reason);
+      res.json(payment);
+    } catch (error) {
+      console.error("Error canceling YooKassa payment:", error);
+      res.status(500).json({ 
+        error: "Failed to cancel payment", 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // YooKassa receipt request schema
+  const yookassaReceiptSchema = z.object({
+    invoiceId: z.string().uuid("Invalid invoice ID format"),
+    customerData: z.object({
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+    }).optional(),
+    receiptType: z.enum(['payment', 'refund']).default('payment')
+  })
+
+  // Create standalone fiscal receipt (for cash payments)
+  app.post("/api/receipts/yookassa", authenticateToken, requireModuleAccess('finance'), validateBody(yookassaReceiptSchema), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+
+      const { invoiceId, customerData, receiptType = 'payment' } = req.body;
+      
+      // Get invoice data
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      // Get patient and owner data for receipt
+      const patient = await storage.getPatient(invoice.patientId);
+      if (!patient || !await ensurePatientAccess(user, patient.id)) {
+        return res.status(403).json({ error: "Access denied to patient data" });
+      }
+
+      const owner = await storage.getOwner(patient.ownerId);
+      if (!owner) {
+        return res.status(404).json({ error: "Owner not found" });
+      }
+
+      // Get invoice items
+      const invoiceItems = await storage.getInvoiceItems(invoiceId);
+
+      // Create receipt data
+      const receiptData: yookassa.YooKassaReceipt = {
+        customer: {
+          full_name: owner.name,
+          email: customerData?.email || owner.email || undefined,
+          phone: customerData?.phone || owner.phone || undefined,
+        },
+        items: invoiceItems.map(item => ({
+          description: item.itemName.substring(0, 128),
+          amount: {
+            value: parseFloat(item.total).toFixed(2),
+            currency: 'RUB'
+          },
+          vat_code: yookassa.getVatCodeForItem(true),
+          quantity: item.quantity.toString(),
+          payment_mode: yookassa.getPaymentModeForItem(item.itemType as 'service' | 'product'),
+          payment_subject: yookassa.getPaymentSubjectForItem(item.itemType as 'service' | 'product')
+        })),
+        tax_system_code: 1, // General taxation system
+        email: customerData?.email || owner.email || undefined,
+        phone: customerData?.phone || owner.phone || undefined,
+        send: true
+      };
+
+      // Create standalone receipt
+      const receipt = await yookassa.createReceipt({
+        type: receiptType,
+        receipt: receiptData
+      });
+
+      // Note: Receipt fields would need to be added to storage layer
+      // await storage.updateInvoice(invoiceId, {
+      //   fiscalReceiptId: receipt.id,
+      //   fiscalReceiptUrl: receipt.fiscal_receipt_url
+      // });
+
+      res.json(receipt);
+    } catch (error) {
+      console.error("Error creating YooKassa receipt:", error);
+      res.status(500).json({ 
+        error: "Failed to create receipt", 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

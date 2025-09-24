@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText, Edit, Trash2, Eye } from "lucide-react"
+import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText, Edit, Trash2, Eye, CreditCard, Receipt } from "lucide-react"
 import InvoiceDialog from "@/components/InvoiceDialog"
+import { apiRequest } from "@/lib/queryClient"
+import { useToast } from "@/hooks/use-toast"
 import { 
   Table, 
   TableBody, 
@@ -116,6 +118,57 @@ const mockInvoices = [
 export default function Finance() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("invoices")
+  const { toast } = useToast()
+
+  // Обработчик создания платежа через ЮKassa
+  const handleYooKassaPayment = async (invoiceId: string) => {
+    try {
+      const response = await apiRequest('POST', '/api/payments/yookassa', {
+        invoiceId,
+        customerData: {
+          // Можно добавить дополнительные данные клиента если нужно
+        }
+      })
+      
+      if (response.confirmationUrl) {
+        // Открыть платежную страницу ЮKassa в новой вкладке
+        window.open(response.confirmationUrl, '_blank')
+        toast({
+          title: "Платежная ссылка создана",
+          description: "Откройте новую вкладку для завершения платежа"
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Ошибка создания платежа",
+        description: error.message || "Не удалось создать платеж",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Обработчик печати фискального чека
+  const handleFiscalReceipt = async (invoiceId: string) => {
+    try {
+      await apiRequest('POST', '/api/receipts/yookassa', {
+        invoiceId,
+        customerData: {
+          // Можно добавить дополнительные данные клиента если нужно
+        }
+      })
+      
+      toast({
+        title: "Фискальный чек создан",
+        description: "Чек был успешно отправлен в ФНС согласно 54-ФЗ"
+      })
+    } catch (error: any) {
+      toast({
+        title: "Ошибка создания чека",
+        description: error.message || "Не удалось создать фискальный чек",
+        variant: "destructive"
+      })
+    }
+  }
 
   const filteredInvoices = mockInvoices.filter(invoice =>
     invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -136,10 +189,12 @@ export default function Finance() {
             <Banknote className="h-4 w-4 mr-2" />
             Касса
           </Button>
-          <Button data-testid="button-new-invoice">
-            <Plus className="h-4 w-4 mr-2" />
-            Новый счет
-          </Button>
+          <InvoiceDialog>
+            <Button data-testid="button-new-invoice">
+              <Plus className="h-4 w-4 mr-2" />
+              Новый счет
+            </Button>
+          </InvoiceDialog>
         </div>
       </div>
 
@@ -240,6 +295,28 @@ export default function Finance() {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
+                            {invoice.status !== 'paid' && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-blue-600 hover:text-blue-700"
+                                  data-testid={`button-pay-yookassa-${invoice.id}`}
+                                  onClick={() => handleYooKassaPayment(invoice.id)}
+                                >
+                                  <CreditCard className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-green-600 hover:text-green-700"
+                                  data-testid={`button-fiscal-receipt-${invoice.id}`}
+                                  onClick={() => handleFiscalReceipt(invoice.id)}
+                                >
+                                  <Receipt className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
