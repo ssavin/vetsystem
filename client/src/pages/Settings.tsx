@@ -86,20 +86,6 @@ const branchSchema = z.object({
 type BranchFormData = z.infer<typeof branchSchema>
 type UserFormValues = z.infer<typeof insertUserSchema>
 
-interface Branch {
-  id: string
-  name: string
-  address: string
-  city: string
-  region?: string
-  phone: string
-  email?: string
-  description?: string
-  status: string
-  createdAt: string
-  updatedAt: string
-}
-
 export default function Settings() {
   const [clinicName, setClinicName] = useState("Ветеринарная клиника \"Здоровый питомец\"")
   const [clinicAddress, setClinicAddress] = useState("г. Москва, ул. Примерная, д. 123")
@@ -244,6 +230,63 @@ export default function Settings() {
     },
   })
 
+  // User management mutations
+  const createUserMutation = useMutation({
+    mutationFn: async (data: UserFormValues) => {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      if (!response.ok) throw new Error('Failed to create user')
+      return response.json()
+    },
+    onSuccess: () => {
+      userQueryClient.invalidateQueries({ queryKey: ['/api/users'] })
+      toast({ title: "Успех", description: "Пользователь создан" })
+      setIsCreateUserDialogOpen(false)
+      userForm.reset()
+    },
+    onError: (error: Error) => {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" })
+    }
+  })
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, data }: { userId: string, data: UserFormValues }) => {
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      if (!response.ok) throw new Error('Failed to update user')
+      return response.json()
+    },
+    onSuccess: () => {
+      userQueryClient.invalidateQueries({ queryKey: ['/api/users'] })
+      toast({ title: "Успех", description: "Пользователь обновлен" })
+      setEditingUser(null)
+      userForm.reset()
+    },
+    onError: (error: Error) => {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" })
+    }
+  })
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await fetch(`/api/users/${userId}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to delete user')
+    },
+    onSuccess: () => {
+      userQueryClient.invalidateQueries({ queryKey: ['/api/users'] })
+      toast({ title: "Успех", description: "Пользователь удален" })
+    },
+    onError: (error: Error) => {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" })
+    }
+  })
+
   const saveSettings = () => {
     console.log("Saving settings:", { 
       clinic: { clinicName, clinicAddress, clinicPhone, clinicEmail },
@@ -303,6 +346,100 @@ export default function Settings() {
         return <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" />Техобслуживание</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
+    }
+  }
+
+  // User form handlers
+  const onUserSubmit = (values: UserFormValues) => {
+    if (editingUser) {
+      // For updates, password is optional but if provided must be valid
+      if (values.password && values.password.trim() !== '') {
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
+        if (values.password.length < 10 || !passwordRegex.test(values.password)) {
+          userForm.setError('password', {
+            type: 'manual',
+            message: 'Пароль должен содержать: строчные буквы (a-z), заглавные буквы (A-Z), цифры (0-9) и специальные символы (@$!%*?&)'
+          });
+          return;
+        }
+      }
+      
+      // For updates, exclude empty password to prevent overwriting
+      const updateData = { ...values } as Partial<UserFormValues>;
+      if (!updateData.password || updateData.password.trim() === '') {
+        delete (updateData as any).password;
+      }
+      
+      // Normalize 'NONE' or empty branchId to null for API
+      if (updateData.branchId === 'NONE' || updateData.branchId === '' || !updateData.branchId) {
+        updateData.branchId = null;
+      }
+      
+      updateUserMutation.mutate({ userId: editingUser.id, data: updateData as UserFormValues });
+    } else {
+      // For create, validate password is required and strong
+      if (!values.password || values.password.trim() === '') {
+        userForm.setError('password', {
+          type: 'manual',
+          message: 'Пароль обязателен при создании пользователя'
+        });
+        return;
+      }
+      
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
+      if (values.password.length < 10 || !passwordRegex.test(values.password)) {
+        userForm.setError('password', {
+          type: 'manual',
+          message: 'Пароль должен содержать: строчные буквы (a-z), заглавные буквы (A-Z), цифры (0-9) и специальные символы (@$!%*?&)'
+        });
+        return;
+      }
+      
+      // Normalize 'NONE' or empty branchId to null for API
+      const createData = { ...values };
+      if (createData.branchId === 'NONE' || createData.branchId === '' || !createData.branchId) {
+        createData.branchId = null;
+      }
+      
+      createUserMutation.mutate(createData);
+    }
+  }
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user)
+    userForm.reset({
+      username: user.username,
+      password: "", // Don't prefill password for security
+      fullName: user.fullName,
+      email: user.email || "",
+      phone: user.phone || "", 
+      role: user.role as any,
+      status: user.status as any,
+      branchId: user.branchId || "NONE"
+    })
+    setIsCreateUserDialogOpen(true)
+  }
+
+  const handleDeleteUser = (userId: string) => {
+    if (confirm("Вы уверены, что хотите удалить этого пользователя?")) {
+      deleteUserMutation.mutate(userId)
+    }
+  }
+
+  const handleCloseUserDialog = () => {
+    setIsCreateUserDialogOpen(false)
+    setEditingUser(null)
+    userForm.reset()
+  }
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'руководитель': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+      case 'врач': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+      case 'администратор': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+      case 'менеджер': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
+      case 'менеджер_склада': return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
     }
   }
 
@@ -698,6 +835,351 @@ export default function Settings() {
                   {branches.filter(b => b.status === 'inactive').length}
                 </div>
                 <div className="text-sm text-muted-foreground">Неактивных</div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* User Management */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Управление пользователями
+            </CardTitle>
+            <Dialog 
+              open={isCreateUserDialogOpen || !!editingUser} 
+              onOpenChange={(open) => {
+                if (!open) handleCloseUserDialog()
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button onClick={() => setIsCreateUserDialogOpen(true)} data-testid="button-add-user">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Добавить пользователя
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]" data-testid="dialog-user-form">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center">
+                    <Users className="h-5 w-5 mr-2 text-primary" />
+                    {editingUser ? 'Редактировать пользователя' : 'Новый пользователь'}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {editingUser ? 'Обновить данные сотрудника' : 'Добавьте нового сотрудника в систему'}
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...userForm}>
+                  <form onSubmit={userForm.handleSubmit(onUserSubmit)} className="space-y-4">
+                    <FormField
+                      control={userForm.control}
+                      name="fullName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Полное имя *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Иван Петрович Сидоров" data-testid="input-user-fullname" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={userForm.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Логин *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="ivan.sidorov" data-testid="input-user-username" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={userForm.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Пароль {editingUser ? '' : '*'}</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="password" 
+                              placeholder={editingUser ? "Оставьте пустым для сохранения текущего" : "Минимум 10 символов, буквы, цифры, символы"} 
+                              data-testid="input-user-password" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                          {!editingUser && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Пароль должен содержать: заглавные и строчные буквы, цифры и специальные символы (@$!%*?&)
+                            </p>
+                          )}
+                          {editingUser && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Оставьте пустым, чтобы сохранить текущий пароль. Если заполните - минимум 10 символов с буквами, цифрами и символами.
+                            </p>
+                          )}
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={userForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="ivan@clinic.ru" data-testid="input-user-email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={userForm.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Телефон</FormLabel>
+                            <FormControl>
+                              <Input type="tel" placeholder="+7XXXXXXXXXX" data-testid="input-user-phone" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={userForm.control}
+                        name="role"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Роль *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-user-role">
+                                  <SelectValue placeholder="Выберите роль" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {USER_ROLES.map((role) => (
+                                  <SelectItem key={role} value={role}>
+                                    {role === 'менеджер_склада' ? 'менеджер склада' : role}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={userForm.control}
+                        name="branchId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Отделение</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-user-branch">
+                                  <SelectValue placeholder="Выберите отделение" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="NONE">Без отделения</SelectItem>
+                                {branches.map((branch) => (
+                                  <SelectItem key={branch.id} value={branch.id}>
+                                    {branch.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={handleCloseUserDialog}
+                        data-testid="button-cancel-user"
+                      >
+                        Отмена
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        disabled={createUserMutation.isPending || updateUserMutation.isPending}
+                        data-testid="button-save-user"
+                      >
+                        {createUserMutation.isPending || updateUserMutation.isPending 
+                          ? "Сохранение..." 
+                          : editingUser ? "Обновить" : "Создать"
+                        }
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Users Table */}
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Имя</TableHead>
+                  <TableHead>Логин</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Телефон</TableHead>
+                  <TableHead>Роль</TableHead>
+                  <TableHead>Отделение</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Последний вход</TableHead>
+                  <TableHead className="text-right">Действия</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {usersLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="animate-pulse">
+                        <div className="h-4 bg-muted rounded w-3/4"></div>
+                      </TableCell>
+                      <TableCell className="animate-pulse">
+                        <div className="h-4 bg-muted rounded w-1/2"></div>
+                      </TableCell>
+                      <TableCell className="animate-pulse">
+                        <div className="h-4 bg-muted rounded"></div>
+                      </TableCell>
+                      <TableCell className="animate-pulse">
+                        <div className="h-4 bg-muted rounded w-2/3"></div>
+                      </TableCell>
+                      <TableCell className="animate-pulse">
+                        <div className="h-6 bg-muted rounded w-16"></div>
+                      </TableCell>
+                      <TableCell className="animate-pulse">
+                        <div className="h-4 bg-muted rounded w-1/2"></div>
+                      </TableCell>
+                      <TableCell className="animate-pulse">
+                        <div className="h-6 bg-muted rounded w-16"></div>
+                      </TableCell>
+                      <TableCell className="animate-pulse">
+                        <div className="h-4 bg-muted rounded w-20"></div>
+                      </TableCell>
+                      <TableCell className="animate-pulse text-right">
+                        <div className="h-8 bg-muted rounded w-16 ml-auto"></div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8">
+                      <Users className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                      <div className="text-sm text-muted-foreground">
+                        Нет созданных пользователей
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  users.map((user) => (
+                    <TableRow key={user.id} className="hover-elevate" data-testid={`row-user-${user.id}`}>
+                      <TableCell className="font-medium">{user.fullName}</TableCell>
+                      <TableCell>{user.username}</TableCell>
+                      <TableCell>{user.email || '—'}</TableCell>
+                      <TableCell>{user.phone || '—'}</TableCell>
+                      <TableCell>
+                        <Badge className={getRoleColor(user.role)}>
+                          {user.role === 'менеджер_склада' ? 'менеджер склада' : user.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {user.branchId ? (
+                          branches.find(b => b.id === user.branchId)?.name || 'Неизвестно'
+                        ) : (
+                          <span className="text-muted-foreground">Без отделения</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                          {user.status === 'active' ? 'Активен' : 'Неактивен'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {user.lastLogin 
+                          ? format(new Date(user.lastLogin), 'dd.MM.yyyy HH:mm', { locale: ru })
+                          : '—'
+                        }
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditUser(user)}
+                            data-testid={`button-edit-user-${user.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={deleteUserMutation.isPending}
+                            data-testid={`button-delete-user-${user.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* User Statistics */}
+          {!usersLoading && users.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">{users.length}</div>
+                <div className="text-sm text-muted-foreground">Всего пользователей</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {users.filter(u => u.status === 'active').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Активных</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {users.filter(u => u.role === 'врач').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Врачей</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {users.filter(u => u.role === 'администратор').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Администраторов</div>
               </div>
             </div>
           )}
