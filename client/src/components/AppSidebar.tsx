@@ -67,12 +67,6 @@ const menuItems = [
     icon: Settings,
     module: "settings",
   },
-  {
-    title: "Пользователи",
-    url: "/users",
-    icon: Shield,
-    module: "users",
-  },
 ]
 
 export default function AppSidebar() {

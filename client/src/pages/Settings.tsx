@@ -40,7 +40,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { 
   Settings as SettingsIcon, 
-  User, 
+  User as UserIcon, 
   Bell, 
   Shield, 
   Palette, 
@@ -57,15 +57,19 @@ import {
   CheckCircle,
   AlertCircle,
   XCircle,
-  Search
+  Search,
+  Users
 } from "lucide-react"
 import { useState } from "react"
-import { useQuery, useMutation } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
+import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch } from "@shared/schema"
+import { format } from "date-fns"
+import { ru } from "date-fns/locale"
 
 // Form validation schema for branches
 const branchSchema = z.object({
@@ -80,6 +84,7 @@ const branchSchema = z.object({
 })
 
 type BranchFormData = z.infer<typeof branchSchema>
+type UserFormValues = z.infer<typeof insertUserSchema>
 
 interface Branch {
   id: string
@@ -105,7 +110,13 @@ export default function Settings() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null)
+  
+  // User management state
+  const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  
   const { toast } = useToast()
+  const userQueryClient = useQueryClient()
   
   const [notifications, setNotifications] = useState({
     email: true,
@@ -127,6 +138,11 @@ export default function Settings() {
     queryKey: ['/api/branches'],
   })
 
+  // Fetch users
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
+    queryKey: ['/api/users'],
+  })
+
   const form = useForm<BranchFormData>({
     resolver: zodResolver(branchSchema),
     defaultValues: {
@@ -139,6 +155,20 @@ export default function Settings() {
       description: "",
       status: "active",
     },
+  })
+
+  const userForm = useForm<UserFormValues>({
+    resolver: zodResolver(insertUserSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+      fullName: "",
+      email: "",
+      phone: "",
+      role: "врач", 
+      status: "active",
+      branchId: "NONE"
+    }
   })
 
   // Create branch mutation
@@ -287,7 +317,7 @@ export default function Settings() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
+            <UserIcon className="h-5 w-5" />
             Информация о клинике
           </CardTitle>
         </CardHeader>
