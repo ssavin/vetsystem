@@ -35,7 +35,7 @@ export default function ProductDialog({ open, onOpenChange }: ProductDialogProps
   })
 
   const createProductMutation = useMutation({
-    mutationFn: (data: InsertProduct) => apiRequest('/api/products', 'POST', data),
+    mutationFn: (data: InsertProduct) => apiRequest('POST', '/api/products', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/products'] })
       toast({

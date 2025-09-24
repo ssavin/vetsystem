@@ -33,7 +33,7 @@ export default function ServiceDialog({ open, onOpenChange }: ServiceDialogProps
   })
 
   const createServiceMutation = useMutation({
-    mutationFn: (data: InsertService) => apiRequest('/api/services', 'POST', data),
+    mutationFn: (data: InsertService) => apiRequest('POST', '/api/services', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/services'] })
       toast({
