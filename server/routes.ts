@@ -2279,6 +2279,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Calculate attempt number based on existing intents
+      const attemptNumber = existingPaymentIntents.length + 1;
+
       // Get catalog items for VAT calculation
       const catalogItems = await Promise.all(
         invoiceItems.map(item => storage.getCatalogItemById(item.catalogItemId))
@@ -2318,8 +2321,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Счет ${invoice.id} - ветеринарные услуги для ${patient.name}`
       });
 
-      // Create payment in YooKassa
-      const payment = await yookassa.createPayment(paymentData);
+      // Generate deterministic idempotence key with proper attempt number
+      const idempotenceKey = yookassa.generateIdempotenceKey(invoiceId, attemptNumber);
+      
+      // Create payment in YooKassa with idempotent key
+      const payment = await yookassa.createPayment(paymentData, idempotenceKey);
 
       // Create payment intent record
       const paymentIntentId = await storage.createPaymentIntent({
@@ -2497,11 +2503,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errorMessage: null
       });
 
+      // Generate deterministic idempotence key using unique receipt ID
+      const receiptIdempotenceKey = yookassa.generateIdempotenceKey(`fiscal_receipt_${fiscalReceiptId}`, 1);
+      
       // Create standalone receipt in YooKassa
       const receipt = await yookassa.createReceipt({
         type: receiptType,
         receipt: receiptData
-      });
+      }, receiptIdempotenceKey);
 
       // Update fiscal receipt with YooKassa response
       await storage.updateFiscalReceipt(fiscalReceiptId, {

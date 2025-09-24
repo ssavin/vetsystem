@@ -17,13 +17,18 @@ const validateCredentials = () => {
 }
 
 // Basic auth header for YooKassa API
-const getAuthHeaders = () => {
+const getAuthHeaders = (idempotenceKey?: string) => {
   const { shopId, secretKey } = validateCredentials()
   return {
     'Authorization': `Basic ${Buffer.from(`${shopId}:${secretKey}`).toString('base64')}`,
     'Content-Type': 'application/json',
-    'Idempotence-Key': randomUUID(),
+    ...(idempotenceKey && { 'Idempotence-Key': idempotenceKey }),
   }
+}
+
+// Generate deterministic idempotence key for payments
+export function generateIdempotenceKey(invoiceId: string, attempt: number = 1): string {
+  return `invoice_${invoiceId}_attempt_${attempt}`
 }
 
 // YooKassa API response types
@@ -126,13 +131,16 @@ export type CreatePaymentRequest = z.infer<typeof createPaymentSchema>
 /**
  * Create a payment with fiscal receipt in YooKassa
  */
-export async function createPayment(paymentData: CreatePaymentRequest): Promise<YooKassaPayment> {
+export async function createPayment(
+  paymentData: CreatePaymentRequest, 
+  idempotenceKey?: string
+): Promise<YooKassaPayment> {
   try {
     const validatedData = createPaymentSchema.parse(paymentData)
     
     const response = await fetch(`${YOOKASSA_API_URL}/payments`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(idempotenceKey),
       body: JSON.stringify(validatedData)
     })
 
@@ -179,16 +187,19 @@ export async function getPayment(paymentId: string): Promise<YooKassaPayment> {
 /**
  * Create a receipt (for existing payment or standalone)
  */
-export async function createReceipt(receiptData: {
-  type: 'payment' | 'refund'
-  payment_id?: string
-  refund_id?: string
-  receipt: YooKassaReceipt
-}): Promise<any> {
+export async function createReceipt(
+  receiptData: {
+    type: 'payment' | 'refund'
+    payment_id?: string
+    refund_id?: string
+    receipt: YooKassaReceipt
+  },
+  idempotenceKey?: string
+): Promise<any> {
   try {
     const response = await fetch(`${YOOKASSA_API_URL}/receipts`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(idempotenceKey),
       body: JSON.stringify(receiptData)
     })
 
