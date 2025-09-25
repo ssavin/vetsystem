@@ -17,12 +17,13 @@ import {
   type ReferenceRange, type InsertReferenceRange,
   type LabOrder, type InsertLabOrder,
   type LabResultDetail, type InsertLabResultDetail,
+  type SystemSetting, type InsertSystemSetting, type UpdateSystemSetting,
   users, owners, patients, doctors, appointments, 
   medicalRecords, medications, services, products, 
   invoices, invoiceItems, branches, patientFiles,
   labStudies, labParameters, referenceRanges, 
   labOrders, labResultDetails, paymentIntents, fiscalReceipts,
-  catalogItems
+  catalogItems, systemSettings
 } from "@shared/schema";
 import { db } from "./db-local";
 import { eq, like, and, or, desc, sql, gte, lte, lt, isNull, type SQL } from "drizzle-orm";
@@ -273,6 +274,14 @@ export interface IStorage {
     externalId: string | null;
     markingStatus: string;
   } | undefined>;
+
+  // System Settings methods
+  getSystemSettings(): Promise<SystemSetting[]>;
+  getSystemSetting(key: string): Promise<SystemSetting | undefined>;
+  getSystemSettingsByCategory(category: string): Promise<SystemSetting[]>;
+  createSystemSetting(setting: InsertSystemSetting): Promise<SystemSetting>;
+  updateSystemSetting(key: string, setting: Partial<UpdateSystemSetting>): Promise<SystemSetting>;
+  deleteSystemSetting(key: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1825,6 +1834,58 @@ export class DatabaseStorage implements IStorage {
         .from(catalogItems)
         .where(eq(catalogItems.id, id));
       return item || undefined;
+    });
+  }
+
+  // System Settings methods implementation
+  async getSystemSettings(): Promise<SystemSetting[]> {
+    return withPerformanceLogging('getSystemSettings', async () => {
+      return await db.select().from(systemSettings);
+    });
+  }
+
+  async getSystemSetting(key: string): Promise<SystemSetting | undefined> {
+    return withPerformanceLogging('getSystemSetting', async () => {
+      const [setting] = await db.select().from(systemSettings).where(eq(systemSettings.key, key));
+      return setting || undefined;
+    });
+  }
+
+  async getSystemSettingsByCategory(category: string): Promise<SystemSetting[]> {
+    return withPerformanceLogging('getSystemSettingsByCategory', async () => {
+      return await db.select().from(systemSettings).where(eq(systemSettings.category, category));
+    });
+  }
+
+  async createSystemSetting(setting: InsertSystemSetting): Promise<SystemSetting> {
+    return withPerformanceLogging('createSystemSetting', async () => {
+      const [newSetting] = await db.insert(systemSettings).values(setting).returning();
+      return newSetting;
+    });
+  }
+
+  async updateSystemSetting(key: string, setting: Partial<UpdateSystemSetting>): Promise<SystemSetting> {
+    return withPerformanceLogging('updateSystemSetting', async () => {
+      const [updatedSetting] = await db
+        .update(systemSettings)
+        .set({
+          ...setting,
+          updatedAt: new Date(),
+        })
+        .where(eq(systemSettings.key, key))
+        .returning();
+      
+      if (!updatedSetting) {
+        throw new Error(`System setting with key "${key}" not found`);
+      }
+      
+      return updatedSetting;
+    });
+  }
+
+  async deleteSystemSetting(key: string): Promise<void> {
+    return withPerformanceLogging('deleteSystemSetting', async () => {
+      await db.delete(systemSettings).where(eq(systemSettings.key, key));
     });
   }
 }

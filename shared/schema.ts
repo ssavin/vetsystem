@@ -36,6 +36,7 @@ export const FISCAL_RECEIPT_STATUS = ['draft', 'pending', 'registered', 'failed'
 export const PAYMENT_INTENT_STATUS = ['pending', 'processing', 'succeeded', 'failed', 'cancelled'] as const;
 export const INTEGRATION_JOB_STATUS = ['pending', 'running', 'completed', 'failed', 'retrying'] as const;
 export const PAYMENT_METHOD = ['cash', 'card', 'online', 'mixed'] as const;
+export const FISCAL_RECEIPT_SYSTEM = ['yookassa', 'moysklad'] as const;
 
 // Branches table for multi-location clinic support - MUST be defined before users table
 export const branches = pgTable("branches", {
@@ -537,6 +538,24 @@ export const integrationLogs = pgTable("integration_logs", {
     userIdIdx: index("integration_logs_user_id_idx").on(table.userId),
     createdAtIdx: index("integration_logs_created_at_idx").on(table.createdAt),
     eventTimeIdx: index("integration_logs_event_time_idx").on(table.event, table.createdAt),
+  };
+});
+
+// System Settings table - global application settings
+export const systemSettings = pgTable("system_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key", { length: 100 }).notNull().unique(), // Ключ настройки
+  value: text("value").notNull(), // Значение настройки
+  description: text("description"), // Описание настройки
+  category: varchar("category", { length: 50 }).notNull(), // Категория (billing, fiscal, etc.)
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    keyIdx: index("system_settings_key_idx").on(table.key),
+    categoryIdx: index("system_settings_category_idx").on(table.category),
+    activeIdx: index("system_settings_active_idx").on(table.isActive),
   };
 });
 
@@ -1425,6 +1444,22 @@ export const insertIntegrationLogSchema = createInsertSchema(integrationLogs).om
   metadata: z.record(z.string(), z.any()).optional(),
 });
 
+// System Settings schemas
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  key: z.string().min(1, "Ключ настройки обязателен"),
+  value: z.string().min(1, "Значение настройки обязательно"),
+  category: z.string().min(1, "Категория обязательна"),
+  description: z.string().optional(),
+});
+
+export const updateSystemSettingSchema = insertSystemSettingSchema.partial().extend({
+  id: z.string().optional(),
+});
+
 // SMS verification schemas
 export const insertSmsVerificationCodeSchema = createInsertSchema(smsVerificationCodes).omit({
   id: true,
@@ -1537,6 +1572,10 @@ export type InsertIntegrationJob = z.infer<typeof insertIntegrationJobSchema>;
 
 export type IntegrationLog = typeof integrationLogs.$inferSelect;
 export type InsertIntegrationLog = z.infer<typeof insertIntegrationLogSchema>;
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
+export type UpdateSystemSetting = z.infer<typeof updateSystemSettingSchema>;
 
 // Dashboard API response types
 export interface DashboardStats {

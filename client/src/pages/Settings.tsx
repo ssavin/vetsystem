@@ -337,11 +337,11 @@ export default function Settings() {
   }
 
   // Filter branches based on search
-  const filteredBranches = branches.filter(branch =>
+  const filteredBranches = Array.isArray(branches) ? branches.filter(branch =>
     branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     branch.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
     branch.address.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  ) : []
 
   const getStatusBadge = (status: string) => {
     switch (status) {
