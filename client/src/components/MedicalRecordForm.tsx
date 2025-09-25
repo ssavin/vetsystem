@@ -68,16 +68,7 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertMedicalRecord) => {
-      const response = await apiRequest('/api/medical-records', {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      if (!response.ok) {
-        throw new Error('Failed to create medical record')
-      }
+      const response = await apiRequest('POST', '/api/medical-records', data)
       return response.json()
     },
     onSuccess: () => {
