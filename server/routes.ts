@@ -2305,7 +2305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get catalog items for VAT calculation
       const catalogItems = await Promise.all(
-        invoiceItems.map(item => storage.getCatalogItemById(item.catalogItemId))
+        invoiceItems.map(item => storage.getCatalogItem(item.itemId))
       );
 
       // Calculate VAT total
@@ -2324,7 +2324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           price: parseFloat(item.price),
           total: parseFloat(item.total),
           vatRate: vatRate,
-          productCode: catalogItem?.externalId,
+          productCode: catalogItem?.externalId || undefined,
           markingStatus: catalogItem?.markingStatus
         };
       });
@@ -2368,7 +2368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update invoice with payment method
       await storage.updateInvoice(invoiceId, {
         paymentMethod: 'yookassa',
-        status: 'payment_pending'
+        status: 'pending'
       });
 
       res.json({
@@ -2489,10 +2489,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             value: parseFloat(item.total).toFixed(2),
             currency: 'RUB'
           },
-          vat_code: yookassa.getVatCodeForItem(true),
+          vat_code: yookassa.getVatCodeForItem(item.itemType === 'service' ? 'not_applicable' : '20'),
           quantity: item.quantity.toString(),
-          payment_mode: yookassa.getPaymentModeForItem(item.itemType as 'service' | 'product'),
-          payment_subject: yookassa.getPaymentSubjectForItem(item.itemType as 'service' | 'product')
+          payment_mode: yookassa.getPaymentModeForItem(item.itemType as 'service' | 'product' | 'medication'),
+          payment_subject: yookassa.getPaymentSubjectForItem(item.itemType as 'service' | 'product' | 'medication')
         })),
         tax_system_code: 1, // General taxation system
         email: customerData?.email || owner.email || undefined,
@@ -2529,7 +2529,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create standalone receipt in YooKassa
       const receipt = await yookassa.createReceipt({
-        type: receiptType,
         receipt: receiptData
       }, receiptIdempotenceKey);
 

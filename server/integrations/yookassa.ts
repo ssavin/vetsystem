@@ -189,7 +189,7 @@ export async function getPayment(paymentId: string): Promise<YooKassaPayment> {
  */
 export async function createReceipt(
   receiptData: {
-    type: 'payment' | 'refund'
+    type?: 'payment' | 'refund'
     payment_id?: string
     refund_id?: string
     receipt: YooKassaReceipt
