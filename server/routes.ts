@@ -7,7 +7,7 @@ import {
   insertServiceSchema, insertProductSchema, insertInvoiceSchema, insertInvoiceItemSchema,
   insertUserSchema, insertBranchSchema, loginSchema, insertPatientFileSchema, FILE_TYPES,
   insertLabStudySchema, insertLabParameterSchema, insertReferenceRangeSchema,
-  insertLabOrderSchema, insertLabResultDetailSchema
+  insertLabOrderSchema, insertLabResultDetailSchema, insertSystemSettingSchema, updateSystemSettingSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
@@ -2557,6 +2557,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to create receipt", 
         details: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // =================== System Settings API ===================
+  
+  // GET /api/system-settings - Get all system settings
+  app.get("/api/system-settings", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const settings = await storage.getSystemSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching system settings:", error);
+      res.status(500).json({ error: "Failed to fetch system settings" });
+    }
+  });
+
+  // GET /api/system-settings/:key - Get specific system setting
+  app.get("/api/system-settings/:key", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const { key } = req.params;
+      const setting = await storage.getSystemSetting(key);
+      
+      if (!setting) {
+        return res.status(404).json({ error: "System setting not found" });
+      }
+      
+      res.json(setting);
+    } catch (error) {
+      console.error("Error fetching system setting:", error);
+      res.status(500).json({ error: "Failed to fetch system setting" });
+    }
+  });
+
+  // GET /api/system-settings/category/:category - Get settings by category
+  app.get("/api/system-settings/category/:category", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const { category } = req.params;
+      const settings = await storage.getSystemSettingsByCategory(category);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching system settings by category:", error);
+      res.status(500).json({ error: "Failed to fetch system settings by category" });
+    }
+  });
+
+  // POST /api/system-settings - Create new system setting
+  app.post("/api/system-settings", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const validatedData = insertSystemSettingSchema.parse(req.body);
+      const setting = await storage.createSystemSetting(validatedData);
+      res.status(201).json(setting);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Error creating system setting:", error);
+      res.status(500).json({ error: "Failed to create system setting" });
+    }
+  });
+
+  // PUT /api/system-settings/:key - Update system setting
+  app.put("/api/system-settings/:key", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const { key } = req.params;
+      const validatedData = updateSystemSettingSchema.parse(req.body);
+      
+      // Check if setting exists
+      const existingSetting = await storage.getSystemSetting(key);
+      if (!existingSetting) {
+        return res.status(404).json({ error: "System setting not found" });
+      }
+      
+      const updatedSetting = await storage.updateSystemSetting(key, validatedData);
+      res.json(updatedSetting);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Error updating system setting:", error);
+      res.status(500).json({ error: "Failed to update system setting" });
+    }
+  });
+
+  // DELETE /api/system-settings/:key - Delete system setting
+  app.delete("/api/system-settings/:key", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const { key } = req.params;
+      
+      // Check if setting exists
+      const existingSetting = await storage.getSystemSetting(key);
+      if (!existingSetting) {
+        return res.status(404).json({ error: "System setting not found" });
+      }
+      
+      await storage.deleteSystemSetting(key);
+      res.json({ message: "System setting deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting system setting:", error);
+      res.status(500).json({ error: "Failed to delete system setting" });
     }
   });
 
