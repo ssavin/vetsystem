@@ -123,7 +123,7 @@ export default function Finance() {
 
   // Fetch real invoices from API
   const { data: invoices = [], isLoading: isLoadingInvoices, error } = useQuery({
-    queryKey: ['invoices'],
+    queryKey: ['/api/invoices'],
     queryFn: () => fetch('/api/invoices').then(res => {
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
