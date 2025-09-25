@@ -45,7 +45,7 @@ const invoiceItemSchema = z.object({
 
 const invoiceFormSchema = z.object({
   patientId: z.string().min(1, "Выберите пациента"),
-  items: z.array(invoiceItemSchema).min(1, "Добавьте хотя бы одну позицию"),
+  items: z.array(invoiceItemSchema),
   discount: z.coerce.number().min(0, "Скидка не может быть отрицательной").default(0),
   notes: z.string().optional(),
   dueDate: z.string().optional(),
@@ -86,7 +86,7 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
     resolver: zodResolver(invoiceFormSchema),
     defaultValues: {
       patientId: "",
-      items: [{ name: "", type: "service", quantity: 1, price: 0, total: 0 }],
+      items: [],
       discount: 0,
       notes: "",
       dueDate: "",
@@ -133,6 +133,16 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
   })
 
   const onSubmit = (data: InvoiceFormData) => {
+    // Проверяем, что есть хотя бы одна позиция
+    if (data.items.length === 0) {
+      toast({
+        title: "Ошибка",
+        description: "Добавьте хотя бы одну позицию в счет",
+        variant: "destructive"
+      })
+      return
+    }
+    
     createMutation.mutate(data)
   }
 
@@ -283,6 +293,16 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                 </Button>
               </div>
 
+              {fields.length === 0 && (
+                <Card className="border-dashed">
+                  <CardContent className="pt-6 pb-6 text-center text-muted-foreground">
+                    <Receipt className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Нет позиций в счете</p>
+                    <p className="text-sm">Используйте "Быстрое добавление" выше или кнопку "Добавить позицию"</p>
+                  </CardContent>
+                </Card>
+              )}
+
               {fields.map((field, index) => (
                 <Card key={field.id}>
                   <CardContent className="pt-4">
@@ -408,7 +428,6 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                           variant="outline"
                           size="sm"
                           onClick={() => remove(index)}
-                          disabled={fields.length === 1}
                           data-testid={`button-remove-item-${index}`}
                         >
                           <Trash2 className="h-4 w-4" />

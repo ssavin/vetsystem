@@ -1189,6 +1189,7 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
+  invoiceNumber: z.string().optional(), // Make invoiceNumber optional for auto-generation
   status: z.enum(INVOICE_STATUS).default("pending"),
   issueDate: z.coerce.date().optional(),
   dueDate: z.coerce.date().optional(),
