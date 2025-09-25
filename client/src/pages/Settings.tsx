@@ -1096,7 +1096,7 @@ export default function Settings() {
                       </TableCell>
                     </TableRow>
                   ))
-                ) : users.length === 0 ? (
+                ) : !Array.isArray(users) || users.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8">
                       <Users className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
