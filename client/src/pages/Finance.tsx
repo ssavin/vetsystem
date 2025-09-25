@@ -351,7 +351,7 @@ export default function Finance() {
                       
                       return (
                         <TableRow key={invoice.id} className="hover-elevate">
-                          <TableCell className="font-medium font-mono text-sm">
+                          <TableCell className="font-medium text-sm">
                             {shortInvoiceNumber}
                           </TableCell>
                           <TableCell>{formattedDate}</TableCell>
@@ -456,29 +456,11 @@ export default function Finance() {
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p>Оплатить через ЮKassa</p>
+                                      <p>Печать чека</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
                                 
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-green-600 hover:text-green-700"
-                                        data-testid={`button-fiscal-receipt-${invoice.id}`}
-                                        onClick={() => handleFiscalReceipt(invoice.id)}
-                                      >
-                                        <Receipt className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Создать фискальный чек</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
                               </>
                             )}
                             <TooltipProvider>
@@ -554,6 +536,122 @@ export default function Finance() {
           </div>
         </TabsContent>
       </Tabs>
+      
+      {/* Диалог просмотра счета */}
+      {selectedInvoice && isViewDialogOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => setIsViewDialogOpen(false)}>
+          <div className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col space-y-2 text-center sm:text-left">
+              <h2 className="text-lg font-semibold">Детали счета</h2>
+              <p className="text-sm text-muted-foreground">
+                Счет №{selectedInvoice.invoiceNumber?.replace('INV-', '') || selectedInvoice.id}
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Пациент</label>
+                  <p className="text-sm">{selectedInvoice.patientName || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Владелец</label>
+                  <p className="text-sm">{selectedInvoice.ownerName || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Дата создания</label>
+                  <p className="text-sm">
+                    {selectedInvoice.issueDate 
+                      ? new Date(selectedInvoice.issueDate).toLocaleDateString('ru-RU')
+                      : '—'
+                    }
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Статус</label>
+                  <p className="text-sm">
+                    {selectedInvoice.status === 'paid' ? 'Оплачен' : 
+                     selectedInvoice.status === 'pending' ? 'Ожидает оплаты' : 
+                     'Просрочен'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Сумма</label>
+                  <p className="text-sm font-semibold">
+                    {parseFloat(selectedInvoice.total || '0').toLocaleString('ru-RU')} ₽
+                  </p>
+                </div>
+              </div>
+              {selectedInvoice.notes && (
+                <div>
+                  <label className="text-sm font-medium">Заметки</label>
+                  <p className="text-sm">{selectedInvoice.notes}</p>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsViewDialogOpen(false)}
+                data-testid="button-close-view-dialog"
+              >
+                Закрыть
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Диалог редактирования счета */}
+      {selectedInvoice && isEditDialogOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => setIsEditDialogOpen(false)}>
+          <div className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col space-y-2 text-center sm:text-left">
+              <h2 className="text-lg font-semibold">Редактирование счета</h2>
+              <p className="text-sm text-muted-foreground">
+                Счет №{selectedInvoice.invoiceNumber?.replace('INV-', '') || selectedInvoice.id}
+              </p>
+            </div>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Редактирование счетов будет доступно в следующей версии системы.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Пациент</label>
+                  <p className="text-sm">{selectedInvoice.patientName || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Владелец</label>
+                  <p className="text-sm">{selectedInvoice.ownerName || '—'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Статус</label>
+                  <p className="text-sm">
+                    {selectedInvoice.status === 'paid' ? 'Оплачен' : 
+                     selectedInvoice.status === 'pending' ? 'Ожидает оплаты' : 
+                     'Просрочен'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Сумма</label>
+                  <p className="text-sm font-semibold">
+                    {parseFloat(selectedInvoice.total || '0').toLocaleString('ru-RU')} ₽
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsEditDialogOpen(false)}
+                data-testid="button-close-edit-dialog"
+              >
+                Закрыть
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

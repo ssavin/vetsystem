@@ -408,7 +408,7 @@ export const integrationMappings = pgTable("integration_mappings", {
 // Fiscal Receipts table - 54-FZ compliant fiscal documents
 export const fiscalReceipts = pgTable("fiscal_receipts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  invoiceId: varchar("invoice_id").references(() => invoices.id).notNull(),
+  invoiceId: varchar("invoice_id").references(() => invoices.id, { onDelete: "cascade" }).notNull(),
   receiptNumber: varchar("receipt_number", { length: 255 }),
   status: varchar("status", { length: 20 }).default("draft"),
   receiptType: varchar("receipt_type", { length: 20 }).default("sale"), // Признак расчета: sale, return, expense, etc.
