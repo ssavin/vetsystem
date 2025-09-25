@@ -122,6 +122,19 @@ export default function Settings() {
 
   // Fiscal Receipt Settings state
   const [fiscalReceiptSystem, setFiscalReceiptSystem] = useState<string>("yookassa")
+  
+  // МойСклад Nomenclature Sync state
+  const [nomenclatureSyncStatus, setNomenclatureSyncStatus] = useState<{
+    localProducts: number;
+    localServices: number;
+    isLoading: boolean;
+    lastSync: string | null;
+  }>({
+    localProducts: 0,
+    localServices: 0,
+    isLoading: false,
+    lastSync: null
+  })
 
   // Fetch branches
   const { data: branches = [], isLoading: branchesLoading } = useQuery<Branch[]>({
@@ -177,6 +190,52 @@ export default function Settings() {
       })
     },
   })
+
+  // МойСклад nomenclature sync queries and mutations
+  const { data: syncStatus, isLoading: syncStatusLoading } = useQuery({
+    queryKey: ['/api/moysklad/nomenclature/sync-status'],
+    enabled: true,
+    refetchInterval: 30000, // Обновляем каждые 30 секунд
+  });
+
+  const syncNomenclatureMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/moysklad/nomenclature/sync')
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/moysklad/nomenclature/sync-status'] });
+      toast({
+        title: "Синхронизация завершена",
+        description: `Синхронизировано: ${data.data.synced.products} товаров, ${data.data.synced.services} услуг`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка синхронизации",
+        description: error.message || "Не удалось синхронизировать номенклатуру с МойСклад",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const testConnectionMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/moysklad/test-connection')
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Подключение успешно",
+        description: data.message,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка подключения",
+        description: error.message || "Не удалось подключиться к МойСклад",
+        variant: "destructive",
+      });
+    }
+  });
 
   const form = useForm<BranchFormData>({
     resolver: zodResolver(branchSchema),
@@ -1407,6 +1466,138 @@ export default function Settings() {
                   {systemSettingsLoading ? '...' : 'Активно'}
                 </div>
                 <div className="text-xs text-muted-foreground">Статус</div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* МойСклад Nomenclature Synchronization */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Синхронизация номенклатуры с МойСклад
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Синхронизируйте товары и услуги из VetSystem с прейскурантом МойСклад для корректной работы фискальных чеков
+              </p>
+            </div>
+
+            {/* Current status */}
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-primary/10 p-2">
+                  <Database className="h-4 w-4 text-primary" />
+                </div>
+                <div className="space-y-2 flex-1">
+                  <p className="font-medium text-sm">Статус синхронизации</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-blue-600">
+                        {syncStatusLoading ? '...' : (syncStatus?.localData?.products || 0)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Товары</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-green-600">
+                        {syncStatusLoading ? '...' : (syncStatus?.localData?.services || 0)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Услуги</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-primary">
+                        {syncStatusLoading ? '...' : (syncStatus?.localData?.total || 0)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Всего позиций</div>
+                    </div>
+                  </div>
+                  {syncStatus?.lastSync && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Последняя синхронизация: {format(new Date(syncStatus.lastSync), 'dd.MM.yyyy HH:mm', { locale: ru })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={() => testConnectionMutation.mutate()}
+                disabled={testConnectionMutation.isPending}
+                variant="outline"
+                className="flex-1"
+                data-testid="button-test-moysklad-connection"
+              >
+                {testConnectionMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
+                    Проверка...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Проверить подключение
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={() => syncNomenclatureMutation.mutate()}
+                disabled={syncNomenclatureMutation.isPending || (syncStatus?.localData?.total || 0) === 0}
+                className="flex-1"
+                data-testid="button-sync-nomenclature"
+              >
+                {syncNomenclatureMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
+                    Синхронизация...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4 mr-2" />
+                    Синхронизировать номенклатуру
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {(syncStatus?.localData?.total || 0) === 0 && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-sm text-orange-800">
+                      Нет данных для синхронизации
+                    </p>
+                    <p className="text-sm text-orange-700 mt-1">
+                      Добавьте товары и услуги в системе перед синхронизацией с МойСклад
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Help information */}
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-sm text-blue-800">
+                    Важная информация о синхронизации
+                  </p>
+                  <ul className="text-sm text-blue-700 mt-1 space-y-1">
+                    <li>• Перед печатью фискальных чеков необходимо синхронизировать номенклатуру</li>
+                    <li>• Товары и услуги будут добавлены в прейскурант МойСклад с ценами</li>
+                    <li>• Используется артикул из VetSystem для связи позиций</li>
+                    <li>• Настройки НДС: 20% (можно изменить в настройках МойСклад)</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>

@@ -2743,6 +2743,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // =================== МойСклад Номенклатура API ===================
+  
+  // GET /api/moysklad/nomenclature/sync-status - Получить статус синхронизации номенклатуры
+  app.get("/api/moysklad/nomenclature/sync-status", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      // Получаем количество товаров и услуг в локальной системе
+      const products = await storage.getProducts('all');
+      const services = await storage.getServices('all');
+      
+      res.json({
+        localData: {
+          products: products.length,
+          services: services.length,
+          total: products.length + services.length
+        },
+        lastSync: null, // TODO: можно добавить в базу данных
+        status: 'ready'
+      });
+    } catch (error) {
+      console.error("Error getting sync status:", error);
+      res.status(500).json({ error: "Failed to get sync status" });
+    }
+  });
+
+  // POST /api/moysklad/nomenclature/sync - Запустить синхронизацию номенклатуры
+  app.post("/api/moysklad/nomenclature/sync", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      console.log('[МойСклад] Начинаем синхронизацию номенклатуры...');
+      
+      // Получаем все товары и услуги из локальной базы данных
+      const products = await storage.getProducts('all');
+      const services = await storage.getServices('all');
+      
+      console.log(`[МойСклад] Найдено товаров: ${products.length}, услуг: ${services.length}`);
+      
+      if (products.length === 0 && services.length === 0) {
+        return res.status(400).json({
+          error: "No data to sync",
+          message: "В системе отсутствуют товары и услуги для синхронизации"
+        });
+      }
+
+      // Импортируем модуль МойСклад и запускаем синхронизацию
+      const { syncNomenclature } = await import('./integrations/moysklad');
+      
+      const result = await syncNomenclature(products, services);
+      
+      console.log('[МойСклад] Синхронизация завершена:', result);
+      
+      res.json({
+        success: true,
+        message: "Синхронизация номенклатуры завершена",
+        data: {
+          synced: {
+            products: result.products.length,
+            services: result.services.length,
+            total: result.products.length + result.services.length
+          },
+          errors: result.errors.length,
+          details: result.errors.length > 0 ? result.errors : undefined
+        }
+      });
+      
+    } catch (error) {
+      console.error("Error in MoySklad sync:", error);
+      res.status(500).json({ 
+        error: "Failed to sync nomenclature", 
+        message: "Не удалось синхронизировать номенклатуру с МойСклад",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // GET /api/moysklad/nomenclature/remote - Получить номенклатуру из МойСклад
+  app.get("/api/moysklad/nomenclature/remote", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const { getAssortment } = await import('./integrations/moysklad');
+      const assortment = await getAssortment();
+      
+      res.json({
+        success: true,
+        data: {
+          total: assortment.rows?.length || 0,
+          items: assortment.rows || []
+        }
+      });
+    } catch (error) {
+      console.error("Error getting remote nomenclature:", error);
+      res.status(500).json({ 
+        error: "Failed to get remote nomenclature", 
+        message: "Не удалось получить номенклатуру из МойСклад",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // POST /api/moysklad/test-connection - Тестирование подключения к МойСклад
+  app.post("/api/moysklad/test-connection", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const { testConnection } = await import('./integrations/moysklad');
+      const result = await testConnection();
+      
+      if (result.success) {
+        res.json({
+          success: true,
+          message: result.message
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: "Connection failed",
+          message: result.message
+        });
+      }
+    } catch (error) {
+      console.error("Error testing MoySklad connection:", error);
+      res.status(500).json({ 
+        error: "Failed to test connection", 
+        message: "Не удалось протестировать подключение к МойСклад",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
