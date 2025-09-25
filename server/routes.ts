@@ -2605,7 +2605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             meta: {
               href: `https://api.moysklad.ru/api/remap/1.2/entity/${item.itemType}/${item.itemId}`,
               type: item.itemType, // 'service' или 'product'
-              mediaType: 'application/json'
+              mediaType: 'application/json' as const
             }
           },
           vat: 20, // НДС 20% по умолчанию (можно настроить)
