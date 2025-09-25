@@ -2560,6 +2560,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/receipts/moysklad - Create fiscal receipt via MoySklad (placeholder)
+  app.post("/api/receipts/moysklad", authenticateToken, async (req, res) => {
+    try {
+      const { invoiceId } = req.body;
+      
+      // TODO: Implement MoySklad fiscal receipt integration
+      // For now, return a placeholder response indicating the feature is not yet implemented
+      res.status(501).json({
+        error: "MoySklad integration not implemented",
+        message: "Интеграция с МойСклад находится в разработке. Используйте YooKassa для печати фискальных чеков.",
+        invoiceId
+      });
+    } catch (error) {
+      console.error("Error in MoySklad receipt endpoint:", error);
+      res.status(500).json({ 
+        error: "Failed to process MoySklad receipt", 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // =================== System Settings API ===================
   
   // GET /api/system-settings - Get all system settings

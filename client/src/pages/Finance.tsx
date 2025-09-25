@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { SystemSetting } from "@shared/schema"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -196,6 +197,20 @@ export default function Finance() {
     })
   })
 
+  // Fetch system settings for fiscal receipt configuration
+  const { data: systemSettings = [] } = useQuery<SystemSetting[]>({
+    queryKey: ['/api/system-settings'],
+    queryFn: () => fetch('/api/system-settings').then(res => {
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      return res.json();
+    })
+  })
+
+  // Get current fiscal receipt system setting
+  const fiscalReceiptSystem = systemSettings.find(s => s.key === 'fiscal_receipt_system')?.value || 'yookassa'
+
   // Обработчик создания платежа через ЮKassa
   const handleYooKassaPayment = async (invoiceId: string) => {
     try {
@@ -227,21 +242,26 @@ export default function Finance() {
   // Обработчик печати фискального чека
   const handleFiscalReceipt = async (invoiceId: string) => {
     try {
-      await apiRequest('POST', '/api/receipts/yookassa', {
+      // Выбираем endpoint в зависимости от настроенной системы печати
+      const endpoint = fiscalReceiptSystem === 'moysklad' ? '/api/receipts/moysklad' : '/api/receipts/yookassa'
+      
+      await apiRequest('POST', endpoint, {
         invoiceId,
         customerData: {
           // Можно добавить дополнительные данные клиента если нужно
         }
       })
       
+      const systemName = fiscalReceiptSystem === 'moysklad' ? 'Мой склад' : 'YooKassa'
       toast({
         title: "Фискальный чек создан",
-        description: "Чек был успешно отправлен в ФНС согласно 54-ФЗ"
+        description: `Чек был успешно отправлен в ФНС через ${systemName} согласно 54-ФЗ`
       })
     } catch (error: any) {
+      const systemName = fiscalReceiptSystem === 'moysklad' ? 'Мой склад' : 'YooKassa'
       toast({
         title: "Ошибка создания чека",
-        description: error.message || "Не удалось создать фискальный чек",
+        description: error.message || `Не удалось создать фискальный чек через ${systemName}`,
         variant: "destructive"
       })
     }
