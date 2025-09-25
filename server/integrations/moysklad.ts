@@ -1,5 +1,65 @@
 import { z } from 'zod';
 
+// ===== НОМЕНКЛАТУРА И СИНХРОНИЗАЦИЯ =====
+
+// Схемы для номенклатуры в МойСклад
+const ProductSchema = z.object({
+  name: z.string(),
+  article: z.string().optional(),
+  description: z.string().optional(),
+  syncId: z.string().optional(), // Для предотвращения дубликатов
+  salePrices: z.array(z.object({
+    value: z.number(),
+    currency: z.object({
+      meta: z.object({
+        href: z.string(),
+        type: z.literal('currency'),
+        mediaType: z.literal('application/json')
+      })
+    }),
+    priceType: z.object({
+      meta: z.object({
+        href: z.string(),
+        type: z.literal('pricetype'),
+        mediaType: z.literal('application/json')
+      })
+    }).optional()
+  })).optional(),
+  attributes: z.array(z.any()).optional(),
+  vat: z.number().optional(),
+  vatEnabled: z.boolean().optional()
+});
+
+const ServiceSchema = z.object({
+  name: z.string(),
+  article: z.string().optional(),
+  description: z.string().optional(),
+  syncId: z.string().optional(),
+  salePrices: z.array(z.object({
+    value: z.number(),
+    currency: z.object({
+      meta: z.object({
+        href: z.string(),
+        type: z.literal('currency'),
+        mediaType: z.literal('application/json')
+      })
+    }),
+    priceType: z.object({
+      meta: z.object({
+        href: z.string(),
+        type: z.literal('pricetype'),
+        mediaType: z.literal('application/json')
+      })
+    }).optional()
+  })).optional(),
+  attributes: z.array(z.any()).optional(),
+  vat: z.number().optional(),
+  vatEnabled: z.boolean().optional()
+});
+
+type ProductData = z.infer<typeof ProductSchema>;
+type ServiceData = z.infer<typeof ServiceSchema>;
+
 // API конфигурация для МойСклад
 const MOYSKLAD_API_BASE = 'https://api.moysklad.ru/api/remap/1.2';
 const MOYSKLAD_POS_API_BASE = 'https://online.moysklad.ru/api/posap/1.0';
@@ -329,6 +389,226 @@ export async function testConnection(): Promise<{ success: boolean; message: str
       success: false,
       message: error.message || 'Не удалось подключиться к API МойСклад'
     };
+  }
+}
+
+// ===== ФУНКЦИИ СИНХРОНИЗАЦИИ НОМЕНКЛАТУРЫ =====
+
+/**
+ * Создает товар в МойСклад
+ */
+export async function createProduct(productData: ProductData): Promise<any> {
+  try {
+    console.log('[МойСклад] Создание товара:', productData.name);
+    
+    const response = await fetch(`${MOYSKLAD_API_BASE}/entity/product`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${process.env.MOYSKLAD_LOGIN}:${process.env.MOYSKLAD_PASSWORD}`).toString('base64')}`,
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'gzip'
+      },
+      body: JSON.stringify(productData)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[МойСклад] Ошибка создания товара:', response.status, errorText);
+      throw new Error(`Ошибка создания товара: ${response.status} ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('[МойСклад] Товар создан:', result.id);
+    return result;
+  } catch (error) {
+    console.error('[МойСклад] Ошибка создания товара:', error);
+    throw error;
+  }
+}
+
+/**
+ * Создает услугу в МойСклад
+ */
+export async function createService(serviceData: ServiceData): Promise<any> {
+  try {
+    console.log('[МойСклад] Создание услуги:', serviceData.name);
+    
+    const response = await fetch(`${MOYSKLAD_API_BASE}/entity/service`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${process.env.MOYSKLAD_LOGIN}:${process.env.MOYSKLAD_PASSWORD}`).toString('base64')}`,
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'gzip'
+      },
+      body: JSON.stringify(serviceData)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[МойСклад] Ошибка создания услуги:', response.status, errorText);
+      throw new Error(`Ошибка создания услуги: ${response.status} ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('[МойСклад] Услуга создана:', result.id);
+    return result;
+  } catch (error) {
+    console.error('[МойСклад] Ошибка создания услуги:', error);
+    throw error;
+  }
+}
+
+/**
+ * Получает информацию о валюте (обычно RUB)
+ */
+export async function getCurrency(): Promise<any> {
+  try {
+    const response = await fetch(`${MOYSKLAD_API_BASE}/entity/currency`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${process.env.MOYSKLAD_LOGIN}:${process.env.MOYSKLAD_PASSWORD}`).toString('base64')}`,
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'gzip'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ошибка получения валют: ${response.status}`);
+    }
+
+    const result = await response.json();
+    // Ищем рубли или возвращаем первую валюту
+    const rub = result.rows.find((currency: any) => currency.code === 'RUB');
+    return rub || result.rows[0];
+  } catch (error) {
+    console.error('[МойСклад] Ошибка получения валюты:', error);
+    throw error;
+  }
+}
+
+/**
+ * Массовая синхронизация номенклатуры из VetSystem в МойСклад
+ */
+export async function syncNomenclature(products: any[], services: any[]): Promise<{
+  products: any[],
+  services: any[],
+  errors: string[]
+}> {
+  try {
+    console.log('[МойСклад] Начало синхронизации номенклатуры...');
+    console.log(`Товаров для синхронизации: ${products.length}, Услуг: ${services.length}`);
+    
+    const currency = await getCurrency();
+    const errors: string[] = [];
+    const syncedProducts: any[] = [];
+    const syncedServices: any[] = [];
+
+    // Синхронизируем товары
+    for (const product of products) {
+      try {
+        const productData: ProductData = {
+          name: product.name,
+          article: product.id, // Используем ID из VetSystem как артикул
+          description: product.description || undefined,
+          syncId: `vetsystem_product_${product.id}`, // Для предотвращения дубликатов
+          salePrices: product.price ? [{
+            value: Math.round(parseFloat(product.price.toString()) * 100), // Цена в копейках
+            currency: {
+              meta: {
+                href: currency.meta.href,
+                type: 'currency',
+                mediaType: 'application/json'
+              }
+            }
+          }] : undefined,
+          vat: 20, // НДС 20%
+          vatEnabled: true
+        };
+
+        const result = await createProduct(productData);
+        syncedProducts.push({
+          ...result,
+          originalId: product.id
+        });
+      } catch (error) {
+        const errorMsg = `Ошибка синхронизации товара "${product.name}": ${error}`;
+        console.error(errorMsg);
+        errors.push(errorMsg);
+      }
+    }
+
+    // Синхронизируем услуги  
+    for (const service of services) {
+      try {
+        const serviceData: ServiceData = {
+          name: service.name,
+          article: service.id, // Используем ID из VetSystem как артикул
+          description: service.description || undefined,
+          syncId: `vetsystem_service_${service.id}`, // Для предотвращения дубликатов
+          salePrices: service.price ? [{
+            value: Math.round(parseFloat(service.price.toString()) * 100), // Цена в копейках
+            currency: {
+              meta: {
+                href: currency.meta.href,
+                type: 'currency',
+                mediaType: 'application/json'
+              }
+            }
+          }] : undefined,
+          vat: 20, // НДС 20%
+          vatEnabled: true
+        };
+
+        const result = await createService(serviceData);
+        syncedServices.push({
+          ...result,
+          originalId: service.id
+        });
+      } catch (error) {
+        const errorMsg = `Ошибка синхронизации услуги "${service.name}": ${error}`;
+        console.error(errorMsg);
+        errors.push(errorMsg);
+      }
+    }
+
+    console.log('[МойСклад] Синхронизация завершена');
+    console.log(`Синхронизировано товаров: ${syncedProducts.length}, услуг: ${syncedServices.length}`);
+    console.log(`Ошибок: ${errors.length}`);
+
+    return {
+      products: syncedProducts,
+      services: syncedServices,
+      errors
+    };
+    
+  } catch (error) {
+    console.error('[МойСклад] Критическая ошибка синхронизации:', error);
+    throw error;
+  }
+}
+
+/**
+ * Получает существующую номенклатуру из МойСклад
+ */
+export async function getAssortment(): Promise<any> {
+  try {
+    const response = await fetch(`${MOYSKLAD_API_BASE}/entity/assortment`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${process.env.MOYSKLAD_LOGIN}:${process.env.MOYSKLAD_PASSWORD}`).toString('base64')}`,
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'gzip'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ошибка получения номенклатуры: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('[МойСклад] Ошибка получения номенклатуры:', error);
+    throw error;
   }
 }
 
