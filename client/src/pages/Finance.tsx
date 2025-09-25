@@ -206,9 +206,10 @@ export default function Finance() {
         }
       })
       
-      if (response.confirmationUrl) {
+      const data = await response.json()
+      if (data.confirmationUrl) {
         // Открыть платежную страницу ЮKassa в новой вкладке
-        window.open(response.confirmationUrl, '_blank')
+        window.open(data.confirmationUrl, '_blank')
         toast({
           title: "Платежная ссылка создана",
           description: "Откройте новую вкладку для завершения платежа"

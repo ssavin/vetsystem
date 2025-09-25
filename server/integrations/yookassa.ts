@@ -243,15 +243,15 @@ export async function cancelPayment(paymentId: string, reason?: string): Promise
 /**
  * Helper function to map payment mode for veterinary services
  */
-export function getPaymentModeForItem(itemType: 'service' | 'product'): YooKassaReceiptItem['payment_mode'] {
-  return itemType === 'service' ? 'full_payment' : 'full_payment'
+export function getPaymentModeForItem(itemType: 'service' | 'product' | 'medication'): YooKassaReceiptItem['payment_mode'] {
+  return 'full_payment' // Все типы - полная оплата
 }
 
 /**
  * Helper function to map payment subject for veterinary services
  */
-export function getPaymentSubjectForItem(itemType: 'service' | 'product'): YooKassaReceiptItem['payment_subject'] {
-  return itemType === 'service' ? 'service' : 'commodity'
+export function getPaymentSubjectForItem(itemType: 'service' | 'product' | 'medication'): YooKassaReceiptItem['payment_subject'] {
+  return itemType === 'service' ? 'service' : 'commodity' // product и medication - товары
 }
 
 /**
