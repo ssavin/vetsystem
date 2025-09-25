@@ -2305,7 +2305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get catalog items for VAT calculation
       const catalogItems = await Promise.all(
-        invoiceItems.map(item => storage.getCatalogItem(item.itemId))
+        invoiceItems.map(item => storage.getCatalogItemById(item.itemId))
       );
 
       // Calculate VAT total

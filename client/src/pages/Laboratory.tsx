@@ -6,6 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { 
   Search, 
   Plus, 
@@ -128,41 +136,47 @@ export default function Laboratory() {
 
   const StudiesTab = () => (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Лабораторные исследования</h3>
-        <LabStudyDialog />
-      </div>
+      <h3 className="text-lg font-semibold">Лабораторные исследования</h3>
       {studiesLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-3/4 mb-2" />
-                <Skeleton className="h-3 w-full mb-2" />
-                <Skeleton className="h-3 w-1/2" />
-              </CardContent>
-            </Card>
+            <div key={i} className="flex space-x-4 p-4">
+              <Skeleton className="h-4 w-1/4" />
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-4 w-1/6" />
+              <Skeleton className="h-4 w-1/4" />
+            </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredStudies.map((study: LabStudy) => (
-            <Card key={study.id} className="hover-elevate" data-testid={`card-study-${study.id}`}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center">
-                  <Microscope className="h-4 w-4 mr-2 text-primary" />
-                  {study.name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {study.description && (
-                  <p className="text-sm text-muted-foreground mb-3">{study.description}</p>
-                )}
-                <div className="flex justify-between items-center">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Исследование</TableHead>
+              <TableHead>Описание</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead className="text-right">Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredStudies.map((study: LabStudy) => (
+              <TableRow key={study.id} data-testid={`row-study-${study.id}`}>
+                <TableCell className="font-medium">
+                  <div className="flex items-center">
+                    <Microscope className="h-4 w-4 mr-2 text-primary" />
+                    {study.name}
+                  </div>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {study.description || "—"}
+                </TableCell>
+                <TableCell>
                   <Badge variant={study.isActive ? "default" : "secondary"}>
                     {study.isActive ? "Активно" : "Неактивно"}
                   </Badge>
-                  <div className="flex space-x-1">
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end space-x-1">
                     <LabParameterDialog studyId={study.id}>
                       <Button variant="outline" size="sm" data-testid={`button-parameters-${study.id}`}>
                         Параметры
@@ -172,127 +186,139 @@ export default function Laboratory() {
                       Подробнее
                     </Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </div>
   )
 
   const OrdersTab = () => (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Заказы анализов</h3>
-        <LabOrderDialog />
-      </div>
+      <h3 className="text-lg font-semibold">Заказы анализов</h3>
       {ordersLoading ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-1/4 mb-2" />
-                <Skeleton className="h-3 w-3/4 mb-2" />
-                <Skeleton className="h-3 w-1/2" />
-              </CardContent>
-            </Card>
+            <div key={i} className="flex space-x-4 p-4">
+              <Skeleton className="h-4 w-1/6" />
+              <Skeleton className="h-4 w-1/4" />
+              <Skeleton className="h-4 w-1/6" />
+              <Skeleton className="h-4 w-1/6" />
+              <Skeleton className="h-4 w-1/8" />
+              <Skeleton className="h-4 w-1/8" />
+            </div>
           ))}
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredOrders.map((order: LabOrder) => {
-            const patient = patientMap[order.patientId]
-            const doctor = doctorMap[order.doctorId || '']
-            const study = studyMap[order.studyId || '']
-            
-            return (
-              <Card key={order.id} className="hover-elevate" data-testid={`card-order-${order.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="font-semibold flex items-center">
-                        <ClipboardList className="h-4 w-4 mr-2 text-primary" />
-                        {study?.name || 'Исследование не найдено'}
-                      </h4>
-                      <p className="text-sm text-muted-foreground">
-                        Заказ #{order.id.slice(-8)}
-                      </p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Заказ</TableHead>
+              <TableHead>Исследование</TableHead>
+              <TableHead>Пациент</TableHead>
+              <TableHead>Врач</TableHead>
+              <TableHead>Дата заказа</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead className="text-right">Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredOrders.map((order: LabOrder) => {
+              const patient = patientMap[order.patientId]
+              const doctor = doctorMap[order.doctorId || '']
+              const study = studyMap[order.studyId || '']
+              
+              return (
+                <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center">
+                      <ClipboardList className="h-4 w-4 mr-2 text-primary" />
+                      #{order.id.slice(-8)}
                     </div>
+                  </TableCell>
+                  <TableCell>{study?.name || 'Исследование не найдено'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <User className="h-3 w-3 mr-1" />
+                      {patient?.name || 'Не указан'}
+                    </div>
+                  </TableCell>
+                  <TableCell>{doctor?.name || 'Не указан'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {new Date(order.orderedDate).toLocaleDateString('ru-RU')}
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <Badge variant={getStatusBadgeVariant(order.status || 'pending')}>
                       {getStatusText(order.status || 'pending')}
                     </Badge>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Пациент:</p>
-                      <p className="font-medium flex items-center">
-                        <User className="h-3 w-3 mr-1" />
-                        {patient?.name || 'Не указан'}
-                      </p>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end space-x-1">
+                      <Button variant="outline" size="sm" data-testid={`button-edit-order-${order.id}`}>
+                        Редактировать
+                      </Button>
+                      <Button variant="default" size="sm" data-testid={`button-view-results-${order.id}`}>
+                        Результаты
+                      </Button>
                     </div>
-                    <div>
-                      <p className="text-muted-foreground">Врач:</p>
-                      <p className="font-medium">{doctor?.name || 'Не указан'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Дата заказа:</p>
-                      <p className="font-medium flex items-center">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {new Date(order.orderedDate).toLocaleDateString('ru-RU')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex justify-end mt-4 space-x-2">
-                    <Button variant="outline" size="sm" data-testid={`button-edit-order-${order.id}`}>
-                      Редактировать
-                    </Button>
-                    <Button variant="default" size="sm" data-testid={`button-view-results-${order.id}`}>
-                      Результаты
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       )}
     </div>
   )
 
   const ResultsTab = () => (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Результаты анализов</h3>
-        <LabResultDialog />
-      </div>
+      <h3 className="text-lg font-semibold">Результаты анализов</h3>
       {resultsLoading ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-1/3 mb-2" />
-                <Skeleton className="h-3 w-full mb-2" />
-                <Skeleton className="h-3 w-2/3" />
-              </CardContent>
-            </Card>
+            <div key={i} className="flex space-x-4 p-4">
+              <Skeleton className="h-4 w-1/8" />
+              <Skeleton className="h-4 w-1/6" />
+              <Skeleton className="h-4 w-1/8" />
+              <Skeleton className="h-4 w-1/8" />
+              <Skeleton className="h-4 w-1/6" />
+              <Skeleton className="h-4 w-1/6" />
+            </div>
           ))}
         </div>
       ) : (
-        <div className="space-y-4">
-          {(labResults as LabResultDetail[]).map((result: LabResultDetail) => (
-            <Card key={result.id} className="hover-elevate" data-testid={`card-result-${result.id}`}>
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h4 className="font-semibold flex items-center">
-                      <FileText className="h-4 w-4 mr-2 text-primary" />
-                      Результат анализа
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      ID: {result.id.slice(-8)}
-                    </p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Значение</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Флаги</TableHead>
+              <TableHead>Дата создания</TableHead>
+              <TableHead>Дата отчета</TableHead>
+              <TableHead>Примечания</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(labResults as LabResultDetail[]).map((result: LabResultDetail) => (
+              <TableRow key={result.id} data-testid={`row-result-${result.id}`}>
+                <TableCell className="font-medium">
+                  <div className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2 text-primary" />
+                    {result.id.slice(-8)}
                   </div>
+                </TableCell>
+                <TableCell className="font-medium text-lg">
+                  {result.value || result.numericValue || 'Не указано'}
+                </TableCell>
+                <TableCell>{result.status || 'Не указан'}</TableCell>
+                <TableCell>
                   <div className="flex items-center space-x-2">
                     <Badge variant={result.flags?.includes('abnormal') ? "destructive" : "default"}>
                       {result.flags || 'normal'}
@@ -301,45 +327,33 @@ export default function Laboratory() {
                       <AlertCircle className="h-4 w-4 text-destructive" />
                     )}
                   </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Значение:</p>
-                    <p className="font-medium text-lg">
-                      {result.value || result.numericValue || 'Не указано'}
-                    </p>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {result.createdAt 
+                      ? new Date(result.createdAt).toLocaleDateString('ru-RU') 
+                      : 'Не указана'}
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">Статус:</p>
-                    <p className="font-medium">{result.status || 'Не указан'}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Дата создания:</p>
-                    <p className="font-medium flex items-center">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {result.createdAt 
-                        ? new Date(result.createdAt).toLocaleDateString('ru-RU') 
-                        : 'Не указана'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Отчет:</p>
-                    <p className="font-medium">
-                      {result.reportedDate 
-                        ? new Date(result.reportedDate).toLocaleDateString('ru-RU') 
-                        : 'Не отчитан'}
-                    </p>
-                  </div>
-                </div>
-                {result.notes && (
-                  <div className="mt-3 p-2 bg-muted rounded">
-                    <p className="text-sm">{result.notes}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </TableCell>
+                <TableCell>
+                  {result.reportedDate 
+                    ? new Date(result.reportedDate).toLocaleDateString('ru-RU') 
+                    : 'Не отчитан'}
+                </TableCell>
+                <TableCell className="max-w-xs">
+                  {result.notes ? (
+                    <div className="truncate" title={result.notes}>
+                      {result.notes}
+                    </div>
+                  ) : (
+                    '—'
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </div>
   )
@@ -356,6 +370,26 @@ export default function Laboratory() {
           <p className="text-muted-foreground mt-1">
             Управление лабораторными исследованиями, заказами и результатами
           </p>
+        </div>
+        <div className="flex space-x-2">
+          <LabStudyDialog>
+            <Button data-testid="button-add-study">
+              <Plus className="h-4 w-4 mr-2" />
+              Добавить исследование
+            </Button>
+          </LabStudyDialog>
+          <LabOrderDialog>
+            <Button data-testid="button-new-order">
+              <Plus className="h-4 w-4 mr-2" />
+              Новый заказ
+            </Button>
+          </LabOrderDialog>
+          <LabResultDialog>
+            <Button data-testid="button-add-result">
+              <Plus className="h-4 w-4 mr-2" />
+              Добавить результат
+            </Button>
+          </LabResultDialog>
         </div>
       </div>
 
