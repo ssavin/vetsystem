@@ -60,14 +60,14 @@ import {
   Search,
   Users
 } from "lucide-react"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
-import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch } from "@shared/schema"
+import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch, SystemSetting, insertSystemSettingSchema, updateSystemSettingSchema } from "@shared/schema"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
 
@@ -120,6 +120,9 @@ export default function Settings() {
     twoFactorAuth: false
   })
 
+  // Fiscal Receipt Settings state
+  const [fiscalReceiptSystem, setFiscalReceiptSystem] = useState<string>("yookassa")
+
   // Fetch branches
   const { data: branches = [], isLoading: branchesLoading } = useQuery<Branch[]>({
     queryKey: ['/api/branches'],
@@ -128,6 +131,51 @@ export default function Settings() {
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/users'],
+  })
+
+  // Fetch system settings for fiscal receipts
+  const { data: systemSettingsData = [], isLoading: systemSettingsLoading } = useQuery<SystemSetting[]>({
+    queryKey: ['/api/system-settings'],
+  })
+
+  // Initialize fiscal receipt system from server data
+  useEffect(() => {
+    const fiscalSetting = systemSettingsData.find(s => s.key === 'fiscal_receipt_system')
+    if (fiscalSetting) {
+      setFiscalReceiptSystem(fiscalSetting.value)
+    }
+  }, [systemSettingsData])
+
+  // Mutation for updating system settings
+  const updateSystemSettingMutation = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: string }) => {
+      const existingSetting = systemSettingsData.find(s => s.key === key)
+      
+      if (existingSetting) {
+        return apiRequest('PUT', `/api/system-settings/${key}`, { value })
+      } else {
+        return apiRequest('POST', '/api/system-settings', {
+          key,
+          value,
+          category: 'fiscal_receipts',
+          description: key === 'fiscal_receipt_system' ? 'Система печати фискальных чеков' : ''
+        })
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/system-settings'] })
+      toast({
+        title: "Настройки сохранены",
+        description: "Настройки фискальных чеков успешно обновлены",
+      })
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось сохранить настройки",
+        variant: "destructive",
+      })
+    },
   })
 
   const form = useForm<BranchFormData>({
@@ -1281,6 +1329,85 @@ export default function Settings() {
                 }
                 data-testid="switch-overdue-notifications"
               />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Fiscal Receipt Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Printer className="h-5 w-5" />
+            Фискальные чеки
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fiscalReceiptSystem">Система печати фискальных чеков</Label>
+              <p className="text-sm text-muted-foreground">
+                Выберите систему для печати фискальных чеков в соответствии с требованиями 54-ФЗ
+              </p>
+              <Select 
+                value={fiscalReceiptSystem} 
+                onValueChange={(value) => {
+                  setFiscalReceiptSystem(value)
+                  updateSystemSettingMutation.mutate({ key: 'fiscal_receipt_system', value })
+                }}
+                disabled={systemSettingsLoading || updateSystemSettingMutation.isPending}
+              >
+                <SelectTrigger data-testid="select-fiscal-system">
+                  <SelectValue placeholder="Выберите систему печати" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yookassa">YooKassa (ЮKassa)</SelectItem>
+                  <SelectItem value="moysklad">Мой склад</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* System status and description */}
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-primary/10 p-2">
+                  <Printer className="h-4 w-4 text-primary" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-medium text-sm">
+                    {fiscalReceiptSystem === 'yookassa' ? 'YooKassa (ЮKassa)' : 'Мой склад'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {fiscalReceiptSystem === 'yookassa' 
+                      ? 'Интегрированная система приема платежей и печати фискальных чеков от Сбербанка. Поддерживает автоматическую печать чеков для безналичных и наличных платежей.'
+                      : 'Система управления торговлей и печати фискальных чеков. Обеспечивает полное соответствие требованиям 54-ФЗ с возможностью интеграции с кассовым оборудованием.'
+                    }
+                  </p>
+                  {updateSystemSettingMutation.isPending && (
+                    <p className="text-xs text-orange-600">Сохранение настроек...</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Current configuration status */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="text-center">
+                <div className="text-lg font-semibold text-primary">
+                  {fiscalReceiptSystem === 'yookassa' ? 'ЮKassa' : 'МойСклад'}
+                </div>
+                <div className="text-xs text-muted-foreground">Текущая система</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-semibold text-green-600">54-ФЗ</div>
+                <div className="text-xs text-muted-foreground">Соответствие</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-semibold text-blue-600">
+                  {systemSettingsLoading ? '...' : 'Активно'}
+                </div>
+                <div className="text-xs text-muted-foreground">Статус</div>
+              </div>
             </div>
           </div>
         </CardContent>
