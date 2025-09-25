@@ -70,40 +70,48 @@ export default function Laboratory() {
   // Create lookup maps
   const patientMap = useMemo(() => {
     const map: Record<string, any> = {}
-    ;(patients as any[]).forEach((patient: any) => {
-      map[patient.id] = patient
-    })
+    if (Array.isArray(patients)) {
+      patients.forEach((patient: any) => {
+        map[patient.id] = patient
+      })
+    }
     return map
   }, [patients])
 
   const doctorMap = useMemo(() => {
     const map: Record<string, any> = {}
-    ;(doctors as any[]).forEach((doctor: any) => {
-      map[doctor.id] = doctor
-    })
+    if (Array.isArray(doctors)) {
+      doctors.forEach((doctor: any) => {
+        map[doctor.id] = doctor
+      })
+    }
     return map
   }, [doctors])
 
   const studyMap = useMemo(() => {
     const map: Record<string, any> = {}
-    ;(labStudies as LabStudy[]).forEach((study: LabStudy) => {
-      map[study.id] = study
-    })
+    if (Array.isArray(labStudies)) {
+      labStudies.forEach((study: LabStudy) => {
+        map[study.id] = study
+      })
+    }
     return map
   }, [labStudies])
 
   // Filter data based on search term
   const filteredStudies = useMemo(() => {
+    if (!Array.isArray(labStudies)) return []
     if (!searchTerm) return labStudies as LabStudy[]
-    return (labStudies as LabStudy[]).filter((study: LabStudy) => 
+    return labStudies.filter((study: LabStudy) => 
       study.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       study.description?.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [labStudies, searchTerm])
 
   const filteredOrders = useMemo(() => {
+    if (!Array.isArray(labOrders)) return []
     if (!searchTerm) return labOrders as LabOrder[]
-    return (labOrders as LabOrder[]).filter((order: LabOrder) => {
+    return labOrders.filter((order: LabOrder) => {
       const patient = patientMap[order.patientId]
       const doctor = doctorMap[order.doctorId]
       return (
