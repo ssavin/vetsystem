@@ -2560,18 +2560,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/receipts/moysklad - Create fiscal receipt via MoySklad (placeholder)
+  // POST /api/receipts/moysklad - Create fiscal receipt via MoySklad
   app.post("/api/receipts/moysklad", authenticateToken, async (req, res) => {
     try {
-      const { invoiceId } = req.body;
+      const { invoiceId, customerData } = req.body;
       
-      // TODO: Implement MoySklad fiscal receipt integration
-      // For now, return a placeholder response indicating the feature is not yet implemented
-      res.status(501).json({
-        error: "MoySklad integration not implemented",
-        message: "Интеграция с МойСклад находится в разработке. Используйте YooKassa для печати фискальных чеков.",
-        invoiceId
-      });
+      if (!invoiceId) {
+        return res.status(400).json({
+          error: "invoiceId is required",
+          message: "ID счета обязателен для создания фискального чека"
+        });
+      }
+
+      // Получаем данные счета из базы данных
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({
+          error: "Invoice not found",
+          message: "Счет не найден"
+        });
+      }
+
+      // Получаем позиции счета
+      const invoiceItems = await storage.getInvoiceItems(invoiceId);
+      if (!invoiceItems || invoiceItems.length === 0) {
+        return res.status(400).json({
+          error: "No invoice items found",
+          message: "В счете отсутствуют позиции товаров/услуг"
+        });
+      }
+
+      // Импортируем модуль МойСклад
+      const { createFiscalReceipt } = await import('./integrations/moysklad');
+      
+      // Подготавливаем данные для создания фискального чека
+      const receiptData = {
+        invoiceId,
+        customerData: customerData || {},
+        // Конвертируем позиции счета в формат МойСклад
+        positions: invoiceItems.map((item) => ({
+          quantity: item.quantity,
+          price: parseFloat(item.price.toString()) * 100, // Цена в копейках для API
+          assortment: {
+            meta: {
+              href: `https://api.moysklad.ru/api/remap/1.2/entity/${item.itemType}/${item.itemId}`,
+              type: item.itemType, // 'service' или 'product'
+              mediaType: 'application/json'
+            }
+          },
+          vat: 20, // НДС 20% по умолчанию (можно настроить)
+          vatEnabled: true
+        })),
+        // Суммы оплаты (базируемся на total и статусе)
+        cashSum: invoice.paymentMethod === 'cash' ? parseFloat(invoice.total.toString()) * 100 : 0, // В копейках
+        noCashSum: invoice.paymentMethod === 'card' ? parseFloat(invoice.total.toString()) * 100 : 0, // В копейках
+      };
+
+      // Создаем фискальный чек через МойСклад
+      const result = await createFiscalReceipt(receiptData);
+      
+      if (result.success) {
+        res.json({
+          success: true,
+          message: "Фискальный чек успешно создан через МойСклад",
+          receiptId: result.receiptId,
+          fiscalReceiptUrl: result.fiscalReceiptUrl,
+          invoiceId
+        });
+      } else {
+        res.status(500).json({
+          error: "Failed to create fiscal receipt",
+          message: result.error || "Не удалось создать фискальный чек",
+          details: result.details,
+          invoiceId
+        });
+      }
     } catch (error) {
       console.error("Error in MoySklad receipt endpoint:", error);
       res.status(500).json({ 
