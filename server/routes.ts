@@ -1077,7 +1077,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = (req as any).user;
       const userBranchId = requireValidBranchId(req, res);
       if (!userBranchId) return;
-      const invoices = await storage.getInvoices(status, userBranchId);
+      const invoices = await storage.getInvoicesWithDetails(status, userBranchId);
       console.log("=== GET /api/invoices response ===");
       console.log("Number of invoices found:", invoices.length);
       console.log("Sample invoice structure:", invoices[0] ? JSON.stringify(invoices[0], null, 2) : "No invoices");

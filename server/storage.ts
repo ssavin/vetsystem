@@ -940,6 +940,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Invoice methods - 🔒 SECURITY: branchId mandatory for PHI isolation
+  
+  // Расширенный метод для получения счетов с данными пациентов и владельцев
+  async getInvoicesWithDetails(status: string | undefined, branchId: string) {
+    // 🔒 CRITICAL: Enforce branch isolation via patient join
+    let query = db.select({
+      id: invoices.id,
+      invoiceNumber: invoices.invoiceNumber,
+      patientId: invoices.patientId,
+      appointmentId: invoices.appointmentId,
+      issueDate: invoices.issueDate,
+      dueDate: invoices.dueDate,
+      subtotal: invoices.subtotal,
+      discount: invoices.discount,
+      total: invoices.total,
+      status: invoices.status,
+      paymentMethod: invoices.paymentMethod,
+      paidDate: invoices.paidDate,
+      paymentId: invoices.paymentId,
+      paymentUrl: invoices.paymentUrl,
+      fiscalReceiptId: invoices.fiscalReceiptId,
+      fiscalReceiptUrl: invoices.fiscalReceiptUrl,
+      notes: invoices.notes,
+      createdAt: invoices.createdAt,
+      updatedAt: invoices.updatedAt,
+      // Данные пациента
+      patientName: patients.name,
+      patientSpecies: patients.species,
+      patientBreed: patients.breed,
+      // Данные владельца
+      ownerName: owners.name,
+      ownerPhone: owners.phone,
+    }).from(invoices)
+      .leftJoin(patients, eq(invoices.patientId, patients.id))
+      .leftJoin(owners, eq(patients.ownerId, owners.id))
+      .where(eq(patients.branchId, branchId));
+    
+    if (status) {
+      query = query.where(and(eq(patients.branchId, branchId), eq(invoices.status, status)));
+    }
+    
+    return await query.orderBy(desc(invoices.issueDate));
+  }
+  
   async getInvoices(status: string | undefined, branchId: string): Promise<Invoice[]> {
     // 🔒 CRITICAL: Enforce branch isolation via patient join
     let query = db.select({

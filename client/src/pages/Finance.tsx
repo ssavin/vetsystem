@@ -5,10 +5,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText, Edit, Trash2, Eye, CreditCard, Receipt } from "lucide-react"
+import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText, Edit, Trash2, Eye, CreditCard, Receipt, Printer } from "lucide-react"
 import InvoiceDialog from "@/components/InvoiceDialog"
-import { apiRequest } from "@/lib/queryClient"
+import { apiRequest, queryClient } from "@/lib/queryClient"
 import { useToast } from "@/hooks/use-toast"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { 
   Table, 
   TableBody, 
@@ -119,7 +125,65 @@ const mockInvoices = [
 export default function Finance() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("invoices")
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const { toast } = useToast()
+
+  // Обработчики событий для кнопок действий
+  const handleViewInvoice = (invoiceId: string) => {
+    const invoice = filteredInvoices.find(inv => inv.id === invoiceId)
+    if (invoice) {
+      setSelectedInvoice(invoice)
+      setIsViewDialogOpen(true)
+    }
+  }
+
+  const handleEditInvoice = (invoiceId: string) => {
+    const invoice = filteredInvoices.find(inv => inv.id === invoiceId)
+    if (invoice) {
+      setSelectedInvoice(invoice)
+      setIsEditDialogOpen(true)
+    }
+  }
+
+  const handlePrintInvoice = (invoiceId: string) => {
+    toast({
+      title: "Печать счета",
+      description: `Подготовка к печати счета ${invoiceId}`,
+    })
+    // TODO: Генерация PDF и открытие окна печати
+    window.print()
+  }
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    if (!confirm('Вы уверены, что хотите удалить этот счет? Это действие нельзя отменить.')) {
+      return
+    }
+    
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}`, {
+        method: 'DELETE',
+      })
+      
+      if (response.ok) {
+        toast({
+          title: "Счет удален",
+          description: "Счет успешно удален из системы",
+        })
+        // Обновляем список счетов
+        queryClient.invalidateQueries({ queryKey: ['/api/invoices'] })
+      } else {
+        throw new Error('Не удалось удалить счет')
+      }
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось удалить счет. Попробуйте еще раз.",
+        variant: "destructive"
+      })
+    }
+  }
 
   // Fetch real invoices from API
   const { data: invoices = [], isLoading: isLoadingInvoices, error } = useQuery({
@@ -182,9 +246,11 @@ export default function Finance() {
     }
   }
 
-  // TODO: Добавить фильтрацию по имени пациента и владельца когда получим данные
+  // Фильтрация по номеру счета, имени пациента, имени владельца и заметкам
   const filteredInvoices = Array.isArray(invoices) ? invoices.filter((invoice: any) =>
     (invoice.invoiceNumber && invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (invoice.patientName && invoice.patientName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (invoice.ownerName && invoice.ownerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (invoice.notes && invoice.notes.toLowerCase().includes(searchTerm.toLowerCase()))
   ) : []
 
@@ -289,11 +355,21 @@ export default function Finance() {
                             {shortInvoiceNumber}
                           </TableCell>
                           <TableCell>{formattedDate}</TableCell>
-                          <TableCell className="text-muted-foreground">
-                            Загрузка...
+                          <TableCell>
+                            {invoice.patientName || '—'}
+                            {invoice.patientSpecies && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                ({invoice.patientSpecies})
+                              </span>
+                            )}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            Загрузка...
+                          <TableCell>
+                            {invoice.ownerName || '—'}
+                            {invoice.ownerPhone && (
+                              <div className="text-xs text-muted-foreground">
+                                {invoice.ownerPhone}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="font-medium">
                             {formattedTotal} ₽
@@ -311,49 +387,118 @@ export default function Finance() {
                           </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end space-x-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              data-testid={`button-view-invoice-${invoice.id}`}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              data-testid={`button-edit-invoice-${invoice.id}`}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleViewInvoice(invoice.id)}
+                                    data-testid={`button-view-invoice-${invoice.id}`}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Просмотр деталей счета</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditInvoice(invoice.id)}
+                                    data-testid={`button-edit-invoice-${invoice.id}`}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Редактировать счет</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handlePrintInvoice(invoice.id)}
+                                    data-testid={`button-print-invoice-${invoice.id}`}
+                                  >
+                                    <Printer className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Распечатать счет</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                             {invoice.status !== 'paid' && (
                               <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-blue-600 hover:text-blue-700"
-                                  data-testid={`button-pay-yookassa-${invoice.id}`}
-                                  onClick={() => handleYooKassaPayment(invoice.id)}
-                                >
-                                  <CreditCard className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-green-600 hover:text-green-700"
-                                  data-testid={`button-fiscal-receipt-${invoice.id}`}
-                                  onClick={() => handleFiscalReceipt(invoice.id)}
-                                >
-                                  <Receipt className="h-4 w-4" />
-                                </Button>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-blue-600 hover:text-blue-700"
+                                        data-testid={`button-pay-yookassa-${invoice.id}`}
+                                        onClick={() => handleYooKassaPayment(invoice.id)}
+                                      >
+                                        <CreditCard className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Оплатить через ЮKassa</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-green-600 hover:text-green-700"
+                                        data-testid={`button-fiscal-receipt-${invoice.id}`}
+                                        onClick={() => handleFiscalReceipt(invoice.id)}
+                                      >
+                                        <Receipt className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Создать фискальный чек</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               </>
                             )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              data-testid={`button-delete-invoice-${invoice.id}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-600 hover:text-red-700"
+                                    onClick={() => handleDeleteInvoice(invoice.id)}
+                                    data-testid={`button-delete-invoice-${invoice.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Удалить счет</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                         </TableCell>
                       </TableRow>
