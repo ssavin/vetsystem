@@ -182,10 +182,10 @@ export default function Finance() {
     }
   }
 
+  // TODO: Добавить фильтрацию по имени пациента и владельца когда получим данные
   const filteredInvoices = Array.isArray(invoices) ? invoices.filter((invoice: any) =>
-    (invoice.id && invoice.id.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (invoice.ownerName && invoice.ownerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (invoice.patientName && invoice.patientName.toLowerCase().includes(searchTerm.toLowerCase()))
+    (invoice.invoiceNumber && invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (invoice.notes && invoice.notes.toLowerCase().includes(searchTerm.toLowerCase()))
   ) : []
 
 
@@ -258,39 +258,57 @@ export default function Finance() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>№ счета</TableHead>
-                      <TableHead>Дата</TableHead>
+                      <TableHead>Дата создания</TableHead>
                       <TableHead>Пациент</TableHead>
                       <TableHead>Владелец</TableHead>
                       <TableHead>Сумма</TableHead>
                       <TableHead>Статус</TableHead>
-                      <TableHead>Срок оплаты</TableHead>
                       <TableHead className="text-right">Действия</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredInvoices.map(invoice => (
-                      <TableRow key={invoice.id} className="hover-elevate">
-                        <TableCell className="font-medium">{invoice.id}</TableCell>
-                        <TableCell>{invoice.date}</TableCell>
-                        <TableCell>{invoice.patientName}</TableCell>
-                        <TableCell>{invoice.ownerName}</TableCell>
-                        <TableCell className="font-medium">
-                          {invoice.total.toLocaleString('ru-RU')} ₽
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={
-                            invoice.status === 'paid' ? 'default' : 
-                            invoice.status === 'pending' ? 'secondary' : 
-                            'destructive'
-                          }>
-                            {invoice.status === 'paid' ? 'Оплачен' : 
-                             invoice.status === 'pending' ? 'Ожидает' : 
-                             'Просрочен'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {invoice.dueDate || '—'}
-                        </TableCell>
+                    {filteredInvoices.map(invoice => {
+                      // Сокращаем номер счета для отображения
+                      const shortInvoiceNumber = invoice.invoiceNumber?.replace('INV-', '') || invoice.id;
+                      
+                      // Форматируем дату
+                      const formattedDate = invoice.issueDate 
+                        ? new Date(invoice.issueDate).toLocaleDateString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit', 
+                            year: 'numeric'
+                          })
+                        : '—';
+                        
+                      // Форматируем сумму
+                      const formattedTotal = parseFloat(invoice.total || '0').toLocaleString('ru-RU');
+                      
+                      return (
+                        <TableRow key={invoice.id} className="hover-elevate">
+                          <TableCell className="font-medium font-mono text-sm">
+                            {shortInvoiceNumber}
+                          </TableCell>
+                          <TableCell>{formattedDate}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            Загрузка...
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            Загрузка...
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {formattedTotal} ₽
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              invoice.status === 'paid' ? 'default' : 
+                              invoice.status === 'pending' ? 'secondary' : 
+                              'destructive'
+                            }>
+                              {invoice.status === 'paid' ? 'Оплачен' : 
+                               invoice.status === 'pending' ? 'Ожидает' : 
+                               'Просрочен'}
+                            </Badge>
+                          </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end space-x-1">
                             <Button
@@ -339,7 +357,8 @@ export default function Finance() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </CardContent>
