@@ -25,7 +25,7 @@ import {
   catalogItems
 } from "@shared/schema";
 import { db } from "./db-local";
-import { eq, like, and, or, desc, sql, gte, lte, isNull, type SQL } from "drizzle-orm";
+import { eq, like, and, or, desc, sql, gte, lte, lt, isNull, type SQL } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 // Performance monitoring utilities
@@ -969,8 +969,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    // Generate invoice number if not provided
+    let invoiceNumber = invoice.invoiceNumber;
+    if (!invoiceNumber) {
+      // Generate invoice number in format: INV-YYYYMMDD-XXXXX
+      const date = new Date();
+      const dateStr = date.getFullYear().toString() + 
+                     (date.getMonth() + 1).toString().padStart(2, '0') + 
+                     date.getDate().toString().padStart(2, '0');
+      
+      // Get count of invoices created today for sequential numbering
+      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+      
+      const todayInvoices = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(invoices)
+        .where(and(
+          gte(invoices.issueDate, startOfDay),
+          lt(invoices.issueDate, endOfDay)
+        ));
+      
+      const sequentialNumber = (todayInvoices[0]?.count || 0) + 1;
+      invoiceNumber = `INV-${dateStr}-${sequentialNumber.toString().padStart(5, '0')}`;
+    }
+
     const invoiceToInsert = {
       ...invoice,
+      invoiceNumber,
       subtotal: invoice.subtotal.toString(),
       discount: invoice.discount !== undefined ? invoice.discount.toString() : "0",
       total: invoice.total.toString()
