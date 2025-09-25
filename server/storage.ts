@@ -942,7 +942,27 @@ export class DatabaseStorage implements IStorage {
   // Invoice methods - 🔒 SECURITY: branchId mandatory for PHI isolation
   async getInvoices(status: string | undefined, branchId: string): Promise<Invoice[]> {
     // 🔒 CRITICAL: Enforce branch isolation via patient join
-    let query = db.select().from(invoices)
+    let query = db.select({
+      id: invoices.id,
+      invoiceNumber: invoices.invoiceNumber,
+      patientId: invoices.patientId,
+      appointmentId: invoices.appointmentId,
+      issueDate: invoices.issueDate,
+      dueDate: invoices.dueDate,
+      subtotal: invoices.subtotal,
+      discount: invoices.discount,
+      total: invoices.total,
+      status: invoices.status,
+      paymentMethod: invoices.paymentMethod,
+      paidDate: invoices.paidDate,
+      paymentId: invoices.paymentId,
+      paymentUrl: invoices.paymentUrl,
+      fiscalReceiptId: invoices.fiscalReceiptId,
+      fiscalReceiptUrl: invoices.fiscalReceiptUrl,
+      notes: invoices.notes,
+      createdAt: invoices.createdAt,
+      updatedAt: invoices.updatedAt,
+    }).from(invoices)
       .leftJoin(patients, eq(invoices.patientId, patients.id))
       .where(eq(patients.branchId, branchId));
     
@@ -961,7 +981,27 @@ export class DatabaseStorage implements IStorage {
   async getInvoicesByPatient(patientId: string, branchId: string): Promise<Invoice[]> {
     // 🔒 CRITICAL: Enforce branch isolation via patient join
     return await db
-      .select()
+      .select({
+        id: invoices.id,
+        invoiceNumber: invoices.invoiceNumber,
+        patientId: invoices.patientId,
+        appointmentId: invoices.appointmentId,
+        issueDate: invoices.issueDate,
+        dueDate: invoices.dueDate,
+        subtotal: invoices.subtotal,
+        discount: invoices.discount,
+        total: invoices.total,
+        status: invoices.status,
+        paymentMethod: invoices.paymentMethod,
+        paidDate: invoices.paidDate,
+        paymentId: invoices.paymentId,
+        paymentUrl: invoices.paymentUrl,
+        fiscalReceiptId: invoices.fiscalReceiptId,
+        fiscalReceiptUrl: invoices.fiscalReceiptUrl,
+        notes: invoices.notes,
+        createdAt: invoices.createdAt,
+        updatedAt: invoices.updatedAt,
+      })
       .from(invoices)
       .leftJoin(patients, eq(invoices.patientId, patients.id))
       .where(and(eq(invoices.patientId, patientId), eq(patients.branchId, branchId)))
