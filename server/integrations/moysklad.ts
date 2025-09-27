@@ -472,6 +472,32 @@ export async function createService(serviceData: ServiceData): Promise<any> {
 }
 
 /**
+ * Получает доступные типы цен из МойСклад
+ */
+export async function getPriceTypes(): Promise<any[]> {
+  try {
+    const response = await fetch(`${MOYSKLAD_API_BASE}/entity/product/metadata`, {
+      method: 'GET',
+      headers: {
+        'Authorization': getAuthHeader(),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json;charset=utf-8'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const metadata = await response.json();
+    return metadata.priceTypes || [];
+  } catch (error) {
+    console.error('Ошибка получения типов цен:', error);
+    throw error;
+  }
+}
+
+/**
  * Получает информацию о валюте (обычно RUB)
  */
 export async function getCurrency(): Promise<any> {
@@ -512,6 +538,10 @@ export async function syncNomenclature(products: any[], services: any[]): Promis
     console.log(`Товаров для синхронизации: ${products.length}, Услуг: ${services.length}`);
     
     const currency = await getCurrency();
+    
+    // Получаем доступные типы цен
+    const priceTypes = await getPriceTypes();
+    const defaultPriceType = priceTypes.length > 0 ? priceTypes[0].name : 'Цена продажи';
     const errors: string[] = [];
     const syncedProducts: any[] = [];
     const syncedServices: any[] = [];
@@ -526,6 +556,7 @@ export async function syncNomenclature(products: any[], services: any[]): Promis
           // syncId убран - не требуется для базовой синхронизации
           salePrices: product.price ? [{
             value: Math.round(parseFloat(product.price.toString()) * 100), // Цена в копейках
+            priceType: defaultPriceType,
             currency: {
               meta: {
                 href: currency.meta.href,
@@ -560,6 +591,7 @@ export async function syncNomenclature(products: any[], services: any[]): Promis
           // syncId убран - не требуется для базовой синхронизации
           salePrices: service.price ? [{
             value: Math.round(parseFloat(service.price.toString()) * 100), // Цена в копейках
+            priceType: defaultPriceType,
             currency: {
               meta: {
                 href: currency.meta.href,
