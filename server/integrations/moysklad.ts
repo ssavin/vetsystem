@@ -523,7 +523,7 @@ export async function syncNomenclature(products: any[], services: any[]): Promis
           name: product.name,
           article: product.id, // Используем ID из VetSystem как артикул
           description: product.description || undefined,
-          syncId: `vetsystem_product_${product.id}`, // Для предотвращения дубликатов
+          // syncId убран - не требуется для базовой синхронизации
           salePrices: product.price ? [{
             value: Math.round(parseFloat(product.price.toString()) * 100), // Цена в копейках
             currency: {
@@ -557,7 +557,7 @@ export async function syncNomenclature(products: any[], services: any[]): Promis
           name: service.name,
           article: service.id, // Используем ID из VetSystem как артикул
           description: service.description || undefined,
-          syncId: `vetsystem_service_${service.id}`, // Для предотвращения дубликатов
+          // syncId убран - не требуется для базовой синхронизации
           salePrices: service.price ? [{
             value: Math.round(parseFloat(service.price.toString()) * 100), // Цена в копейках
             currency: {
