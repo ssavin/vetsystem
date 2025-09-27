@@ -80,15 +80,14 @@ if (!process.env.MOYSKLAD_API_TOKEN && (!config.login || !config.password)) {
   throw new Error('Отсутствуют учетные данные для МойСклад: необходим либо MOYSKLAD_API_TOKEN, либо MOYSKLAD_LOGIN + MOYSKLAD_PASSWORD');
 }
 
-// Basic Auth header для API запросов (с токеном)
+// Auth header для API запросов (с токеном)
 const getAuthHeader = () => {
-  // Для МойСклад API токены используются как Basic Auth: токен + пустой пароль
+  // Для МойСклад API токены используются как Bearer tokens
   if (process.env.MOYSKLAD_API_TOKEN) {
-    const credentials = Buffer.from(`${process.env.MOYSKLAD_API_TOKEN}:`).toString('base64');
-    return `Basic ${credentials}`;
+    return `Bearer ${process.env.MOYSKLAD_API_TOKEN}`;
   }
   
-  // Fallback на логин/пароль если токен не доступен
+  // Fallback на Basic Auth с логином/паролем если токен не доступен
   const credentials = Buffer.from(`${config.login}:${config.password}`).toString('base64');
   return `Basic ${credentials}`;
 };
