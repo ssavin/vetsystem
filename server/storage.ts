@@ -26,7 +26,7 @@ import {
   catalogItems, systemSettings
 } from "@shared/schema";
 import { db } from "./db-local";
-import { eq, like, and, or, desc, sql, gte, lte, lt, isNull, type SQL } from "drizzle-orm";
+import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, type SQL } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 // Performance monitoring utilities
@@ -234,7 +234,7 @@ export interface IStorage {
     invoiceId: string;
     receiptNumber: string | null;
     status: string;
-    receiptType: string;
+    receiptType: string | null;
     paymentMethod: string;
     customerEmail: string | null;
     customerPhone: string | null;
@@ -260,6 +260,44 @@ export interface IStorage {
     registeredAt?: Date;
     errorMessage?: string | null;
   }): Promise<void>;
+  
+  // Local Print methods for fiscal receipts
+  getFiscalReceipt(id: string): Promise<{
+    id: string;
+    invoiceId: string;
+    items: any;
+    totalAmount: string;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    paymentMethod: string;
+    taxationSystem: string;
+    operatorName: string | null;
+    receiptType: string | null;
+    localPrintStatus: string | null;
+    localPrinterType: string | null;
+    localPrintedAt: Date | null;
+    localPrintData: any;
+    localPrintError: string | null;
+    createdAt: Date;
+  } | undefined>;
+  
+  getPendingLocalPrintReceipts(branchId: string): Promise<{
+    id: string;
+    invoiceId: string;
+    items: any;
+    totalAmount: string;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    paymentMethod: string;
+    taxationSystem: string;
+    operatorName: string | null;
+    receiptType: string | null;
+    createdAt: Date;
+  }[]>;
+  
+  markReceiptAsPrinted(receiptId: string, printResult: any, printedAt: Date): Promise<boolean>;
+  
+  requestLocalPrint(invoiceId: string, printerType: string, operatorName: string): Promise<string>;
   
   // Additional methods for YooKassa integration
   getPaymentIntentsByInvoice(invoiceId: string): Promise<{
@@ -1815,7 +1853,7 @@ export class DatabaseStorage implements IStorage {
     invoiceId: string;
     receiptNumber: string | null;
     status: string;
-    receiptType: string;
+    receiptType: string | null;
     paymentMethod: string;
     customerEmail: string | null;
     customerPhone: string | null;
@@ -1881,6 +1919,197 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         })
         .where(eq(fiscalReceipts.id, id));
+    });
+  }
+  
+  // Local Print methods implementation
+  async getFiscalReceipt(id: string): Promise<{
+    id: string;
+    invoiceId: string;
+    items: any;
+    totalAmount: string;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    paymentMethod: string;
+    taxationSystem: string;
+    operatorName: string | null;
+    receiptType: string | null;
+    localPrintStatus: string | null;
+    localPrinterType: string | null;
+    localPrintedAt: Date | null;
+    localPrintData: any;
+    localPrintError: string | null;
+    createdAt: Date;
+  } | undefined> {
+    return withPerformanceLogging('getFiscalReceipt', async () => {
+      const [receipt] = await db
+        .select({
+          id: fiscalReceipts.id,
+          invoiceId: fiscalReceipts.invoiceId,
+          items: fiscalReceipts.items,
+          totalAmount: fiscalReceipts.totalAmount,
+          customerEmail: fiscalReceipts.customerEmail,
+          customerPhone: fiscalReceipts.customerPhone,
+          paymentMethod: fiscalReceipts.paymentMethod,
+          taxationSystem: fiscalReceipts.taxationSystem,
+          operatorName: fiscalReceipts.operatorName,
+          receiptType: fiscalReceipts.receiptType,
+          localPrintStatus: fiscalReceipts.localPrintStatus,
+          localPrinterType: fiscalReceipts.localPrinterType,
+          localPrintedAt: fiscalReceipts.localPrintedAt,
+          localPrintData: fiscalReceipts.localPrintData,
+          localPrintError: fiscalReceipts.localPrintError,
+          createdAt: fiscalReceipts.createdAt,
+        })
+        .from(fiscalReceipts)
+        .where(eq(fiscalReceipts.id, id));
+      return receipt || undefined;
+    });
+  }
+
+  async getPendingLocalPrintReceipts(branchId: string): Promise<{
+    id: string;
+    invoiceId: string;
+    items: any;
+    totalAmount: string;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    paymentMethod: string;
+    taxationSystem: string;
+    operatorName: string | null;
+    receiptType: string | null;
+    createdAt: Date;
+  }[]> {
+    return withPerformanceLogging('getPendingLocalPrintReceipts', async () => {
+      return await db
+        .select({
+          id: fiscalReceipts.id,
+          invoiceId: fiscalReceipts.invoiceId,
+          items: fiscalReceipts.items,
+          totalAmount: fiscalReceipts.totalAmount,
+          customerEmail: fiscalReceipts.customerEmail,
+          customerPhone: fiscalReceipts.customerPhone,
+          paymentMethod: fiscalReceipts.paymentMethod,
+          taxationSystem: fiscalReceipts.taxationSystem,
+          operatorName: fiscalReceipts.operatorName,
+          receiptType: fiscalReceipts.receiptType,
+          createdAt: fiscalReceipts.createdAt,
+        })
+        .from(fiscalReceipts)
+        .innerJoin(invoices, eq(fiscalReceipts.invoiceId, invoices.id))
+        .innerJoin(patients, eq(invoices.patientId, patients.id))
+        .where(
+          and(
+            eq(patients.branchId, branchId),
+            eq(fiscalReceipts.localPrintRequested, true),
+            eq(fiscalReceipts.localPrintStatus, 'pending')
+          )
+        )
+        .orderBy(asc(fiscalReceipts.createdAt));
+    });
+  }
+
+  async markReceiptAsPrinted(receiptId: string, printResult: any, printedAt: Date): Promise<boolean> {
+    return withPerformanceLogging('markReceiptAsPrinted', async () => {
+      const success = printResult.success === true;
+      
+      const result = await db
+        .update(fiscalReceipts)
+        .set({
+          localPrintStatus: success ? 'printed' : 'failed',
+          localPrintedAt: printedAt,
+          localPrintData: printResult,
+          localPrintError: success ? null : (printResult.error || 'Unknown print error'),
+          updatedAt: new Date(),
+        })
+        .where(eq(fiscalReceipts.id, receiptId))
+        .returning({ id: fiscalReceipts.id });
+      
+      return result.length > 0;
+    });
+  }
+
+  async requestLocalPrint(invoiceId: string, printerType: string, operatorName: string): Promise<string> {
+    return withPerformanceLogging('requestLocalPrint', async () => {
+      // Проверяем, есть ли уже фискальный чек для этого счета
+      const [existingReceipt] = await db
+        .select({ id: fiscalReceipts.id })
+        .from(fiscalReceipts)
+        .where(eq(fiscalReceipts.invoiceId, invoiceId));
+
+      if (existingReceipt) {
+        // Обновляем существующий чек для локальной печати
+        await db
+          .update(fiscalReceipts)
+          .set({
+            localPrintRequested: true,
+            localPrintStatus: 'pending',
+            localPrinterType: printerType,
+            operatorName: operatorName,
+            updatedAt: new Date(),
+          })
+          .where(eq(fiscalReceipts.id, existingReceipt.id));
+        
+        return existingReceipt.id;
+      } else {
+        // Получаем данные счета для создания фискального чека
+        const invoice = await this.getInvoice(invoiceId);
+        if (!invoice) {
+          throw new Error('Invoice not found');
+        }
+
+        const invoiceItems = await this.getInvoiceItems(invoiceId);
+        
+        // Формируем позиции чека согласно 54-ФЗ
+        const receiptItems = invoiceItems.map(item => ({
+          name: item.itemName,
+          quantity: parseFloat(item.quantity.toString()),
+          price: parseFloat(item.price),
+          amount: parseFloat(item.total),
+          vatRate: item.vatRate || 'not_applicable',
+          paymentMethod: 'full_payment',
+          paymentObject: 'service'
+        }));
+
+        // Создаем новый фискальный чек
+        const [created] = await db
+          .insert(fiscalReceipts)
+          .values({
+            invoiceId: invoiceId,
+            receiptNumber: null,
+            status: 'draft',
+            receiptType: 'sale',
+            paymentMethod: 'cash', // По умолчанию наличные, может быть изменено
+            customerEmail: null,
+            customerPhone: null,
+            taxationSystem: 'simplified_income', // УСН доходы по умолчанию
+            operatorName: operatorName,
+            operatorInn: null,
+            totalAmount: invoice.total,
+            vatAmount: '0', // Рассчитывается при необходимости
+            cashAmount: invoice.total,
+            cardAmount: '0',
+            items: receiptItems,
+            markingStatus: 'not_required',
+            fiscalData: null,
+            integrationAccountId: null,
+            externalReceiptId: null,
+            localPrintRequested: true,
+            localPrintStatus: 'pending',
+            localPrinterType: printerType,
+            localPrintedAt: null,
+            localPrintData: null,
+            localPrintError: null,
+            errorMessage: null,
+            sentAt: null,
+            registeredAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning({ id: fiscalReceipts.id });
+
+        return created.id;
+      }
     });
   }
   

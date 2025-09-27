@@ -1,0 +1,38 @@
+# VetSystem Fiscal Printer Requirements
+# Python >= 3.8 required
+
+# Windows COM interface for fiscal printers
+pywin32>=306
+
+# HTTP requests to VetSystem API
+requests>=2.31.0
+
+# Configuration management
+configparser
+
+# GUI framework (included in Python standard library)
+# tkinter
+
+# Additional utilities
+pathlib2>=2.3.0 ; python_version < "3.4"
+
+# Development and testing
+pytest>=7.0.0
+pytest-mock>=3.10.0
+
+# Optional: Advanced GUI (alternative to tkinter)
+# PyQt5>=5.15.0
+# PyQt6>=6.5.0
+
+# Optional: System integration
+psutil>=5.9.0
+
+# Optional: Logging enhancements  
+colorlog>=6.7.0
+
+# Runtime information
+# Supported OS: Windows 10/11
+# Supported Python: 3.8+
+# Supported printers:
+#   - Атол: 15Ф, 25Ф, 30Ф, 42ФС, 52Ф, 77Ф
+#   - Штрих-М: Штрих-ФР-К, Вики Принт 57, Элвес МФ

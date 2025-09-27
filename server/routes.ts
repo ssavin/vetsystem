@@ -2871,6 +2871,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // =============================================
+  // ЛОКАЛЬНАЯ ПЕЧАТЬ ФИСКАЛЬНЫХ ЧЕКОВ
+  // =============================================
+
+  // GET /api/fiscal/pending-receipts - Получение очереди чеков для локальной печати
+  app.get("/api/fiscal/pending-receipts", authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      // Получение фискальных чеков, ожидающих локальной печати
+      const pendingReceipts = await storage.getPendingLocalPrintReceipts(userBranchId);
+      
+      // Преобразование в формат для Python программы
+      const receiptsForPrint = pendingReceipts.map(receipt => ({
+        id: receipt.id,
+        invoiceId: receipt.invoiceId,
+        items: receipt.items, // JSON структура с позициями чека
+        total: parseFloat(receipt.totalAmount),
+        customer: {
+          email: receipt.customerEmail,
+          phone: receipt.customerPhone
+        },
+        paymentMethod: receipt.paymentMethod,
+        taxationSystem: receipt.taxationSystem,
+        operatorName: receipt.operatorName || 'Кассир',
+        receiptType: receipt.receiptType,
+        createdAt: receipt.createdAt
+      }));
+
+      res.json(receiptsForPrint);
+    } catch (error) {
+      console.error("Error getting pending receipts:", error);
+      res.status(500).json({ 
+        error: "Failed to get pending receipts",
+        message: "Не удалось получить очередь чеков",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // POST /api/fiscal/mark-printed - Отметка чека как напечатанного
+  app.post("/api/fiscal/mark-printed", authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { receipt_id, print_result, printed_at } = req.body;
+
+      if (!receipt_id || !print_result) {
+        return res.status(400).json({ 
+          error: "Missing required fields",
+          message: "Отсутствуют обязательные поля" 
+        });
+      }
+
+      // Обновление статуса фискального чека
+      const success = await storage.markReceiptAsPrinted(
+        receipt_id, 
+        print_result,
+        printed_at ? new Date(printed_at) : new Date()
+      );
+
+      if (success) {
+        res.json({ 
+          success: true,
+          message: "Receipt marked as printed"
+        });
+      } else {
+        res.status(404).json({ 
+          error: "Receipt not found",
+          message: "Чек не найден"
+        });
+      }
+    } catch (error) {
+      console.error("Error marking receipt as printed:", error);
+      res.status(500).json({ 
+        error: "Failed to mark receipt as printed",
+        message: "Не удалось отметить чек как напечатанный",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // POST /api/fiscal/local-print - Отправка чека на локальную печать
+  app.post("/api/fiscal/local-print", authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { invoiceId, printerType = 'atol' } = req.body;
+
+      if (!invoiceId) {
+        return res.status(400).json({ 
+          error: "Missing invoiceId",
+          message: "Отсутствует ID счета" 
+        });
+      }
+
+      // Проверка доступа к счету
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ 
+          error: "Invoice not found",
+          message: "Счет не найден"
+        });
+      }
+
+      // Проверка доступа к пациенту счета
+      const patient = await storage.getPatient(invoice.patientId);
+      if (!patient || patient.branchId !== userBranchId) {
+        return res.status(403).json({ 
+          error: "Access denied",
+          message: "Доступ запрещен"
+        });
+      }
+
+      // Создание или обновление фискального чека для локальной печати
+      const receiptId = await storage.requestLocalPrint(invoiceId, printerType, req.user?.fullName || 'Кассир');
+
+      res.json({ 
+        success: true,
+        receiptId: receiptId,
+        message: "Чек добавлен в очередь локальной печати"
+      });
+    } catch (error) {
+      console.error("Error requesting local print:", error);
+      res.status(500).json({ 
+        error: "Failed to request local print",
+        message: "Не удалось добавить чек в очередь печати",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // GET /api/fiscal/local-print-status/:receiptId - Проверка статуса локальной печати
+  app.get("/api/fiscal/local-print-status/:receiptId", authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { receiptId } = req.params;
+      
+      const receipt = await storage.getFiscalReceipt(receiptId);
+      if (!receipt) {
+        return res.status(404).json({ 
+          error: "Receipt not found",
+          message: "Чек не найден"
+        });
+      }
+
+      // Проверка доступа к чеку через счет и пациента
+      const invoice = await storage.getInvoice(receipt.invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ 
+          error: "Invoice not found",
+          message: "Счет не найден"
+        });
+      }
+
+      const patient = await storage.getPatient(invoice.patientId);
+      if (!patient || patient.branchId !== userBranchId) {
+        return res.status(403).json({ 
+          error: "Access denied",
+          message: "Доступ запрещен"
+        });
+      }
+
+      res.json({
+        id: receipt.id,
+        status: receipt.localPrintStatus,
+        printerType: receipt.localPrinterType,
+        printedAt: receipt.localPrintedAt,
+        printData: receipt.localPrintData,
+        error: receipt.localPrintError
+      });
+    } catch (error) {
+      console.error("Error getting print status:", error);
+      res.status(500).json({ 
+        error: "Failed to get print status",
+        message: "Не удалось получить статус печати",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

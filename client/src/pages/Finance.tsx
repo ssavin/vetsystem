@@ -267,6 +267,27 @@ export default function Finance() {
     }
   }
 
+  // Обработчик локальной печати фискального чека
+  const handleLocalPrint = async (invoiceId: string) => {
+    try {
+      await apiRequest('POST', '/api/fiscal/local-print', {
+        invoiceId,
+        printerType: 'atol' // По умолчанию Атол, можно добавить выбор в UI
+      })
+      
+      toast({
+        title: "Чек добавлен в очередь",
+        description: "Фискальный чек отправлен на локальную печать. Убедитесь, что программа печати запущена на кассовом ПК."
+      })
+    } catch (error: any) {
+      toast({
+        title: "Ошибка локальной печати",
+        description: error.message || "Не удалось добавить чек в очередь локальной печати",
+        variant: "destructive"
+      })
+    }
+  }
+
   // Фильтрация по номеру счета, имени пациента, имени владельца и заметкам
   const filteredInvoices = Array.isArray(invoices) ? invoices.filter((invoice: any) =>
     (invoice.invoiceNumber && invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -478,6 +499,25 @@ export default function Finance() {
                                     </TooltipTrigger>
                                     <TooltipContent>
                                       <p>Печать чека</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-blue-600 hover:text-blue-700"
+                                        data-testid={`button-local-print-${invoice.id}`}
+                                        onClick={() => handleLocalPrint(invoice.id)}
+                                      >
+                                        <Printer className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Локальная печать чека</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>

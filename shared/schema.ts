@@ -453,6 +453,14 @@ export const fiscalReceipts = pgTable("fiscal_receipts", {
   integrationAccountId: varchar("integration_account_id").references(() => integrationAccounts.id),
   externalReceiptId: varchar("external_receipt_id", { length: 255 }),
   
+  // Локальная печать
+  localPrintStatus: varchar("local_print_status", { length: 20 }).default("pending"), // pending, queued, printed, failed
+  localPrintRequested: boolean("local_print_requested").default(false),
+  localPrinterType: varchar("local_printer_type", { length: 20 }), // atol, shtrih
+  localPrintedAt: timestamp("local_printed_at"),
+  localPrintData: jsonb("local_print_data"), // Результат локальной печати
+  localPrintError: text("local_print_error"),
+  
   // Статус и ошибки
   errorMessage: text("error_message"),
   sentAt: timestamp("sent_at"), // Время отправки в ОФД
@@ -463,12 +471,16 @@ export const fiscalReceipts = pgTable("fiscal_receipts", {
   return {
     statusCheck: check("fiscal_receipts_status_check", sql`${table.status} IN ('draft', 'pending', 'registered', 'failed', 'cancelled')`),
     paymentMethodCheck: check("fiscal_receipts_payment_method_check", sql`${table.paymentMethod} IN ('cash', 'card', 'online', 'mixed')`),
+    localPrintStatusCheck: check("fiscal_receipts_local_print_status_check", sql`${table.localPrintStatus} IN ('pending', 'queued', 'printed', 'failed')`),
+    localPrinterTypeCheck: check("fiscal_receipts_local_printer_type_check", sql`${table.localPrinterType} IS NULL OR ${table.localPrinterType} IN ('atol', 'shtrih')`),
     totalAmountCheck: check("fiscal_receipts_total_amount_check", sql`${table.totalAmount} >= 0`),
     invoiceIdIdx: index("fiscal_receipts_invoice_id_idx").on(table.invoiceId),
     statusIdx: index("fiscal_receipts_status_idx").on(table.status),
     receiptNumberIdx: index("fiscal_receipts_receipt_number_idx").on(table.receiptNumber),
     integrationAccountIdIdx: index("fiscal_receipts_integration_account_id_idx").on(table.integrationAccountId),
     externalReceiptIdIdx: index("fiscal_receipts_external_receipt_id_idx").on(table.externalReceiptId),
+    localPrintStatusIdx: index("fiscal_receipts_local_print_status_idx").on(table.localPrintStatus),
+    localPrintRequestedIdx: index("fiscal_receipts_local_print_requested_idx").on(table.localPrintRequested),
     createdAtIdx: index("fiscal_receipts_created_at_idx").on(table.createdAt),
   };
 });
@@ -1622,3 +1634,25 @@ export interface AppointmentWithDetails extends Appointment {
 export interface PatientWithOwner extends Patient {
   owner?: Owner;
 }
+
+// Локальная печать фискальных чеков - валидация запросов
+export const localPrintRequestSchema = z.object({
+  invoiceId: z.string().min(1, "ID счета обязателен"),
+  printerType: z.enum(['atol', 'shtrih']).default('atol')
+});
+
+export const markPrintedRequestSchema = z.object({
+  receipt_id: z.string().min(1, "ID чека обязателен"),
+  print_result: z.object({
+    success: z.boolean(),
+    fiscal_number: z.string().optional(),
+    shift_number: z.string().optional(),
+    receipt_number: z.string().optional(),
+    fiscal_sign: z.string().optional(),
+    error: z.string().optional()
+  }),
+  printed_at: z.string().optional()
+});
+
+export type LocalPrintRequest = z.infer<typeof localPrintRequestSchema>;
+export type MarkPrintedRequest = z.infer<typeof markPrintedRequestSchema>;
