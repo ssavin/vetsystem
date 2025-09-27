@@ -884,10 +884,98 @@ export async function archiveItemInMoysklad(moyskladId: string, type: 'product' 
 }
 
 /**
- * Основная функция синхронизации номенклатуры (экспорт из VetSystem в МойСклад)
+ * Двухсторонняя синхронизация номенклатуры (МойСклад ↔ VetSystem)
+ * Приоритет: МойСклад (авторитетная система)
  */
 export async function syncNomenclature(): Promise<{
   success: boolean;
+  // Импорт из МойСклад
+  importedProducts: number;
+  importedServices: number;
+  // Экспорт в МойСклад
+  exportedServices: number;
+  exportedProducts: number;
+  archivedItems: number;
+  // Статистика
+  products: any[];
+  services: any[];
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let importedProducts = 0;
+  let importedServices = 0;
+  let exportedServices = 0;
+  let exportedProducts = 0;
+  let archivedItems = 0;
+
+  try {
+    console.log('[МойСклад] Начинаем двухстороннюю синхронизацию номенклатуры...');
+
+    // ===== ЭТАП 1: ИМПОРТ ИЗ МОЙСКЛАД (ПРИОРИТЕТ) =====
+    console.log('[МойСклад] Этап 1: Импорт изменений из МойСклад...');
+    
+    const importResult = await loadNomenclatureFromMoysklad();
+    importedProducts = importResult.products.length;
+    importedServices = importResult.services.length;
+    
+    if (importResult.errors.length > 0) {
+      errors.push(...importResult.errors.map(e => `Импорт: ${e}`));
+    }
+
+    // ===== ЭТАП 2: ЭКСПОРТ В МОЙСКЛАД (ТОЛЬКО НОВЫЕ/ИЗМЕНЁННЫЕ) =====
+    console.log('[МойСклад] Этап 2: Экспорт изменений из VetSystem...');
+    
+    const exportResult = await exportToMoysklad();
+    exportedServices = exportResult.exportedServices;
+    exportedProducts = exportResult.exportedProducts;
+    archivedItems = exportResult.archivedItems;
+    
+    if (exportResult.errors.length > 0) {
+      errors.push(...exportResult.errors.map(e => `Экспорт: ${e}`));
+    }
+
+    // Получаем финальные данные для отчета
+    const finalProducts = await storage.getProducts();
+    const finalServices = await storage.getServices();
+
+    console.log('[МойСклад] Двухсторонняя синхронизация завершена');
+    console.log(`Импортировано: товаров ${importedProducts}, услуг ${importedServices}`);
+    console.log(`Экспортировано: товаров ${exportedProducts}, услуг ${exportedServices}`);
+    console.log(`Архивировано: ${archivedItems}, ошибок: ${errors.length}`);
+
+    return {
+      success: errors.length === 0,
+      importedProducts,
+      importedServices,
+      exportedServices,
+      exportedProducts,
+      archivedItems,
+      products: finalProducts,
+      services: finalServices,
+      errors
+    };
+
+  } catch (error: any) {
+    console.error('[МойСклад] Критическая ошибка двухсторонней синхронизации:', error);
+    errors.push(error.message);
+    return {
+      success: false,
+      importedProducts,
+      importedServices,
+      exportedServices,
+      exportedProducts,
+      archivedItems,
+      products: [],
+      services: [],
+      errors
+    };
+  }
+}
+
+/**
+ * Экспорт изменений из VetSystem в МойСклад
+ */
+async function exportToMoysklad(): Promise<{
   exportedServices: number;
   exportedProducts: number;
   archivedItems: number;
@@ -899,11 +987,9 @@ export async function syncNomenclature(): Promise<{
   let archivedItems = 0;
 
   try {
-    console.log('[МойСклад] Начинаем синхронизацию номенклатуры (экспорт из VetSystem)...');
-
     // 1. Экспортируем новые/измененные услуги
     const servicesToSync = await storage.getServicesForSync();
-    console.log(`[МойСклад] Найдено услуг для синхронизации: ${servicesToSync.length}`);
+    console.log(`[МойСклад] Найдено услуг для экспорта: ${servicesToSync.length}`);
 
     for (const service of servicesToSync) {
       const result = await exportServiceToMoysklad(service);
@@ -921,7 +1007,7 @@ export async function syncNomenclature(): Promise<{
 
     // 2. Экспортируем новые/измененные товары
     const productsToSync = await storage.getProductsForSync();
-    console.log(`[МойСклад] Найдено товаров для синхронизации: ${productsToSync.length}`);
+    console.log(`[МойСклад] Найдено товаров для экспорта: ${productsToSync.length}`);
 
     for (const product of productsToSync) {
       const result = await exportProductToMoysklad(product);
@@ -969,12 +1055,7 @@ export async function syncNomenclature(): Promise<{
       }
     }
 
-    console.log('[МойСклад] Синхронизация завершена');
-    console.log(`Экспортировано услуг: ${exportedServices}, товаров: ${exportedProducts}`);
-    console.log(`Архивировано: ${archivedItems}, ошибок: ${errors.length}`);
-
     return {
-      success: errors.length === 0,
       exportedServices,
       exportedProducts,
       archivedItems,
@@ -982,10 +1063,9 @@ export async function syncNomenclature(): Promise<{
     };
 
   } catch (error: any) {
-    console.error('[МойСклад] Критическая ошибка синхронизации:', error);
+    console.error('[МойСклад] Ошибка экспорта:', error);
     errors.push(error.message);
     return {
-      success: false,
       exportedServices,
       exportedProducts,
       archivedItems,
