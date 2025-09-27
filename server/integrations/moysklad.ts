@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { storage } from '../storage.js';
 
 // ===== НОМЕНКЛАТУРА И СИНХРОНИЗАЦИЯ =====
 
@@ -547,16 +548,43 @@ export async function syncNomenclature(): Promise<{
       
       if (productsResponse.rows) {
         for (const product of productsResponse.rows) {
-          loadedProducts.push({
-            moyskladId: product.id,
-            name: product.name,
-            description: product.description || '',
-            article: product.article || '',
-            price: product.salePrices && product.salePrices.length > 0 
-              ? (product.salePrices[0].value / 100) // Конвертируем из копеек в рубли
-              : 0,
-            vat: product.vat || 20
-          });
+          try {
+            // Проверяем существует ли товар с данным moyskladId
+            const existingProducts = await storage.getProducts();
+            const existingProduct = existingProducts.find(p => p.moyskladId === product.id);
+            
+            const productData = {
+              moyskladId: product.id,
+              name: product.name,
+              description: product.description || '',
+              article: product.article || '',
+              category: 'МойСклад', // Категория по умолчанию
+              price: product.salePrices && product.salePrices.length > 0 
+                ? (product.salePrices[0].value / 100) // Конвертируем из копеек в рубли
+                : 0,
+              vat: product.vat || 20,
+              unit: 'шт', // Единица измерения по умолчанию
+              stock: 0,
+              minStock: 0,
+              isActive: true
+            };
+            
+            if (!existingProduct) {
+              // Создаем новый товар в локальной БД
+              const createdProduct = await storage.createProduct(productData);
+              loadedProducts.push(createdProduct);
+              console.log(`[МойСклад] Создан товар: ${product.name}`);
+            } else {
+              // Обновляем существующий товар
+              await storage.updateProduct(existingProduct.id, productData);
+              loadedProducts.push({ ...existingProduct, ...productData });
+              console.log(`[МойСклад] Обновлен товар: ${product.name}`);
+            }
+          } catch (productError: any) {
+            const errorMessage = `Ошибка сохранения товара "${product.name}": ${productError.message}`;
+            console.error(errorMessage);
+            errors.push(errorMessage);
+          }
         }
       }
     } catch (error: any) {
@@ -572,16 +600,41 @@ export async function syncNomenclature(): Promise<{
       
       if (servicesResponse.rows) {
         for (const service of servicesResponse.rows) {
-          loadedServices.push({
-            moyskladId: service.id,
-            name: service.name,
-            description: service.description || '',
-            article: service.article || '',
-            price: service.salePrices && service.salePrices.length > 0 
-              ? (service.salePrices[0].value / 100) // Конвертируем из копеек в рубли
-              : 0,
-            vat: service.vat || 20
-          });
+          try {
+            // Проверяем существует ли услуга с данным moyskladId
+            const existingServices = await storage.getServices();
+            const existingService = existingServices.find(s => s.moyskladId === service.id);
+            
+            const serviceData = {
+              moyskladId: service.id,
+              name: service.name,
+              description: service.description || '',
+              article: service.article || '',
+              category: 'МойСклад', // Категория по умолчанию
+              price: service.salePrices && service.salePrices.length > 0 
+                ? (service.salePrices[0].value / 100) // Конвертируем из копеек в рубли
+                : 0,
+              vat: service.vat || 20,
+              duration: 30, // Длительность по умолчанию в минутах
+              isActive: true
+            };
+            
+            if (!existingService) {
+              // Создаем новую услугу в локальной БД
+              const createdService = await storage.createService(serviceData);
+              loadedServices.push(createdService);
+              console.log(`[МойСклад] Создана услуга: ${service.name}`);
+            } else {
+              // Обновляем существующую услугу
+              await storage.updateService(existingService.id, serviceData);
+              loadedServices.push({ ...existingService, ...serviceData });
+              console.log(`[МойСклад] Обновлена услуга: ${service.name}`);
+            }
+          } catch (serviceError: any) {
+            const errorMessage = `Ошибка сохранения услуги "${service.name}": ${serviceError.message}`;
+            console.error(errorMessage);
+            errors.push(errorMessage);
+          }
         }
       }
     } catch (error: any) {
