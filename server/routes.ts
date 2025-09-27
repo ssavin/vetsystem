@@ -2796,8 +2796,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           errors: result.errors.length,
           details: result.errors.length > 0 ? result.errors : undefined,
-          products: result.products.slice(0, 10), // Показываем только первые 10 для производительности
-          services: result.services.slice(0, 10)
+          products: result.products, // Показываем все товары
+          services: result.services  // Показываем все услуги
         }
       });
       
