@@ -18,16 +18,31 @@ import {
   type LabOrder, type InsertLabOrder,
   type LabResultDetail, type InsertLabResultDetail,
   type SystemSetting, type InsertSystemSetting, type UpdateSystemSetting,
+  type CashRegister, type InsertCashRegister,
+  type CashShift, type InsertCashShift,
+  type Customer, type InsertCustomer,
+  type DiscountRule, type InsertDiscountRule,
+  type PaymentMethod, type InsertPaymentMethod,
+  type SalesTransaction, type InsertSalesTransaction,
+  type SalesTransactionItem, type InsertSalesTransactionItem,
+  type CashOperation, type InsertCashOperation,
+  type UserRole, type InsertUserRole,
   users, owners, patients, doctors, appointments, 
   medicalRecords, medications, services, products, 
   invoices, invoiceItems, branches, patientFiles,
   labStudies, labParameters, referenceRanges, 
   labOrders, labResultDetails, paymentIntents, fiscalReceipts,
-  catalogItems, systemSettings
+  catalogItems, systemSettings, cashRegisters, cashShifts, 
+  customers, discountRules, paymentMethods, salesTransactions, 
+  salesTransactionItems, cashOperations, userRoles, userRoleAssignments
 } from "@shared/schema";
 import { db } from "./db-local";
-import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, type SQL } from "drizzle-orm";
+import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, ilike, type SQL } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
+
+// ID generation utility
+const generateId = () => randomUUID();
 
 // Performance monitoring utilities
 const logSlowQuery = (operation: string, duration: number, threshold = 100) => {
@@ -320,6 +335,46 @@ export interface IStorage {
   createSystemSetting(setting: InsertSystemSetting): Promise<SystemSetting>;
   updateSystemSetting(key: string, setting: Partial<UpdateSystemSetting>): Promise<SystemSetting>;
   deleteSystemSetting(key: string): Promise<void>;
+
+  // === РАСШИРЕННАЯ КАССОВАЯ СИСТЕМА ===
+  
+  // Управление кассами
+  getCashRegisters(branchId: string): Promise<CashRegister[]>;
+  createCashRegister(register: InsertCashRegister): Promise<CashRegister>;
+  updateCashRegister(id: string, updates: Partial<InsertCashRegister>): Promise<CashRegister | null>;
+  
+  // Управление сменами
+  openCashShift(registerId: string, cashierId: string, openingCash: string): Promise<CashShift>;
+  closeCashShift(shiftId: string, closingCash: string, notes?: string): Promise<CashShift | null>;
+  getCurrentShift(registerId: string): Promise<CashShift | null>;
+  
+  // Управление клиентами
+  getCustomers(branchId: string, search?: string): Promise<Customer[]>;
+  createCustomer(customer: InsertCustomer): Promise<Customer>;
+  updateCustomer(id: string, updates: Partial<InsertCustomer>): Promise<Customer | null>;
+  getCustomerByPhone(phone: string, branchId: string): Promise<Customer | null>;
+  getCustomerByCard(cardNumber: string, branchId: string): Promise<Customer | null>;
+  
+  // Система скидок
+  getDiscountRules(branchId: string): Promise<DiscountRule[]>;
+  createDiscountRule(rule: InsertDiscountRule): Promise<DiscountRule>;
+  
+  // Способы оплаты
+  getPaymentMethods(branchId: string): Promise<PaymentMethod[]>;
+  createPaymentMethod(method: InsertPaymentMethod): Promise<PaymentMethod>;
+  
+  // Продажи и чеки
+  createSalesTransaction(transaction: InsertSalesTransaction): Promise<SalesTransaction>;
+  addTransactionItems(transactionId: string, items: InsertSalesTransactionItem[]): Promise<SalesTransactionItem[]>;
+  getSalesTransactions(branchId: string, shiftId?: string, dateFrom?: string, dateTo?: string): Promise<any[]>;
+  getTransactionDetails(transactionId: string): Promise<any>;
+  
+  // Операции с наличными
+  createCashOperation(operation: InsertCashOperation): Promise<CashOperation>;
+  getCashOperations(shiftId: string): Promise<CashOperation[]>;
+  
+  // Отчеты
+  getShiftReport(shiftId: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2029,6 +2084,379 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  // === РАСШИРЕННАЯ КАССОВАЯ СИСТЕМА ===
+  
+  // Управление кассами
+  async getCashRegisters(branchId: string): Promise<CashRegister[]> {
+    return withPerformanceLogging('getCashRegisters', async () => {
+      return await db.select().from(cashRegisters).where(eq(cashRegisters.branchId, branchId));
+    });
+  }
+  
+  async createCashRegister(register: InsertCashRegister): Promise<CashRegister> {
+    return withPerformanceLogging('createCashRegister', async () => {
+      const [created] = await db.insert(cashRegisters).values({
+        id: generateId(),
+        ...register
+      }).returning();
+      return created;
+    });
+  }
+  
+  async updateCashRegister(id: string, updates: Partial<InsertCashRegister>): Promise<CashRegister | null> {
+    return withPerformanceLogging('updateCashRegister', async () => {
+      const [updated] = await db
+        .update(cashRegisters)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(cashRegisters.id, id))
+        .returning();
+      return updated || null;
+    });
+  }
+  
+  // Управление сменами
+  async openCashShift(registerId: string, cashierId: string, openingCash: string): Promise<CashShift> {
+    return withPerformanceLogging('openCashShift', async () => {
+      // Закрываем предыдущую смену, если она открыта
+      await db
+        .update(cashShifts)
+        .set({ status: 'closed', closedAt: new Date() })
+        .where(and(
+          eq(cashShifts.registerId, registerId),
+          eq(cashShifts.status, 'open')
+        ));
+      
+      // Получаем номер следующей смены
+      const lastShift = await db
+        .select({ shiftNumber: cashShifts.shiftNumber })
+        .from(cashShifts)
+        .where(eq(cashShifts.registerId, registerId))
+        .orderBy(desc(cashShifts.shiftNumber))
+        .limit(1);
+      
+      const nextShiftNumber = (lastShift[0]?.shiftNumber || 0) + 1;
+      
+      const [shift] = await db.insert(cashShifts).values({
+        id: generateId(),
+        registerId,
+        cashierId,
+        shiftNumber: nextShiftNumber,
+        openingCashAmount: openingCash,
+        status: 'open'
+      }).returning();
+      
+      return shift;
+    });
+  }
+  
+  async closeCashShift(shiftId: string, closingCash: string, notes?: string): Promise<CashShift | null> {
+    return withPerformanceLogging('closeCashShift', async () => {
+      const [closed] = await db
+        .update(cashShifts)
+        .set({
+          status: 'closed',
+          closedAt: new Date(),
+          closingCashAmount: closingCash,
+          notes
+        })
+        .where(eq(cashShifts.id, shiftId))
+        .returning();
+      return closed || null;
+    });
+  }
+  
+  async getCurrentShift(registerId: string): Promise<CashShift | null> {
+    return withPerformanceLogging('getCurrentShift', async () => {
+      const [shift] = await db
+        .select()
+        .from(cashShifts)
+        .where(and(
+          eq(cashShifts.registerId, registerId),
+          eq(cashShifts.status, 'open')
+        ))
+        .limit(1);
+      return shift || null;
+    });
+  }
+  
+  // Управление клиентами
+  async getCustomers(branchId: string, search?: string): Promise<Customer[]> {
+    return withPerformanceLogging('getCustomers', async () => {
+      let whereConditions = [eq(customers.branchId, branchId)];
+      
+      if (search) {
+        whereConditions.push(or(
+          ilike(customers.firstName, `%${search}%`),
+          ilike(customers.lastName, `%${search}%`),
+          ilike(customers.phone, `%${search}%`),
+          ilike(customers.email, `%${search}%`),
+          ilike(customers.cardNumber, `%${search}%`)
+        )!);
+      }
+      
+      return await db.select().from(customers)
+        .where(whereConditions.length > 1 ? and(...whereConditions) : whereConditions[0])
+        .orderBy(customers.lastName, customers.firstName);
+    });
+  }
+  
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    return withPerformanceLogging('createCustomer', async () => {
+      const [created] = await db.insert(customers).values({
+        id: generateId(),
+        ...customer
+      }).returning();
+      return created;
+    });
+  }
+  
+  async updateCustomer(id: string, updates: Partial<InsertCustomer>): Promise<Customer | null> {
+    return withPerformanceLogging('updateCustomer', async () => {
+      const [updated] = await db
+        .update(customers)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(customers.id, id))
+        .returning();
+      return updated || null;
+    });
+  }
+  
+  async getCustomerByPhone(phone: string, branchId: string): Promise<Customer | null> {
+    return withPerformanceLogging('getCustomerByPhone', async () => {
+      const [customer] = await db
+        .select()
+        .from(customers)
+        .where(and(
+          eq(customers.phone, phone),
+          eq(customers.branchId, branchId)
+        ))
+        .limit(1);
+      return customer || null;
+    });
+  }
+  
+  async getCustomerByCard(cardNumber: string, branchId: string): Promise<Customer | null> {
+    return withPerformanceLogging('getCustomerByCard', async () => {
+      const [customer] = await db
+        .select()
+        .from(customers)
+        .where(and(
+          eq(customers.cardNumber, cardNumber),
+          eq(customers.branchId, branchId)
+        ))
+        .limit(1);
+      return customer || null;
+    });
+  }
+  
+  // Система скидок
+  async getDiscountRules(branchId: string): Promise<DiscountRule[]> {
+    return withPerformanceLogging('getDiscountRules', async () => {
+      return await db
+        .select()
+        .from(discountRules)
+        .where(and(
+          eq(discountRules.branchId, branchId),
+          eq(discountRules.isActive, true)
+        ))
+        .orderBy(desc(discountRules.priority));
+    });
+  }
+  
+  async createDiscountRule(rule: InsertDiscountRule): Promise<DiscountRule> {
+    return withPerformanceLogging('createDiscountRule', async () => {
+      const [created] = await db.insert(discountRules).values({
+        id: generateId(),
+        ...rule
+      }).returning();
+      return created;
+    });
+  }
+  
+  // Способы оплаты
+  async getPaymentMethods(branchId: string): Promise<PaymentMethod[]> {
+    return withPerformanceLogging('getPaymentMethods', async () => {
+      return await db
+        .select()
+        .from(paymentMethods)
+        .where(and(
+          eq(paymentMethods.branchId, branchId),
+          eq(paymentMethods.isActive, true)
+        ));
+    });
+  }
+  
+  async createPaymentMethod(method: InsertPaymentMethod): Promise<PaymentMethod> {
+    return withPerformanceLogging('createPaymentMethod', async () => {
+      const [created] = await db.insert(paymentMethods).values({
+        id: generateId(),
+        ...method
+      }).returning();
+      return created;
+    });
+  }
+  
+  // Продажи и чеки
+  async createSalesTransaction(transaction: InsertSalesTransaction): Promise<SalesTransaction> {
+    return withPerformanceLogging('createSalesTransaction', async () => {
+      const [created] = await db.insert(salesTransactions).values({
+        id: generateId(),
+        ...transaction
+      }).returning();
+      return created;
+    });
+  }
+  
+  async addTransactionItems(transactionId: string, items: InsertSalesTransactionItem[]): Promise<SalesTransactionItem[]> {
+    return withPerformanceLogging('addTransactionItems', async () => {
+      const itemsWithIds = items.map(item => ({
+        id: generateId(),
+        ...item,
+        transactionId
+      }));
+      
+      return await db.insert(salesTransactionItems).values(itemsWithIds).returning();
+    });
+  }
+  
+  async getSalesTransactions(branchId: string, shiftId?: string, dateFrom?: string, dateTo?: string): Promise<any[]> {
+    return withPerformanceLogging('getSalesTransactions', async () => {
+      let whereConditions = [eq(cashRegisters.branchId, branchId)];
+      
+      if (shiftId) {
+        whereConditions.push(eq(salesTransactions.shiftId, shiftId));
+      }
+      
+      if (dateFrom) {
+        whereConditions.push(gte(salesTransactions.createdAt, new Date(dateFrom)));
+      }
+      
+      if (dateTo) {
+        whereConditions.push(lte(salesTransactions.createdAt, new Date(dateTo)));
+      }
+      
+      return await db
+        .select({
+          transaction: salesTransactions,
+          register: cashRegisters,
+          cashier: users,
+          customer: customers
+        })
+        .from(salesTransactions)
+        .leftJoin(cashRegisters, eq(salesTransactions.registerId, cashRegisters.id))
+        .leftJoin(users, eq(salesTransactions.cashierId, users.id))
+        .leftJoin(customers, eq(salesTransactions.customerId, customers.id))
+        .where(and(...whereConditions))
+        .orderBy(desc(salesTransactions.createdAt));
+    });
+  }
+  
+  async getTransactionDetails(transactionId: string): Promise<any> {
+    return withPerformanceLogging('getTransactionDetails', async () => {
+      const [transaction] = await db
+        .select({
+          transaction: salesTransactions,
+          register: cashRegisters,
+          shift: cashShifts,
+          cashier: users,
+          customer: customers,
+          paymentMethod: paymentMethods
+        })
+        .from(salesTransactions)
+        .leftJoin(cashRegisters, eq(salesTransactions.registerId, cashRegisters.id))
+        .leftJoin(cashShifts, eq(salesTransactions.shiftId, cashShifts.id))
+        .leftJoin(users, eq(salesTransactions.cashierId, users.id))
+        .leftJoin(customers, eq(salesTransactions.customerId, customers.id))
+        .leftJoin(paymentMethods, eq(salesTransactions.paymentMethodId, paymentMethods.id))
+        .where(eq(salesTransactions.id, transactionId))
+        .limit(1);
+      
+      if (!transaction) return null;
+      
+      const items = await db
+        .select()
+        .from(salesTransactionItems)
+        .where(eq(salesTransactionItems.transactionId, transactionId));
+      
+      return {
+        ...transaction,
+        items
+      };
+    });
+  }
+  
+  // Операции с наличными
+  async createCashOperation(operation: InsertCashOperation): Promise<CashOperation> {
+    return withPerformanceLogging('createCashOperation', async () => {
+      const [created] = await db.insert(cashOperations).values({
+        id: generateId(),
+        ...operation
+      }).returning();
+      return created;
+    });
+  }
+  
+  async getCashOperations(shiftId: string): Promise<CashOperation[]> {
+    return withPerformanceLogging('getCashOperations', async () => {
+      return await db
+        .select()
+        .from(cashOperations)
+        .where(eq(cashOperations.shiftId, shiftId))
+        .orderBy(desc(cashOperations.createdAt));
+    });
+  }
+  
+  // Отчеты
+  async getShiftReport(shiftId: string): Promise<any> {
+    return withPerformanceLogging('getShiftReport', async () => {
+      const [shift] = await db
+        .select()
+        .from(cashShifts)
+        .where(eq(cashShifts.id, shiftId))
+        .limit(1);
+      
+      if (!shift) return null;
+      
+      const transactions = await db
+        .select()
+        .from(salesTransactions)
+        .where(eq(salesTransactions.shiftId, shiftId));
+      
+      const operations = await this.getCashOperations(shiftId);
+      
+      const totalSales = transactions
+        .filter(t => t.type === 'sale')
+        .reduce((sum, t) => sum + parseFloat(t.totalAmount), 0);
+      
+      const totalReturns = transactions
+        .filter(t => t.type === 'return')
+        .reduce((sum, t) => sum + parseFloat(t.totalAmount), 0);
+      
+      const cashDeposits = operations
+        .filter(op => op.type === 'deposit')
+        .reduce((sum, op) => sum + parseFloat(op.amount), 0);
+      
+      const cashWithdrawals = operations
+        .filter(op => op.type === 'withdrawal')
+        .reduce((sum, op) => sum + parseFloat(op.amount), 0);
+      
+      return {
+        shift,
+        transactions,
+        operations,
+        summary: {
+          totalSales,
+          totalReturns,
+          receiptsCount: transactions.filter(t => t.type === 'sale').length,
+          returnsCount: transactions.filter(t => t.type === 'return').length,
+          cashDeposits,
+          cashWithdrawals,
+          expectedCash: parseFloat(shift.openingCashAmount || '0') + totalSales - totalReturns + cashDeposits - cashWithdrawals
+        }
+      };
+    });
+  }
+
   async requestLocalPrint(invoiceId: string, printerType: string, operatorName: string): Promise<string> {
     return withPerformanceLogging('requestLocalPrint', async () => {
       // Проверяем, есть ли уже фискальный чек для этого счета
@@ -2120,7 +2548,7 @@ export class DatabaseStorage implements IStorage {
     paymentData: any;
   }[]> {
     return withPerformanceLogging('getPaymentIntentsByInvoice', async () => {
-      return await db
+      const results = await db
         .select({
           id: paymentIntents.id,
           status: paymentIntents.status,
@@ -2129,6 +2557,12 @@ export class DatabaseStorage implements IStorage {
         .from(paymentIntents)
         .where(eq(paymentIntents.invoiceId, invoiceId))
         .orderBy(desc(paymentIntents.createdAt));
+      
+      return results.map(r => ({
+        ...r,
+        status: r.status || 'pending',
+        paymentData: r.paymentData || {}
+      }));
     });
   }
   
@@ -2150,7 +2584,14 @@ export class DatabaseStorage implements IStorage {
         })
         .from(catalogItems)
         .where(eq(catalogItems.id, id));
-      return item || undefined;
+      
+      if (!item) return undefined;
+      
+      return {
+        ...item,
+        vatRate: item.vatRate || 'not_applicable',
+        markingStatus: item.markingStatus || 'not_required'
+      };
     });
   }
 

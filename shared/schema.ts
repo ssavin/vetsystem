@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, boolean, timestamp, jsonb, check, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, boolean, timestamp, jsonb, check, index, date, time } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1656,3 +1656,307 @@ export const markPrintedRequestSchema = z.object({
 
 export type LocalPrintRequest = z.infer<typeof localPrintRequestSchema>;
 export type MarkPrintedRequest = z.infer<typeof markPrintedRequestSchema>;
+
+// === РАСШИРЕННАЯ КАССОВАЯ СИСТЕМА ===
+
+// Кассы и кассовые места
+export const cashRegisters = pgTable('cash_registers', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  branchId: varchar('branch_id', { length: 255 }).notNull().references(() => branches.id),
+  name: varchar('name', { length: 255 }).notNull(),
+  serialNumber: varchar('serial_number', { length: 255 }),
+  model: varchar('model', { length: 255 }),
+  fiscalDriveNumber: varchar('fiscal_drive_number', { length: 255 }),
+  isActive: boolean('is_active').default(true),
+  comPort: varchar('com_port', { length: 20 }),
+  printerType: varchar('printer_type', { length: 50 }).default('atol'), // atol, shtrih, etc
+  settings: jsonb('settings').default({}), // Настройки кассы (скорость, таймауты и т.д.)
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
+});
+
+// Кассовые смены
+export const cashShifts = pgTable('cash_shifts', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  registerId: varchar('register_id', { length: 255 }).notNull().references(() => cashRegisters.id),
+  cashierId: varchar('cashier_id', { length: 255 }).notNull().references(() => users.id),
+  shiftNumber: integer('shift_number').notNull(),
+  openedAt: timestamp('opened_at').defaultNow(),
+  closedAt: timestamp('closed_at'),
+  openingCashAmount: decimal('opening_cash_amount', { precision: 10, scale: 2 }).default('0'),
+  closingCashAmount: decimal('closing_cash_amount', { precision: 10, scale: 2 }),
+  expectedCashAmount: decimal('expected_cash_amount', { precision: 10, scale: 2 }),
+  cashDifference: decimal('cash_difference', { precision: 10, scale: 2 }),
+  totalSales: decimal('total_sales', { precision: 10, scale: 2 }).default('0'),
+  totalReturns: decimal('total_returns', { precision: 10, scale: 2 }).default('0'),
+  receiptsCount: integer('receipts_count').default(0),
+  returnsCount: integer('returns_count').default(0),
+  status: varchar('status', { length: 20 }).default('open'), // open, closed
+  notes: text('notes')
+});
+
+// Клиенты/покупатели (расширенная версия владельцев)
+export const customers = pgTable('customers', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  branchId: varchar('branch_id', { length: 255 }).notNull().references(() => branches.id),
+  // Основная информация
+  type: varchar('type', { length: 20 }).default('individual'), // individual, legal
+  firstName: varchar('first_name', { length: 255 }),
+  lastName: varchar('last_name', { length: 255 }),
+  middleName: varchar('middle_name', { length: 255 }),
+  companyName: varchar('company_name', { length: 255 }),
+  // Контакты
+  phone: varchar('phone', { length: 20 }),
+  email: varchar('email', { length: 255 }),
+  // Адрес
+  country: varchar('country', { length: 100 }).default('Россия'),
+  region: varchar('region', { length: 255 }),
+  city: varchar('city', { length: 255 }),
+  address: text('address'),
+  postalCode: varchar('postal_code', { length: 20 }),
+  // Система лояльности
+  cardNumber: varchar('card_number', { length: 100 }),
+  discountPercent: decimal('discount_percent', { precision: 5, scale: 2 }).default('0'),
+  bonusPoints: decimal('bonus_points', { precision: 10, scale: 2 }).default('0'),
+  totalPurchases: decimal('total_purchases', { precision: 12, scale: 2 }).default('0'),
+  purchasesCount: integer('purchases_count').default(0),
+  lastVisit: timestamp('last_visit'),
+  // Даты рождения для поздравлений
+  birthDate: date('birth_date'),
+  // Дополнительная информация
+  notes: text('notes'),
+  tags: text('tags').array(),
+  isVip: boolean('is_vip').default(false),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
+});
+
+// Система скидок
+export const discountRules = pgTable('discount_rules', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  branchId: varchar('branch_id', { length: 255 }).notNull().references(() => branches.id),
+  name: varchar('name', { length: 255 }).notNull(),
+  type: varchar('type', { length: 50 }).notNull(), // percentage, fixed_amount, accumulative, special
+  value: decimal('value', { precision: 10, scale: 2 }).notNull(),
+  // Условия применения
+  minPurchaseAmount: decimal('min_purchase_amount', { precision: 10, scale: 2 }),
+  maxDiscountAmount: decimal('max_discount_amount', { precision: 10, scale: 2 }),
+  // Применимость
+  applyToProducts: text('apply_to_products').array(), // массив ID товаров
+  applyToServices: text('apply_to_services').array(), // массив ID услуг
+  applyToCategories: text('apply_to_categories').array(), // массив категорий
+  // Время действия
+  validFrom: timestamp('valid_from'),
+  validTo: timestamp('valid_to'),
+  // Дни недели и время
+  validDaysOfWeek: text('valid_days_of_week').array(), // 1-7 (понедельник-воскресенье)
+  validTimeFrom: time('valid_time_from'),
+  validTimeTo: time('valid_time_to'),
+  // Ограничения
+  usageLimit: integer('usage_limit'), // сколько раз можно использовать
+  usageCount: integer('usage_count').default(0),
+  isActive: boolean('is_active').default(true),
+  isCombinable: boolean('is_combinable').default(false), // можно ли комбинировать с другими скидками
+  priority: integer('priority').default(0), // приоритет применения
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
+});
+
+// Способы оплаты
+export const paymentMethods = pgTable('payment_methods', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  branchId: varchar('branch_id', { length: 255 }).notNull().references(() => branches.id),
+  name: varchar('name', { length: 255 }).notNull(),
+  type: varchar('type', { length: 50 }).notNull(), // cash, card, mixed, bonus, transfer
+  isActive: boolean('is_active').default(true),
+  requiresChange: boolean('requires_change').default(false), // нужна ли сдача
+  isElectronic: boolean('is_electronic').default(false),
+  commission: decimal('commission', { precision: 5, scale: 2 }).default('0'), // комиссия в %
+  settings: jsonb('settings').default({}), // настройки эквайринга и т.д.
+  createdAt: timestamp('created_at').defaultNow()
+});
+
+// Транзакции по продажам (чеки)
+export const salesTransactions = pgTable('sales_transactions', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  registerId: varchar('register_id', { length: 255 }).notNull().references(() => cashRegisters.id),
+  shiftId: varchar('shift_id', { length: 255 }).notNull().references(() => cashShifts.id),
+  cashierId: varchar('cashier_id', { length: 255 }).notNull().references(() => users.id),
+  customerId: varchar('customer_id', { length: 255 }).references(() => customers.id),
+  invoiceId: varchar('invoice_id', { length: 255 }).references(() => invoices.id), // связь с VetSystem
+  
+  // Номера документов
+  receiptNumber: varchar('receipt_number', { length: 100 }),
+  fiscalNumber: varchar('fiscal_number', { length: 100 }),
+  shiftNumber: integer('shift_number'),
+  
+  // Суммы
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
+  discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0'),
+  taxAmount: decimal('tax_amount', { precision: 10, scale: 2 }).default('0'),
+  totalAmount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
+  
+  // Детали
+  type: varchar('type', { length: 20 }).default('sale'), // sale, return, exchange
+  paymentMethodId: varchar('payment_method_id', { length: 255 }).references(() => paymentMethods.id),
+  
+  // Скидки и бонусы
+  appliedDiscounts: jsonb('applied_discounts').default([]), // примененные скидки
+  bonusPointsEarned: decimal('bonus_points_earned', { precision: 10, scale: 2 }).default('0'),
+  bonusPointsUsed: decimal('bonus_points_used', { precision: 10, scale: 2 }).default('0'),
+  
+  // Статусы
+  isFiscalized: boolean('is_fiscalized').default(false),
+  isSynced: boolean('is_synced').default(false),
+  
+  // Фискальные данные
+  fiscalData: jsonb('fiscal_data'),
+  
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
+});
+
+// Позиции в чеках
+export const salesTransactionItems = pgTable('sales_transaction_items', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  transactionId: varchar('transaction_id', { length: 255 }).notNull().references(() => salesTransactions.id),
+  productId: varchar('product_id', { length: 255 }).references(() => products.id),
+  serviceId: varchar('service_id', { length: 255 }).references(() => services.id),
+  
+  name: varchar('name', { length: 255 }).notNull(),
+  sku: varchar('sku', { length: 255 }),
+  barcode: varchar('barcode', { length: 255 }),
+  
+  quantity: decimal('quantity', { precision: 10, scale: 3 }).notNull(),
+  unitPrice: decimal('unit_price', { precision: 10, scale: 2 }).notNull(),
+  discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0'),
+  totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
+  
+  // НДС
+  taxRate: decimal('tax_rate', { precision: 5, scale: 2 }).default('20'),
+  taxAmount: decimal('tax_amount', { precision: 10, scale: 2 }).default('0'),
+  
+  // Маркировка товаров
+  markingCodes: text('marking_codes').array(),
+  
+  createdAt: timestamp('created_at').defaultNow()
+});
+
+// Операции с деньгами (внесение/изъятие)
+export const cashOperations = pgTable('cash_operations', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  registerId: varchar('register_id', { length: 255 }).notNull().references(() => cashRegisters.id),
+  shiftId: varchar('shift_id', { length: 255 }).notNull().references(() => cashShifts.id),
+  cashierId: varchar('cashier_id', { length: 255 }).notNull().references(() => users.id),
+  
+  type: varchar('type', { length: 20 }).notNull(), // deposit, withdrawal
+  amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+  reason: varchar('reason', { length: 255 }),
+  notes: text('notes'),
+  
+  createdAt: timestamp('created_at').defaultNow()
+});
+
+// Роли и права пользователей в кассовой системе
+export const userRoles = pgTable('user_roles', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  permissions: jsonb('permissions').default({}), // JSON с правами
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow()
+});
+
+export const userRoleAssignments = pgTable('user_role_assignments', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id),
+  roleId: varchar('role_id', { length: 255 }).notNull().references(() => userRoles.id),
+  branchId: varchar('branch_id', { length: 255 }).references(() => branches.id), // права в конкретном филиале
+  assignedAt: timestamp('assigned_at').defaultNow(),
+  assignedBy: varchar('assigned_by', { length: 255 }).references(() => users.id)
+});
+
+// === Схемы для валидации ===
+
+export const insertCashRegisterSchema = createInsertSchema(cashRegisters).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertCashShiftSchema = createInsertSchema(cashShifts).omit({
+  id: true,
+  openedAt: true
+});
+
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  totalPurchases: true,
+  purchasesCount: true,
+  lastVisit: true
+});
+
+export const insertDiscountRuleSchema = createInsertSchema(discountRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  usageCount: true
+});
+
+export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertSalesTransactionSchema = createInsertSchema(salesTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertSalesTransactionItemSchema = createInsertSchema(salesTransactionItems).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertCashOperationSchema = createInsertSchema(cashOperations).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertUserRoleSchema = createInsertSchema(userRoles).omit({
+  id: true,
+  createdAt: true
+});
+
+// === Типы ===
+
+export type CashRegister = typeof cashRegisters.$inferSelect;
+export type InsertCashRegister = z.infer<typeof insertCashRegisterSchema>;
+
+export type CashShift = typeof cashShifts.$inferSelect;
+export type InsertCashShift = z.infer<typeof insertCashShiftSchema>;
+
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+
+export type DiscountRule = typeof discountRules.$inferSelect;
+export type InsertDiscountRule = z.infer<typeof insertDiscountRuleSchema>;
+
+export type PaymentMethod = typeof paymentMethods.$inferSelect;
+export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
+
+export type SalesTransaction = typeof salesTransactions.$inferSelect;
+export type InsertSalesTransaction = z.infer<typeof insertSalesTransactionSchema>;
+
+export type SalesTransactionItem = typeof salesTransactionItems.$inferSelect;
+export type InsertSalesTransactionItem = z.infer<typeof insertSalesTransactionItemSchema>;
+
+export type CashOperation = typeof cashOperations.$inferSelect;
+export type InsertCashOperation = z.infer<typeof insertCashOperationSchema>;
+
+export type UserRole = typeof userRoles.$inferSelect;
+export type InsertUserRole = z.infer<typeof insertUserRoleSchema>;
