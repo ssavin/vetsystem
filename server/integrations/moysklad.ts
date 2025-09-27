@@ -554,16 +554,8 @@ export async function syncNomenclature(products: any[], services: any[]): Promis
           article: product.id, // Используем ID из VetSystem как артикул
           description: product.description || undefined,
           // syncId убран - не требуется для базовой синхронизации
-          salePrices: product.price ? [{
-            value: Math.round(parseFloat(product.price.toString()) * 100), // Цена в копейках
-            currency: {
-              meta: {
-                href: currency.meta.href,
-                type: 'currency',
-                mediaType: 'application/json'
-              }
-            }
-          }] : undefined,
+          // Временно убираем цены для тестирования базовой синхронизации
+          // salePrices: [],
           vat: 20, // НДС 20%
           vatEnabled: true
         };
@@ -588,16 +580,8 @@ export async function syncNomenclature(products: any[], services: any[]): Promis
           article: service.id, // Используем ID из VetSystem как артикул
           description: service.description || undefined,
           // syncId убран - не требуется для базовой синхронизации
-          salePrices: service.price ? [{
-            value: Math.round(parseFloat(service.price.toString()) * 100), // Цена в копейках
-            currency: {
-              meta: {
-                href: currency.meta.href,
-                type: 'currency',
-                mediaType: 'application/json'
-              }
-            }
-          }] : undefined,
+          // Временно убираем цены для тестирования базовой синхронизации
+          // salePrices: [],
           vat: 20, // НДС 20%
           vatEnabled: true
         };
