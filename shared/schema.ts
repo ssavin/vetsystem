@@ -624,6 +624,10 @@ export const invoiceItems = pgTable("invoice_items", {
   quantity: integer("quantity").notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+  // Поля для фискальных чеков (54-ФЗ)
+  vatRate: varchar("vat_rate", { length: 20 }).default("20"), // '0', '10', '20', 'not_applicable'
+  productCode: varchar("product_code", { length: 255 }), // Для маркированных товаров
+  markingStatus: varchar("marking_status", { length: 50 }), // Статус маркировки
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => {
   return {
@@ -1241,6 +1245,10 @@ export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
   quantity: z.number().int().min(1, "Quantity must be at least 1"),
   price: z.coerce.number().min(0, "Price must be positive").transform(val => val.toString()),
   total: z.coerce.number().min(0, "Total must be positive").transform(val => val.toString()),
+  // Поля для фискальных чеков (54-ФЗ)
+  vatRate: z.enum(['0', '10', '20', 'not_applicable']).default('20').optional(),
+  productCode: z.string().optional(), // Для маркированных товаров  
+  markingStatus: z.string().optional(), // Статус маркировки
 });
 
 // Patient Files schema for validation

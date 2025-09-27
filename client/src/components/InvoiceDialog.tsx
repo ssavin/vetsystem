@@ -41,6 +41,11 @@ const invoiceItemSchema = z.object({
   quantity: z.coerce.number().min(1, "Количество должно быть больше 0"),
   price: z.coerce.number().min(0, "Цена не может быть отрицательной"),
   total: z.coerce.number().min(0),
+  // Поля для фискальных чеков (54-ФЗ)
+  vatRate: z.enum(['0', '10', '20', 'not_applicable']).default('20').optional(),
+  productCode: z.string().optional(), // Для маркированных товаров
+  markingStatus: z.string().optional(), // Статус маркировки 
+  itemId: z.string().optional(), // Связь с каталогом
 })
 
 const invoiceFormSchema = z.object({
@@ -172,7 +177,12 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
         type: itemType,
         quantity: 1,
         price: selectedItem.price,
-        total: selectedItem.price
+        total: selectedItem.price,
+        // КРИТИЧНО: передаем НДС из синхронизированной номенклатуры для фискальных чеков
+        vatRate: selectedItem.vat || (itemType === 'service' ? 'not_applicable' : '20'),
+        // Дополнительные данные для маркированных товаров (54-ФЗ)
+        productCode: selectedItem.markingCode,
+        itemId: selectedItem.id // Для связи с каталогом
       })
     }
   }
