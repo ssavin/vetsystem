@@ -541,17 +541,23 @@ export async function syncNomenclature(): Promise<{
     const loadedProducts: any[] = [];
     const loadedServices: any[] = [];
 
+    // Загружаем существующие товары и услуги один раз
+    console.log('[МойСклад] Загружаем существующие данные из локальной БД...');
+    const existingProducts = await storage.getProducts();
+    const existingServices = await storage.getServices();
+    const existingProductsMap = new Map(existingProducts.map(p => [p.moyskladId, p]));
+    const existingServicesMap = new Map(existingServices.map(s => [s.moyskladId, s]));
+
     // Получаем товары из МойСклад
     try {
       const productsResponse = await makeApiRequest('entity/product?limit=1000');
       console.log(`[МойСклад] Найдено товаров в МойСклад: ${productsResponse.rows?.length || 0}`);
       
       if (productsResponse.rows) {
+        let productCount = 0;
         for (const product of productsResponse.rows) {
           try {
-            // Проверяем существует ли товар с данным moyskladId
-            const existingProducts = await storage.getProducts();
-            const existingProduct = existingProducts.find(p => p.moyskladId === product.id);
+            const existingProduct = existingProductsMap.get(product.id);
             
             const productData = {
               moyskladId: product.id,
@@ -559,9 +565,9 @@ export async function syncNomenclature(): Promise<{
               description: product.description || '',
               article: product.article || '',
               category: 'МойСклад', // Категория по умолчанию
-              price: product.salePrices && product.salePrices.length > 0 
+              price: (product.salePrices && product.salePrices.length > 0 
                 ? (product.salePrices[0].value / 100) // Конвертируем из копеек в рубли
-                : 0,
+                : 0).toString(), // Преобразуем в строку
               vat: product.vat || 20,
               unit: 'шт', // Единица измерения по умолчанию
               stock: 0,
@@ -573,12 +579,15 @@ export async function syncNomenclature(): Promise<{
               // Создаем новый товар в локальной БД
               const createdProduct = await storage.createProduct(productData);
               loadedProducts.push(createdProduct);
-              console.log(`[МойСклад] Создан товар: ${product.name}`);
             } else {
               // Обновляем существующий товар
               await storage.updateProduct(existingProduct.id, productData);
               loadedProducts.push({ ...existingProduct, ...productData });
-              console.log(`[МойСклад] Обновлен товар: ${product.name}`);
+            }
+            
+            productCount++;
+            if (productCount % 100 === 0) {
+              console.log(`[МойСклад] Обработано товаров: ${productCount}/${productsResponse.rows.length}`);
             }
           } catch (productError: any) {
             const errorMessage = `Ошибка сохранения товара "${product.name}": ${productError.message}`;
@@ -599,11 +608,10 @@ export async function syncNomenclature(): Promise<{
       console.log(`[МойСклад] Найдено услуг в МойСклад: ${servicesResponse.rows?.length || 0}`);
       
       if (servicesResponse.rows) {
+        let serviceCount = 0;
         for (const service of servicesResponse.rows) {
           try {
-            // Проверяем существует ли услуга с данным moyskladId
-            const existingServices = await storage.getServices();
-            const existingService = existingServices.find(s => s.moyskladId === service.id);
+            const existingService = existingServicesMap.get(service.id);
             
             const serviceData = {
               moyskladId: service.id,
@@ -611,9 +619,9 @@ export async function syncNomenclature(): Promise<{
               description: service.description || '',
               article: service.article || '',
               category: 'МойСклад', // Категория по умолчанию
-              price: service.salePrices && service.salePrices.length > 0 
+              price: (service.salePrices && service.salePrices.length > 0 
                 ? (service.salePrices[0].value / 100) // Конвертируем из копеек в рубли
-                : 0,
+                : 0).toString(), // Преобразуем в строку
               vat: service.vat || 20,
               duration: 30, // Длительность по умолчанию в минутах
               isActive: true
@@ -623,12 +631,15 @@ export async function syncNomenclature(): Promise<{
               // Создаем новую услугу в локальной БД
               const createdService = await storage.createService(serviceData);
               loadedServices.push(createdService);
-              console.log(`[МойСклад] Создана услуга: ${service.name}`);
             } else {
               // Обновляем существующую услугу
               await storage.updateService(existingService.id, serviceData);
               loadedServices.push({ ...existingService, ...serviceData });
-              console.log(`[МойСклад] Обновлена услуга: ${service.name}`);
+            }
+            
+            serviceCount++;
+            if (serviceCount % 100 === 0) {
+              console.log(`[МойСклад] Обработано услуг: ${serviceCount}/${servicesResponse.rows.length}`);
             }
           } catch (serviceError: any) {
             const errorMessage = `Ошибка сохранения услуги "${service.name}": ${serviceError.message}`;
