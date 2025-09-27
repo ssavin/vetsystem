@@ -14,10 +14,10 @@ export default function MoyskladNomenclature() {
   // Мутация для синхронизации номенклатуры
   const syncMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('POST', '/api/moysklad/nomenclature/sync');
+      const response = await apiRequest('POST', '/api/moysklad/nomenclature/sync');
+      return await response.json();
     },
     onSuccess: (data) => {
-      console.log('Успешная загрузка данных:', data); // Для отладки
       toast({
         title: "Синхронизация завершена",
         description: `Загружено ${data.data?.loaded?.total || 0} позиций из МойСклад`,
@@ -44,11 +44,6 @@ export default function MoyskladNomenclature() {
   const services = nomenclatureData?.data?.services || [];
   const total = nomenclatureData?.data?.loaded?.total || 0;
 
-  // Отладочная информация
-  console.log('nomenclatureData:', nomenclatureData);
-  console.log('products длина:', products.length);
-  console.log('services длина:', services.length);
-  console.log('total:', total);
 
   return (
     <div className="space-y-6 p-6">
