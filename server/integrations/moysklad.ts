@@ -541,7 +541,7 @@ export async function syncNomenclature(products: any[], services: any[]): Promis
     
     // Получаем доступные типы цен
     const priceTypes = await getPriceTypes();
-    const defaultPriceType = priceTypes.length > 0 ? priceTypes[0].name : 'Цена продажи';
+    const defaultPriceType = priceTypes.length > 0 ? priceTypes[0] : null;
     const errors: string[] = [];
     const syncedProducts: any[] = [];
     const syncedServices: any[] = [];
@@ -556,7 +556,6 @@ export async function syncNomenclature(products: any[], services: any[]): Promis
           // syncId убран - не требуется для базовой синхронизации
           salePrices: product.price ? [{
             value: Math.round(parseFloat(product.price.toString()) * 100), // Цена в копейках
-            priceType: defaultPriceType,
             currency: {
               meta: {
                 href: currency.meta.href,
@@ -591,7 +590,6 @@ export async function syncNomenclature(products: any[], services: any[]): Promis
           // syncId убран - не требуется для базовой синхронизации
           salePrices: service.price ? [{
             value: Math.round(parseFloat(service.price.toString()) * 100), // Цена в копейках
-            priceType: defaultPriceType,
             currency: {
               meta: {
                 href: currency.meta.href,
