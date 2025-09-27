@@ -344,6 +344,9 @@ export interface IStorage {
   updateCashRegister(id: string, updates: Partial<InsertCashRegister>): Promise<CashRegister | null>;
   
   // Управление сменами
+  getCashShifts(branchId: string): Promise<CashShift[]>;
+  createCashShift(shift: InsertCashShift): Promise<CashShift>;
+  updateCashShift(id: string, updates: Partial<InsertCashShift>): Promise<CashShift | null>;
   openCashShift(registerId: string, cashierId: string, openingCash: string): Promise<CashShift>;
   closeCashShift(shiftId: string, closingCash: string, notes?: string): Promise<CashShift | null>;
   getCurrentShift(registerId: string): Promise<CashShift | null>;
@@ -366,6 +369,7 @@ export interface IStorage {
   // Продажи и чеки
   createSalesTransaction(transaction: InsertSalesTransaction): Promise<SalesTransaction>;
   addTransactionItems(transactionId: string, items: InsertSalesTransactionItem[]): Promise<SalesTransactionItem[]>;
+  createCompleteSalesTransaction(transaction: InsertSalesTransaction, items: any[], payments: any[], cashierId: string): Promise<any>;
   getSalesTransactions(branchId: string, shiftId?: string, dateFrom?: string, dateTo?: string): Promise<any[]>;
   getTransactionDetails(transactionId: string): Promise<any>;
   
@@ -2115,6 +2119,38 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Управление сменами
+  async getCashShifts(branchId: string): Promise<CashShift[]> {
+    return withPerformanceLogging('getCashShifts', async () => {
+      return await db
+        .select()
+        .from(cashShifts)
+        .where(eq(cashShifts.branchId, branchId))
+        .orderBy(desc(cashShifts.createdAt));
+    });
+  }
+
+  async createCashShift(shift: InsertCashShift): Promise<CashShift> {
+    return withPerformanceLogging('createCashShift', async () => {
+      const [created] = await db.insert(cashShifts).values(shift).returning();
+      return created;
+    });
+  }
+
+  async updateCashShift(id: string, updates: Partial<InsertCashShift>): Promise<CashShift | null> {
+    return withPerformanceLogging('updateCashShift', async () => {
+      const [updated] = await db
+        .update(cashShifts)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(cashShifts.id, id))
+        .returning();
+      
+      return updated || null;
+    });
+  }
+
   async openCashShift(registerId: string, cashierId: string, openingCash: string): Promise<CashShift> {
     return withPerformanceLogging('openCashShift', async () => {
       // Закрываем предыдущую смену, если она открыта
@@ -2316,6 +2352,58 @@ export class DatabaseStorage implements IStorage {
       }));
       
       return await db.insert(salesTransactionItems).values(itemsWithIds).returning();
+    });
+  }
+
+  async createCompleteSalesTransaction(transaction: InsertSalesTransaction, items: any[], payments: any[], cashierId: string): Promise<any> {
+    return withPerformanceLogging('createCompleteSalesTransaction', async () => {
+      // Используем транзакцию БД для атомарности
+      return await db.transaction(async (tx) => {
+        // 1. Создаем основную транзакцию
+        const transactionId = generateId();
+        const [createdTransaction] = await tx.insert(salesTransactions).values({
+          id: transactionId,
+          ...transaction
+        }).returning();
+
+        let transactionItems: any[] = [];
+        let paymentRecords: any[] = [];
+
+        // 2. Добавляем позиции товаров, если есть
+        if (items && items.length > 0) {
+          const itemsWithIds = items.map(item => ({
+            id: generateId(),
+            ...item,
+            transactionId
+          }));
+          transactionItems = await tx.insert(salesTransactionItems).values(itemsWithIds).returning();
+        }
+
+        // 3. Создаем кассовые операции для платежей, если есть
+        if (payments && payments.length > 0) {
+          for (const payment of payments) {
+            const paymentId = generateId();
+            const [paymentOperation] = await tx.insert(cashOperations).values({
+              id: paymentId,
+              registerId: createdTransaction.registerId,
+              shiftId: createdTransaction.shiftId,
+              cashierId: cashierId,
+              type: 'payment',
+              amount: payment.amount,
+              notes: `Оплата по чеку ${transactionId}`,
+              reason: payment.method || 'sale'
+            }).returning();
+            paymentRecords.push(paymentOperation);
+          }
+        }
+
+        // Возвращаем полную информацию
+        return {
+          transaction: createdTransaction,
+          items: transactionItems,
+          payments: paymentRecords
+        };
+      });
     });
   }
   

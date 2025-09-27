@@ -1958,5 +1958,13 @@ export type InsertSalesTransactionItem = z.infer<typeof insertSalesTransactionIt
 export type CashOperation = typeof cashOperations.$inferSelect;
 export type InsertCashOperation = z.infer<typeof insertCashOperationSchema>;
 
+export const insertUserRoleAssignmentSchema = createInsertSchema(userRoleAssignments).omit({
+  id: true,
+  assignedAt: true
+});
+
 export type UserRole = typeof userRoles.$inferSelect;
 export type InsertUserRole = z.infer<typeof insertUserRoleSchema>;
+
+export type UserRoleAssignment = typeof userRoleAssignments.$inferSelect;
+export type InsertUserRoleAssignment = z.infer<typeof insertUserRoleAssignmentSchema>;
