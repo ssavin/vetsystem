@@ -202,11 +202,11 @@ export default function Settings() {
     mutationFn: async () => {
       return apiRequest('POST', '/api/moysklad/nomenclature/sync')
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/moysklad/nomenclature/sync-status'] });
       toast({
         title: "Синхронизация завершена",
-        description: `Синхронизировано: ${data.data.synced.products} товаров, ${data.data.synced.services} услуг`,
+        description: `Синхронизировано: ${data?.data?.synced?.products || 0} товаров, ${data?.data?.synced?.services || 0} услуг`,
       });
     },
     onError: (error: any) => {
@@ -222,10 +222,10 @@ export default function Settings() {
     mutationFn: async () => {
       return apiRequest('POST', '/api/moysklad/test-connection')
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       toast({
         title: "Подключение успешно",
-        description: data.message,
+        description: data?.message || "Подключение к МойСклад установлено",
       });
     },
     onError: (error: any) => {
@@ -1499,26 +1499,26 @@ export default function Settings() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center">
                       <div className="text-lg font-semibold text-blue-600">
-                        {syncStatusLoading ? '...' : (syncStatus?.localData?.products || 0)}
+                        {syncStatusLoading ? '...' : ((syncStatus as any)?.localData?.products || 0)}
                       </div>
                       <div className="text-xs text-muted-foreground">Товары</div>
                     </div>
                     <div className="text-center">
                       <div className="text-lg font-semibold text-green-600">
-                        {syncStatusLoading ? '...' : (syncStatus?.localData?.services || 0)}
+                        {syncStatusLoading ? '...' : ((syncStatus as any)?.localData?.services || 0)}
                       </div>
                       <div className="text-xs text-muted-foreground">Услуги</div>
                     </div>
                     <div className="text-center">
                       <div className="text-lg font-semibold text-primary">
-                        {syncStatusLoading ? '...' : (syncStatus?.localData?.total || 0)}
+                        {syncStatusLoading ? '...' : ((syncStatus as any)?.localData?.total || 0)}
                       </div>
                       <div className="text-xs text-muted-foreground">Всего позиций</div>
                     </div>
                   </div>
-                  {syncStatus?.lastSync && (
+                  {(syncStatus as any)?.lastSync && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      Последняя синхронизация: {format(new Date(syncStatus.lastSync), 'dd.MM.yyyy HH:mm', { locale: ru })}
+                      Последняя синхронизация: {format(new Date((syncStatus as any).lastSync), 'dd.MM.yyyy HH:mm', { locale: ru })}
                     </p>
                   )}
                 </div>
@@ -1549,7 +1549,7 @@ export default function Settings() {
 
               <Button
                 onClick={() => syncNomenclatureMutation.mutate()}
-                disabled={syncNomenclatureMutation.isPending || (syncStatus?.localData?.total || 0) === 0}
+                disabled={syncNomenclatureMutation.isPending || ((syncStatus as any)?.localData?.total || 0) === 0}
                 className="flex-1"
                 data-testid="button-sync-nomenclature"
               >
@@ -1567,7 +1567,7 @@ export default function Settings() {
               </Button>
             </div>
 
-            {(syncStatus?.localData?.total || 0) === 0 && (
+            {((syncStatus as any)?.localData?.total || 0) === 0 && (
               <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
