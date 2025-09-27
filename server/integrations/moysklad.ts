@@ -526,91 +526,87 @@ export async function getCurrency(): Promise<any> {
 }
 
 /**
- * Массовая синхронизация номенклатуры из VetSystem в МойСклад
+ * Загружает номенклатуру ИЗ МойСклад в нашу систему
  */
-export async function syncNomenclature(products: any[], services: any[]): Promise<{
+export async function syncNomenclature(): Promise<{
   products: any[],
   services: any[],
   errors: string[]
 }> {
   try {
-    console.log('[МойСклад] Начало синхронизации номенклатуры...');
-    console.log(`Товаров для синхронизации: ${products.length}, Услуг: ${services.length}`);
+    console.log('[МойСклад] Начало загрузки номенклатуры ИЗ МойСклад...');
     
-    const currency = await getCurrency();
-    
-    // Получаем доступные типы цен
-    const priceTypes = await getPriceTypes();
-    const defaultPriceType = priceTypes.length > 0 ? priceTypes[0] : null;
     const errors: string[] = [];
-    const syncedProducts: any[] = [];
-    const syncedServices: any[] = [];
+    const loadedProducts: any[] = [];
+    const loadedServices: any[] = [];
 
-    // Синхронизируем товары
-    for (const product of products) {
-      try {
-        const productData: ProductData = {
-          name: product.name,
-          article: product.id, // Используем ID из VetSystem как артикул
-          description: product.description || undefined,
-          // syncId убран - не требуется для базовой синхронизации
-          // Временно убираем цены для тестирования базовой синхронизации
-          // salePrices: [],
-          vat: 20, // НДС 20%
-          vatEnabled: true
-        };
-
-        const result = await createProduct(productData);
-        syncedProducts.push({
-          ...result,
-          originalId: product.id
-        });
-      } catch (error) {
-        const errorMsg = `Ошибка синхронизации товара "${product.name}": ${error}`;
-        console.error(errorMsg);
-        errors.push(errorMsg);
+    // Получаем товары из МойСклад
+    try {
+      const productsResponse = await makeApiRequest('entity/product?limit=1000');
+      console.log(`[МойСклад] Найдено товаров в МойСклад: ${productsResponse.rows?.length || 0}`);
+      
+      if (productsResponse.rows) {
+        for (const product of productsResponse.rows) {
+          loadedProducts.push({
+            moyskladId: product.id,
+            name: product.name,
+            description: product.description || '',
+            article: product.article || '',
+            price: product.salePrices && product.salePrices.length > 0 
+              ? (product.salePrices[0].value / 100) // Конвертируем из копеек в рубли
+              : 0,
+            vat: product.vat || 20
+          });
+        }
       }
+    } catch (error: any) {
+      const errorMessage = `Ошибка загрузки товаров: ${error.message}`;
+      console.error(errorMessage);
+      errors.push(errorMessage);
     }
 
-    // Синхронизируем услуги  
-    for (const service of services) {
-      try {
-        const serviceData: ServiceData = {
-          name: service.name,
-          article: service.id, // Используем ID из VetSystem как артикул
-          description: service.description || undefined,
-          // syncId убран - не требуется для базовой синхронизации
-          // Временно убираем цены для тестирования базовой синхронизации
-          // salePrices: [],
-          vat: 20, // НДС 20%
-          vatEnabled: true
-        };
-
-        const result = await createService(serviceData);
-        syncedServices.push({
-          ...result,
-          originalId: service.id
-        });
-      } catch (error) {
-        const errorMsg = `Ошибка синхронизации услуги "${service.name}": ${error}`;
-        console.error(errorMsg);
-        errors.push(errorMsg);
+    // Получаем услуги из МойСклад
+    try {
+      const servicesResponse = await makeApiRequest('entity/service?limit=1000');
+      console.log(`[МойСклад] Найдено услуг в МойСклад: ${servicesResponse.rows?.length || 0}`);
+      
+      if (servicesResponse.rows) {
+        for (const service of servicesResponse.rows) {
+          loadedServices.push({
+            moyskladId: service.id,
+            name: service.name,
+            description: service.description || '',
+            article: service.article || '',
+            price: service.salePrices && service.salePrices.length > 0 
+              ? (service.salePrices[0].value / 100) // Конвертируем из копеек в рубли
+              : 0,
+            vat: service.vat || 20
+          });
+        }
       }
+    } catch (error: any) {
+      const errorMessage = `Ошибка загрузки услуг: ${error.message}`;
+      console.error(errorMessage);
+      errors.push(errorMessage);
     }
 
-    console.log('[МойСклад] Синхронизация завершена');
-    console.log(`Синхронизировано товаров: ${syncedProducts.length}, услуг: ${syncedServices.length}`);
+    console.log('[МойСклад] Загрузка номенклатуры завершена');
+    console.log(`Загружено товаров: ${loadedProducts.length}, услуг: ${loadedServices.length}`);
     console.log(`Ошибок: ${errors.length}`);
 
     return {
-      products: syncedProducts,
-      services: syncedServices,
+      products: loadedProducts,
+      services: loadedServices,
       errors
     };
     
-  } catch (error) {
-    console.error('[МойСклад] Критическая ошибка синхронизации:', error);
-    throw error;
+  } catch (error: any) {
+    console.error('[МойСклад] Критическая ошибка загрузки номенклатуры:', error);
+    return {
+      products: [],
+      services: [],
+      errors: [error.message]
+    };
   }
 }
 

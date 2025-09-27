@@ -256,6 +256,10 @@ export const services = pgTable("services", {
   duration: integer("duration"), // in minutes, for services
   description: text("description"),
   isActive: boolean("is_active").default(true),
+  // МойСклад интеграция
+  moyskladId: varchar("moysklad_id", { length: 255 }), // ID из МойСклад
+  article: varchar("article", { length: 255 }), // Артикул
+  vat: integer("vat").default(20), // НДС
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -279,6 +283,10 @@ export const products = pgTable("products", {
   unit: varchar("unit", { length: 50 }).notNull(),
   description: text("description"),
   isActive: boolean("is_active").default(true),
+  // МойСклад интеграция
+  moyskladId: varchar("moysklad_id", { length: 255 }), // ID из МойСклад
+  article: varchar("article", { length: 255 }), // Артикул
+  vat: integer("vat").default(20), // НДС
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {

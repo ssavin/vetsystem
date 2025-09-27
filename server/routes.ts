@@ -2749,8 +2749,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/moysklad/nomenclature/sync-status", authenticateToken, requireRole('администратор'), async (req, res) => {
     try {
       // Получаем количество товаров и услуг в локальной системе
-      const products = await storage.getProducts('all');
-      const services = await storage.getServices('all');
+      const products = await storage.getProducts();
+      const services = await storage.getServices();
       
       res.json({
         localData: {
@@ -2767,50 +2767,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/moysklad/nomenclature/sync - Запустить синхронизацию номенклатуры
+  // POST /api/moysklad/nomenclature/sync - Загрузить номенклатуру ИЗ МойСклад
   app.post("/api/moysklad/nomenclature/sync", authenticateToken, requireRole('администратор'), async (req, res) => {
     try {
-      console.log('[МойСклад] Начинаем синхронизацию номенклатуры...');
+      console.log('[МойСклад] Начинаем загрузку номенклатуры ИЗ МойСклад...');
       
-      // Получаем все товары и услуги из локальной базы данных
-      const products = await storage.getProducts('all');
-      const services = await storage.getServices('all');
-      
-      console.log(`[МойСклад] Найдено товаров: ${products.length}, услуг: ${services.length}`);
-      
-      if (products.length === 0 && services.length === 0) {
-        return res.status(400).json({
-          error: "No data to sync",
-          message: "В системе отсутствуют товары и услуги для синхронизации"
-        });
-      }
-
-      // Импортируем модуль МойСклад и запускаем синхронизацию
+      // Импортируем модуль МойСклад и запускаем загрузку
       const { syncNomenclature } = await import('./integrations/moysklad');
       
-      const result = await syncNomenclature(products, services);
+      const result = await syncNomenclature();
       
-      console.log('[МойСклад] Синхронизация завершена:', result);
+      console.log('[МойСклад] Загрузка завершена:', result);
       
+      // Возвращаем результат с информацией о загруженных данных
       res.json({
         success: true,
-        message: "Синхронизация номенклатуры завершена",
+        message: "Загрузка номенклатуры из МойСклад завершена",
         data: {
-          synced: {
+          loaded: {
             products: result.products.length,
             services: result.services.length,
             total: result.products.length + result.services.length
           },
           errors: result.errors.length,
-          details: result.errors.length > 0 ? result.errors : undefined
+          details: result.errors.length > 0 ? result.errors : undefined,
+          products: result.products,
+          services: result.services
         }
       });
       
     } catch (error) {
       console.error("Error in MoySklad sync:", error);
       res.status(500).json({ 
-        error: "Failed to sync nomenclature", 
-        message: "Не удалось синхронизировать номенклатуру с МойСклад",
+        error: "Failed to load nomenclature", 
+        message: "Не удалось загрузить номенклатуру из МойСклад",
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
