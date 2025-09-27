@@ -72,12 +72,23 @@ const config = {
 };
 
 // Проверка наличия обязательных переменных
-if (!config.login || !config.password || !config.retailStoreId) {
-  throw new Error('Отсутствуют обязательные переменные окружения для МойСклад');
+if (!config.retailStoreId) {
+  throw new Error('Отсутствует обязательная переменная окружения MOYSKLAD_RETAIL_STORE_ID для МойСклад');
 }
 
-// Basic Auth header для API запросов
+if (!process.env.MOYSKLAD_API_TOKEN && (!config.login || !config.password)) {
+  throw new Error('Отсутствуют учетные данные для МойСклад: необходим либо MOYSKLAD_API_TOKEN, либо MOYSKLAD_LOGIN + MOYSKLAD_PASSWORD');
+}
+
+// Basic Auth header для API запросов (с токеном)
 const getAuthHeader = () => {
+  // Для МойСклад API токены используются как Basic Auth: токен + пустой пароль
+  if (process.env.MOYSKLAD_API_TOKEN) {
+    const credentials = Buffer.from(`${process.env.MOYSKLAD_API_TOKEN}:`).toString('base64');
+    return `Basic ${credentials}`;
+  }
+  
+  // Fallback на логин/пароль если токен не доступен
   const credentials = Buffer.from(`${config.login}:${config.password}`).toString('base64');
   return `Basic ${credentials}`;
 };
@@ -404,7 +415,7 @@ export async function createProduct(productData: ProductData): Promise<any> {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/product`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.MOYSKLAD_API_TOKEN}`,
+        'Authorization': getAuthHeader(),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       },
@@ -436,7 +447,7 @@ export async function createService(serviceData: ServiceData): Promise<any> {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/service`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.MOYSKLAD_API_TOKEN}`,
+        'Authorization': getAuthHeader(),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       },
@@ -466,7 +477,7 @@ export async function getCurrency(): Promise<any> {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/currency`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${process.env.MOYSKLAD_API_TOKEN}`,
+        'Authorization': getAuthHeader(),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       }
@@ -595,7 +606,7 @@ export async function getAssortment(): Promise<any> {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/assortment`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${process.env.MOYSKLAD_API_TOKEN}`,
+        'Authorization': getAuthHeader(),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       }
