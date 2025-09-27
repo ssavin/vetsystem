@@ -175,7 +175,7 @@ async function makeApiRequest(endpoint: string, method: 'GET' | 'POST' | 'PUT' =
   const headers = {
     'Authorization': getAuthHeader(),
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
+    'Accept': 'application/json;charset=utf-8'
   };
 
   const options: RequestInit = {
