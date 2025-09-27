@@ -383,14 +383,14 @@ export async function getFiscalReceiptStatus(receiptId: string): Promise<any> {
 // Тестовая функция для проверки подключения к API
 export async function testConnection(): Promise<{ success: boolean; message: string }> {
   try {
-    // Проверяем доступность API и получаем информацию о компании
-    const companyInfo = await makeApiRequest('context/company');
+    // Проверяем доступность API и получаем информацию об организации
+    const organizationInfo = await makeApiRequest('context/organization');
     
-    console.log('Подключение к МойСклад API успешно:', companyInfo.name);
+    console.log('Подключение к МойСклад API успешно:', organizationInfo.name);
     
     return {
       success: true,
-      message: `Подключение успешно. Компания: ${companyInfo.name}`
+      message: `Подключение успешно. Организация: ${organizationInfo.name}`
     };
   } catch (error: any) {
     console.error('Ошибка подключения к МойСклад API:', error);
