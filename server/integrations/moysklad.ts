@@ -404,7 +404,7 @@ export async function createProduct(productData: ProductData): Promise<any> {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/product`, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${Buffer.from(`${process.env.MOYSKLAD_LOGIN}:${process.env.MOYSKLAD_PASSWORD}`).toString('base64')}`,
+        'Authorization': `Bearer ${process.env.MOYSKLAD_API_TOKEN}`,
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       },
@@ -436,7 +436,7 @@ export async function createService(serviceData: ServiceData): Promise<any> {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/service`, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${Buffer.from(`${process.env.MOYSKLAD_LOGIN}:${process.env.MOYSKLAD_PASSWORD}`).toString('base64')}`,
+        'Authorization': `Bearer ${process.env.MOYSKLAD_API_TOKEN}`,
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       },
@@ -466,7 +466,7 @@ export async function getCurrency(): Promise<any> {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/currency`, {
       method: 'GET',
       headers: {
-        'Authorization': `Basic ${Buffer.from(`${process.env.MOYSKLAD_LOGIN}:${process.env.MOYSKLAD_PASSWORD}`).toString('base64')}`,
+        'Authorization': `Bearer ${process.env.MOYSKLAD_API_TOKEN}`,
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       }
@@ -595,7 +595,7 @@ export async function getAssortment(): Promise<any> {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/assortment`, {
       method: 'GET',
       headers: {
-        'Authorization': `Basic ${Buffer.from(`${process.env.MOYSKLAD_LOGIN}:${process.env.MOYSKLAD_PASSWORD}`).toString('base64')}`,
+        'Authorization': `Bearer ${process.env.MOYSKLAD_API_TOKEN}`,
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       }
