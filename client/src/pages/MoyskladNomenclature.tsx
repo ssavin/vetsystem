@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Package, Wrench, Loader2, RefreshCw } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function MoyskladNomenclature() {
   const { toast } = useToast();
@@ -13,14 +14,9 @@ export default function MoyskladNomenclature() {
   // Мутация для синхронизации номенклатуры
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/moysklad/nomenclature/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+      return apiRequest('/api/moysklad/nomenclature/sync', {
+        method: 'POST'
       });
-      if (!response.ok) {
-        throw new Error('Ошибка синхронизации');
-      }
-      return response.json();
     },
     onSuccess: (data) => {
       toast({
