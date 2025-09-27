@@ -14,9 +14,7 @@ export default function MoyskladNomenclature() {
   // Мутация для синхронизации номенклатуры
   const syncMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('/api/moysklad/nomenclature/sync', {
-        method: 'POST'
-      });
+      return apiRequest('POST', '/api/moysklad/nomenclature/sync');
     },
     onSuccess: (data) => {
       toast({
