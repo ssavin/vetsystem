@@ -260,6 +260,10 @@ export const services = pgTable("services", {
   moyskladId: varchar("moysklad_id", { length: 255 }), // ID из МойСклад
   article: varchar("article", { length: 255 }), // Артикул
   vat: integer("vat").default(20), // НДС
+  // Поля отслеживания синхронизации
+  lastSyncedAt: timestamp("last_synced_at"), // Когда последний раз синхронизировался с МойСклад
+  syncHash: varchar("sync_hash", { length: 64 }), // Хеш для отслеживания изменений
+  deletedAt: timestamp("deleted_at"), // Для soft delete
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -287,6 +291,10 @@ export const products = pgTable("products", {
   moyskladId: varchar("moysklad_id", { length: 255 }), // ID из МойСклад
   article: varchar("article", { length: 255 }), // Артикул
   vat: integer("vat").default(20), // НДС
+  // Поля отслеживания синхронизации
+  lastSyncedAt: timestamp("last_synced_at"), // Когда последний раз синхронизировался с МойСклад
+  syncHash: varchar("sync_hash", { length: 64 }), // Хеш для отслеживания изменений
+  deletedAt: timestamp("deleted_at"), // Для soft delete
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {

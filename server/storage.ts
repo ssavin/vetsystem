@@ -805,11 +805,39 @@ export class DatabaseStorage implements IStorage {
   async getServices(activeOnly = false): Promise<Service[]> {
     if (activeOnly) {
       return await db.select().from(services)
-        .where(eq(services.isActive, true))
+        .where(and(eq(services.isActive, true), isNull(services.deletedAt)))
         .orderBy(services.category, services.name);
     }
     
-    return await db.select().from(services).orderBy(services.category, services.name);
+    return await db.select().from(services)
+      .where(isNull(services.deletedAt))
+      .orderBy(services.category, services.name);
+  }
+
+  // Получить услуги для синхронизации с МойСклад (новые/измененные)
+  async getServicesForSync(): Promise<Service[]> {
+    return await db.select().from(services)
+      .where(and(
+        isNull(services.deletedAt),
+        or(
+          isNull(services.lastSyncedAt), // Новые записи
+          gt(services.updatedAt, services.lastSyncedAt) // Измененные записи
+        )
+      ))
+      .orderBy(services.updatedAt);
+  }
+
+  // Получить удаленные услуги для архивирования в МойСклад
+  async getDeletedServicesForSync(): Promise<Service[]> {
+    return await db.select().from(services)
+      .where(and(
+        isNotNull(services.deletedAt),
+        or(
+          isNull(services.lastSyncedAt),
+          gt(services.deletedAt, services.lastSyncedAt)
+        )
+      ))
+      .orderBy(services.deletedAt);
   }
 
   async getService(id: string): Promise<Service | undefined> {
@@ -844,7 +872,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteService(id: string): Promise<void> {
-    await db.delete(services).where(eq(services.id, id));
+    // Soft delete - mark as deleted but keep in DB for sync
+    await db.update(services)
+      .set({ 
+        deletedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(services.id, id));
+  }
+
+  // Отметить услугу как синхронизированную
+  async markServiceSynced(id: string, syncHash: string): Promise<void> {
+    await db.update(services)
+      .set({ 
+        lastSyncedAt: new Date(),
+        syncHash: syncHash
+      })
+      .where(eq(services.id, id));
   }
 
   async searchServices(query: string): Promise<Service[]> {
@@ -866,11 +910,39 @@ export class DatabaseStorage implements IStorage {
   async getProducts(activeOnly = false): Promise<Product[]> {
     if (activeOnly) {
       return await db.select().from(products)
-        .where(eq(products.isActive, true))
+        .where(and(eq(products.isActive, true), isNull(products.deletedAt)))
         .orderBy(products.category, products.name);
     }
     
-    return await db.select().from(products).orderBy(products.category, products.name);
+    return await db.select().from(products)
+      .where(isNull(products.deletedAt))
+      .orderBy(products.category, products.name);
+  }
+
+  // Получить товары для синхронизации с МойСклад (новые/измененные)
+  async getProductsForSync(): Promise<Product[]> {
+    return await db.select().from(products)
+      .where(and(
+        isNull(products.deletedAt),
+        or(
+          isNull(products.lastSyncedAt), // Новые записи
+          gt(products.updatedAt, products.lastSyncedAt) // Измененные записи
+        )
+      ))
+      .orderBy(products.updatedAt);
+  }
+
+  // Получить удаленные товары для архивирования в МойСклад
+  async getDeletedProductsForSync(): Promise<Product[]> {
+    return await db.select().from(products)
+      .where(and(
+        isNotNull(products.deletedAt),
+        or(
+          isNull(products.lastSyncedAt),
+          gt(products.deletedAt, products.lastSyncedAt)
+        )
+      ))
+      .orderBy(products.deletedAt);
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
@@ -905,7 +977,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProduct(id: string): Promise<void> {
-    await db.delete(products).where(eq(products.id, id));
+    // Soft delete - mark as deleted but keep in DB for sync
+    await db.update(products)
+      .set({ 
+        deletedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(products.id, id));
+  }
+
+  // Отметить товар как синхронизированный
+  async markProductSynced(id: string, syncHash: string): Promise<void> {
+    await db.update(products)
+      .set({ 
+        lastSyncedAt: new Date(),
+        syncHash: syncHash
+      })
+      .where(eq(products.id, id));
   }
 
   async searchProducts(query: string): Promise<Product[]> {

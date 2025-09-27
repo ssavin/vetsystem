@@ -529,7 +529,7 @@ export async function getCurrency(): Promise<any> {
 /**
  * Загружает номенклатуру ИЗ МойСклад в нашу систему
  */
-export async function syncNomenclature(): Promise<{
+export async function loadNomenclatureFromMoysklad(): Promise<{
   products: any[],
   services: any[],
   errors: string[]
@@ -696,6 +696,301 @@ export async function getAssortment(): Promise<any> {
   } catch (error) {
     console.error('[МойСклад] Ошибка получения номенклатуры:', error);
     throw error;
+  }
+}
+
+// ===== ЭКСПОРТ ИЗ VETSYSTEM В МОЙСКЛАД =====
+
+import crypto from 'crypto';
+
+/**
+ * Вычисляет хеш для отслеживания изменений
+ */
+function computeSyncHash(item: any): string {
+  const content = JSON.stringify({
+    name: item.name,
+    category: item.category,
+    price: item.price,
+    description: item.description,
+    unit: item.unit || 'шт',
+    vat: item.vat || 20
+  });
+  return crypto.createHash('sha256').update(content).digest('hex');
+}
+
+/**
+ * Экспортирует услугу из VetSystem в МойСклад
+ */
+export async function exportServiceToMoysklad(service: any): Promise<{ success: boolean; moyskladId?: string; error?: string }> {
+  try {
+    const serviceData = {
+      name: service.name,
+      article: service.article || service.id.substring(0, 8),
+      description: service.description || '',
+      salePrices: [{
+        value: Math.round(parseFloat(service.price) * 100), // МойСклад работает в копейках
+        currency: {
+          meta: {
+            href: `${MOYSKLAD_API_BASE}/entity/currency/00000000-0000-0000-0000-000000000643`, // Рубль
+            type: 'currency',
+            mediaType: 'application/json'
+          }
+        }
+      }],
+      vat: service.vat || 20,
+      vatEnabled: true,
+      syncId: service.id // Для предотвращения дубликатов
+    };
+
+    let endpoint = `${MOYSKLAD_API_BASE}/entity/service`;
+    let method = 'POST';
+
+    // Если у услуги уже есть moyskladId, то обновляем
+    if (service.moyskladId) {
+      endpoint = `${MOYSKLAD_API_BASE}/entity/service/${service.moyskladId}`;
+      method = 'PUT';
+    }
+
+    const response = await fetch(endpoint, {
+      method,
+      headers: {
+        'Authorization': getAuthHeader(),
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'gzip'
+      },
+      body: JSON.stringify(serviceData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorData}`);
+    }
+
+    const result = await response.json();
+    const moyskladId = result.id;
+
+    // Отмечаем услугу как синхронизированную
+    const syncHash = computeSyncHash(service);
+    await storage.markServiceSynced(service.id, syncHash);
+
+    console.log(`[МойСклад] Услуга "${service.name}" успешно экспортирована`);
+    return { success: true, moyskladId };
+
+  } catch (error: any) {
+    console.error(`[МойСклад] Ошибка экспорта услуги "${service.name}":`, error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Экспортирует товар из VetSystem в МойСклад
+ */
+export async function exportProductToMoysklad(product: any): Promise<{ success: boolean; moyskladId?: string; error?: string }> {
+  try {
+    const productData = {
+      name: product.name,
+      article: product.article || product.id.substring(0, 8),
+      description: product.description || '',
+      salePrices: [{
+        value: Math.round(parseFloat(product.price) * 100), // МойСклад работает в копейках
+        currency: {
+          meta: {
+            href: `${MOYSKLAD_API_BASE}/entity/currency/00000000-0000-0000-0000-000000000643`, // Рубль
+            type: 'currency',
+            mediaType: 'application/json'
+          }
+        }
+      }],
+      vat: product.vat || 20,
+      vatEnabled: true,
+      syncId: product.id, // Для предотвращения дубликатов
+      // Дополнительные атрибуты для товаров
+      attributes: product.unit ? [{
+        id: 'unit',
+        value: product.unit
+      }] : []
+    };
+
+    let endpoint = `${MOYSKLAD_API_BASE}/entity/product`;
+    let method = 'POST';
+
+    // Если у товара уже есть moyskladId, то обновляем
+    if (product.moyskladId) {
+      endpoint = `${MOYSKLAD_API_BASE}/entity/product/${product.moyskladId}`;
+      method = 'PUT';
+    }
+
+    const response = await fetch(endpoint, {
+      method,
+      headers: {
+        'Authorization': getAuthHeader(),
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'gzip'
+      },
+      body: JSON.stringify(productData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorData}`);
+    }
+
+    const result = await response.json();
+    const moyskladId = result.id;
+
+    // Отмечаем товар как синхронизированный
+    const syncHash = computeSyncHash(product);
+    await storage.markProductSynced(product.id, syncHash);
+
+    console.log(`[МойСклад] Товар "${product.name}" успешно экспортирован`);
+    return { success: true, moyskladId };
+
+  } catch (error: any) {
+    console.error(`[МойСклад] Ошибка экспорта товара "${product.name}":`, error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Архивирует товар/услугу в МойСклад (soft delete)
+ */
+export async function archiveItemInMoysklad(moyskladId: string, type: 'product' | 'service'): Promise<{ success: boolean; error?: string }> {
+  try {
+    const endpoint = `${MOYSKLAD_API_BASE}/entity/${type}/${moyskladId}`;
+    
+    // МойСклад использует поле archived для мягкого удаления
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      headers: {
+        'Authorization': getAuthHeader(),
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'gzip'
+      },
+      body: JSON.stringify({ archived: true })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorData}`);
+    }
+
+    console.log(`[МойСклад] ${type} ${moyskladId} успешно архивирован`);
+    return { success: true };
+
+  } catch (error: any) {
+    console.error(`[МойСклад] Ошибка архивирования ${type} ${moyskladId}:`, error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Основная функция синхронизации номенклатуры (экспорт из VetSystem в МойСклад)
+ */
+export async function syncNomenclature(): Promise<{
+  success: boolean;
+  exportedServices: number;
+  exportedProducts: number;
+  archivedItems: number;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let exportedServices = 0;
+  let exportedProducts = 0;
+  let archivedItems = 0;
+
+  try {
+    console.log('[МойСклад] Начинаем синхронизацию номенклатуры (экспорт из VetSystem)...');
+
+    // 1. Экспортируем новые/измененные услуги
+    const servicesToSync = await storage.getServicesForSync();
+    console.log(`[МойСклад] Найдено услуг для синхронизации: ${servicesToSync.length}`);
+
+    for (const service of servicesToSync) {
+      const result = await exportServiceToMoysklad(service);
+      if (result.success) {
+        exportedServices++;
+        
+        // Обновляем moyskladId если это новая услуга
+        if (result.moyskladId && !service.moyskladId) {
+          await storage.updateService(service.id, { moyskladId: result.moyskladId });
+        }
+      } else if (result.error) {
+        errors.push(`Услуга "${service.name}": ${result.error}`);
+      }
+    }
+
+    // 2. Экспортируем новые/измененные товары
+    const productsToSync = await storage.getProductsForSync();
+    console.log(`[МойСклад] Найдено товаров для синхронизации: ${productsToSync.length}`);
+
+    for (const product of productsToSync) {
+      const result = await exportProductToMoysklad(product);
+      if (result.success) {
+        exportedProducts++;
+        
+        // Обновляем moyskladId если это новый товар
+        if (result.moyskladId && !product.moyskladId) {
+          await storage.updateProduct(product.id, { moyskladId: result.moyskladId });
+        }
+      } else if (result.error) {
+        errors.push(`Товар "${product.name}": ${result.error}`);
+      }
+    }
+
+    // 3. Архивируем удаленные услуги
+    const deletedServices = await storage.getDeletedServicesForSync();
+    console.log(`[МойСклад] Найдено удаленных услуг для архивирования: ${deletedServices.length}`);
+
+    for (const service of deletedServices) {
+      if (service.moyskladId) {
+        const result = await archiveItemInMoysklad(service.moyskladId, 'service');
+        if (result.success) {
+          archivedItems++;
+          await storage.markServiceSynced(service.id, '');
+        } else if (result.error) {
+          errors.push(`Архивирование услуги "${service.name}": ${result.error}`);
+        }
+      }
+    }
+
+    // 4. Архивируем удаленные товары
+    const deletedProducts = await storage.getDeletedProductsForSync();
+    console.log(`[МойСклад] Найдено удаленных товаров для архивирования: ${deletedProducts.length}`);
+
+    for (const product of deletedProducts) {
+      if (product.moyskladId) {
+        const result = await archiveItemInMoysklad(product.moyskladId, 'product');
+        if (result.success) {
+          archivedItems++;
+          await storage.markProductSynced(product.id, '');
+        } else if (result.error) {
+          errors.push(`Архивирование товара "${product.name}": ${result.error}`);
+        }
+      }
+    }
+
+    console.log('[МойСклад] Синхронизация завершена');
+    console.log(`Экспортировано услуг: ${exportedServices}, товаров: ${exportedProducts}`);
+    console.log(`Архивировано: ${archivedItems}, ошибок: ${errors.length}`);
+
+    return {
+      success: errors.length === 0,
+      exportedServices,
+      exportedProducts,
+      archivedItems,
+      errors
+    };
+
+  } catch (error: any) {
+    console.error('[МойСклад] Критическая ошибка синхронизации:', error);
+    errors.push(error.message);
+    return {
+      success: false,
+      exportedServices,
+      exportedProducts,
+      archivedItems,
+      errors
+    };
   }
 }
 
