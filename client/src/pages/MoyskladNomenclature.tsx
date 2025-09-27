@@ -17,6 +17,7 @@ export default function MoyskladNomenclature() {
       return apiRequest('POST', '/api/moysklad/nomenclature/sync');
     },
     onSuccess: (data) => {
+      console.log('Успешная загрузка данных:', data); // Для отладки
       toast({
         title: "Синхронизация завершена",
         description: `Загружено ${data.data?.loaded?.total || 0} позиций из МойСклад`,
@@ -32,15 +33,8 @@ export default function MoyskladNomenclature() {
     }
   });
 
-  // Запрос данных из кэша или повторная синхронизация
-  const { data: nomenclatureData, isLoading } = useQuery({
-    queryKey: ['moysklad-nomenclature'],
-    queryFn: async () => {
-      // Пытаемся получить данные из кэша или синхронизировать заново
-      return syncMutation.mutateAsync();
-    },
-    enabled: false // Загружаем только по требованию
-  });
+  // Получаем данные из кэша если они есть
+  const nomenclatureData = queryClient.getQueryData(['moysklad-nomenclature']);
 
   const handleSync = () => {
     syncMutation.mutate();
@@ -49,6 +43,12 @@ export default function MoyskladNomenclature() {
   const products = nomenclatureData?.data?.products || [];
   const services = nomenclatureData?.data?.services || [];
   const total = nomenclatureData?.data?.loaded?.total || 0;
+
+  // Отладочная информация
+  console.log('nomenclatureData:', nomenclatureData);
+  console.log('products длина:', products.length);
+  console.log('services длина:', services.length);
+  console.log('total:', total);
 
   return (
     <div className="space-y-6 p-6">
@@ -171,14 +171,14 @@ export default function MoyskladNomenclature() {
         </Card>
       )}
 
-      {isLoading && (
+      {syncMutation.isPending && (
         <div className="flex justify-center items-center h-32">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Загрузка данных...</span>
+          <span className="ml-2">Загрузка данных из МойСклад...</span>
         </div>
       )}
 
-      {!isLoading && total === 0 && (
+      {!syncMutation.isPending && total === 0 && (
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">
