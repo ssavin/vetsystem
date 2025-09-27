@@ -7,6 +7,7 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 import json
 from .integrations import FiscalPrinter, YooKassaPayments
+from .return_dialog import ReturnDialog
 
 
 class SalesModule:
@@ -18,6 +19,7 @@ class SalesModule:
         self.frame = ttk.Frame(parent)
         self.current_sale_items = []
         self.current_customer = None
+        self.manual_discount_percent = 0.0
         
         self.create_interface()
         
@@ -193,11 +195,24 @@ class SalesModule:
                                    state="readonly", width=20)
         payment_combo.pack(side=tk.LEFT, padx=10)
         
+        # Ручные скидки
+        discount_frame = ttk.Frame(totals_frame)
+        discount_frame.grid(row=3, column=0, columnspan=2, sticky=tk.W+tk.E, padx=5, pady=5)
+        
+        ttk.Label(discount_frame, text="Ручная скидка (%):").pack(side=tk.LEFT)
+        self.manual_discount_var = tk.DoubleVar(value=0.0)
+        discount_entry = ttk.Entry(discount_frame, textvariable=self.manual_discount_var, width=10)
+        discount_entry.pack(side=tk.LEFT, padx=5)
+        ttk.Button(discount_frame, text="Применить", 
+                  command=self.apply_manual_discount).pack(side=tk.LEFT, padx=5)
+        
         # Кнопки оплаты
         pay_frame = ttk.Frame(totals_frame)
-        pay_frame.grid(row=4, column=0, columnspan=2, sticky=tk.W+tk.E, padx=5, pady=5)
+        pay_frame.grid(row=5, column=0, columnspan=2, sticky=tk.W+tk.E, padx=5, pady=5)
         
         ttk.Button(pay_frame, text="💰 ОПЛАТА", command=self.process_payment,
+                  style='Action.TButton').pack(fill=tk.X, pady=2)
+        ttk.Button(pay_frame, text="🔄 ВОЗВРАТ", command=self.process_return,
                   style='Action.TButton').pack(fill=tk.X, pady=2)
         ttk.Button(pay_frame, text="📋 Отложить чек", command=self.hold_receipt).pack(fill=tk.X, pady=2)
         
@@ -314,9 +329,13 @@ class SalesModule:
             subtotal += item['total']
             
         # Обновление итогов
-        discount = 0  # Пока без скидок
+        discount = 0
+        # Скидка клиента
         if self.current_customer and self.current_customer.get('discount_percent', 0) > 0:
-            discount = subtotal * self.current_customer['discount_percent'] / 100
+            discount += subtotal * self.current_customer['discount_percent'] / 100
+        # Ручная скидка
+        if self.manual_discount_percent > 0:
+            discount += subtotal * self.manual_discount_percent / 100
             
         total = subtotal - discount
         
@@ -369,6 +388,12 @@ class SalesModule:
         """Очистка чека"""
         if self.current_sale_items and messagebox.askyesno("Подтверждение", "Очистить весь чек?"):
             self.current_sale_items.clear()
+            self.current_customer = None
+            self.customer_label.config(text="Не выбран", foreground='gray')
+            # Сброс ручной скидки
+            self.manual_discount_percent = 0.0
+            if hasattr(self, 'manual_discount_var'):
+                self.manual_discount_var.set(0.0)
             self.update_receipt_display()
             
     def select_customer(self):
@@ -436,6 +461,10 @@ class SalesModule:
                 self.current_sale_items.clear()
                 self.current_customer = None
                 self.customer_label.config(text="Не выбран", foreground='gray')
+                # Сброс ручной скидки
+                self.manual_discount_percent = 0.0
+                if hasattr(self, 'manual_discount_var'):
+                    self.manual_discount_var.set(0.0)
                 self.update_receipt_display()
                 
                 self.main_app.status_label.config(text=f"Продажа #{sale_id} завершена")
@@ -479,6 +508,9 @@ class SalesModule:
                     print("Чек отправлен на фискальный принтер")
                 else:
                     print("Ошибка печати на фискальном принтере")
+                    messagebox.showwarning("Внимание", 
+                                         "Ошибка печати фискального чека!\n"
+                                         "Обратитесь к администратору.")
                     
         except Exception as e:
             print(f"Ошибка при попытке печати на фискальном принтере: {e}")
@@ -503,17 +535,54 @@ class SalesModule:
             )
             
             if payment:
-                # В реальном приложении здесь будет переход на страницу оплаты
-                messagebox.showinfo("YooKassa", 
-                                   f"Платеж создан: {payment.get('id', 'N/A')}\n"
-                                   f"Статус: {payment.get('status', 'unknown')}")
-                return True
+                payment_id = payment.get('id')
+                payment_status = payment.get('status', 'unknown')
+                
+                # Проверка статуса платежа
+                if payment_status in ['pending', 'waiting_for_capture']:
+                    messagebox.showinfo("YooKassa", 
+                                       f"Платеж создан: {payment_id}\n"
+                                       f"Статус: {payment_status}")
+                    return True
+                elif payment_status == 'succeeded':
+                    messagebox.showinfo("Успех", "Платеж успешно проведен")
+                    return True
+                else:
+                    messagebox.showerror("Ошибка", f"Ошибка платежа: {payment_status}")
+                    return False
             else:
+                messagebox.showerror("Ошибка", "Не удалось создать платеж в YooKassa")
                 return False
                 
         except Exception as e:
             print(f"Ошибка YooKassa платежа: {e}")
             return False
+            
+    def apply_manual_discount(self):
+        """Применение ручной скидки"""
+        try:
+            discount = self.manual_discount_var.get()
+            if 0 <= discount <= 100:
+                self.manual_discount_percent = discount
+                self.update_receipt_display()
+                messagebox.showinfo("Скидка", f"Применена скидка {discount}%")
+            else:
+                messagebox.showerror("Ошибка", "Скидка должна быть от 0 до 100%")
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Неверное значение скидки: {str(e)}")
+            
+    def process_return(self):
+        """Обработка возврата товара"""
+        dialog = ReturnDialog(self.frame, self.db)
+        if dialog.result:
+            # Обновление отображения после возврата
+            self.main_app.status_label.config(text="Возврат обработан")
+            
+    def check_stock_availability(self, product, quantity):
+        """Проверка доступности товара на складе"""
+        if product['quantity'] < quantity:
+            return False, f"Недостаточно товара на складе. Доступно: {product['quantity']}"
+        return True, ""
         
     def hold_receipt(self):
         """Отложить чек"""

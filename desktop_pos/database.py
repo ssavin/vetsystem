@@ -150,11 +150,43 @@ class DatabaseManager:
             )
         ''')
         
+        # Таблица возвратов
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS returns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sale_id INTEGER NOT NULL,
+                total_amount REAL NOT NULL,
+                return_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                reason TEXT,
+                FOREIGN KEY (sale_id) REFERENCES sales(id)
+            )
+        ''')
+        
+        # Таблица позиций возвратов
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS return_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                return_id INTEGER NOT NULL,
+                sale_item_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                quantity DECIMAL(10,3) NOT NULL,
+                price DECIMAL(10,2) NOT NULL,
+                total_amount DECIMAL(10,2) NOT NULL,
+                FOREIGN KEY (return_id) REFERENCES returns(id),
+                FOREIGN KEY (sale_item_id) REFERENCES sale_items(id),
+                FOREIGN KEY (product_id) REFERENCES products(id)
+            )
+        ''')
+        
         # Создание индексов
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_name ON products(name)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_returns_sale_id ON returns(sale_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_return_items_return_id ON return_items(return_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_return_items_sale_item_id ON return_items(sale_item_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_return_items_product_id ON return_items(product_id)')
         
         # Создание пользователя по умолчанию с хешированным паролем
         admin_password_hash = bcrypt.hashpw('admin'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
