@@ -205,8 +205,8 @@ export default function Settings() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/moysklad/nomenclature/sync-status'] });
       toast({
-        title: "Синхронизация завершена",
-        description: `Синхронизировано: ${data?.data?.synced?.products || 0} товаров, ${data?.data?.synced?.services || 0} услуг`,
+        title: "Двухсторонняя синхронизация завершена",
+        description: `Импорт: ${data?.data?.imported?.products || 0} товаров, ${data?.data?.imported?.services || 0} услуг | Экспорт: ${data?.data?.exported?.products || 0} товаров, ${data?.data?.exported?.services || 0} услуг`,
       });
     },
     onError: (error: any) => {

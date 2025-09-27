@@ -2779,17 +2779,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('[МойСклад] Загрузка завершена:', result);
       
-      // Возвращаем результат с информацией о загруженных данных
+      // Возвращаем результат с информацией о двухсторонней синхронизации
       res.json({
-        success: true,
-        message: "Загрузка номенклатуры из МойСклад завершена",
+        success: result.success,
+        message: "Двухсторонняя синхронизация номенклатуры завершена",
         data: {
-          synced: {
-            products: result.products.length,
-            services: result.services.length,
-            total: result.products.length + result.services.length
+          // Импорт из МойСклад
+          imported: {
+            products: result.importedProducts,
+            services: result.importedServices,
+            total: result.importedProducts + result.importedServices
           },
-          loaded: {
+          // Экспорт в МойСклад
+          exported: {
+            products: result.exportedProducts,
+            services: result.exportedServices,
+            archived: result.archivedItems,
+            total: result.exportedProducts + result.exportedServices + result.archivedItems
+          },
+          // Итоговое состояние
+          final: {
             products: result.products.length,
             services: result.services.length,
             total: result.products.length + result.services.length

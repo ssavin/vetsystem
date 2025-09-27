@@ -912,7 +912,14 @@ export async function syncNomenclature(): Promise<{
     console.log('[МойСклад] Начинаем двухстороннюю синхронизацию номенклатуры...');
 
     // ===== ЭТАП 1: ИМПОРТ ИЗ МОЙСКЛАД (ПРИОРИТЕТ) =====
-    console.log('[МойСклад] Этап 1: Импорт изменений из МойСклад...');
+    console.log('[МойСклад] Этап 1: Импорт изменений из МойСклад (приоритет)...');
+    
+    // Проверяем подключение к МойСклад перед началом
+    try {
+      await makeApiRequest('context/employee');
+    } catch (error: any) {
+      throw new Error(`Ошибка подключения к МойСклад: ${error.message}`);
+    }
     
     const importResult = await loadNomenclatureFromMoysklad();
     importedProducts = importResult.products.length;
@@ -920,7 +927,12 @@ export async function syncNomenclature(): Promise<{
     
     if (importResult.errors.length > 0) {
       errors.push(...importResult.errors.map(e => `Импорт: ${e}`));
+      console.warn(`[МойСклад] Ошибки при импорте: ${importResult.errors.length}`);
     }
+
+    // КРИТИЧНО: МойСклад имеет приоритет - обновляем все конфликтующие записи
+    console.log('[МойСклад] Применяем приоритет МойСклад для конфликтов...');
+    await enforceMoyskladPriority();
 
     // ===== ЭТАП 2: ЭКСПОРТ В МОЙСКЛАД (ТОЛЬКО НОВЫЕ/ИЗМЕНЁННЫЕ) =====
     console.log('[МойСклад] Этап 2: Экспорт изменений из VetSystem...');
@@ -973,7 +985,109 @@ export async function syncNomenclature(): Promise<{
 }
 
 /**
- * Экспорт изменений из VetSystem в МойСклад
+ * Применяет приоритет МойСклад при конфликтах данных
+ */
+async function enforceMoyskladPriority(): Promise<void> {
+  try {
+    console.log('[МойСклад] Проверяем конфликты и применяем приоритет МойСклад...');
+
+    // Получаем все записи с moyskladId (потенциальные конфликты)
+    const servicesWithMoyskladId = await storage.getServices().then(services => 
+      services.filter(s => s.moyskladId)
+    );
+    
+    const productsWithMoyskladId = await storage.getProducts().then(products => 
+      products.filter(p => p.moyskladId)
+    );
+
+    // Для каждой записи проверяем и обновляем если есть изменения в МойСклад
+    for (const service of servicesWithMoyskladId) {
+      try {
+        const moyskladData = await makeApiRequest(`entity/service/${service.moyskladId}`);
+        
+        // Подготавливаем данные для сравнения с сохранением локальных метаданных
+        const normalizedData = {
+          name: moyskladData.name,
+          category: service.category, // Используем локальную категорию для единообразия
+          price: moyskladData.salePrices?.[0]?.value ? (moyskladData.salePrices[0].value / 100) : service.price,
+          description: moyskladData.description || service.description,
+          unit: 'шт', // Для услуг всегда шт
+          vat: moyskladData.vat || service.vat
+        };
+        
+        const moyskladHash = computeSyncHash(normalizedData);
+
+        // Если хеши не совпадают - обновляем данные из МойСклад (приоритет)
+        if (service.syncHash !== moyskladHash) {
+          // Применяем изменения из МойСклад (приоритет) - используем те же данные что в нормализации
+          const updatedData = {
+            name: normalizedData.name,
+            description: normalizedData.description,
+            price: normalizedData.price.toString(),
+            vat: normalizedData.vat,
+            category: normalizedData.category // Локальная категория уже в normalizedData
+          };
+          
+          // Обновляем запись с новыми данными из МойСклад
+          await storage.updateService(service.id, updatedData);
+          
+          // КРИТИЧНО: Сохраняем хеш и время синхронизации (используем уже вычисленный хеш)
+          await storage.markServiceSynced(service.id, moyskladHash);
+          console.log(`[МойСклад] Приоритет: обновлена услуга "${service.name}" из МойСклад, syncHash обновлен`);
+        }
+      } catch (error: any) {
+        console.warn(`[МойСклад] Не удалось проверить конфликт для услуги ${service.id}: ${error.message}`);
+      }
+    }
+
+    for (const product of productsWithMoyskladId) {
+      try {
+        const moyskladData = await makeApiRequest(`entity/product/${product.moyskladId}`);
+        
+        // Подготавливаем данные для сравнения с сохранением локальных метаданных
+        const normalizedData = {
+          name: moyskladData.name,
+          category: product.category, // Используем локальную категорию для единообразия
+          price: moyskladData.salePrices?.[0]?.value ? (moyskladData.salePrices[0].value / 100) : product.price,
+          description: moyskladData.description || product.description,
+          unit: product.unit || 'шт', // Используем локальную единицу измерения
+          vat: moyskladData.vat || product.vat
+        };
+        
+        const moyskladHash = computeSyncHash(normalizedData);
+
+        // Если хеши не совпадают - обновляем данные из МойСклад (приоритет)
+        if (product.syncHash !== moyskladHash) {
+          // Применяем изменения из МойСклад (приоритет) - используем те же данные что в нормализации
+          const updatedData = {
+            name: normalizedData.name,
+            description: normalizedData.description,
+            price: normalizedData.price.toString(),
+            vat: normalizedData.vat,
+            category: normalizedData.category, // Локальная категория уже в normalizedData
+            unit: normalizedData.unit // Локальная единица уже в normalizedData
+          };
+          
+          // Обновляем запись с новыми данными из МойСклад
+          await storage.updateProduct(product.id, updatedData);
+          
+          // КРИТИЧНО: Сохраняем хеш и время синхронизации (используем уже вычисленный хеш)
+          await storage.markProductSynced(product.id, moyskladHash);
+          console.log(`[МойСклад] Приоритет: обновлен товар "${product.name}" из МойСклад, syncHash обновлен`);
+        }
+      } catch (error: any) {
+        console.warn(`[МойСклад] Не удалось проверить конфликт для товара ${product.id}: ${error.message}`);
+      }
+    }
+
+  } catch (error: any) {
+    console.error('[МойСклад] Ошибка применения приоритета МойСклад:', error);
+    throw error;
+  }
+}
+
+/**
+ * Экспорт изменений из VetSystem в МойСклад с retry логикой
  */
 async function exportToMoysklad(): Promise<{
   exportedServices: number;
@@ -987,39 +1101,81 @@ async function exportToMoysklad(): Promise<{
   let archivedItems = 0;
 
   try {
-    // 1. Экспортируем новые/измененные услуги
+    // 1. Экспортируем новые/измененные услуги с retry логикой
     const servicesToSync = await storage.getServicesForSync();
     console.log(`[МойСклад] Найдено услуг для экспорта: ${servicesToSync.length}`);
 
     for (const service of servicesToSync) {
-      const result = await exportServiceToMoysklad(service);
-      if (result.success) {
-        exportedServices++;
+      let retryCount = 0;
+      const maxRetries = 3;
+      let lastError = null;
+
+      while (retryCount < maxRetries) {
+        const result = await exportServiceToMoysklad(service);
         
-        // Обновляем moyskladId если это новая услуга
-        if (result.moyskladId && !service.moyskladId) {
-          await storage.updateService(service.id, { moyskladId: result.moyskladId });
+        if (result.success) {
+          exportedServices++;
+          
+          // Обновляем moyskladId если это новая услуга
+          if (result.moyskladId && !service.moyskladId) {
+            await storage.updateService(service.id, { moyskladId: result.moyskladId });
+          }
+          break; // Успех - выходим из retry цикла
+          
+        } else {
+          lastError = result.error;
+          retryCount++;
+          
+          if (retryCount < maxRetries) {
+            const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+            console.warn(`[МойСклад] Retry ${retryCount}/${maxRetries} для услуги "${service.name}" через ${delay}ms`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
         }
-      } else if (result.error) {
-        errors.push(`Услуга "${service.name}": ${result.error}`);
+      }
+
+      // Если все retry исчерпаны
+      if (retryCount === maxRetries && lastError) {
+        errors.push(`Услуга "${service.name}" (${maxRetries} попыток): ${lastError}`);
       }
     }
 
-    // 2. Экспортируем новые/измененные товары
+    // 2. Экспортируем новые/измененные товары с retry логикой
     const productsToSync = await storage.getProductsForSync();
     console.log(`[МойСклад] Найдено товаров для экспорта: ${productsToSync.length}`);
 
     for (const product of productsToSync) {
-      const result = await exportProductToMoysklad(product);
-      if (result.success) {
-        exportedProducts++;
+      let retryCount = 0;
+      const maxRetries = 3;
+      let lastError = null;
+
+      while (retryCount < maxRetries) {
+        const result = await exportProductToMoysklad(product);
         
-        // Обновляем moyskladId если это новый товар
-        if (result.moyskladId && !product.moyskladId) {
-          await storage.updateProduct(product.id, { moyskladId: result.moyskladId });
+        if (result.success) {
+          exportedProducts++;
+          
+          // Обновляем moyskladId если это новый товар
+          if (result.moyskladId && !product.moyskladId) {
+            await storage.updateProduct(product.id, { moyskladId: result.moyskladId });
+          }
+          break; // Успех - выходим из retry цикла
+          
+        } else {
+          lastError = result.error;
+          retryCount++;
+          
+          if (retryCount < maxRetries) {
+            const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+            console.warn(`[МойСклад] Retry ${retryCount}/${maxRetries} для товара "${product.name}" через ${delay}ms`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
         }
-      } else if (result.error) {
-        errors.push(`Товар "${product.name}": ${result.error}`);
+      }
+
+      // Если все retry исчерпаны
+      if (retryCount === maxRetries && lastError) {
+        errors.push(`Товар "${product.name}" (${maxRetries} попыток): ${lastError}`);
       }
     }
 
