@@ -1,4 +1,4 @@
-import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, Building2 } from "lucide-react"
+import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, Building2, Database } from "lucide-react"
 import { Link, useLocation } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -66,6 +66,12 @@ const menuItems = [
     url: "/settings",
     icon: Settings,
     module: "settings",
+  },
+  {
+    title: "МойСклад",
+    url: "/moysklad-nomenclature",
+    icon: Database,
+    module: "settings", // Используем тот же модуль что и настройки
   },
 ]
 

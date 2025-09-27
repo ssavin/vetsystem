@@ -20,6 +20,7 @@ import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
 import Branches from "@/pages/Branches";
 import AITestPage from "@/pages/AITestPage";
+import MoyskladNomenclature from "@/pages/MoyskladNomenclature";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
@@ -72,6 +73,7 @@ function AuthenticatedApp() {
               <Route path="/users" component={UserManagement} />
               <Route path="/branches" component={Branches} />
               <Route path="/ai-test" component={AITestPage} />
+              <Route path="/moysklad-nomenclature" component={MoyskladNomenclature} />
               <Route component={NotFound} />
             </Switch>
           </main>

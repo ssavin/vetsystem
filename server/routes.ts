@@ -2784,6 +2784,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: "Загрузка номенклатуры из МойСклад завершена",
         data: {
+          synced: {
+            products: result.products.length,
+            services: result.services.length,
+            total: result.products.length + result.services.length
+          },
           loaded: {
             products: result.products.length,
             services: result.services.length,
@@ -2791,8 +2796,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           errors: result.errors.length,
           details: result.errors.length > 0 ? result.errors : undefined,
-          products: result.products,
-          services: result.services
+          products: result.products.slice(0, 10), // Показываем только первые 10 для производительности
+          services: result.services.slice(0, 10)
         }
       });
       
