@@ -34,7 +34,8 @@ import {
   labOrders, labResultDetails, paymentIntents, fiscalReceipts,
   catalogItems, systemSettings, cashRegisters, cashShifts, 
   customers, discountRules, paymentMethods, salesTransactions, 
-  salesTransactionItems, cashOperations, userRoles, userRoleAssignments
+  salesTransactionItems, cashOperations, userRoles, userRoleAssignments,
+  integrationLogs
 } from "@shared/schema";
 import { db } from "./db-local";
 import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, ilike, type SQL } from "drizzle-orm";
@@ -149,6 +150,9 @@ export interface IStorage {
   updateService(id: string, service: Partial<InsertService>): Promise<Service>;
   deleteService(id: string): Promise<void>;
   searchServices(query: string): Promise<Service[]>;
+  // External system integration methods for services
+  getServiceByExternalId(externalId: string, system: string): Promise<Service | undefined>;
+  getServicesByExternalSystem(system: string): Promise<Service[]>;
 
   // Product methods
   getProducts(activeOnly?: boolean): Promise<Product[]>;
@@ -159,6 +163,9 @@ export interface IStorage {
   searchProducts(query: string): Promise<Product[]>;
   getLowStockProducts(): Promise<Product[]>;
   updateProductStock(id: string, quantity: number): Promise<Product>;
+  // External system integration methods
+  getProductByExternalId(externalId: string, system: string): Promise<Product | undefined>;
+  getProductsByExternalSystem(system: string): Promise<Product[]>;
 
   // Invoice methods - 🔒 SECURITY: branchId required for PHI isolation
   getInvoices(status: string | undefined, branchId: string): Promise<Invoice[]>;
@@ -335,6 +342,10 @@ export interface IStorage {
   createSystemSetting(setting: InsertSystemSetting): Promise<SystemSetting>;
   updateSystemSetting(key: string, setting: Partial<UpdateSystemSetting>): Promise<SystemSetting>;
   deleteSystemSetting(key: string): Promise<void>;
+
+  // Integration logs methods
+  getIntegrationLog(system: string, operation: string): Promise<any | undefined>;
+  createIntegrationLog(log: { system: string; operation: string; status: string; details?: any }): Promise<any>;
 
   // === РАСШИРЕННАЯ КАССОВАЯ СИСТЕМА ===
   
@@ -978,6 +989,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(services.id, id));
   }
 
+  // External system integration methods for services
+  async getServiceByExternalId(externalId: string, system: string): Promise<Service | undefined> {
+    const [service] = await db.select().from(services)
+      .where(and(
+        eq(services.externalId, externalId),
+        eq(services.externalSystem, system),
+        isNull(services.deletedAt)
+      ));
+    return service || undefined;
+  }
+
+  async getServicesByExternalSystem(system: string): Promise<Service[]> {
+    return await db.select().from(services)
+      .where(and(
+        eq(services.externalSystem, system),
+        isNull(services.deletedAt)
+      ))
+      .orderBy(services.name);
+  }
+
   // Отметить услугу как синхронизированную
   async markServiceSynced(id: string, syncHash: string): Promise<void> {
     await db.update(services)
@@ -1131,6 +1162,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(products.id, id))
       .returning();
     return updated;
+  }
+
+  // External system integration methods for products
+  async getProductByExternalId(externalId: string, system: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products)
+      .where(and(
+        eq(products.externalId, externalId),
+        eq(products.externalSystem, system),
+        isNull(products.deletedAt)
+      ));
+    return product || undefined;
+  }
+
+  async getProductsByExternalSystem(system: string): Promise<Product[]> {
+    return await db.select().from(products)
+      .where(and(
+        eq(products.externalSystem, system),
+        isNull(products.deletedAt)
+      ))
+      .orderBy(products.name);
   }
 
   // Invoice methods - 🔒 SECURITY: branchId mandatory for PHI isolation
@@ -2732,6 +2783,37 @@ export class DatabaseStorage implements IStorage {
   async deleteSystemSetting(key: string): Promise<void> {
     return withPerformanceLogging('deleteSystemSetting', async () => {
       await db.delete(systemSettings).where(eq(systemSettings.key, key));
+    });
+  }
+
+  // Integration logs methods implementation
+  async getIntegrationLog(system: string, operation: string): Promise<any | undefined> {
+    return withPerformanceLogging('getIntegrationLog', async () => {
+      const [log] = await db.select().from(integrationLogs)
+        .where(and(
+          eq(integrationLogs.event, `${system}_${operation}`),
+          eq(integrationLogs.level, 'info')
+        ))
+        .orderBy(desc(integrationLogs.createdAt))
+        .limit(1);
+      return log || undefined;
+    });
+  }
+
+  async createIntegrationLog(log: { system: string; operation: string; status: string; details?: any }): Promise<any> {
+    return withPerformanceLogging('createIntegrationLog', async () => {
+      const logData = {
+        event: `${log.system}_${log.operation}`,
+        message: `${log.system} ${log.operation}: ${log.status}`,
+        level: log.status === 'success' ? 'info' as const : 'error' as const,
+        metadata: log.details ? log.details : null,
+      };
+      
+      const [newLog] = await db
+        .insert(integrationLogs)
+        .values(logData)
+        .returning();
+      return newLog;
     });
   }
 }

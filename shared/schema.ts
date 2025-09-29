@@ -27,7 +27,8 @@ export const TWO_FACTOR_METHOD = ['sms', 'disabled'] as const;
 export const BRANCH_STATUS = ['active', 'inactive', 'maintenance'] as const;
 
 // Integration and fiscal compliance enums
-export const INTEGRATION_TYPE = ['1c_kassa', 'moysklad', 'yookassa', 'honest_sign'] as const;
+export const INTEGRATION_TYPE = ['1c_kassa', 'onec_retail', 'moysklad', 'yookassa', 'honest_sign'] as const;
+export const EXTERNAL_SYSTEM = ['moysklad', 'onec', '1c_retail', 'manual'] as const;
 export const INTEGRATION_STATUS = ['active', 'inactive', 'error', 'testing'] as const;
 export const CATALOG_ITEM_TYPE = ['service', 'product', 'medication'] as const;
 export const VAT_RATE = ['0', '10', '20', 'not_applicable'] as const;
@@ -35,6 +36,7 @@ export const MARKING_STATUS = ['required', 'not_required', 'marked', 'validation
 export const FISCAL_RECEIPT_STATUS = ['draft', 'pending', 'registered', 'failed', 'cancelled'] as const;
 export const PAYMENT_INTENT_STATUS = ['pending', 'processing', 'succeeded', 'failed', 'cancelled'] as const;
 export const INTEGRATION_JOB_STATUS = ['pending', 'running', 'completed', 'failed', 'retrying'] as const;
+export const INTEGRATION_LOG_STATUS = ['success', 'error', 'partial_success', 'warning'] as const;
 export const PAYMENT_METHOD = ['cash', 'card', 'online', 'mixed'] as const;
 export const FISCAL_RECEIPT_SYSTEM = ['yookassa', 'moysklad'] as const;
 
@@ -256,12 +258,15 @@ export const services = pgTable("services", {
   duration: integer("duration"), // in minutes, for services
   description: text("description"),
   isActive: boolean("is_active").default(true),
-  // МойСклад интеграция
+  // МойСклад интеграция (legacy)
   moyskladId: varchar("moysklad_id", { length: 255 }), // ID из МойСклад
   article: varchar("article", { length: 255 }), // Артикул
   vat: integer("vat").default(20), // НДС
+  // Универсальная интеграция с внешними системами
+  externalId: varchar("external_id", { length: 255 }), // ID во внешней системе
+  externalSystem: varchar("external_system", { length: 50 }), // Система: moysklad, onec, 1c_retail
   // Поля отслеживания синхронизации
-  lastSyncedAt: timestamp("last_synced_at"), // Когда последний раз синхронизировался с МойСклад
+  lastSyncedAt: timestamp("last_synced_at"), // Когда последний раз синхронизировался
   syncHash: varchar("sync_hash", { length: 64 }), // Хеш для отслеживания изменений
   deletedAt: timestamp("deleted_at"), // Для soft delete
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -287,12 +292,15 @@ export const products = pgTable("products", {
   unit: varchar("unit", { length: 50 }).notNull(),
   description: text("description"),
   isActive: boolean("is_active").default(true),
-  // МойСклад интеграция
+  // МойСклад интеграция (legacy)
   moyskladId: varchar("moysklad_id", { length: 255 }), // ID из МойСклад
   article: varchar("article", { length: 255 }), // Артикул
   vat: integer("vat").default(20), // НДС
+  // Универсальная интеграция с внешними системами
+  externalId: varchar("external_id", { length: 255 }), // ID во внешней системе
+  externalSystem: varchar("external_system", { length: 50 }), // Система: moysklad, onec, 1c_retail
   // Поля отслеживания синхронизации
-  lastSyncedAt: timestamp("last_synced_at"), // Когда последний раз синхронизировался с МойСклад
+  lastSyncedAt: timestamp("last_synced_at"), // Когда последний раз синхронизировался
   syncHash: varchar("sync_hash", { length: 64 }), // Хеш для отслеживания изменений
   deletedAt: timestamp("deleted_at"), // Для soft delete
   createdAt: timestamp("created_at").defaultNow().notNull(),
