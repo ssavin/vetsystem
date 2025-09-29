@@ -55,7 +55,7 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
       visitType: "",
       patientId: "",
       doctorId: "",
-      appointmentId: "",
+      appointmentId: null,
       complaints: "",
       diagnosis: "",
       treatment: [],
@@ -94,7 +94,8 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
     // Convert treatment string to array if it's a string
     const processedData = {
       ...data,
-      treatment: data.treatment || []
+      treatment: data.treatment || [],
+      appointmentId: data.appointmentId || null,
     }
     createMutation.mutate(processedData)
   }
