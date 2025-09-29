@@ -56,6 +56,7 @@ export default function MedicalRecords() {
       const doctor = doctorMap[record.doctorId]
       return {
         ...record,
+        patientId: record.patientId,
         date: new Date(record.visitDate).toLocaleDateString('ru-RU'),
         patientName: patient ? patient.name : 'Неизвестный пациент',
         doctorName: doctor ? doctor.name : 'Неизвестный врач',

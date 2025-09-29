@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Calendar, User, Stethoscope, FileText, Pill, Syringe, AlertTriangle } from "lucide-react"
 import { useState } from "react"
+import { PatientFileUpload } from "./PatientFileUpload"
 
 interface MedicalRecordProps {
   record: {
     id: string
+    patientId: string
     date: string
     patientName: string
     doctorName: string
@@ -159,6 +161,15 @@ export default function MedicalRecordCard({ record }: MedicalRecordProps) {
           <div className="p-2 bg-muted rounded-md">
             <p className="text-sm font-medium mb-1">Дополнительные заметки:</p>
             <p className="text-sm text-muted-foreground">{record.notes}</p>
+          </div>
+        )}
+
+        {isExpanded && record.patientId && (
+          <div className="pt-4 border-t">
+            <PatientFileUpload 
+              patientId={record.patientId} 
+              medicalRecordId={record.id} 
+            />
           </div>
         )}
 
