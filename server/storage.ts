@@ -342,6 +342,7 @@ export interface IStorage {
   createSystemSetting(setting: InsertSystemSetting): Promise<SystemSetting>;
   updateSystemSetting(key: string, setting: Partial<UpdateSystemSetting>): Promise<SystemSetting>;
   deleteSystemSetting(key: string): Promise<void>;
+  createOrUpdateSystemSetting(key: string, value: string): Promise<SystemSetting>;
 
   // Integration logs methods
   getIntegrationLog(system: string, operation: string): Promise<any | undefined>;
@@ -2783,6 +2784,29 @@ export class DatabaseStorage implements IStorage {
   async deleteSystemSetting(key: string): Promise<void> {
     return withPerformanceLogging('deleteSystemSetting', async () => {
       await db.delete(systemSettings).where(eq(systemSettings.key, key));
+    });
+  }
+
+  async createOrUpdateSystemSetting(key: string, value: string): Promise<SystemSetting> {
+    return withPerformanceLogging('createOrUpdateSystemSetting', async () => {
+      try {
+        // Пытаемся найти существующую настройку
+        const existing = await this.getSystemSetting(key);
+        if (existing) {
+          // Обновляем существующую
+          return await this.updateSystemSetting(key, { value });
+        }
+      } catch (error) {
+        // Настройка не найдена, создаем новую
+      }
+      
+      // Создаем новую настройку
+      return await this.createSystemSetting({
+        key,
+        value,
+        description: `Автоматически созданная настройка для ${key}`,
+        category: 'integration'
+      });
     });
   }
 

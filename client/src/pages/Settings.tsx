@@ -123,6 +123,15 @@ export default function Settings() {
   // Fiscal Receipt Settings state
   const [fiscalReceiptSystem, setFiscalReceiptSystem] = useState<string>("yookassa")
   
+  // 1С Розница Configuration state
+  const [onecConfig, setOnecConfig] = useState({
+    baseUrl: "",
+    username: "",
+    password: "",
+    organizationKey: "",
+    cashRegisterKey: ""
+  })
+  
   // МойСклад Nomenclature Sync state
   const [nomenclatureSyncStatus, setNomenclatureSyncStatus] = useState<{
     localProducts: number;
@@ -236,6 +245,107 @@ export default function Settings() {
       });
     }
   });
+
+  // 1С Розница sync queries and mutations
+  const { data: onecStats, isLoading: onecStatsLoading } = useQuery({
+    queryKey: ['/api/onec/stats'],
+    enabled: true,
+    refetchInterval: 30000, // Обновляем каждые 30 секунд
+  });
+
+  const syncOnecProductsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/onec/products/sync')
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/onec/stats'] });
+      toast({
+        title: "Синхронизация товаров завершена",
+        description: `Загружено: ${data?.imported || 0} товаров из 1С Розница`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка синхронизации товаров",
+        description: error.message || "Не удалось синхронизировать товары с 1С Розница",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const syncOnecServicesMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/onec/services/sync')
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/onec/stats'] });
+      toast({
+        title: "Синхронизация услуг завершена",
+        description: `Загружено: ${data?.imported || 0} услуг из 1С Розница`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка синхронизации услуг",
+        description: error.message || "Не удалось синхронизировать услуги с 1С Розница",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const testOnecConnectionMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/onec/test-connection')
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Подключение успешно",
+        description: data?.message || "Подключение к 1С Розница установлено",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка подключения",
+        description: error.message || "Не удалось подключиться к 1С Розница",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Загрузка конфигурации 1С
+  const { data: onecConfig1C, isLoading: onecConfigLoading } = useQuery({
+    queryKey: ['/api/onec/config'],
+    enabled: true,
+  });
+
+  // Сохранение конфигурации 1С
+  const saveOnecConfigMutation = useMutation({
+    mutationFn: async (config: typeof onecConfig) => {
+      return apiRequest('POST', '/api/onec/config', config)
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/onec/config'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/onec/stats'] });
+      toast({
+        title: "Настройки сохранены",
+        description: data?.message || "Параметры подключения к 1С Розница обновлены",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка сохранения",
+        description: error.message || "Не удалось сохранить настройки 1С Розница",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Обновляем локальные настройки когда загружаются с сервера
+  useEffect(() => {
+    if (onecConfig1C?.data) {
+      setOnecConfig(onecConfig1C.data);
+    }
+  }, [onecConfig1C]);
 
   const form = useForm<BranchFormData>({
     resolver: zodResolver(branchSchema),
@@ -1596,6 +1706,254 @@ export default function Settings() {
                     <li>• Товары и услуги будут добавлены в прейскурант МойСклад с ценами</li>
                     <li>• Используется артикул из VetSystem для связи позиций</li>
                     <li>• Настройки НДС: 20% (можно изменить в настройках МойСклад)</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 1С Розница Nomenclature Synchronization */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Синхронизация номенклатуры с 1С Розница
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Синхронизируйте товары и услуги из 1С Розница в VetSystem для ведения актуального прейскуранта
+              </p>
+            </div>
+
+            {/* Current status */}
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-primary/10 p-2">
+                  <Database className="h-4 w-4 text-primary" />
+                </div>
+                <div className="space-y-2 flex-1">
+                  <p className="font-medium text-sm">Статус синхронизации</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-blue-600">
+                        {onecStatsLoading ? '...' : (onecStats?.products?.length || 0)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Товары</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-green-600">
+                        {onecStatsLoading ? '...' : (onecStats?.services?.length || 0)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Услуги</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-primary">
+                        {onecStatsLoading ? '...' : ((onecStats?.products?.length || 0) + (onecStats?.services?.length || 0))}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Всего позиций</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className={`h-2 w-2 rounded-full ${onecStats?.connected ? 'bg-green-500' : 'bg-orange-500'}`} />
+                    <p className="text-xs text-muted-foreground">
+                      Статус подключения: {onecStats?.connected ? 'Подключено' : 'Требует настройки'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={() => testOnecConnectionMutation.mutate()}
+                disabled={testOnecConnectionMutation.isPending}
+                variant="outline"
+                className="flex-1"
+                data-testid="button-test-onec-connection"
+              >
+                {testOnecConnectionMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
+                    Проверка...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Проверить подключение
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={() => syncOnecProductsMutation.mutate()}
+                disabled={syncOnecProductsMutation.isPending}
+                variant="outline"
+                className="flex-1"
+                data-testid="button-sync-onec-products"
+              >
+                {syncOnecProductsMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
+                    Синхронизация...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4 mr-2" />
+                    Синхронизировать товары
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={() => syncOnecServicesMutation.mutate()}
+                disabled={syncOnecServicesMutation.isPending}
+                className="flex-1"
+                data-testid="button-sync-onec-services"
+              >
+                {syncOnecServicesMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
+                    Синхронизация...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4 mr-2" />
+                    Синхронизировать услуги
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Configuration section */}
+            <div className="rounded-lg border bg-card p-4">
+              <h4 className="font-medium text-sm mb-4">Параметры подключения к 1С Розница</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="onec-url">URL базы данных 1С</Label>
+                  <Input
+                    id="onec-url"
+                    type="url"
+                    placeholder="http://localhost:8080/trade/odata/standard.odata"
+                    value={onecConfig.baseUrl}
+                    onChange={(e) => setOnecConfig(prev => ({ ...prev, baseUrl: e.target.value }))}
+                    data-testid="input-onec-url"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    URL OData сервиса 1С Розница/Касса
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="onec-username">Имя пользователя</Label>
+                  <Input
+                    id="onec-username"
+                    type="text"
+                    placeholder="admin"
+                    value={onecConfig.username}
+                    onChange={(e) => setOnecConfig(prev => ({ ...prev, username: e.target.value }))}
+                    data-testid="input-onec-username"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="onec-password">Пароль</Label>
+                  <Input
+                    id="onec-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={onecConfig.password}
+                    onChange={(e) => setOnecConfig(prev => ({ ...prev, password: e.target.value }))}
+                    data-testid="input-onec-password"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="onec-org-key">Ключ организации</Label>
+                  <Input
+                    id="onec-org-key"
+                    type="text"
+                    placeholder="guid-организации"
+                    value={onecConfig.organizationKey}
+                    onChange={(e) => setOnecConfig(prev => ({ ...prev, organizationKey: e.target.value }))}
+                    data-testid="input-onec-org-key"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    GUID организации в 1С
+                  </p>
+                </div>
+                
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="onec-cash-key">Ключ кассы (необязательно)</Label>
+                  <Input
+                    id="onec-cash-key"
+                    type="text"
+                    placeholder="guid-кассы"
+                    value={onecConfig.cashRegisterKey}
+                    onChange={(e) => setOnecConfig(prev => ({ ...prev, cashRegisterKey: e.target.value }))}
+                    data-testid="input-onec-cash-key"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    GUID кассы для отправки чеков (если не указан, будет использована основная касса)
+                  </p>
+                </div>
+              </div>
+              
+              <Button
+                onClick={() => saveOnecConfigMutation.mutate(onecConfig)}
+                disabled={saveOnecConfigMutation.isPending || !onecConfig.baseUrl || !onecConfig.username || !onecConfig.password || !onecConfig.organizationKey}
+                className="mt-4"
+                data-testid="button-save-onec-config"
+              >
+                {saveOnecConfigMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
+                    Сохранение...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Сохранить настройки подключения
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Configuration notice */}
+            {!onecStats?.connected && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-sm text-orange-800">
+                      Требуется настройка подключения
+                    </p>
+                    <p className="text-sm text-orange-700 mt-1">
+                      Заполните все обязательные поля выше и нажмите "Сохранить настройки подключения", затем проверьте подключение
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Help information */}
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-sm text-blue-800">
+                    Информация о синхронизации с 1С Розница
+                  </p>
+                  <ul className="text-sm text-blue-700 mt-1 space-y-1">
+                    <li>• Синхронизация импортирует товары и услуги из 1С Розница в VetSystem</li>
+                    <li>• Цены и остатки обновляются автоматически при каждой синхронизации</li>
+                    <li>• Используется OData API для интеграции с 1С Розница/Касса</li>
+                    <li>• Поддерживается отправка чеков обратно в 1С для фискализации</li>
                   </ul>
                 </div>
               </div>

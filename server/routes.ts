@@ -2966,6 +2966,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/onec/test-connection - Проверка подключения к 1С Розница
+  app.post("/api/onec/test-connection", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      console.log('[1С Розница] Проверяем подключение...');
+      
+      // Импортируем модуль 1С Розница
+      const { testOneCConnection } = await import('./integrations/onec-retail');
+      
+      const connectionResult = await testOneCConnection();
+      
+      res.json({
+        success: true,
+        connected: connectionResult.success,
+        message: connectionResult.success 
+          ? 'Подключение к 1С Розница установлено успешно'
+          : `Ошибка подключения: ${connectionResult.error}`,
+        data: connectionResult
+      });
+    } catch (error: any) {
+      console.error('[1С Розница] Ошибка проверки подключения:', error);
+      res.status(500).json({
+        success: false,
+        connected: false,
+        message: 'Не удалось проверить подключение к 1С Розница',
+        error: error.message
+      });
+    }
+  });
+
+  // POST /api/onec/config - Сохранение конфигурации 1С Розница
+  app.post("/api/onec/config", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const { baseUrl, username, password, organizationKey, cashRegisterKey } = req.body;
+      
+      console.log('[1С Розница] Сохраняем конфигурацию...');
+      
+      // Валидация обязательных полей
+      if (!baseUrl || !username || !password || !organizationKey) {
+        return res.status(400).json({
+          success: false,
+          error: 'Все поля обязательны: baseUrl, username, password, organizationKey'
+        });
+      }
+      
+      // Сохраняем настройки в системных настройках
+      await storage.createOrUpdateSystemSetting('onec_base_url', baseUrl);
+      await storage.createOrUpdateSystemSetting('onec_username', username);
+      await storage.createOrUpdateSystemSetting('onec_password', password);
+      await storage.createOrUpdateSystemSetting('onec_organization_key', organizationKey);
+      if (cashRegisterKey) {
+        await storage.createOrUpdateSystemSetting('onec_cash_register_key', cashRegisterKey);
+      }
+      
+      res.json({
+        success: true,
+        message: 'Конфигурация 1С Розница сохранена успешно'
+      });
+    } catch (error: any) {
+      console.error('[1С Розница] Ошибка сохранения конфигурации:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // GET /api/onec/config - Получение конфигурации 1С Розница
+  app.get("/api/onec/config", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      console.log('[1С Розница] Загружаем конфигурацию...');
+      
+      const settings = await storage.getSystemSettings();
+      const config = {
+        baseUrl: settings.find(s => s.key === 'onec_base_url')?.value || '',
+        username: settings.find(s => s.key === 'onec_username')?.value || '',
+        password: settings.find(s => s.key === 'onec_password')?.value || '',
+        organizationKey: settings.find(s => s.key === 'onec_organization_key')?.value || '',
+        cashRegisterKey: settings.find(s => s.key === 'onec_cash_register_key')?.value || '',
+      };
+      
+      res.json({
+        success: true,
+        data: config
+      });
+    } catch (error: any) {
+      console.error('[1С Розница] Ошибка загрузки конфигурации:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
   // =============================================
   // ЛОКАЛЬНАЯ ПЕЧАТЬ ФИСКАЛЬНЫХ ЧЕКОВ
   // =============================================

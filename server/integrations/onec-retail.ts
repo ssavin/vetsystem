@@ -386,27 +386,30 @@ export async function sendReceiptToOneC(receiptData: any): Promise<{ success: bo
 /**
  * Тестирование подключения к 1С Розница
  */
-export async function testOneCConnection(): Promise<{ success: boolean; message: string }> {
+export async function testOneCConnection(): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     console.log('🔄 Тестирование подключения к 1С Розница...');
 
-    // Проверка наличия переменных окружения
-    if (!config.baseUrl || !config.username || !config.password) {
+    // Получаем конфигурацию из настроек или переменных окружения
+    const testConfig = await getOneCConfigFromSettings();
+    
+    // Проверка наличие обязательных параметров
+    if (!testConfig.baseUrl || !testConfig.username || !testConfig.password || !testConfig.organizationKey) {
       return {
         success: false,
-        message: 'Не настроены переменные окружения для подключения к 1С (ONEC_BASE_URL, ONEC_USERNAME, ONEC_PASSWORD)'
+        error: 'Не настроены параметры для подключения к 1С (URL, имя пользователя, пароль, ключ организации)'
       };
     }
 
     // Тестовый запрос к 1С для проверки подключения
-    const response = await makeOneCApiRequest('$metadata', 'GET');
+    const response = await makeOneCApiRequestWithConfig('$metadata', 'GET', null, testConfig);
     
     if (response) {
       await storage.createIntegrationLog({
         system: 'onec',
         operation: 'test_connection',
         status: 'success',
-        details: { baseUrl: config.baseUrl }
+        details: { baseUrl: testConfig.baseUrl }
       });
 
       return {
@@ -430,9 +433,84 @@ export async function testOneCConnection(): Promise<{ success: boolean; message:
 
     return {
       success: false,
-      message: errorMessage
+      error: errorMessage
     };
   }
+}
+
+/**
+ * Получение конфигурации 1С из системных настроек с fallback на переменные окружения
+ */
+async function getOneCConfigFromSettings() {
+  try {
+    const settings = await storage.getSystemSettings();
+    const baseUrl = settings.find(s => s.key === 'onec_base_url')?.value || process.env.ONEC_BASE_URL || '';
+    const username = settings.find(s => s.key === 'onec_username')?.value || process.env.ONEC_USERNAME || '';
+    const password = settings.find(s => s.key === 'onec_password')?.value || process.env.ONEC_PASSWORD || '';
+    const organizationKey = settings.find(s => s.key === 'onec_organization_key')?.value || process.env.ONEC_ORGANIZATION_KEY || '';
+    const cashRegisterKey = settings.find(s => s.key === 'onec_cash_register_key')?.value || process.env.ONEC_CASH_REGISTER_KEY || '';
+
+    return {
+      baseUrl,
+      username,
+      password,
+      organizationKey,
+      cashRegisterKey,
+    };
+  } catch (error) {
+    console.error('Ошибка получения настроек 1С:', error);
+    // Fallback к переменным окружения
+    return {
+      baseUrl: process.env.ONEC_BASE_URL || '',
+      username: process.env.ONEC_USERNAME || '',
+      password: process.env.ONEC_PASSWORD || '',
+      organizationKey: process.env.ONEC_ORGANIZATION_KEY || '',
+      cashRegisterKey: process.env.ONEC_CASH_REGISTER_KEY || '',
+    };
+  }
+}
+
+/**
+ * Выполнение API запроса к 1С с пользовательской конфигурацией
+ */
+async function makeOneCApiRequestWithConfig(
+  endpoint: string, 
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET', 
+  data?: any,
+  apiConfig?: any
+): Promise<any> {
+  const configToUse = apiConfig || config;
+  const url = `${configToUse.baseUrl}/${endpoint}`;
+  
+  console.log(`🌐 [1С API] ${method} ${url}`);
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Basic ${Buffer.from(`${configToUse.username}:${configToUse.password}`).toString('base64')}`,
+    'Accept': 'application/json',
+  };
+
+  const options: RequestInit = {
+    method,
+    headers,
+  };
+
+  if (data && (method === 'POST' || method === 'PUT')) {
+    options.body = JSON.stringify(data);
+  }
+
+  const response = await fetch(url, options);
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  // Для $metadata endpoint возвращаем статус ответа
+  if (endpoint === '$metadata') {
+    return { status: response.status };
+  }
+
+  return await response.json();
 }
 
 
