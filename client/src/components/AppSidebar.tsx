@@ -73,6 +73,12 @@ const menuItems = [
     icon: Database,
     module: "settings", // Используем тот же модуль что и настройки
   },
+  {
+    title: "1С Розница",
+    url: "/onec-retail",
+    icon: Database,
+    module: "settings", // Используем тот же модуль что и настройки
+  },
 ]
 
 export default function AppSidebar() {

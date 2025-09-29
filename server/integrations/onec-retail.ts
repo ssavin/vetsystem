@@ -14,6 +14,8 @@ const OneCProductSchema = z.object({
   Parent_Key: z.string().optional(), // Родительская группа
   PredefinedDataName: z.string().optional(),
   DeletionMark: z.boolean().optional(), // Пометка удаления
+  Balance: z.number().optional(), // Остаток на складе
+  Unit: z.string().optional(), // Единица измерения
 });
 
 // Схема для цен товаров
@@ -382,28 +384,57 @@ export async function sendReceiptToOneC(receiptData: any): Promise<{ success: bo
 // ===== СЛУЖЕБНЫЕ ФУНКЦИИ =====
 
 /**
- * Тестирование подключения к 1С
+ * Тестирование подключения к 1С Розница
  */
-export async function testOneCConnection(): Promise<{ success: boolean; version?: string; error?: string }> {
+export async function testOneCConnection(): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('🔍 Тестируем подключение к 1С...');
+    console.log('🔄 Тестирование подключения к 1С Розница...');
+
+    // Проверка наличия переменных окружения
+    if (!config.baseUrl || !config.username || !config.password) {
+      return {
+        success: false,
+        message: 'Не настроены переменные окружения для подключения к 1С (ONEC_BASE_URL, ONEC_USERNAME, ONEC_PASSWORD)'
+      };
+    }
+
+    // Тестовый запрос к 1С для проверки подключения
+    const response = await makeOneCApiRequest('$metadata', 'GET');
     
-    // Запрос метаданных для проверки подключения
-    const response = await makeOneCApiRequest('$metadata');
-    
-    console.log('✅ Подключение к 1С успешно');
-    return {
-      success: true,
-      version: '1С:Розница OData API',
-    };
+    if (response) {
+      await storage.createIntegrationLog({
+        system: 'onec',
+        operation: 'test_connection',
+        status: 'success',
+        details: { baseUrl: config.baseUrl }
+      });
+
+      return {
+        success: true,
+        message: 'Подключение к 1С Розница установлено успешно'
+      };
+    } else {
+      throw new Error('Получен пустой ответ от сервера 1С');
+    }
+
   } catch (error) {
-    console.error('❌ Ошибка подключения к 1С:', error);
+    const errorMessage = `Ошибка подключения к 1С: ${error}`;
+    console.error('❌', errorMessage);
+
+    await storage.createIntegrationLog({
+      system: 'onec',
+      operation: 'test_connection',
+      status: 'error',
+      details: { error: errorMessage }
+    });
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Неизвестная ошибка',
+      message: errorMessage
     };
   }
 }
+
 
 /**
  * Получение статистики интеграции с 1С

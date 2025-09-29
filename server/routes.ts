@@ -2874,6 +2874,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // =================== 1С Розница/Касса API ===================
+  
+  // POST /api/onec/products/sync - Синхронизация товаров из 1С Розница
+  app.post("/api/onec/products/sync", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      console.log('[1С Розница] Начинаем синхронизацию товаров...');
+      
+      // Импортируем модуль 1С Розница
+      const { loadProductsFromOneC } = await import('./integrations/onec-retail');
+      
+      const result = await loadProductsFromOneC();
+      
+      console.log('[1С Розница] Синхронизация товаров завершена:', result);
+      
+      res.json({
+        success: result.success,
+        imported: result.imported,
+        errors: result.errors,
+        message: `Синхронизация товаров завершена. Загружено: ${result.imported}, ошибок: ${result.errors.length}`
+      });
+    } catch (error) {
+      console.error('[1С Розница] Ошибка синхронизации товаров:', error);
+      res.status(500).json({
+        error: "Internal server error", 
+        message: `Ошибка синхронизации товаров из 1С: ${error}`
+      });
+    }
+  });
+
+  // POST /api/onec/services/sync - Синхронизация услуг из 1С Розница
+  app.post("/api/onec/services/sync", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      console.log('[1С Розница] Начинаем синхронизацию услуг...');
+      
+      // Импортируем модуль 1С Розница
+      const { loadServicesFromOneC } = await import('./integrations/onec-retail');
+      
+      const result = await loadServicesFromOneC();
+      
+      console.log('[1С Розница] Синхронизация услуг завершена:', result);
+      
+      res.json({
+        success: result.success,
+        imported: result.imported, 
+        errors: result.errors,
+        message: `Синхронизация услуг завершена. Загружено: ${result.imported}, ошибок: ${result.errors.length}`
+      });
+    } catch (error) {
+      console.error('[1С Розница] Ошибка синхронизации услуг:', error);
+      res.status(500).json({
+        error: "Internal server error",
+        message: `Ошибка синхронизации услуг из 1С: ${error}`
+      });
+    }
+  });
+
+  // GET /api/onec/stats - Статистика интеграции с 1С Розница
+  app.get("/api/onec/stats", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      // Получаем товары и услуги из 1С системы
+      const products = await storage.getProductsByExternalSystem('onec');
+      const services = await storage.getServicesByExternalSystem('onec');
+      
+      // Проверяем подключение к 1С (базовая проверка переменных окружения)
+      const connected = !!(
+        process.env.ONEC_BASE_URL && 
+        process.env.ONEC_USERNAME && 
+        process.env.ONEC_PASSWORD &&
+        process.env.ONEC_ORGANIZATION_KEY &&
+        process.env.ONEC_CASH_REGISTER_KEY
+      );
+      
+      res.json({
+        success: true,
+        connected,
+        products,
+        services,
+        summary: {
+          productsCount: products.length,
+          servicesCount: services.length,
+          totalCount: products.length + services.length
+        }
+      });
+    } catch (error) {
+      console.error('[1С Розница] Ошибка получения статистики:', error);
+      res.status(500).json({
+        error: "Internal server error",
+        message: `Ошибка получения статистики 1С: ${error}`
+      });
+    }
+  });
+
   // =============================================
   // ЛОКАЛЬНАЯ ПЕЧАТЬ ФИСКАЛЬНЫХ ЧЕКОВ
   // =============================================
