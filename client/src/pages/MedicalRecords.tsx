@@ -71,11 +71,12 @@ export default function MedicalRecords() {
   const filteredRecords = useMemo(() => {
     if (!searchTerm) return transformedRecords
     
+    const searchLower = searchTerm.toLowerCase()
     return transformedRecords.filter(record => 
-      record.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.doctorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.visitType.toLowerCase().includes(searchTerm.toLowerCase())
+      record.patientName?.toLowerCase().includes(searchLower) ||
+      record.doctorName?.toLowerCase().includes(searchLower) ||
+      record.diagnosis?.toLowerCase().includes(searchLower) ||
+      record.visitType?.toLowerCase().includes(searchLower)
     )
   }, [transformedRecords, searchTerm])
 
