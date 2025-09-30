@@ -1,22 +1,33 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Plus, Filter, Calendar, Brain } from "lucide-react"
+import { Search, Plus, Filter, Calendar, Brain, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import MedicalRecordCard from "@/components/MedicalRecordCard"
 import MedicalRecordForm from "@/components/MedicalRecordForm"
 import AIAssistant from "@/components/AIAssistant"
 import type { MedicalRecord } from "@shared/schema"
+import { Badge } from "@/components/ui/badge"
 
 
 export default function MedicalRecords() {
   const [searchTerm, setSearchTerm] = useState("")
   const [showAIAssistant, setShowAIAssistant] = useState(false)
   const [selectedPatientForAI, setSelectedPatientForAI] = useState<any>(null)
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // Get patientId from URL query parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const patientId = params.get('patientId')
+    if (patientId) {
+      setSelectedPatientId(patientId)
+    }
+  }, [])
 
   // Fetch medical records with patients, doctors, and medications
   const { data: medicalRecords = [], isLoading, error } = useQuery({
@@ -67,18 +78,35 @@ export default function MedicalRecords() {
     })
   }, [medicalRecords, patientMap, doctorMap])
 
-  // Filter records based on search term
+  // Filter records based on search term and selected patient
   const filteredRecords = useMemo(() => {
-    if (!searchTerm) return transformedRecords
-    
-    const searchLower = searchTerm.toLowerCase()
-    return transformedRecords.filter(record => 
-      record.patientName?.toLowerCase().includes(searchLower) ||
-      record.doctorName?.toLowerCase().includes(searchLower) ||
-      record.diagnosis?.toLowerCase().includes(searchLower) ||
-      record.visitType?.toLowerCase().includes(searchLower)
-    )
-  }, [transformedRecords, searchTerm])
+    let records = transformedRecords
+
+    // Filter by selected patient first
+    if (selectedPatientId) {
+      records = records.filter(record => record.patientId === selectedPatientId)
+    }
+
+    // Then apply search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase()
+      records = records.filter(record => 
+        record.patientName?.toLowerCase().includes(searchLower) ||
+        record.doctorName?.toLowerCase().includes(searchLower) ||
+        record.diagnosis?.toLowerCase().includes(searchLower) ||
+        record.visitType?.toLowerCase().includes(searchLower)
+      )
+    }
+
+    return records
+  }, [transformedRecords, searchTerm, selectedPatientId])
+
+  // Get selected patient name
+  const selectedPatientName = useMemo(() => {
+    if (!selectedPatientId) return null
+    const patient = patientMap[selectedPatientId]
+    return patient ? patient.name : null
+  }, [selectedPatientId, patientMap])
 
   const handleSearch = (term: string) => {
     setSearchTerm(term)
@@ -119,6 +147,26 @@ export default function MedicalRecords() {
         </div>
         <MedicalRecordForm />
       </div>
+
+      {selectedPatientName && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-sm py-2 px-3">
+            Пациент: {selectedPatientName}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-4 w-4 p-0 ml-2 hover:bg-transparent"
+              onClick={() => {
+                setSelectedPatientId(null)
+                window.history.pushState({}, '', '/medical-records')
+              }}
+              data-testid="button-clear-patient-filter"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </Badge>
+        </div>
+      )}
 
       <Card>
         <CardHeader>

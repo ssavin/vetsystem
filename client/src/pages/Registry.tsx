@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Plus, Filter, FileText, Calendar, Phone, User } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import { useLocation } from "wouter"
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Helper functions for patient status
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -102,7 +104,7 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
             variant="outline"
             onClick={(e) => {
               e.stopPropagation()
-              navigate('/medical-records')
+              navigate(`/medical-records?patientId=${patient.id}`)
             }}
             data-testid={`button-view-records-${patient.id}`}
           >
@@ -125,60 +127,85 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
   )
 }
 
-// TODO: Remove mock data when connecting to real backend
-const mockPatients = [
-  {
-    id: "1",
-    name: "Барсик",
-    species: "Кот",
-    breed: "Персидская",
-    age: "3 года",
-    owner: "Иванов И.И.",
-    ownerPhone: "+7 (999) 123-45-67",
-    status: 'healthy' as const,
-    lastVisit: "15.12.2024"
-  },
-  {
-    id: "2",
-    name: "Рекс",
-    species: "Собака", 
-    breed: "Немецкая овчарка",
-    age: "5 лет",
-    owner: "Сидоров П.К.",
-    ownerPhone: "+7 (999) 987-65-43",
-    status: 'treatment' as const,
-    lastVisit: "14.12.2024"
-  },
-  {
-    id: "3",
-    name: "Мурка",
-    species: "Кошка",
-    breed: "Британская",
-    age: "2 года",
-    owner: "Петрова А.С.",
-    ownerPhone: "+7 (999) 555-12-34",
-    status: 'healthy' as const,
-    lastVisit: "12.12.2024"
+// Helper function for age word form
+function getYearWord(years: number) {
+  const lastDigit = years % 10
+  const lastTwoDigits = years % 100
+
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
+    return 'лет'
   }
-]
+
+  if (lastDigit === 1) {
+    return 'год'
+  }
+
+  if (lastDigit >= 2 && lastDigit <= 4) {
+    return 'года'
+  }
+
+  return 'лет'
+}
 
 export default function Registry() {
   const [searchTerm, setSearchTerm] = useState("")
   const [showRegistrationForm, setShowRegistrationForm] = useState(false)
-  const [filteredPatients, setFilteredPatients] = useState(mockPatients)
+
+  // Fetch patients and owners from API
+  const { data: patientsData = [], isLoading } = useQuery({
+    queryKey: ['/api/patients'],
+  })
+
+  const { data: ownersData = [] } = useQuery({
+    queryKey: ['/api/owners'],
+  })
+
+  // Create owner map
+  const ownerMap = useMemo(() => {
+    const map: Record<string, any> = {}
+    ;(ownersData as any[]).forEach((owner: any) => {
+      map[owner.id] = owner
+    })
+    return map
+  }, [ownersData])
+
+  // Transform patients to match table format
+  const transformedPatients = useMemo(() => {
+    return (patientsData as any[]).map((patient: any) => {
+      const owner = ownerMap[patient.ownerId]
+      const birthDate = patient.birthDate ? new Date(patient.birthDate) : null
+      const age = birthDate 
+        ? `${Math.floor((Date.now() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 365))} ${getYearWord(Math.floor((Date.now() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 365)))}`
+        : 'Неизвестно'
+
+      return {
+        id: patient.id,
+        name: patient.name,
+        species: patient.species,
+        breed: patient.breed || 'Неизвестна',
+        age,
+        owner: owner ? owner.name : 'Неизвестен',
+        ownerPhone: owner ? owner.phone : '-',
+        status: 'healthy' as const, // TODO: Get actual status from medical records
+        lastVisit: undefined // TODO: Get from appointments/medical records
+      }
+    })
+  }, [patientsData, ownerMap])
+
+  // Filter patients based on search
+  const filteredPatients = useMemo(() => {
+    if (!searchTerm) return transformedPatients
+    
+    const searchLower = searchTerm.toLowerCase()
+    return transformedPatients.filter((patient: any) =>
+      patient.name?.toLowerCase().includes(searchLower) ||
+      patient.owner?.toLowerCase().includes(searchLower) ||
+      patient.ownerPhone?.includes(searchTerm)
+    )
+  }, [transformedPatients, searchTerm])
 
   const handleSearch = (term: string) => {
     setSearchTerm(term)
-    if (!term) {
-      setFilteredPatients(mockPatients)
-    } else {
-      const filtered = mockPatients.filter(patient => 
-        patient.name.toLowerCase().includes(term.toLowerCase()) ||
-        patient.owner.toLowerCase().includes(term.toLowerCase()) ||
-        patient.ownerPhone.includes(term)
-      )
-      setFilteredPatients(filtered)
-    }
   }
 
   if (showRegistrationForm) {
@@ -244,36 +271,40 @@ export default function Registry() {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Пациент</TableHead>
-                <TableHead>Вид/Порода</TableHead>
-                <TableHead>Владелец</TableHead>
-                <TableHead>Телефон</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Последний визит</TableHead>
-                <TableHead className="text-right">Действия</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPatients.map(patient => (
-                <PatientTableRow key={patient.id} patient={patient} />
+          {isLoading ? (
+            <div className="p-8 space-y-4">
+              {[1, 2, 3].map(i => (
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          ) : filteredPatients.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                {searchTerm ? 'Пациенты не найдены' : 'Пациенты отсутствуют'}
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Пациент</TableHead>
+                  <TableHead>Вид/Порода</TableHead>
+                  <TableHead>Владелец</TableHead>
+                  <TableHead>Телефон</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Последний визит</TableHead>
+                  <TableHead className="text-right">Действия</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPatients.map((patient: any) => (
+                  <PatientTableRow key={patient.id} patient={patient} />
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
-
-      {filteredPatients.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-muted-foreground">
-              {searchTerm ? 'Пациенты не найдены' : 'Пациенты отсутствуют'}
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }
