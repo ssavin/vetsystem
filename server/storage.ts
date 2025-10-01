@@ -43,12 +43,17 @@ import {
   subscriptionPayments, billingNotifications
 } from "@shared/schema";
 import { db } from "./db-local";
+import { pool } from "./db-local";
 import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, ilike, type SQL } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
+import { AsyncLocalStorage } from 'async_hooks';
 
 // ID generation utility
 const generateId = () => randomUUID();
+
+// AsyncLocalStorage for request-scoped database context
+export const requestDbStorage = new AsyncLocalStorage<typeof db>();
 
 // Performance monitoring utilities
 const logSlowQuery = (operation: string, duration: number, threshold = 100) => {
@@ -76,17 +81,54 @@ const withPerformanceLogging = async <T>(
   }
 };
 
+/**
+ * Multi-tenant context utilities
+ * Sets tenant_id in PostgreSQL session variable for Row-Level Security (RLS)
+ */
+
+/**
+ * Execute query with tenant context
+ * 
+ * Strategy:
+ * 1. If request-scoped db exists (from tenantDbMiddleware), use it
+ *    - Already has SET LOCAL app.tenant_id in place
+ *    - Single transaction for entire request (optimal performance)
+ * 
+ * 2. Otherwise, use global db
+ *    - For system-level queries, background jobs, or non-request contexts
+ * 
+ * @param tenantId - The tenant ID (for backward compatibility, not used when request db exists)
+ * @param queryFn - The query function to execute (receives db instance)
+ * @returns The result of the query function
+ */
+async function withTenantContext<T>(
+  tenantId: string | undefined,
+  queryFn: (dbInstance: typeof db) => Promise<T>
+): Promise<T> {
+  // Check if request-scoped db is available (set by tenantDbMiddleware)
+  const requestDb = requestDbStorage.getStore();
+  
+  if (requestDb) {
+    // Use request-scoped db (already has tenant context set via SET LOCAL)
+    return queryFn(requestDb);
+  }
+  
+  // Fallback to global db for non-request contexts
+  // (e.g., background jobs, cron tasks, system operations)
+  return queryFn(db);
+}
+
 // Enhanced storage interface for veterinary clinic system
 export interface IStorage {
-  // User methods (keep existing for authentication)
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  // User methods (tenant-aware for multi-tenant isolation)
+  getUser(id: string, tenantId?: string): Promise<User | undefined>;
+  getUserByUsername(username: string, tenantId?: string): Promise<User | undefined>;
   verifyPassword(password: string, hashedPassword: string): Promise<boolean>;
-  createUser(user: InsertUser): Promise<User>;
-  getUsers(): Promise<User[]>;
-  updateUser(id: string, updateData: Partial<InsertUser>): Promise<User>;
-  updateUserLastLogin(id: string): Promise<void>;
-  deleteUser(id: string): Promise<void>;
+  createUser(user: InsertUser, tenantId?: string): Promise<User>;
+  getUsers(tenantId?: string): Promise<User[]>;
+  updateUser(id: string, updateData: Partial<InsertUser>, tenantId?: string): Promise<User>;
+  updateUserLastLogin(id: string, tenantId?: string): Promise<void>;
+  deleteUser(id: string, tenantId?: string): Promise<void>;
 
   // Branch methods
   getBranches(): Promise<Branch[]>;
@@ -427,16 +469,20 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // User methods (keep existing for authentication)
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+  // User methods (tenant-aware for multi-tenant isolation)
+  async getUser(id: string, tenantId?: string): Promise<User | undefined> {
+    return withTenantContext(tenantId, async (tx) => {
+      const [user] = await tx.select().from(users).where(eq(users.id, id));
+      return user || undefined;
+    });
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
+  async getUserByUsername(username: string, tenantId?: string): Promise<User | undefined> {
     return withPerformanceLogging('getUserByUsername', async () => {
-      const [user] = await db.select().from(users).where(eq(users.username, username));
-      return user || undefined;
+      return withTenantContext(tenantId, async (tx) => {
+        const [user] = await tx.select().from(users).where(eq(users.username, username));
+        return user || undefined;
+      });
     });
   }
 
@@ -446,54 +492,64 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async createUser(insertUser: InsertUser, tenantId?: string): Promise<User> {
     return withPerformanceLogging('createUser', async () => {
-      // Hash password before storing
-      const saltRounds = 12;
-      const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
-      
-      const [user] = await db
-        .insert(users)
-        .values({
-          ...insertUser,
-          password: hashedPassword,
-        })
-        .returning();
-      return user;
-    });
-  }
-
-  async getUsers(): Promise<User[]> {
-    return await db.select().from(users).orderBy(users.createdAt);
-  }
-
-  async updateUser(id: string, updateData: Partial<InsertUser>): Promise<User> {
-    return withPerformanceLogging('updateUser', async () => {
-      // Hash password if it's being updated
-      let dataToUpdate = { ...updateData, updatedAt: new Date() };
-      if (updateData.password) {
+      return withTenantContext(tenantId, async (tx) => {
+        // Hash password before storing
         const saltRounds = 12;
-        dataToUpdate.password = await bcrypt.hash(updateData.password, saltRounds);
-      }
-      
-      const [user] = await db
-        .update(users)
-        .set(dataToUpdate)
-        .where(eq(users.id, id))
-        .returning();
-      return user;
+        const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
+        
+        const [user] = await tx
+          .insert(users)
+          .values({
+            ...insertUser,
+            password: hashedPassword,
+          })
+          .returning();
+        return user;
+      });
     });
   }
 
-  async updateUserLastLogin(id: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ lastLogin: new Date() })
-      .where(eq(users.id, id));
+  async getUsers(tenantId?: string): Promise<User[]> {
+    return withTenantContext(tenantId, async (tx) => {
+      return await tx.select().from(users).orderBy(users.createdAt);
+    });
   }
 
-  async deleteUser(id: string): Promise<void> {
-    await db.delete(users).where(eq(users.id, id));
+  async updateUser(id: string, updateData: Partial<InsertUser>, tenantId?: string): Promise<User> {
+    return withPerformanceLogging('updateUser', async () => {
+      return withTenantContext(tenantId, async (tx) => {
+        // Hash password if it's being updated
+        let dataToUpdate = { ...updateData, updatedAt: new Date() };
+        if (updateData.password) {
+          const saltRounds = 12;
+          dataToUpdate.password = await bcrypt.hash(updateData.password, saltRounds);
+        }
+        
+        const [user] = await tx
+          .update(users)
+          .set(dataToUpdate)
+          .where(eq(users.id, id))
+          .returning();
+        return user;
+      });
+    });
+  }
+
+  async updateUserLastLogin(id: string, tenantId?: string): Promise<void> {
+    await withTenantContext(tenantId, async (tx) => {
+      await tx
+        .update(users)
+        .set({ lastLogin: new Date() })
+        .where(eq(users.id, id));
+    });
+  }
+
+  async deleteUser(id: string, tenantId?: string): Promise<void> {
+    await withTenantContext(tenantId, async (tx) => {
+      await tx.delete(users).where(eq(users.id, id));
+    });
   }
 
   // Owner methods - 🔒 SECURITY: branchId mandatory for PHI isolation

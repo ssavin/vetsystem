@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startNotificationScheduler } from "./jobs/notification-scheduler";
 import { tenantResolver } from "./middleware/tenant-resolver";
+import { tenantDbMiddleware } from "./middleware/tenant-db";
 
 const app = express();
 app.use(express.json());
@@ -10,6 +11,10 @@ app.use(express.urlencoded({ extended: false }));
 
 // Multi-tenant: Resolve tenant from subdomain BEFORE processing any routes
 app.use(tenantResolver);
+
+// Multi-tenant: Establish dedicated DB connection with tenant context for each request
+// This must come AFTER tenantResolver (needs req.tenantId) and BEFORE routes
+app.use(tenantDbMiddleware);
 
 app.use((req, res, next) => {
   const start = Date.now();
