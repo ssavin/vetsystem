@@ -4073,18 +4073,289 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/billing/payment - Создать платёж (placeholder для YooKassa интеграции)
+  // Zod schema для создания платежа
+  const createBillingPaymentSchema = z.object({
+    subscriptionId: z.string().uuid(),
+    planId: z.string().uuid()
+  });
+
+  // POST /api/billing/payment - Создать платёж через YooKassa
   app.post("/api/billing/payment", authenticateToken, async (req, res) => {
     try {
-      const payment = await storage.createSubscriptionPayment(req.body);
-      // TODO: интеграция с YooKassa будет добавлена в следующей задаче
-      res.status(201).json(payment);
+      // Валидация с Zod
+      const validation = createBillingPaymentSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          message: "Ошибка валидации данных",
+          details: validation.error.issues
+        });
+      }
+
+      const { subscriptionId, planId } = validation.data;
+
+      // БЕЗОПАСНОСТЬ: Проверяем branchId пользователя
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      // Получаем подписку и план
+      const subscription = await storage.getClinicSubscriptions().then(subs => 
+        subs.find(s => s.id === subscriptionId)
+      );
+      
+      if (!subscription) {
+        return res.status(404).json({ 
+          error: "Subscription not found",
+          message: "Подписка не найдена"
+        });
+      }
+
+      // БЕЗОПАСНОСТЬ: Проверяем что подписка принадлежит филиалу пользователя
+      if (subscription.branchId !== userBranchId) {
+        console.warn(`🚨 SECURITY ALERT: User attempted to create payment for subscription from different branch`);
+        return res.status(403).json({ 
+          error: "Access denied",
+          message: "Доступ запрещён"
+        });
+      }
+
+      const plan = await storage.getSubscriptionPlan(planId);
+      
+      if (!plan) {
+        return res.status(404).json({ 
+          error: "Plan not found",
+          message: "Тарифный план не найден"
+        });
+      }
+
+      // Получаем информацию о филиале для receipt
+      const branch = await storage.getBranch(subscription.branchId);
+      
+      if (!branch) {
+        return res.status(404).json({ 
+          error: "Branch not found",
+          message: "Филиал не найден"
+        });
+      }
+
+      // Детерминистический idempotency key основан на subscription + plan
+      const idempotenceKey = `sub_${subscriptionId}_plan_${planId}`;
+      
+      // Проверяем существует ли уже pending платёж с таким ключом
+      const existingPayments = await storage.getSubscriptionPayments(subscriptionId);
+      let existingPendingPayment = existingPayments.find(p => 
+        p.status === 'pending' && 
+        p.yookassaPaymentId && 
+        p.yookassaPaymentId.includes(idempotenceKey)
+      );
+
+      // Если есть pending платёж, возвращаем его данные
+      if (existingPendingPayment && existingPendingPayment.yookassaPaymentId) {
+        try {
+          const existingYookassaPayment = await yookassa.getPayment(existingPendingPayment.yookassaPaymentId);
+          
+          return res.status(200).json({
+            payment: existingPendingPayment,
+            confirmationUrl: existingYookassaPayment.confirmation?.confirmation_url
+          });
+        } catch (error) {
+          // Если не можем получить платёж от YooKassa, создадим новый
+          console.warn('Could not fetch existing payment from YooKassa, creating new:', error);
+        }
+      }
+
+      // Создаём запись платежа в БД ПЕРЕД обращением к YooKassa
+      const paymentId = uuidv4();
+      
+      await storage.createSubscriptionPayment({
+        id: paymentId,
+        subscriptionId: subscriptionId,
+        amount: plan.price,
+        status: 'pending',
+        paymentMethod: 'yookassa',
+        yookassaPaymentId: null // будет обновлён после создания в YooKassa
+      });
+
+      const yookassaPayment = await yookassa.createPayment({
+        amount: {
+          value: plan.price.toFixed(2),
+          currency: 'RUB'
+        },
+        description: `Подписка "${plan.name}" для клиники`,
+        receipt: {
+          customer: {
+            full_name: branch.name,
+            email: branch.email,
+            phone: branch.phone
+          },
+          items: [{
+            description: `${plan.name} - подписка на ${plan.durationDays} дней`,
+            amount: {
+              value: plan.price.toFixed(2),
+              currency: 'RUB'
+            },
+            vat_code: 1, // без НДС
+            quantity: '1',
+            payment_mode: 'full_payment',
+            payment_subject: 'service'
+          }],
+          tax_system_code: 2, // УСН доходы
+          email: branch.email,
+          phone: branch.phone,
+          send: true
+        },
+        confirmation: {
+          type: 'redirect',
+          return_url: `${process.env.REPL_URL || 'http://localhost:5000'}/billing`
+        },
+        capture: true,
+        metadata: {
+          internal_payment_id: paymentId,
+          subscription_id: subscriptionId,
+          plan_id: planId,
+          branch_id: subscription.branchId
+        }
+      }, idempotenceKey);
+
+      // Обновляем запись платежа с YooKassa ID
+      await storage.updateSubscriptionPayment(paymentId, {
+        yookassaPaymentId: yookassaPayment.id,
+        status: yookassaPayment.status
+      });
+
+      // Получаем обновлённый платёж
+      const updatedPayments = await storage.getSubscriptionPayments(subscriptionId);
+      const payment = updatedPayments.find(p => p.id === paymentId);
+
+      res.status(201).json({
+        payment,
+        confirmationUrl: yookassaPayment.confirmation?.confirmation_url
+      });
     } catch (error) {
       console.error("Error creating payment:", error);
       res.status(500).json({ 
         error: "Failed to create payment",
         message: "Не удалось создать платёж"
       });
+    }
+  });
+
+  // POST /api/billing/webhook/yookassa - Webhook для обработки уведомлений YooKassa
+  app.post("/api/billing/webhook/yookassa", express.raw({type: 'application/json'}), async (req, res) => {
+    try {
+      // Парсим body
+      const rawBody = req.body.toString('utf8');
+      const notification = JSON.parse(rawBody);
+
+      console.log('YooKassa webhook received:', notification);
+
+      // Проверяем тип уведомления
+      if (notification.type !== 'notification') {
+        return res.status(400).json({ error: 'Invalid notification type' });
+      }
+
+      const { event, object: paymentData } = notification;
+      
+      if (!paymentData || !paymentData.id) {
+        return res.status(400).json({ error: 'Invalid payment data' });
+      }
+
+      // БЕЗОПАСНОСТЬ: Проверяем аутентичность через re-fetch от YooKassa API
+      let verifiedPayment;
+      try {
+        verifiedPayment = await yookassa.getPayment(paymentData.id);
+      } catch (error) {
+        console.error(`Failed to verify payment ${paymentData.id} with YooKassa:`, error);
+        return res.status(401).json({ error: 'Payment verification failed' });
+      }
+
+      // Находим платёж в БД по internal_payment_id или yookassaPaymentId
+      const internalPaymentId = verifiedPayment.metadata?.internal_payment_id;
+      let existingPayment = null;
+
+      if (internalPaymentId) {
+        // Ищем по internal ID
+        const allPayments = await storage.getSubscriptionPayments(verifiedPayment.metadata?.subscription_id || '');
+        existingPayment = allPayments.find(p => p.id === internalPaymentId);
+      } else {
+        // Fallback: ищем по YooKassa payment ID
+        const allPayments = await storage.getSubscriptionPayments(verifiedPayment.metadata?.subscription_id || '');
+        existingPayment = allPayments.find(p => p.yookassaPaymentId === verifiedPayment.id);
+      }
+
+      if (!existingPayment) {
+        console.warn(`Payment ${verifiedPayment.id} not found in database`);
+        return res.status(200).send('OK');
+      }
+
+      // ИДЕМПОТЕНТНОСТЬ: Проверяем не обработан ли уже этот статус
+      if (existingPayment.status === verifiedPayment.status && verifiedPayment.status === 'succeeded') {
+        console.log(`Payment ${verifiedPayment.id} already processed with status ${verifiedPayment.status}`);
+        return res.status(200).send('OK');
+      }
+
+      // Обрабатываем разные события
+      switch (event) {
+        case 'payment.succeeded':
+          console.log(`Payment ${verifiedPayment.id} succeeded`);
+          
+          // Обновляем статус платежа
+          await storage.updateSubscriptionPayment(existingPayment.id, {
+            status: 'succeeded',
+            paidAt: new Date()
+          });
+
+          // Продлеваем подписку (только если ещё не продлена)
+          if (verifiedPayment.metadata?.subscription_id && verifiedPayment.metadata?.plan_id) {
+            const subscription = await storage.getClinicSubscriptions().then(subs =>
+              subs.find(s => s.id === verifiedPayment.metadata.subscription_id)
+            );
+            
+            if (subscription) {
+              const plan = await storage.getSubscriptionPlan(verifiedPayment.metadata.plan_id);
+              
+              if (plan) {
+                // Вычисляем новую дату окончания
+                const currentEndDate = subscription.endDate ? new Date(subscription.endDate) : new Date();
+                const now = new Date();
+                const baseDate = currentEndDate > now ? currentEndDate : now;
+                const newEndDate = new Date(baseDate.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+
+                await storage.updateClinicSubscription(subscription.id, {
+                  status: 'active',
+                  endDate: newEndDate,
+                  planId: plan.id
+                });
+
+                console.log(`Subscription ${subscription.id} extended until ${newEndDate}`);
+              }
+            }
+          }
+          break;
+
+        case 'payment.canceled':
+          console.log(`Payment ${verifiedPayment.id} was canceled`);
+          await storage.updateSubscriptionPayment(existingPayment.id, {
+            status: 'canceled'
+          });
+          break;
+
+        case 'payment.waiting_for_capture':
+          console.log(`Payment ${verifiedPayment.id} waiting for capture`);
+          await storage.updateSubscriptionPayment(existingPayment.id, {
+            status: 'waiting_for_capture'
+          });
+          break;
+
+        default:
+          console.log(`Unhandled YooKassa event: ${event}`);
+      }
+
+      res.status(200).send('OK');
+    } catch (error) {
+      console.error('Error processing YooKassa webhook:', error);
+      res.status(500).json({ error: 'Webhook processing failed' });
     }
   });
 
