@@ -27,6 +27,10 @@ import {
   type SalesTransactionItem, type InsertSalesTransactionItem,
   type CashOperation, type InsertCashOperation,
   type UserRole, type InsertUserRole,
+  type SubscriptionPlan, type InsertSubscriptionPlan,
+  type ClinicSubscription, type InsertClinicSubscription,
+  type SubscriptionPayment, type InsertSubscriptionPayment,
+  type BillingNotification, type InsertBillingNotification,
   users, owners, patients, doctors, appointments, 
   medicalRecords, medications, services, products, 
   invoices, invoiceItems, branches, patientFiles,
@@ -35,7 +39,8 @@ import {
   catalogItems, systemSettings, cashRegisters, cashShifts, 
   customers, discountRules, paymentMethods, salesTransactions, 
   salesTransactionItems, cashOperations, userRoles, userRoleAssignments,
-  integrationLogs
+  integrationLogs, subscriptionPlans, clinicSubscriptions,
+  subscriptionPayments, billingNotifications
 } from "@shared/schema";
 import { db } from "./db-local";
 import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, ilike, type SQL } from "drizzle-orm";
@@ -391,6 +396,32 @@ export interface IStorage {
   
   // Отчеты
   getShiftReport(shiftId: string): Promise<any>;
+
+  // === СИСТЕМА БИЛЛИНГА И ПОДПИСОК ===
+  
+  // Тарифные планы
+  getSubscriptionPlans(): Promise<any[]>;
+  getActiveSubscriptionPlans(): Promise<any[]>;
+  createSubscriptionPlan(plan: any): Promise<any>;
+  updateSubscriptionPlan(id: string, updates: any): Promise<any>;
+  
+  // Подписки клиник
+  getClinicSubscription(branchId: string): Promise<any | null>;
+  getClinicSubscriptions(): Promise<any[]>;
+  createClinicSubscription(subscription: any): Promise<any>;
+  updateClinicSubscription(id: string, updates: any): Promise<any>;
+  checkSubscriptionStatus(branchId: string): Promise<{ active: boolean; daysLeft: number; subscription: any | null }>;
+  
+  // Платежи
+  getSubscriptionPayments(subscriptionId: string): Promise<any[]>;
+  createSubscriptionPayment(payment: any): Promise<any>;
+  updateSubscriptionPayment(id: string, updates: any): Promise<any>;
+  
+  // Уведомления
+  getBillingNotifications(subscriptionId: string): Promise<any[]>;
+  getPendingBillingNotifications(): Promise<any[]>;
+  createBillingNotification(notification: any): Promise<any>;
+  markNotificationAsSent(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2838,6 +2869,157 @@ export class DatabaseStorage implements IStorage {
         .values(logData)
         .returning();
       return newLog;
+    });
+  }
+
+  // === BILLING AND SUBSCRIPTION METHODS ===
+
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return withPerformanceLogging('getSubscriptionPlans', async () => {
+      return await db.select().from(subscriptionPlans).orderBy(subscriptionPlans.price);
+    });
+  }
+
+  async getActiveSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return withPerformanceLogging('getActiveSubscriptionPlans', async () => {
+      return await db.select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.isActive, true))
+        .orderBy(subscriptionPlans.price);
+    });
+  }
+
+  async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
+    return withPerformanceLogging('createSubscriptionPlan', async () => {
+      const [newPlan] = await db.insert(subscriptionPlans).values(plan).returning();
+      return newPlan;
+    });
+  }
+
+  async updateSubscriptionPlan(id: string, updates: Partial<InsertSubscriptionPlan>): Promise<SubscriptionPlan> {
+    return withPerformanceLogging('updateSubscriptionPlan', async () => {
+      const [updated] = await db.update(subscriptionPlans)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(subscriptionPlans.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async getClinicSubscription(branchId: string): Promise<ClinicSubscription | null> {
+    return withPerformanceLogging('getClinicSubscription', async () => {
+      const [subscription] = await db.select()
+        .from(clinicSubscriptions)
+        .where(eq(clinicSubscriptions.branchId, branchId))
+        .orderBy(desc(clinicSubscriptions.createdAt))
+        .limit(1);
+      return subscription || null;
+    });
+  }
+
+  async getClinicSubscriptions(): Promise<ClinicSubscription[]> {
+    return withPerformanceLogging('getClinicSubscriptions', async () => {
+      return await db.select().from(clinicSubscriptions).orderBy(desc(clinicSubscriptions.createdAt));
+    });
+  }
+
+  async createClinicSubscription(subscription: InsertClinicSubscription): Promise<ClinicSubscription> {
+    return withPerformanceLogging('createClinicSubscription', async () => {
+      const [newSubscription] = await db.insert(clinicSubscriptions).values(subscription).returning();
+      return newSubscription;
+    });
+  }
+
+  async updateClinicSubscription(id: string, updates: Partial<InsertClinicSubscription>): Promise<ClinicSubscription> {
+    return withPerformanceLogging('updateClinicSubscription', async () => {
+      const [updated] = await db.update(clinicSubscriptions)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(clinicSubscriptions.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async checkSubscriptionStatus(branchId: string): Promise<{ active: boolean; daysLeft: number; subscription: ClinicSubscription | null }> {
+    return withPerformanceLogging('checkSubscriptionStatus', async () => {
+      const subscription = await this.getClinicSubscription(branchId);
+      
+      if (!subscription) {
+        return { active: false, daysLeft: 0, subscription: null };
+      }
+
+      const now = new Date();
+      const endDate = new Date(subscription.endDate);
+      const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      const active = subscription.status === 'active' && daysLeft > 0;
+
+      return { active, daysLeft, subscription };
+    });
+  }
+
+  async getSubscriptionPayments(subscriptionId: string): Promise<SubscriptionPayment[]> {
+    return withPerformanceLogging('getSubscriptionPayments', async () => {
+      return await db.select()
+        .from(subscriptionPayments)
+        .where(eq(subscriptionPayments.subscriptionId, subscriptionId))
+        .orderBy(desc(subscriptionPayments.createdAt));
+    });
+  }
+
+  async createSubscriptionPayment(payment: InsertSubscriptionPayment): Promise<SubscriptionPayment> {
+    return withPerformanceLogging('createSubscriptionPayment', async () => {
+      const [newPayment] = await db.insert(subscriptionPayments).values(payment).returning();
+      return newPayment;
+    });
+  }
+
+  async updateSubscriptionPayment(id: string, updates: Partial<InsertSubscriptionPayment>): Promise<SubscriptionPayment> {
+    return withPerformanceLogging('updateSubscriptionPayment', async () => {
+      const [updated] = await db.update(subscriptionPayments)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(subscriptionPayments.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async getBillingNotifications(subscriptionId: string): Promise<BillingNotification[]> {
+    return withPerformanceLogging('getBillingNotifications', async () => {
+      return await db.select()
+        .from(billingNotifications)
+        .where(eq(billingNotifications.subscriptionId, subscriptionId))
+        .orderBy(desc(billingNotifications.createdAt));
+    });
+  }
+
+  async getPendingBillingNotifications(): Promise<BillingNotification[]> {
+    return withPerformanceLogging('getPendingBillingNotifications', async () => {
+      const now = new Date();
+      return await db.select()
+        .from(billingNotifications)
+        .where(
+          and(
+            eq(billingNotifications.isSent, false),
+            lte(billingNotifications.scheduledFor, now)
+          )
+        )
+        .orderBy(billingNotifications.scheduledFor);
+    });
+  }
+
+  async createBillingNotification(notification: InsertBillingNotification): Promise<BillingNotification> {
+    return withPerformanceLogging('createBillingNotification', async () => {
+      const [newNotification] = await db.insert(billingNotifications).values(notification).returning();
+      return newNotification;
+    });
+  }
+
+  async markNotificationAsSent(id: string): Promise<void> {
+    return withPerformanceLogging('markNotificationAsSent', async () => {
+      await db.update(billingNotifications)
+        .set({ isSent: true, sentAt: new Date() })
+        .where(eq(billingNotifications.id, id));
     });
   }
 }
