@@ -19,6 +19,7 @@ import Settings from "@/pages/Settings";
 import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
 import Branches from "@/pages/Branches";
+import SubscriptionManagement from "@/pages/SubscriptionManagement";
 import AITestPage from "@/pages/AITestPage";
 import MoyskladNomenclature from "@/pages/MoyskladNomenclature";
 import OneCRetail from "@/pages/OneCRetail";
@@ -73,6 +74,7 @@ function AuthenticatedApp() {
               <Route path="/settings" component={Settings} />
               <Route path="/users" component={UserManagement} />
               <Route path="/branches" component={Branches} />
+              <Route path="/subscriptions" component={SubscriptionManagement} />
               <Route path="/ai-test" component={AITestPage} />
               <Route path="/moysklad-nomenclature" component={MoyskladNomenclature} />
               <Route path="/onec-retail" component={OneCRetail} />
