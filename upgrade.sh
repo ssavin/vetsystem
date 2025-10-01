@@ -43,17 +43,30 @@ tar -czf "$BACKUP_DIR/vetsystem_backup_$TIMESTAMP.tar.gz" \
 # 2. Скачиваем последние изменения из Git репозитория
 echo -e "${YELLOW}📥 Загружаем последние изменения...${NC}"
 if [ -d ".git" ]; then
+    # Определяем какой remote использовать (replit или origin)
+    REMOTE_NAME="replit"
+    if ! git remote get-url "$REMOTE_NAME" &>/dev/null; then
+        REMOTE_NAME="origin"
+        if ! git remote get-url "$REMOTE_NAME" &>/dev/null; then
+            echo -e "${RED}❌ Git remote не найден.${NC}"
+            echo -e "${YELLOW}💡 Сначала выполните: sudo ./sync-from-replit.sh${NC}"
+            exit 1
+        fi
+    fi
+    
+    echo -e "${YELLOW}📡 Используем remote: ${REMOTE_NAME}${NC}"
+    
     # Сохраняем локальные изменения (если есть)
     git stash save "Auto-stash before upgrade $TIMESTAMP" 2>/dev/null || true
     
     # Получаем последние изменения
-    git fetch origin main
-    git pull origin main
+    git fetch "$REMOTE_NAME" main
+    git reset --hard "$REMOTE_NAME/main"
     
     echo -e "${GREEN}✅ Код обновлён${NC}"
 else
-    echo -e "${RED}❌ Git репозиторий не найден. Инициализируйте репозиторий сначала.${NC}"
-    echo -e "${YELLOW}Выполните: git init && git remote add origin YOUR_REPO_URL${NC}"
+    echo -e "${RED}❌ Git репозиторий не найден.${NC}"
+    echo -e "${YELLOW}💡 Сначала выполните: sudo ./sync-from-replit.sh${NC}"
     exit 1
 fi
 
