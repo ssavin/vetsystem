@@ -12,7 +12,7 @@ import {
   insertCashRegisterSchema, insertCashShiftSchema, insertCustomerSchema, insertDiscountRuleSchema,
   insertPaymentMethodSchema, insertSalesTransactionSchema, insertSalesTransactionItemSchema,
   insertCashOperationSchema, insertUserRoleSchema, insertUserRoleAssignmentSchema,
-  insertSubscriptionPlanSchema, insertClinicSubscriptionSchema
+  insertSubscriptionPlanSchema, insertClinicSubscriptionSchema, insertTenantSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
@@ -4785,6 +4785,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Failed to fetch branches",
         message: "Не удалось получить список филиалов"
+      });
+    }
+  });
+
+  // ========================================
+  // 🔐 SUPERADMIN: Tenant Management Routes
+  // ========================================
+
+  // GET /api/admin/tenants - Получить все tenants
+  app.get("/api/admin/tenants", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const tenants = await storage.getAllTenants();
+      res.json(tenants);
+    } catch (error) {
+      console.error("Error fetching tenants:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch tenants",
+        message: "Не удалось получить список клиник"
+      });
+    }
+  });
+
+  // GET /api/admin/tenants/:id - Получить tenant по ID
+  app.get("/api/admin/tenants/:id", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const tenant = await storage.getTenant(id);
+      
+      if (!tenant) {
+        return res.status(404).json({ 
+          error: "Tenant not found",
+          message: "Клиника не найдена"
+        });
+      }
+      
+      res.json(tenant);
+    } catch (error) {
+      console.error("Error fetching tenant:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch tenant",
+        message: "Не удалось получить данные клиники"
+      });
+    }
+  });
+
+  // POST /api/admin/tenants - Создать новый tenant
+  app.post("/api/admin/tenants", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const tenantData = insertTenantSchema.parse(req.body);
+      
+      // Check if slug already exists
+      const existingTenant = await storage.getTenantBySlug(tenantData.slug);
+      if (existingTenant) {
+        return res.status(400).json({ 
+          error: "Slug already exists",
+          message: "Такой slug уже используется"
+        });
+      }
+      
+      const newTenant = await storage.createTenant(tenantData);
+      res.status(201).json(newTenant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors,
+          message: "Ошибка валидации данных"
+        });
+      }
+      console.error("Error creating tenant:", error);
+      res.status(500).json({ 
+        error: "Failed to create tenant",
+        message: "Не удалось создать клинику"
+      });
+    }
+  });
+
+  // PUT /api/admin/tenants/:id - Обновить tenant
+  app.put("/api/admin/tenants/:id", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate update data with partial schema
+      const updateSchema = insertTenantSchema.partial();
+      const updates = updateSchema.parse(req.body);
+      
+      // Check if slug is being updated and already exists
+      if (updates.slug) {
+        const existingTenant = await storage.getTenantBySlug(updates.slug);
+        if (existingTenant && existingTenant.id !== id) {
+          return res.status(409).json({ 
+            error: "Slug already exists",
+            message: "Такой slug уже используется другой клиникой"
+          });
+        }
+      }
+      
+      const updatedTenant = await storage.updateTenant(id, updates);
+      res.json(updatedTenant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors,
+          message: "Ошибка валидации данных"
+        });
+      }
+      console.error("Error updating tenant:", error);
+      res.status(500).json({ 
+        error: "Failed to update tenant",
+        message: "Не удалось обновить клинику"
+      });
+    }
+  });
+
+  // DELETE /api/admin/tenants/:id - Удалить/деактивировать tenant
+  app.delete("/api/admin/tenants/:id", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check for dependent data before deleting
+      // Check branches belonging to this tenant
+      const branches = await storage.getBranches(); // This returns all branches for superadmin
+      const tenantBranches = branches.filter(b => b.tenantId === id);
+      
+      if (tenantBranches.length > 0) {
+        return res.status(409).json({ 
+          error: "Tenant has dependencies",
+          message: `Невозможно удалить клинику: существует ${tenantBranches.length} филиал(ов). Удалите сначала все филиалы.`,
+          details: { branches: tenantBranches.length }
+        });
+      }
+      
+      // Soft delete by setting status to 'cancelled'
+      const updates = { status: 'cancelled' as const };
+      await storage.updateTenant(id, updates);
+      
+      res.json({ 
+        success: true, 
+        message: "Клиника деактивирована (soft delete)",
+        tenantId: id 
+      });
+    } catch (error) {
+      console.error("Error deleting tenant:", error);
+      res.status(500).json({ 
+        error: "Failed to delete tenant",
+        message: "Не удалось удалить клинику"
       });
     }
   });

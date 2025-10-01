@@ -17,7 +17,7 @@ import { Building2, CreditCard, Package, Plus, RefreshCw, Users } from "lucide-r
 
 export default function SuperAdminPanel() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("subscriptions");
+  const [activeTab, setActiveTab] = useState("tenants");
 
   // Queries
   const { data: subscriptions, isLoading: loadingSubscriptions } = useQuery<any[]>({
@@ -34,6 +34,10 @@ export default function SuperAdminPanel() {
 
   const { data: plans, isLoading: loadingPlans } = useQuery<any[]>({
     queryKey: ["/api/billing/plans"],
+  });
+
+  const { data: tenants, isLoading: loadingTenants } = useQuery<any[]>({
+    queryKey: ["/api/admin/tenants"],
   });
 
   const getStatusBadge = (status: string) => {
@@ -68,7 +72,11 @@ export default function SuperAdminPanel() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4" data-testid="tabs-superadmin">
+        <TabsList className="grid w-full grid-cols-5" data-testid="tabs-superadmin">
+          <TabsTrigger value="tenants" data-testid="tab-tenants">
+            <Building2 className="w-4 h-4 mr-2" />
+            Клиники
+          </TabsTrigger>
           <TabsTrigger value="subscriptions" data-testid="tab-subscriptions">
             <Package className="w-4 h-4 mr-2" />
             Подписки
@@ -86,6 +94,63 @@ export default function SuperAdminPanel() {
             Тарифы
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="tenants" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Клиники (Tenants)</CardTitle>
+                  <CardDescription>
+                    Управление клиниками в системе
+                  </CardDescription>
+                </div>
+                <CreateTenantDialog />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingTenants ? (
+                <p>Загрузка...</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Название</TableHead>
+                      <TableHead>Slug</TableHead>
+                      <TableHead>Домен</TableHead>
+                      <TableHead>Статус</TableHead>
+                      <TableHead>Создан</TableHead>
+                      <TableHead>Действия</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tenants?.map((tenant) => (
+                      <TableRow key={tenant.id} data-testid={`row-tenant-${tenant.id}`}>
+                        <TableCell className="font-medium">
+                          {tenant.name}
+                          {tenant.contactEmail && (
+                            <div className="text-sm text-muted-foreground">{tenant.contactEmail}</div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{tenant.slug}</Badge>
+                        </TableCell>
+                        <TableCell>{tenant.customDomain || `${tenant.slug}.vetsystem.ru`}</TableCell>
+                        <TableCell>{getStatusBadge(tenant.status)}</TableCell>
+                        <TableCell>
+                          {format(new Date(tenant.createdAt), "dd.MM.yyyy", { locale: ru })}
+                        </TableCell>
+                        <TableCell>
+                          <EditTenantDialog tenant={tenant} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="subscriptions" className="space-y-4">
           <Card>
@@ -798,6 +863,322 @@ function EditPlanDialog({ plan }: { plan: any }) {
             <Button type="submit" disabled={updatePlanMutation.isPending} data-testid="button-submit-edit-plan">
               {updatePlanMutation.isPending ? "Сохранение..." : "Сохранить"}
             </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ===== TENANT DIALOGS =====
+function CreateTenantDialog() {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    slug: "",
+    customDomain: "",
+    contactEmail: "",
+    contactPhone: "",
+    status: "active",
+  });
+
+  const createTenantMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/admin/tenants", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants"] });
+      toast({
+        title: "Клиника создана",
+        description: "Новая клиника успешно добавлена в систему",
+      });
+      setOpen(false);
+      setFormData({
+        name: "",
+        slug: "",
+        customDomain: "",
+        contactEmail: "",
+        contactPhone: "",
+        status: "active",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось создать клинику",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createTenantMutation.mutate(formData);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button data-testid="button-create-tenant">
+          <Plus className="w-4 h-4 mr-2" />
+          Создать клинику
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Создать новую клинику</DialogTitle>
+          <DialogDescription>
+            Добавьте новую клинику в систему
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Название клиники *</Label>
+            <Input
+              id="name"
+              data-testid="input-tenant-name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="slug">Slug (для URL) *</Label>
+            <Input
+              id="slug"
+              data-testid="input-tenant-slug"
+              value={formData.slug}
+              onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase() })}
+              placeholder="clinic-name"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              URL: {formData.slug || "slug"}.vetsystem.ru
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="customDomain">Пользовательский домен</Label>
+            <Input
+              id="customDomain"
+              data-testid="input-tenant-domain"
+              value={formData.customDomain}
+              onChange={(e) => setFormData({ ...formData, customDomain: e.target.value })}
+              placeholder="clinic.example.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="contactEmail">Email</Label>
+            <Input
+              id="contactEmail"
+              type="email"
+              data-testid="input-tenant-email"
+              value={formData.contactEmail}
+              onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="contactPhone">Телефон</Label>
+            <Input
+              id="contactPhone"
+              data-testid="input-tenant-phone"
+              value={formData.contactPhone}
+              onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="status">Статус</Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value) => setFormData({ ...formData, status: value })}
+            >
+              <SelectTrigger data-testid="select-tenant-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Активна</SelectItem>
+                <SelectItem value="suspended">Приостановлена</SelectItem>
+                <SelectItem value="trial">Пробный период</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel-tenant">
+              Отмена
+            </Button>
+            <Button type="submit" disabled={createTenantMutation.isPending} data-testid="button-submit-tenant">
+              {createTenantMutation.isPending ? "Создание..." : "Создать"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditTenantDialog({ tenant }: { tenant: any }) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: tenant.name,
+    slug: tenant.slug,
+    customDomain: tenant.customDomain || "",
+    contactEmail: tenant.contactEmail || "",
+    contactPhone: tenant.contactPhone || "",
+    status: tenant.status,
+  });
+
+  const updateTenantMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("PUT", `/api/admin/tenants/${tenant.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants"] });
+      toast({
+        title: "Клиника обновлена",
+        description: "Изменения успешно сохранены",
+      });
+      setOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось обновить клинику",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTenantMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", `/api/admin/tenants/${tenant.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants"] });
+      toast({
+        title: "Клиника деактивирована",
+        description: "Клиника успешно деактивирована",
+      });
+      setOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось деактивировать клинику",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateTenantMutation.mutate(formData);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" data-testid={`button-edit-tenant-${tenant.id}`}>
+          Редактировать
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Редактировать клинику</DialogTitle>
+          <DialogDescription>
+            Измените параметры клиники
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Название клиники *</Label>
+            <Input
+              id="edit-name"
+              data-testid="input-edit-tenant-name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-slug">Slug (для URL) *</Label>
+            <Input
+              id="edit-slug"
+              data-testid="input-edit-tenant-slug"
+              value={formData.slug}
+              onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase() })}
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              URL: {formData.slug || "slug"}.vetsystem.ru
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-customDomain">Пользовательский домен</Label>
+            <Input
+              id="edit-customDomain"
+              data-testid="input-edit-tenant-domain"
+              value={formData.customDomain}
+              onChange={(e) => setFormData({ ...formData, customDomain: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-contactEmail">Email</Label>
+            <Input
+              id="edit-contactEmail"
+              type="email"
+              data-testid="input-edit-tenant-email"
+              value={formData.contactEmail}
+              onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-contactPhone">Телефон</Label>
+            <Input
+              id="edit-contactPhone"
+              data-testid="input-edit-tenant-phone"
+              value={formData.contactPhone}
+              onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-status">Статус</Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value) => setFormData({ ...formData, status: value })}
+            >
+              <SelectTrigger data-testid="select-edit-tenant-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Активна</SelectItem>
+                <SelectItem value="suspended">Приостановлена</SelectItem>
+                <SelectItem value="trial">Пробный период</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-between gap-2">
+            <Button 
+              type="button" 
+              variant="destructive" 
+              onClick={() => {
+                if (confirm("Вы уверены, что хотите деактивировать эту клинику?")) {
+                  deleteTenantMutation.mutate();
+                }
+              }}
+              disabled={deleteTenantMutation.isPending}
+              data-testid="button-delete-tenant"
+            >
+              {deleteTenantMutation.isPending ? "Удаление..." : "Деактивировать"}
+            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel-edit-tenant">
+                Отмена
+              </Button>
+              <Button type="submit" disabled={updateTenantMutation.isPending} data-testid="button-submit-edit-tenant">
+                {updateTenantMutation.isPending ? "Сохранение..." : "Сохранить"}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

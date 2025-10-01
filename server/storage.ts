@@ -31,6 +31,7 @@ import {
   type ClinicSubscription, type InsertClinicSubscription,
   type SubscriptionPayment, type InsertSubscriptionPayment,
   type BillingNotification, type InsertBillingNotification,
+  type Tenant, type InsertTenant,
   users, owners, patients, doctors, appointments, 
   medicalRecords, medications, services, products, 
   invoices, invoiceItems, branches, patientFiles,
@@ -40,7 +41,7 @@ import {
   customers, discountRules, paymentMethods, salesTransactions, 
   salesTransactionItems, cashOperations, userRoles, userRoleAssignments,
   integrationLogs, subscriptionPlans, clinicSubscriptions,
-  subscriptionPayments, billingNotifications
+  subscriptionPayments, billingNotifications, tenants
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -120,6 +121,15 @@ async function withTenantContext<T>(
 
 // Enhanced storage interface for veterinary clinic system
 export interface IStorage {
+  // 🔐 SUPERADMIN: Tenant management methods (BYPASSRLS required)
+  getAllTenants(): Promise<Tenant[]>;
+  getTenant(id: string): Promise<Tenant | undefined>;
+  getTenantBySlug(slug: string): Promise<Tenant | undefined>;
+  getTenantByDomain(domain: string): Promise<Tenant | undefined>;
+  createTenant(tenant: InsertTenant): Promise<Tenant>;
+  updateTenant(id: string, tenant: Partial<InsertTenant>): Promise<Tenant>;
+  deleteTenant(id: string): Promise<void>;
+
   // User methods (keep existing for authentication)
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -469,6 +479,80 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // ========================================
+  // 🔐 SUPERADMIN: Tenant Management Methods
+  // ========================================
+  // NOTE: These methods bypass tenant context - only for superadmin use
+  
+  async getAllTenants(): Promise<Tenant[]> {
+    return withPerformanceLogging('getAllTenants', async () => {
+      return await db.select().from(tenants).orderBy(desc(tenants.createdAt));
+    });
+  }
+
+  async getTenant(id: string): Promise<Tenant | undefined> {
+    return withPerformanceLogging('getTenant', async () => {
+      const [tenant] = await db.select().from(tenants).where(eq(tenants.id, id));
+      return tenant || undefined;
+    });
+  }
+
+  async getTenantBySlug(slug: string): Promise<Tenant | undefined> {
+    return withPerformanceLogging('getTenantBySlug', async () => {
+      const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug));
+      return tenant || undefined;
+    });
+  }
+
+  async getTenantByDomain(domain: string): Promise<Tenant | undefined> {
+    return withPerformanceLogging('getTenantByDomain', async () => {
+      const [tenant] = await db.select().from(tenants).where(
+        or(
+          eq(tenants.canonicalDomain, domain),
+          eq(tenants.customDomain, domain)
+        )
+      );
+      return tenant || undefined;
+    });
+  }
+
+  async createTenant(insertTenant: InsertTenant): Promise<Tenant> {
+    return withPerformanceLogging('createTenant', async () => {
+      // Auto-generate canonicalDomain from slug
+      const canonicalDomain = `${insertTenant.slug}.vetsystem.ru`;
+      
+      const [tenant] = await db
+        .insert(tenants)
+        .values({
+          ...insertTenant,
+          canonicalDomain,
+        })
+        .returning();
+      return tenant;
+    });
+  }
+
+  async updateTenant(id: string, updateData: Partial<InsertTenant>): Promise<Tenant> {
+    return withPerformanceLogging('updateTenant', async () => {
+      const [tenant] = await db
+        .update(tenants)
+        .set({ ...updateData, updatedAt: new Date() })
+        .where(eq(tenants.id, id))
+        .returning();
+      return tenant;
+    });
+  }
+
+  async deleteTenant(id: string): Promise<void> {
+    return withPerformanceLogging('deleteTenant', async () => {
+      // Soft delete: set status to 'cancelled'
+      await db
+        .update(tenants)
+        .set({ status: 'cancelled', updatedAt: new Date() })
+        .where(eq(tenants.id, id));
+    });
+  }
+
   // User methods (keep existing for authentication)
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));

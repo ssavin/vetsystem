@@ -53,12 +53,24 @@ Preferred communication style: Simple, everyday language.
   - Branch switching validates branch belongs to user's tenant
   - Superadmin portal (admin.vetsystem.ru) bypasses tenant checks for platform management
 - **Tenant Isolation Layers**:
-  - TenantResolver middleware: Determines tenant from subdomain/custom domain
-  - Auth middleware: Validates JWT tenant_id matches request tenant_id
+  - TenantResolver middleware: Determines tenant from subdomain/custom domain, sets isSuperAdmin flag for admin.vetsystem.ru
+  - Auth middleware: Validates JWT tenant_id matches request tenant_id, enforces requireSuperAdmin for admin routes
   - Database RLS: Row-Level Security policies enforce tenant isolation at PostgreSQL level
+  - RLS Bypass: Superadmin requests skip tenant_id context (app.tenant_id not set), enabling cross-tenant queries
 - **Session Management**: Express sessions with PostgreSQL session store
 - **User Management**: Role-based access control (RBAC) for clinic staff per tenant
 - **Data Validation**: Input sanitization and validation at API layer with Zod schemas
+
+## Superadmin Portal (admin.vetsystem.ru)
+- **Tenant Management**: Full CRUD operations for managing clinic tenants
+  - Create new tenants with unique slug and optional custom domain
+  - Update tenant details, status (active/suspended/trial/cancelled)
+  - Soft delete with dependency checks (prevents deletion if branches exist)
+  - Slug uniqueness validation and 409 conflict handling
+- **RLS Bypass**: Superadmin routes automatically bypass tenant isolation by not setting app.tenant_id
+- **UI**: SuperAdminPanel with dedicated "Клиники" tab, CreateTenantDialog and EditTenantDialog
+- **API Routes**: /api/admin/tenants endpoints protected by authenticateToken + requireSuperAdmin middleware
+- **Security**: Superadmin role verified in JWT, tenant context skipped for cross-tenant access
 
 ## Design System
 - **Color Palette**: Medical-focused color scheme with primary blue (#2563eb), success green, warning orange, and error red
