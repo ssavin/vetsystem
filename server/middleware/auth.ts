@@ -141,3 +141,65 @@ export const requireModuleAccess = (module: string) => {
     next();
   };
 };
+
+/**
+ * Middleware для проверки активности подписки филиала
+ * Блокирует доступ если подписка истекла или неактивна
+ */
+export const requireActiveSubscription = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Аутентификация требуется' });
+    }
+
+    // Админы и руководители имеют доступ всегда (для управления подписками)
+    if (req.user.role === 'admin' || req.user.role === 'руководитель') {
+      return next();
+    }
+
+    if (!req.user.branchId) {
+      return res.status(403).json({ 
+        error: 'Доступ запрещён',
+        message: 'У пользователя не указан филиал'
+      });
+    }
+
+    // Получаем активную подписку для филиала
+    const subscription = await storage.getClinicSubscription(req.user.branchId);
+
+    if (!subscription) {
+      return res.status(403).json({ 
+        error: 'Subscription required',
+        message: 'У вашей клиники нет активной подписки. Пожалуйста, оформите подписку для продолжения работы.',
+        needsSubscription: true
+      });
+    }
+
+    // Проверяем статус и дату окончания
+    if (subscription.status !== 'active') {
+      return res.status(403).json({ 
+        error: 'Subscription inactive',
+        message: `Подписка неактивна (статус: ${subscription.status}). Обратитесь к администратору.`,
+        status: subscription.status
+      });
+    }
+
+    if (subscription.endDate && new Date(subscription.endDate) < new Date()) {
+      return res.status(403).json({ 
+        error: 'Subscription expired',
+        message: 'Срок действия подписки истёк. Пожалуйста, продлите подписку для продолжения работы.',
+        expiredDate: subscription.endDate,
+        needsRenewal: true
+      });
+    }
+
+    // Подписка активна - продолжаем
+    next();
+  } catch (error) {
+    console.error('Error checking subscription:', error);
+    return res.status(500).json({ 
+      error: 'Ошибка проверки подписки',
+      message: 'Не удалось проверить статус подписки'
+    });
+  }
+};
