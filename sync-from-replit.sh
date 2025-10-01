@@ -38,14 +38,28 @@ echo -e "${YELLOW}📥 Скачиваем код с Replit...${NC}"
 # Если .git не существует, инициализируем
 if [ ! -d ".git" ]; then
     git init
-    git remote add replit "$REPLIT_GIT_URL"
 fi
 
-# Убедимся что remote replit существует
-git remote get-url replit &>/dev/null || git remote add replit "$REPLIT_GIT_URL"
+# Удаляем старый remote если существует и создаём новый с токеном
+if git remote get-url replit &>/dev/null; then
+    echo -e "${YELLOW}🔄 Обновляем remote URL с токеном...${NC}"
+    git remote remove replit
+fi
+
+git remote add replit "$REPLIT_GIT_URL"
+
+echo -e "${YELLOW}📡 Подключение к: ${REPLIT_USER}-${REPLIT_PROJECT}${NC}"
 
 # Получаем последние изменения
-git fetch replit main
+git fetch replit main 2>&1 || {
+    echo -e "${RED}❌ Ошибка при получении данных из репозитория${NC}"
+    echo -e "${YELLOW}💡 Проверьте:${NC}"
+    echo "   1. Правильность токена GitHub"
+    echo "   2. Существование репозитория: https://github.com/replit/${REPLIT_USER}-${REPLIT_PROJECT}"
+    echo "   3. Права токена (должен иметь 'repo' scope)"
+    exit 1
+}
+
 git pull replit main --allow-unrelated-histories
 
 echo -e "${GREEN}✅ Синхронизация завершена${NC}"
