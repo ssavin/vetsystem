@@ -79,6 +79,7 @@ export const users = pgTable("users", {
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
   twoFactorMethod: varchar("two_factor_method", { length: 10 }).default("sms"),
   branchId: varchar("branch_id"),
+  isSuperAdmin: boolean("is_super_admin").default(false),
 });
 
 // SMS Verification Codes table

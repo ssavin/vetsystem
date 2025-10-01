@@ -14,6 +14,7 @@ declare global {
         role: string;
         email?: string;
         branchId?: string;
+        isSuperAdmin?: boolean;
       };
     }
   }
@@ -84,7 +85,8 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       fullName: user.fullName,
       role: user.role,
       email: user.email || undefined,
-      branchId: payload.branchId
+      branchId: payload.branchId,
+      isSuperAdmin: user.isSuperAdmin || false
     };
 
     next();
@@ -202,4 +204,23 @@ export const requireActiveSubscription = async (req: Request, res: Response, nex
       message: 'Не удалось проверить статус подписки'
     });
   }
+};
+
+/**
+ * Middleware для проверки прав системного администратора
+ * Только суперадмины имеют доступ к административной панели
+ */
+export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Аутентификация требуется' });
+  }
+
+  if (!req.user.isSuperAdmin) {
+    return res.status(403).json({ 
+      error: 'Доступ запрещён',
+      message: 'Требуются права системного администратора'
+    });
+  }
+
+  next();
 };
