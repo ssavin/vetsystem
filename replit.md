@@ -47,9 +47,18 @@ Preferred communication style: Simple, everyday language.
 - **Performance**: Query optimization with performance monitoring
 
 ## Authentication & Security
+- **Multi-Tenant Authentication**: JWT-based authentication with tenant_id embedded in tokens
+  - Login validates user belongs to current tenant (subdomain)
+  - Token refresh enforces tenant isolation (prevents cross-tenant token reuse)
+  - Branch switching validates branch belongs to user's tenant
+  - Superadmin portal (admin.vetsystem.ru) bypasses tenant checks for platform management
+- **Tenant Isolation Layers**:
+  - TenantResolver middleware: Determines tenant from subdomain/custom domain
+  - Auth middleware: Validates JWT tenant_id matches request tenant_id
+  - Database RLS: Row-Level Security policies enforce tenant isolation at PostgreSQL level
 - **Session Management**: Express sessions with PostgreSQL session store
-- **User Management**: Basic user authentication system for clinic staff
-- **Data Validation**: Input sanitization and validation at API layer
+- **User Management**: Role-based access control (RBAC) for clinic staff per tenant
+- **Data Validation**: Input sanitization and validation at API layer with Zod schemas
 
 ## Design System
 - **Color Palette**: Medical-focused color scheme with primary blue (#2563eb), success green, warning orange, and error red
