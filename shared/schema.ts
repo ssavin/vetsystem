@@ -40,6 +40,11 @@ export const INTEGRATION_LOG_STATUS = ['success', 'error', 'partial_success', 'w
 export const PAYMENT_METHOD = ['cash', 'card', 'online', 'mixed'] as const;
 export const FISCAL_RECEIPT_SYSTEM = ['yookassa', 'moysklad'] as const;
 
+// Billing and subscription enums
+export const SUBSCRIPTION_STATUS = ['active', 'expired', 'cancelled', 'suspended', 'trial'] as const;
+export const SUBSCRIPTION_PAYMENT_STATUS = ['pending', 'paid', 'failed', 'refunded'] as const;
+export const BILLING_PERIOD = ['monthly', 'quarterly', 'yearly'] as const;
+
 // Branches table for multi-location clinic support - MUST be defined before users table
 export const branches = pgTable("branches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1885,6 +1890,92 @@ export const userRoleAssignments = pgTable('user_role_assignments', {
   assignedBy: varchar('assigned_by', { length: 255 }).references(() => users.id)
 });
 
+// === Subscription and Billing Tables ===
+
+// Тарифные планы подписок
+export const subscriptionPlans = pgTable('subscription_plans', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar('name', { length: 100 }).notNull(), // "Базовый", "Стандарт", "Премиум"
+  description: text('description'),
+  price: decimal('price', { precision: 10, scale: 2 }).notNull(), // Цена в рублях
+  billingPeriod: varchar('billing_period', { length: 20 }).notNull().default('monthly'), // monthly, quarterly, yearly
+  maxBranches: integer('max_branches').default(1), // Количество филиалов
+  maxUsers: integer('max_users').default(5), // Количество пользователей
+  maxPatients: integer('max_patients'), // Лимит пациентов (null = без лимита)
+  features: jsonb('features'), // Дополнительные возможности плана
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  nameIdx: index('subscription_plans_name_idx').on(table.name),
+  isActiveIdx: index('subscription_plans_active_idx').on(table.isActive)
+}));
+
+// Подписки клиник (привязаны к филиалам)
+export const clinicSubscriptions = pgTable('clinic_subscriptions', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(), // Филиал клиники
+  planId: varchar('plan_id').references(() => subscriptionPlans.id).notNull(), // Тарифный план
+  status: varchar('status', { length: 20 }).notNull().default('trial'), // active, expired, cancelled, suspended, trial
+  startDate: timestamp('start_date').notNull(), // Дата начала подписки
+  endDate: timestamp('end_date').notNull(), // Дата окончания подписки
+  autoRenew: boolean('auto_renew').default(true), // Автопродление
+  trialEndDate: timestamp('trial_end_date'), // Дата окончания триала
+  cancelledAt: timestamp('cancelled_at'), // Дата отмены
+  cancelReason: text('cancel_reason'), // Причина отмены
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  branchIdIdx: index('clinic_subscriptions_branch_idx').on(table.branchId),
+  statusIdx: index('clinic_subscriptions_status_idx').on(table.status),
+  endDateIdx: index('clinic_subscriptions_end_date_idx').on(table.endDate),
+  planIdIdx: index('clinic_subscriptions_plan_idx').on(table.planId)
+}));
+
+// Платежи по подпискам
+export const subscriptionPayments = pgTable('subscription_payments', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  subscriptionId: varchar('subscription_id').references(() => clinicSubscriptions.id).notNull(),
+  amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, paid, failed, refunded
+  paymentMethod: varchar('payment_method', { length: 50 }), // card, yookassa, etc
+  yookassaPaymentId: varchar('yookassa_payment_id', { length: 255 }), // ID платежа в YooKassa
+  yookassaPaymentUrl: text('yookassa_payment_url'), // URL для оплаты
+  periodStart: timestamp('period_start').notNull(), // Начало периода оплаты
+  periodEnd: timestamp('period_end').notNull(), // Конец периода оплаты
+  paidAt: timestamp('paid_at'), // Дата оплаты
+  failedAt: timestamp('failed_at'), // Дата неуспешной попытки
+  failureReason: text('failure_reason'), // Причина неудачи
+  metadata: jsonb('metadata'), // Дополнительная информация
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  subscriptionIdIdx: index('subscription_payments_subscription_idx').on(table.subscriptionId),
+  statusIdx: index('subscription_payments_status_idx').on(table.status),
+  yookassaIdIdx: index('subscription_payments_yookassa_idx').on(table.yookassaPaymentId),
+  paidAtIdx: index('subscription_payments_paid_at_idx').on(table.paidAt)
+}));
+
+// Уведомления об окончании подписки
+export const billingNotifications = pgTable('billing_notifications', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  subscriptionId: varchar('subscription_id').references(() => clinicSubscriptions.id).notNull(),
+  type: varchar('type', { length: 50 }).notNull(), // expiry_warning_3days, expired, payment_failed
+  message: text('message').notNull(),
+  sentAt: timestamp('sent_at'),
+  scheduledFor: timestamp('scheduled_for').notNull(), // Когда должно быть отправлено
+  isSent: boolean('is_sent').default(false),
+  recipientEmail: varchar('recipient_email', { length: 255 }),
+  recipientPhone: varchar('recipient_phone', { length: 50 }),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  subscriptionIdIdx: index('billing_notifications_subscription_idx').on(table.subscriptionId),
+  scheduledForIdx: index('billing_notifications_scheduled_idx').on(table.scheduledFor),
+  isSentIdx: index('billing_notifications_sent_idx').on(table.isSent),
+  typeIdx: index('billing_notifications_type_idx').on(table.type)
+}));
+
 // === Схемы для валидации ===
 
 export const insertCashRegisterSchema = createInsertSchema(cashRegisters).omit({
@@ -1976,3 +2067,39 @@ export type InsertUserRole = z.infer<typeof insertUserRoleSchema>;
 
 export type UserRoleAssignment = typeof userRoleAssignments.$inferSelect;
 export type InsertUserRoleAssignment = z.infer<typeof insertUserRoleAssignmentSchema>;
+
+// Billing schemas and types
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertClinicSubscriptionSchema = createInsertSchema(clinicSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertSubscriptionPaymentSchema = createInsertSchema(subscriptionPayments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertBillingNotificationSchema = createInsertSchema(billingNotifications).omit({
+  id: true,
+  createdAt: true
+});
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+
+export type ClinicSubscription = typeof clinicSubscriptions.$inferSelect;
+export type InsertClinicSubscription = z.infer<typeof insertClinicSubscriptionSchema>;
+
+export type SubscriptionPayment = typeof subscriptionPayments.$inferSelect;
+export type InsertSubscriptionPayment = z.infer<typeof insertSubscriptionPaymentSchema>;
+
+export type BillingNotification = typeof billingNotifications.$inferSelect;
+export type InsertBillingNotification = z.infer<typeof insertBillingNotificationSchema>;
