@@ -2,10 +2,14 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startNotificationScheduler } from "./jobs/notification-scheduler";
+import { tenantResolver } from "./middleware/tenant-resolver";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Multi-tenant: Resolve tenant from subdomain BEFORE processing any routes
+app.use(tenantResolver);
 
 app.use((req, res, next) => {
   const start = Date.now();
