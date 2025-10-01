@@ -13,9 +13,9 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# URL вашего Replit проекта (замените на свой)
-REPLIT_USER=${REPLIT_USER:-"ssavinmailbox"}
-REPLIT_PROJECT=${REPLIT_PROJECT:-"vetsystem"}
+# Настройки репозитория
+GITHUB_USER=${GITHUB_USER:-"ssavin"}
+GITHUB_REPO=${GITHUB_REPO:-"vetsystem"}
 
 # GitHub Personal Access Token (создайте на https://github.com/settings/tokens)
 # Можно передать через переменную окружения: export GITHUB_TOKEN="ghp_your_token"
@@ -31,7 +31,7 @@ if [ -z "$GITHUB_TOKEN" ]; then
     exit 1
 fi
 
-REPLIT_GIT_URL="https://${GITHUB_TOKEN}@github.com/replit/${REPLIT_USER}-${REPLIT_PROJECT}.git"
+REPLIT_GIT_URL="https://${GITHUB_TOKEN}@github.com/${GITHUB_USER}/${GITHUB_REPO}.git"
 
 echo -e "${YELLOW}📥 Скачиваем код с Replit...${NC}"
 
@@ -48,14 +48,14 @@ fi
 
 git remote add replit "$REPLIT_GIT_URL"
 
-echo -e "${YELLOW}📡 Подключение к: ${REPLIT_USER}-${REPLIT_PROJECT}${NC}"
+echo -e "${YELLOW}📡 Подключение к: ${GITHUB_USER}/${GITHUB_REPO}${NC}"
 
 # Получаем последние изменения
 git fetch replit main 2>&1 || {
     echo -e "${RED}❌ Ошибка при получении данных из репозитория${NC}"
     echo -e "${YELLOW}💡 Проверьте:${NC}"
     echo "   1. Правильность токена GitHub"
-    echo "   2. Существование репозитория: https://github.com/replit/${REPLIT_USER}-${REPLIT_PROJECT}"
+    echo "   2. Существование репозитория: https://github.com/${GITHUB_USER}/${GITHUB_REPO}"
     echo "   3. Права токена (должен иметь 'repo' scope)"
     exit 1
 }
