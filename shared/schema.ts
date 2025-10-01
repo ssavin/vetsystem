@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, boolean, timestamp, jsonb, check, index, date, time } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, boolean, timestamp, jsonb, check, index, uniqueIndex, date, time } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -113,7 +113,7 @@ export const branches = pgTable("branches", {
 }, (table) => {
   return {
     tenantIdIdx: index("branches_tenant_id_idx").on(table.tenantId),
-    tenantNameUnique: index("branches_tenant_name_unique_idx").on(table.tenantId, table.name), // Unique branch name per tenant
+    tenantNameUnique: uniqueIndex("branches_tenant_name_unique_idx").on(table.tenantId, table.name), // Unique branch name per tenant
   };
 });
 
@@ -140,7 +140,7 @@ export const users = pgTable("users", {
   return {
     tenantIdIdx: index("users_tenant_id_idx").on(table.tenantId),
     // Username unique per tenant (WHERE tenant_id IS NOT NULL allows superadmin to have any username)
-    tenantUsernameUnique: index("users_tenant_username_unique_idx").on(table.tenantId, table.username).where(sql`${table.tenantId} IS NOT NULL`),
+    tenantUsernameUnique: uniqueIndex("users_tenant_username_unique_idx").on(table.tenantId, table.username).where(sql`${table.tenantId} IS NOT NULL`),
   };
 });
 
