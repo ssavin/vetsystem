@@ -107,7 +107,7 @@ export default function AppSidebar() {
   const { hasPermission, user } = useAuth()
 
   const isAdmin = user?.role === 'администратор' || user?.role === 'руководитель'
-  const isSuperAdmin = (user as any)?.isSuperAdmin === true
+  const isSuperAdmin = user?.role === 'superadmin'
 
   // Filter menu items based on user permissions and role
   const visibleMenuItems = menuItems.filter((item: any) => {

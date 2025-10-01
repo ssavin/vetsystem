@@ -20,7 +20,7 @@ export const LAB_PARAMETER_STATUS = ['normal', 'low', 'high', 'critical_low', 'c
 export const LAB_URGENCY = ['routine', 'urgent', 'stat'] as const;
 
 // User roles and permissions
-export const USER_ROLES = ['врач', 'администратор', 'менеджер', 'менеджер_склада', 'руководитель'] as const;
+export const USER_ROLES = ['врач', 'администратор', 'менеджер', 'менеджер_склада', 'руководитель', 'superadmin'] as const;
 export const USER_STATUS = ['active', 'inactive'] as const;
 export const SMS_VERIFICATION_PURPOSE = ['phone_verification', '2fa'] as const;
 export const TWO_FACTOR_METHOD = ['sms', 'disabled'] as const;
