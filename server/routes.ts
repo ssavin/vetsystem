@@ -4360,8 +4360,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/billing/notifications/:subscriptionId - Получить уведомления по подписке
-  app.get("/api/billing/notifications/:subscriptionId", authenticateToken, async (req, res) => {
+  // GET /api/billing/notifications - Получить уведомления для текущего пользователя
+  app.get("/api/billing/notifications", authenticateToken, async (req, res) => {
+    try {
+      if (!req.user?.branchId) {
+        return res.status(400).json({ 
+          error: "Branch ID required",
+          message: "У пользователя не указан филиал"
+        });
+      }
+
+      // Получаем подписку филиала
+      const subscription = await storage.getClinicSubscription(req.user.branchId);
+      
+      if (!subscription) {
+        return res.json([]); // Нет подписки - нет уведомлений
+      }
+
+      // Получаем уведомления для подписки
+      const notifications = await storage.getBillingNotifications(subscription.id);
+      
+      // Фильтруем только непрочитанные или недавние (за последние 30 дней)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const relevantNotifications = notifications.filter(n => 
+        !n.isSent || new Date(n.createdAt) > thirtyDaysAgo
+      );
+
+      res.json(relevantNotifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch notifications",
+        message: "Не удалось загрузить уведомления"
+      });
+    }
+  });
+
+  // PATCH /api/billing/notifications/:id/read - Отметить уведомление как прочитанное
+  app.patch("/api/billing/notifications/:id/read", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      if (!req.user?.branchId) {
+        return res.status(400).json({ 
+          error: "Branch ID required",
+          message: "У пользователя не указан филиал"
+        });
+      }
+
+      // Получаем подписку пользователя
+      const subscription = await storage.getClinicSubscription(req.user.branchId);
+      
+      if (!subscription) {
+        return res.status(404).json({ 
+          error: "Subscription not found",
+          message: "У вашего филиала нет подписки"
+        });
+      }
+
+      // Получаем все уведомления для подписки чтобы проверить ownership
+      const notifications = await storage.getBillingNotifications(subscription.id);
+      const notification = notifications.find(n => n.id === id);
+
+      if (!notification) {
+        return res.status(404).json({ 
+          error: "Notification not found",
+          message: "Уведомление не найдено или не принадлежит вашему филиалу"
+        });
+      }
+      
+      // Обновляем уведомление
+      await storage.markBillingNotificationAsSent(id);
+      
+      res.json({ success: true, message: "Уведомление отмечено как прочитанное" });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ 
+        error: "Failed to mark notification as read",
+        message: "Не удалось отметить уведомление как прочитанное"
+      });
+    }
+  });
+
+  // GET /api/billing/notifications/:subscriptionId - Получить уведомления по подписке (для администратора)
+  app.get("/api/billing/notifications/:subscriptionId", authenticateToken, requireRole('администратор'), async (req, res) => {
     try {
       const { subscriptionId } = req.params;
       const notifications = await storage.getBillingNotifications(subscriptionId);
