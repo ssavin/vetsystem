@@ -14,6 +14,7 @@ declare global {
         role: string;
         email?: string;
         branchId?: string;
+        tenantId: string; // Added for multi-tenant support
         isSuperAdmin?: boolean;
       };
     }
@@ -34,14 +35,16 @@ export interface JWTPayload {
   userId: string;
   username: string;
   role: string;
+  tenantId: string; // Added for multi-tenant support
   branchId?: string;
 }
 
-export const generateTokens = (user: { id: string; username: string; role: string; branchId?: string }) => {
+export const generateTokens = (user: { id: string; username: string; role: string; tenantId: string; branchId?: string }) => {
   const payload: JWTPayload = {
     userId: user.id,
     username: user.username,
     role: user.role,
+    tenantId: user.tenantId,
     branchId: user.branchId
   };
 
@@ -72,11 +75,45 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     return res.status(401).json({ error: 'Недействительный токен' });
   }
 
+  // Multi-tenant validation: Check tenant_id from JWT matches current request tenant
+  // Exception: superadmin portal (admin.vetsystem.ru) bypasses tenant check
+  if (!req.isSuperAdmin) {
+    if (!req.tenantId) {
+      return res.status(403).json({ 
+        error: 'Tenant не определён',
+        message: 'Невозможно определить tenant для текущего запроса'
+      });
+    }
+    
+    if (payload.tenantId !== req.tenantId) {
+      return res.status(403).json({ 
+        error: 'Tenant mismatch',
+        message: 'Доступ запрещён: токен принадлежит другой клинике'
+      });
+    }
+  }
+
   // Get fresh user data
   try {
     const user = await storage.getUser(payload.userId);
     if (!user || user.status !== 'active') {
       return res.status(401).json({ error: 'Пользователь не найден или неактивен' });
+    }
+
+    // Additional tenant validation: verify user belongs to correct tenant
+    // Exception: superadmins can access any tenant
+    if (!user.tenantId) {
+      return res.status(500).json({ 
+        error: 'Invalid user data',
+        message: 'Пользователь не привязан к клинике'
+      });
+    }
+
+    if (!req.isSuperAdmin && user.tenantId !== req.tenantId) {
+      return res.status(403).json({ 
+        error: 'Access denied',
+        message: 'Пользователь не принадлежит текущей клинике'
+      });
     }
 
     req.user = {
@@ -86,6 +123,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       role: user.role,
       email: user.email || undefined,
       branchId: payload.branchId,
+      tenantId: user.tenantId,
       isSuperAdmin: user.isSuperAdmin || false
     };
 

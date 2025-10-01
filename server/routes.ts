@@ -1346,6 +1346,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.status !== 'active') {
         return res.status(401).json({ error: "Аккаунт заблокирован" });
       }
+
+      // Validate user has tenant_id
+      if (!user.tenantId) {
+        return res.status(500).json({ 
+          error: "Invalid user data",
+          message: "Пользователь не привязан к клинике"
+        });
+      }
+
+      // Multi-tenant validation: verify user belongs to current tenant
+      // Exception: superadmin portal allows cross-tenant login
+      if (!req.isSuperAdmin) {
+        if (!req.tenantId) {
+          return res.status(403).json({ 
+            error: "Tenant не определён",
+            message: "Невозможно войти: клиника не определена"
+          });
+        }
+        
+        if (user.tenantId !== req.tenantId) {
+          return res.status(401).json({ 
+            error: "Неверный логин или пароль",
+            // Don't reveal tenant mismatch for security
+          });
+        }
+      }
       
       // Verify password with bcrypt
       const isValidPassword = await storage.verifyPassword(password, user.password);
@@ -1358,15 +1384,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!selectedBranch || selectedBranch.status !== 'active') {
         return res.status(400).json({ error: "Выбранный филиал недоступен" });
       }
+
+      // Verify branch belongs to same tenant (except for superadmin)
+      if (!req.isSuperAdmin && selectedBranch.tenantId !== user.tenantId) {
+        return res.status(403).json({ 
+          error: "Доступ запрещён",
+          message: "Филиал не принадлежит вашей клинике"
+        });
+      }
       
       // TODO: Add proper branch access validation based on user.branchId
-      // For now, allow access to all active branches
+      // For now, allow access to all active branches within tenant
 
-      // Generate JWT tokens with branch info
+      // Generate JWT tokens with branch info and tenant_id
       const { accessToken, refreshToken } = generateTokens({
         id: user.id,
         username: user.username,
         role: user.role,
+        tenantId: user.tenantId,
         branchId: branchId
       });
 
@@ -1415,10 +1450,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Недействительный refresh token" });
       }
 
+      // Multi-tenant validation: verify token tenant matches request tenant
+      // Exception: superadmin portal bypasses tenant check
+      if (!req.isSuperAdmin) {
+        if (!req.tenantId) {
+          return res.status(403).json({ 
+            error: "Tenant не определён",
+            message: "Невозможно обновить токен: клиника не определена"
+          });
+        }
+        
+        if (payload.tenantId !== req.tenantId) {
+          return res.status(403).json({ 
+            error: "Tenant mismatch",
+            message: "Токен принадлежит другой клинике"
+          });
+        }
+      }
+
       // Get fresh user data
       const user = await storage.getUser(payload.userId);
-      if (!user) {
-        return res.status(401).json({ error: "Пользователь не найден" });
+      if (!user || user.status !== 'active') {
+        return res.status(401).json({ error: "Пользователь не найден или неактивен" });
+      }
+
+      // Validate user has tenant_id
+      if (!user.tenantId) {
+        return res.status(500).json({ 
+          error: "Invalid user data",
+          message: "Пользователь не привязан к клинике"
+        });
+      }
+
+      // Additional validation: verify user tenant matches token and request tenant
+      if (payload.tenantId !== user.tenantId) {
+        return res.status(401).json({ 
+          error: "Invalid token",
+          message: "Токен не соответствует клинике пользователя"
+        });
+      }
+
+      if (!req.isSuperAdmin && user.tenantId !== req.tenantId) {
+        return res.status(403).json({ 
+          error: "Access denied",
+          message: "Пользователь не принадлежит текущей клинике"
+        });
       }
 
       // Generate new access token
@@ -1426,6 +1502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id,
         username: user.username,
         role: user.role,
+        tenantId: user.tenantId,
         branchId: payload.branchId
       });
 
@@ -1506,6 +1583,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Пользователь не аутентифицирован" });
       }
 
+      // Multi-tenant validation: verify branch belongs to same tenant as user
+      if (!req.isSuperAdmin && selectedBranch.tenantId !== req.user.tenantId) {
+        return res.status(403).json({ 
+          error: "Доступ запрещён",
+          message: "Филиал не принадлежит вашей клинике"
+        });
+      }
+
       // 🔒 CRITICAL SECURITY CHECK: Verify user has access to selected branch
       const hasAccess = await storage.canUserAccessBranch(req.user.id, branchId);
       if (!hasAccess) {
@@ -1520,6 +1605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: req.user.id,
         username: req.user.username,
         role: req.user.role,
+        tenantId: req.user.tenantId,
         branchId: branchId
       });
       
