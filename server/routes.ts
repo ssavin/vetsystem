@@ -4459,6 +4459,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/billing/subscription/cancel - Отменить подписку
+  app.post("/api/billing/subscription/cancel", authenticateToken, async (req, res) => {
+    try {
+      const { reason } = req.body;
+
+      // БЕЗОПАСНОСТЬ: Проверяем branchId пользователя
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      // Получаем подписку филиала
+      const subscription = await storage.getClinicSubscription(userBranchId);
+      
+      if (!subscription) {
+        return res.status(404).json({ 
+          error: "Subscription not found",
+          message: "У вашего филиала нет активной подписки"
+        });
+      }
+
+      // Проверяем что подписка уже не отменена
+      if (subscription.status === 'canceled') {
+        return res.status(400).json({ 
+          error: "Already canceled",
+          message: "Подписка уже отменена"
+        });
+      }
+
+      // Отменяем подписку
+      const updatedSubscription = await storage.updateClinicSubscription(subscription.id, {
+        status: 'canceled',
+        cancelledAt: new Date(),
+        cancelReason: reason || 'Отменено пользователем',
+        autoRenew: false
+      });
+
+      res.json({
+        success: true,
+        message: "Подписка успешно отменена",
+        subscription: updatedSubscription
+      });
+    } catch (error) {
+      console.error("Error canceling subscription:", error);
+      res.status(500).json({ 
+        error: "Failed to cancel subscription",
+        message: "Не удалось отменить подписку"
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
