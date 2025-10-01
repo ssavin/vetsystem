@@ -63,12 +63,19 @@ git fetch replit main 2>&1 || {
 # Проверяем, есть ли неотслеживаемые файлы, которые могут конфликтовать
 echo -e "${YELLOW}🔍 Проверяем конфликты...${NC}"
 
-# Пробуем объединить изменения
-if git pull replit main --allow-unrelated-histories 2>&1 | tee /tmp/git-pull-output.log; then
+# Пробуем объединить изменения, сохраняя вывод
+git pull replit main --allow-unrelated-histories > /tmp/git-pull-output.log 2>&1
+PULL_EXIT_CODE=$?
+
+if [ $PULL_EXIT_CODE -eq 0 ]; then
     echo -e "${GREEN}✅ Синхронизация завершена${NC}"
 else
+    # Показываем вывод git
+    cat /tmp/git-pull-output.log
+    
     # Если произошла ошибка из-за неотслеживаемых файлов
     if grep -q "untracked working tree files would be overwritten" /tmp/git-pull-output.log; then
+        echo ""
         echo -e "${YELLOW}⚠️  Обнаружены локальные файлы, которые конфликтуют с GitHub${NC}"
         echo -e "${YELLOW}💾 Сохраняем текущие файлы в backup...${NC}"
         
@@ -77,8 +84,8 @@ else
         mkdir -p "$BACKUP_DIR"
         
         # Копируем важные файлы конфигурации (если есть)
-        [ -f ".env" ] && cp .env "$BACKUP_DIR/"
-        [ -f ".env.production" ] && cp .env.production "$BACKUP_DIR/"
+        [ -f ".env" ] && cp .env "$BACKUP_DIR/" 2>/dev/null
+        [ -f ".env.production" ] && cp .env.production "$BACKUP_DIR/" 2>/dev/null
         
         echo -e "${YELLOW}📁 Backup создан: ${BACKUP_DIR}${NC}"
         echo -e "${YELLOW}🔄 Принудительно применяем изменения из GitHub...${NC}"
@@ -89,7 +96,8 @@ else
         echo -e "${GREEN}✅ Синхронизация завершена (принудительно)${NC}"
         echo -e "${YELLOW}⚠️  Локальные изменения сохранены в: ${BACKUP_DIR}${NC}"
     else
-        echo -e "${RED}❌ Произошла неизвестная ошибка${NC}"
+        echo ""
+        echo -e "${RED}❌ Произошла неизвестная ошибка при синхронизации${NC}"
         exit 1
     fi
 fi
