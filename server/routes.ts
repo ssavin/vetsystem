@@ -16,7 +16,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
-import { authenticateToken, requireRole, requireModuleAccess, generateTokens, verifyToken } from "./middleware/auth";
+import { authenticateToken, requireRole, requireModuleAccess, generateTokens, verifyToken, requireSuperAdmin } from "./middleware/auth";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import * as veterinaryAI from './ai/veterinary-ai';
@@ -4511,6 +4511,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Failed to cancel subscription",
         message: "Не удалось отменить подписку"
+      });
+    }
+  });
+
+  // ===== SUPERADMIN ROUTES =====
+  // Административная панель для системного администратора
+  // Доступ только для пользователей с isSuperAdmin = true
+
+  // GET /api/superadmin/subscriptions - Получить все подписки всех клиентов
+  app.get("/api/superadmin/subscriptions", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const subscriptions = await storage.getClinicSubscriptions();
+      
+      // Обогащаем данными филиала и плана
+      const enrichedSubscriptions = await Promise.all(
+        subscriptions.map(async (sub) => {
+          const branch = await storage.getBranch(sub.branchId);
+          const plan = await storage.getSubscriptionPlan(sub.planId);
+          return {
+            ...sub,
+            branchName: branch?.name,
+            branchEmail: branch?.email,
+            branchPhone: branch?.phone,
+            planName: plan?.name,
+            planPrice: plan?.price
+          };
+        })
+      );
+
+      res.json(enrichedSubscriptions);
+    } catch (error) {
+      console.error("Error fetching all subscriptions:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch subscriptions",
+        message: "Не удалось получить список подписок"
+      });
+    }
+  });
+
+  // GET /api/superadmin/payments - Получить все платежи всех клиентов
+  app.get("/api/superadmin/payments", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const payments = await storage.getAllSubscriptionPayments();
+      
+      // Обогащаем данными подписки и филиала
+      const allSubscriptions = await storage.getClinicSubscriptions();
+      const subscriptionsMap = new Map(allSubscriptions.map(s => [s.id, s]));
+      
+      const enrichedPayments = await Promise.all(
+        payments.map(async (payment) => {
+          const subscription = subscriptionsMap.get(payment.subscriptionId);
+          if (subscription) {
+            const branch = await storage.getBranch(subscription.branchId);
+            const plan = await storage.getSubscriptionPlan(subscription.planId);
+            return {
+              ...payment,
+              branchId: subscription.branchId,
+              branchName: branch?.name,
+              planName: plan?.name
+            };
+          }
+          return payment;
+        })
+      );
+
+      res.json(enrichedPayments);
+    } catch (error) {
+      console.error("Error fetching all payments:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch payments",
+        message: "Не удалось получить список платежей"
+      });
+    }
+  });
+
+  // POST /api/superadmin/branches - Создать новый филиал/клиента
+  app.post("/api/superadmin/branches", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const branchData = insertBranchSchema.parse(req.body);
+      const newBranch = await storage.createBranch(branchData);
+      
+      res.status(201).json(newBranch);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors,
+          message: "Ошибка валидации данных филиала"
+        });
+      }
+      console.error("Error creating branch:", error);
+      res.status(500).json({ 
+        error: "Failed to create branch",
+        message: "Не удалось создать филиал"
+      });
+    }
+  });
+
+  // POST /api/superadmin/subscriptions - Создать подписку для филиала
+  app.post("/api/superadmin/subscriptions", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const subscriptionData = insertClinicSubscriptionSchema.parse(req.body);
+      const newSubscription = await storage.createClinicSubscription(subscriptionData);
+      
+      res.status(201).json(newSubscription);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors,
+          message: "Ошибка валидации данных подписки"
+        });
+      }
+      console.error("Error creating subscription:", error);
+      res.status(500).json({ 
+        error: "Failed to create subscription",
+        message: "Не удалось создать подписку"
+      });
+    }
+  });
+
+  // PUT /api/superadmin/subscriptions/:id - Обновить подписку
+  app.put("/api/superadmin/subscriptions/:id", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const updatedSubscription = await storage.updateClinicSubscription(id, updates);
+      res.json(updatedSubscription);
+    } catch (error) {
+      console.error("Error updating subscription:", error);
+      res.status(500).json({ 
+        error: "Failed to update subscription",
+        message: "Не удалось обновить подписку"
+      });
+    }
+  });
+
+  // POST /api/superadmin/plans - Создать тарифный план
+  app.post("/api/superadmin/plans", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const planData = insertSubscriptionPlanSchema.parse(req.body);
+      const newPlan = await storage.createSubscriptionPlan(planData);
+      
+      res.status(201).json(newPlan);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors,
+          message: "Ошибка валидации данных тарифного плана"
+        });
+      }
+      console.error("Error creating plan:", error);
+      res.status(500).json({ 
+        error: "Failed to create plan",
+        message: "Не удалось создать тарифный план"
+      });
+    }
+  });
+
+  // PUT /api/superadmin/plans/:id - Обновить тарифный план
+  app.put("/api/superadmin/plans/:id", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const updatedPlan = await storage.updateSubscriptionPlan(id, updates);
+      res.json(updatedPlan);
+    } catch (error) {
+      console.error("Error updating plan:", error);
+      res.status(500).json({ 
+        error: "Failed to update plan",
+        message: "Не удалось обновить тарифный план"
+      });
+    }
+  });
+
+  // GET /api/superadmin/branches - Получить все филиалы
+  app.get("/api/superadmin/branches", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const branches = await storage.getBranches();
+      res.json(branches);
+    } catch (error) {
+      console.error("Error fetching branches:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch branches",
+        message: "Не удалось получить список филиалов"
       });
     }
   });

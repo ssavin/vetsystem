@@ -2982,6 +2982,14 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async getAllSubscriptionPayments(): Promise<SubscriptionPayment[]> {
+    return withPerformanceLogging('getAllSubscriptionPayments', async () => {
+      return await db.select()
+        .from(subscriptionPayments)
+        .orderBy(desc(subscriptionPayments.createdAt));
+    });
+  }
+
   async createSubscriptionPayment(payment: InsertSubscriptionPayment): Promise<SubscriptionPayment> {
     return withPerformanceLogging('createSubscriptionPayment', async () => {
       const [newPayment] = await db.insert(subscriptionPayments).values(payment).returning();

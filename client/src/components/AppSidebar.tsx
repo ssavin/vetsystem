@@ -93,6 +93,13 @@ const menuItems = [
     module: null, // Доступно всем
     userOnly: true, // Флаг для отображения только обычным пользователям
   },
+  {
+    title: "Админ-панель",
+    url: "/superadmin",
+    icon: Shield,
+    module: null,
+    superAdminOnly: true, // Только для суперадминистраторов
+  },
 ]
 
 export default function AppSidebar() {
@@ -100,9 +107,12 @@ export default function AppSidebar() {
   const { hasPermission, user } = useAuth()
 
   const isAdmin = user?.role === 'администратор' || user?.role === 'руководитель'
+  const isSuperAdmin = (user as any)?.isSuperAdmin === true
 
   // Filter menu items based on user permissions and role
   const visibleMenuItems = menuItems.filter((item: any) => {
+    // Показываем суперадминские пункты только суперадминам
+    if (item.superAdminOnly && !isSuperAdmin) return false
     // Скрываем админские пункты для обычных пользователей
     if (item.adminOnly && !isAdmin) return false
     // Скрываем пользовательские пункты для админов
