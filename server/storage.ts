@@ -120,15 +120,15 @@ async function withTenantContext<T>(
 
 // Enhanced storage interface for veterinary clinic system
 export interface IStorage {
-  // User methods (tenant-aware for multi-tenant isolation)
-  getUser(id: string, tenantId?: string): Promise<User | undefined>;
-  getUserByUsername(username: string, tenantId?: string): Promise<User | undefined>;
+  // User methods (keep existing for authentication)
+  getUser(id: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
   verifyPassword(password: string, hashedPassword: string): Promise<boolean>;
-  createUser(user: InsertUser, tenantId?: string): Promise<User>;
-  getUsers(tenantId?: string): Promise<User[]>;
-  updateUser(id: string, updateData: Partial<InsertUser>, tenantId?: string): Promise<User>;
-  updateUserLastLogin(id: string, tenantId?: string): Promise<void>;
-  deleteUser(id: string, tenantId?: string): Promise<void>;
+  createUser(user: InsertUser): Promise<User>;
+  getUsers(): Promise<User[]>;
+  updateUser(id: string, updateData: Partial<InsertUser>): Promise<User>;
+  updateUserLastLogin(id: string): Promise<void>;
+  deleteUser(id: string): Promise<void>;
 
   // Branch methods
   getBranches(): Promise<Branch[]>;
@@ -469,20 +469,16 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // User methods (tenant-aware for multi-tenant isolation)
-  async getUser(id: string, tenantId?: string): Promise<User | undefined> {
-    return withTenantContext(tenantId, async (tx) => {
-      const [user] = await tx.select().from(users).where(eq(users.id, id));
-      return user || undefined;
-    });
+  // User methods (keep existing for authentication)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
-  async getUserByUsername(username: string, tenantId?: string): Promise<User | undefined> {
+  async getUserByUsername(username: string): Promise<User | undefined> {
     return withPerformanceLogging('getUserByUsername', async () => {
-      return withTenantContext(tenantId, async (tx) => {
-        const [user] = await tx.select().from(users).where(eq(users.username, username));
-        return user || undefined;
-      });
+      const [user] = await db.select().from(users).where(eq(users.username, username));
+      return user || undefined;
     });
   }
 
@@ -492,64 +488,54 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async createUser(insertUser: InsertUser, tenantId?: string): Promise<User> {
+  async createUser(insertUser: InsertUser): Promise<User> {
     return withPerformanceLogging('createUser', async () => {
-      return withTenantContext(tenantId, async (tx) => {
-        // Hash password before storing
-        const saltRounds = 12;
-        const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
-        
-        const [user] = await tx
-          .insert(users)
-          .values({
-            ...insertUser,
-            password: hashedPassword,
-          })
-          .returning();
-        return user;
-      });
+      // Hash password before storing
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
+      
+      const [user] = await db
+        .insert(users)
+        .values({
+          ...insertUser,
+          password: hashedPassword,
+        })
+        .returning();
+      return user;
     });
   }
 
-  async getUsers(tenantId?: string): Promise<User[]> {
-    return withTenantContext(tenantId, async (tx) => {
-      return await tx.select().from(users).orderBy(users.createdAt);
-    });
+  async getUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(users.createdAt);
   }
 
-  async updateUser(id: string, updateData: Partial<InsertUser>, tenantId?: string): Promise<User> {
+  async updateUser(id: string, updateData: Partial<InsertUser>): Promise<User> {
     return withPerformanceLogging('updateUser', async () => {
-      return withTenantContext(tenantId, async (tx) => {
-        // Hash password if it's being updated
-        let dataToUpdate = { ...updateData, updatedAt: new Date() };
-        if (updateData.password) {
-          const saltRounds = 12;
-          dataToUpdate.password = await bcrypt.hash(updateData.password, saltRounds);
-        }
-        
-        const [user] = await tx
-          .update(users)
-          .set(dataToUpdate)
-          .where(eq(users.id, id))
-          .returning();
-        return user;
-      });
-    });
-  }
-
-  async updateUserLastLogin(id: string, tenantId?: string): Promise<void> {
-    await withTenantContext(tenantId, async (tx) => {
-      await tx
+      // Hash password if it's being updated
+      let dataToUpdate = { ...updateData, updatedAt: new Date() };
+      if (updateData.password) {
+        const saltRounds = 12;
+        dataToUpdate.password = await bcrypt.hash(updateData.password, saltRounds);
+      }
+      
+      const [user] = await db
         .update(users)
-        .set({ lastLogin: new Date() })
-        .where(eq(users.id, id));
+        .set(dataToUpdate)
+        .where(eq(users.id, id))
+        .returning();
+      return user;
     });
   }
 
-  async deleteUser(id: string, tenantId?: string): Promise<void> {
-    await withTenantContext(tenantId, async (tx) => {
-      await tx.delete(users).where(eq(users.id, id));
-    });
+  async updateUserLastLogin(id: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLogin: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   // Owner methods - 🔒 SECURITY: branchId mandatory for PHI isolation

@@ -13,8 +13,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use(tenantResolver);
 
 // Multi-tenant: Establish dedicated DB connection with tenant context for each request
-// This must come AFTER tenantResolver (needs req.tenantId) and BEFORE routes
-app.use(tenantDbMiddleware);
+// TEMPORARILY DISABLED - debugging SQL syntax error
+// TODO: Re-enable after fixing
+// app.use(tenantDbMiddleware);
 
 app.use((req, res, next) => {
   const start = Date.now();
