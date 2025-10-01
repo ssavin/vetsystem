@@ -10,7 +10,8 @@ import {
   insertLabOrderSchema, insertLabResultDetailSchema, insertSystemSettingSchema, updateSystemSettingSchema,
   insertCashRegisterSchema, insertCashShiftSchema, insertCustomerSchema, insertDiscountRuleSchema,
   insertPaymentMethodSchema, insertSalesTransactionSchema, insertSalesTransactionItemSchema,
-  insertCashOperationSchema, insertUserRoleSchema, insertUserRoleAssignmentSchema
+  insertCashOperationSchema, insertUserRoleSchema, insertUserRoleAssignmentSchema,
+  insertSubscriptionPlanSchema, insertClinicSubscriptionSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
@@ -3838,6 +3839,266 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Failed to assign user role",
         message: "Не удалось назначить роль"
+      });
+    }
+  });
+
+  // ===== BILLING AND SUBSCRIPTION ROUTES =====
+
+  // GET /api/billing/plans - Получить все тарифные планы
+  app.get("/api/billing/plans", authenticateToken, async (req, res) => {
+    try {
+      const plans = await storage.getActiveSubscriptionPlans();
+      res.json(plans);
+    } catch (error) {
+      console.error("Error fetching subscription plans:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch subscription plans",
+        message: "Не удалось загрузить тарифные планы"
+      });
+    }
+  });
+
+  // POST /api/billing/plans - Создать тарифный план (только для admin)
+  app.post("/api/billing/plans", authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+      const validation = insertSubscriptionPlanSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          message: "Ошибка валидации данных",
+          details: validation.error.issues
+        });
+      }
+
+      const plan = await storage.createSubscriptionPlan(validation.data);
+      res.status(201).json(plan);
+    } catch (error) {
+      console.error("Error creating subscription plan:", error);
+      res.status(500).json({ 
+        error: "Failed to create subscription plan",
+        message: "Не удалось создать тарифный план"
+      });
+    }
+  });
+
+  // PATCH /api/billing/plans/:id - Обновить тарифный план (только для admin)
+  app.patch("/api/billing/plans/:id", authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Проверяем существование плана
+      const allPlans = await storage.getSubscriptionPlans();
+      const found = allPlans.find(p => p.id === id);
+      
+      if (!found) {
+        return res.status(404).json({ 
+          error: "Plan not found",
+          message: "Тарифный план не найден"
+        });
+      }
+
+      // Валидация с partial schema
+      const validation = insertSubscriptionPlanSchema.partial().safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          message: "Ошибка валидации данных",
+          details: validation.error.issues
+        });
+      }
+
+      const plan = await storage.updateSubscriptionPlan(id, validation.data);
+      res.json(plan);
+    } catch (error) {
+      console.error("Error updating subscription plan:", error);
+      res.status(500).json({ 
+        error: "Failed to update subscription plan",
+        message: "Не удалось обновить тарифный план"
+      });
+    }
+  });
+
+  // DELETE /api/billing/plans/:id - Удалить тарифный план (только для admin)
+  app.delete("/api/billing/plans/:id", authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Проверяем существование плана
+      const allPlans = await storage.getSubscriptionPlans();
+      const found = allPlans.find(p => p.id === id);
+      
+      if (!found) {
+        return res.status(404).json({ 
+          error: "Plan not found",
+          message: "Тарифный план не найден"
+        });
+      }
+
+      await storage.deleteSubscriptionPlan(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting subscription plan:", error);
+      res.status(500).json({ 
+        error: "Failed to delete subscription plan",
+        message: "Не удалось удалить тарифный план"
+      });
+    }
+  });
+
+  // GET /api/billing/subscription/status - Проверить статус подписки текущего филиала
+  app.get("/api/billing/subscription/status", authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const status = await storage.checkSubscriptionStatus(userBranchId);
+      res.json(status);
+    } catch (error) {
+      console.error("Error checking subscription status:", error);
+      res.status(500).json({ 
+        error: "Failed to check subscription status",
+        message: "Не удалось проверить статус подписки"
+      });
+    }
+  });
+
+  // GET /api/billing/subscription - Получить текущую подписку филиала
+  app.get("/api/billing/subscription", authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const subscription = await storage.getClinicSubscription(userBranchId);
+      res.json(subscription);
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch subscription",
+        message: "Не удалось загрузить подписку"
+      });
+    }
+  });
+
+  // GET /api/billing/subscriptions - Получить все подписки (только для admin)
+  app.get("/api/billing/subscriptions", authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+      const subscriptions = await storage.getClinicSubscriptions();
+      res.json(subscriptions);
+    } catch (error) {
+      console.error("Error fetching subscriptions:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch subscriptions",
+        message: "Не удалось загрузить подписки"
+      });
+    }
+  });
+
+  // POST /api/billing/subscription - Создать подписку для филиала (только для admin)
+  app.post("/api/billing/subscription", authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+      const validation = insertClinicSubscriptionSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          message: "Ошибка валидации данных",
+          details: validation.error.issues
+        });
+      }
+
+      const subscription = await storage.createClinicSubscription(validation.data);
+      res.status(201).json(subscription);
+    } catch (error) {
+      console.error("Error creating subscription:", error);
+      res.status(500).json({ 
+        error: "Failed to create subscription",
+        message: "Не удалось создать подписку"
+      });
+    }
+  });
+
+  // PATCH /api/billing/subscription/:id - Обновить подписку (только для admin)
+  app.patch("/api/billing/subscription/:id", authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Проверяем существование подписки
+      const existing = await storage.getClinicSubscriptions();
+      const found = existing.find(s => s.id === id);
+      
+      if (!found) {
+        return res.status(404).json({ 
+          error: "Subscription not found",
+          message: "Подписка не найдена"
+        });
+      }
+
+      // Валидация с partial schema
+      const validation = insertClinicSubscriptionSchema.partial().safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          message: "Ошибка валидации данных",
+          details: validation.error.issues
+        });
+      }
+
+      const subscription = await storage.updateClinicSubscription(id, validation.data);
+      res.json(subscription);
+    } catch (error) {
+      console.error("Error updating subscription:", error);
+      res.status(500).json({ 
+        error: "Failed to update subscription",
+        message: "Не удалось обновить подписку"
+      });
+    }
+  });
+
+  // GET /api/billing/payments/:subscriptionId - Получить платежи по подписке
+  app.get("/api/billing/payments/:subscriptionId", authenticateToken, async (req, res) => {
+    try {
+      const { subscriptionId } = req.params;
+      const payments = await storage.getSubscriptionPayments(subscriptionId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch payments",
+        message: "Не удалось загрузить платежи"
+      });
+    }
+  });
+
+  // POST /api/billing/payment - Создать платёж (placeholder для YooKassa интеграции)
+  app.post("/api/billing/payment", authenticateToken, async (req, res) => {
+    try {
+      const payment = await storage.createSubscriptionPayment(req.body);
+      // TODO: интеграция с YooKassa будет добавлена в следующей задаче
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Error creating payment:", error);
+      res.status(500).json({ 
+        error: "Failed to create payment",
+        message: "Не удалось создать платёж"
+      });
+    }
+  });
+
+  // GET /api/billing/notifications/:subscriptionId - Получить уведомления по подписке
+  app.get("/api/billing/notifications/:subscriptionId", authenticateToken, async (req, res) => {
+    try {
+      const { subscriptionId } = req.params;
+      const notifications = await storage.getBillingNotifications(subscriptionId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch notifications",
+        message: "Не удалось загрузить уведомления"
       });
     }
   });

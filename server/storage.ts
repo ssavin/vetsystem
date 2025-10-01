@@ -401,9 +401,11 @@ export interface IStorage {
   
   // Тарифные планы
   getSubscriptionPlans(): Promise<any[]>;
+  getSubscriptionPlan(id: string): Promise<any | null>;
   getActiveSubscriptionPlans(): Promise<any[]>;
   createSubscriptionPlan(plan: any): Promise<any>;
   updateSubscriptionPlan(id: string, updates: any): Promise<any>;
+  deleteSubscriptionPlan(id: string): Promise<void>;
   
   // Подписки клиник
   getClinicSubscription(branchId: string): Promise<any | null>;
@@ -2880,6 +2882,13 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async getSubscriptionPlan(id: string): Promise<SubscriptionPlan | null> {
+    return withPerformanceLogging('getSubscriptionPlan', async () => {
+      const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, id)).limit(1);
+      return plan || null;
+    });
+  }
+
   async getActiveSubscriptionPlans(): Promise<SubscriptionPlan[]> {
     return withPerformanceLogging('getActiveSubscriptionPlans', async () => {
       return await db.select()
@@ -2903,6 +2912,12 @@ export class DatabaseStorage implements IStorage {
         .where(eq(subscriptionPlans.id, id))
         .returning();
       return updated;
+    });
+  }
+
+  async deleteSubscriptionPlan(id: string): Promise<void> {
+    return withPerformanceLogging('deleteSubscriptionPlan', async () => {
+      await db.delete(subscriptionPlans).where(eq(subscriptionPlans.id, id));
     });
   }
 
