@@ -45,9 +45,59 @@ export const SUBSCRIPTION_STATUS = ['active', 'expired', 'cancelled', 'suspended
 export const SUBSCRIPTION_PAYMENT_STATUS = ['pending', 'paid', 'failed', 'refunded'] as const;
 export const BILLING_PERIOD = ['monthly', 'quarterly', 'yearly'] as const;
 
+// Tenant status enum
+export const TENANT_STATUS = ['active', 'suspended', 'trial', 'cancelled'] as const;
+
+// ========================================
+// MULTI-TENANT ARCHITECTURE
+// ========================================
+
+// Tenants table - каждая клиника = отдельный tenant
+export const tenants = pgTable("tenants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(), // Название клиники
+  slug: varchar("slug", { length: 100 }).notNull().unique(), // URL slug для поддомена (clinic1, clinic2)
+  canonicalDomain: varchar("canonical_domain", { length: 255 }), // Основной домен (clinic1.vetsystem.ru)
+  customDomain: varchar("custom_domain", { length: 255 }), // Кастомный домен (optional)
+  status: varchar("status", { length: 20 }).default("trial"),
+  
+  // Контактная информация
+  legalName: varchar("legal_name", { length: 255 }), // Юридическое название
+  inn: varchar("inn", { length: 12 }), // ИНН организации
+  kpp: varchar("kpp", { length: 9 }), // КПП организации
+  legalAddress: text("legal_address"),
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  
+  // Биллинг
+  subscriptionId: varchar("subscription_id"), // Связь с clinicSubscriptions
+  trialEndsAt: timestamp("trial_ends_at"),
+  billingEmail: varchar("billing_email", { length: 255 }),
+  
+  // Ограничения и квоты
+  maxBranches: integer("max_branches").default(1),
+  maxUsers: integer("max_users").default(10),
+  maxStorageGb: integer("max_storage_gb").default(10),
+  
+  // Настройки
+  settings: jsonb("settings"), // Дополнительные настройки tenant'а
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    statusCheck: check("tenants_status_check", sql`${table.status} IN ('active', 'suspended', 'trial', 'cancelled')`),
+    slugIdx: index("tenants_slug_idx").on(table.slug),
+    statusIdx: index("tenants_status_idx").on(table.status),
+    canonicalDomainIdx: index("tenants_canonical_domain_idx").on(table.canonicalDomain),
+    createdAtIdx: index("tenants_created_at_idx").on(table.createdAt),
+  };
+});
+
 // Branches table for multi-location clinic support - MUST be defined before users table
 export const branches = pgTable("branches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Multi-tenant: каждый филиал принадлежит tenant'у
   name: varchar("name", { length: 255 }).notNull(),
   address: text("address").notNull(),
   city: varchar("city", { length: 100 }).notNull(),
@@ -60,12 +110,18 @@ export const branches = pgTable("branches", {
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("branches_tenant_id_idx").on(table.tenantId),
+    tenantNameUnique: index("branches_tenant_name_unique_idx").on(table.tenantId, table.name), // Unique branch name per tenant
+  };
 });
 
 // Enhanced users table for role-based authentication - MATCHES REPLIT ORIGINAL SCHEMA
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: varchar("username", { length: 100 }).notNull().unique(),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Multi-tenant: user belongs to tenant (null for super admin)
+  username: varchar("username", { length: 100 }).notNull(), // Unique per tenant, not globally
   password: text("password").notNull(),
   email: varchar("email", { length: 255 }),
   fullName: varchar("full_name", { length: 255 }).notNull(),
@@ -80,6 +136,12 @@ export const users = pgTable("users", {
   twoFactorMethod: varchar("two_factor_method", { length: 10 }).default("sms"),
   branchId: varchar("branch_id"),
   isSuperAdmin: boolean("is_super_admin").default(false),
+}, (table) => {
+  return {
+    tenantIdIdx: index("users_tenant_id_idx").on(table.tenantId),
+    // Username unique per tenant (WHERE tenant_id IS NOT NULL allows superadmin to have any username)
+    tenantUsernameUnique: index("users_tenant_username_unique_idx").on(table.tenantId, table.username).where(sql`${table.tenantId} IS NOT NULL`),
+  };
 });
 
 // SMS Verification Codes table
@@ -105,26 +167,30 @@ export const smsVerificationCodes = pgTable("sms_verification_codes", {
 // Owners table
 export const owners = pgTable("owners", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Multi-tenant
   name: varchar("name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }).notNull(),
   email: varchar("email", { length: 255 }),
   address: text("address"),
-  branchId: varchar("branch_id").references(() => branches.id), // Temporarily nullable for migration
+  branchId: varchar("branch_id").references(() => branches.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
   return {
+    tenantIdIdx: index("owners_tenant_id_idx").on(table.tenantId),
     nameIdx: index("owners_name_idx").on(table.name),
     phoneIdx: index("owners_phone_idx").on(table.phone),
     emailIdx: index("owners_email_idx").on(table.email),
     branchIdIdx: index("owners_branch_id_idx").on(table.branchId),
     createdAtIdx: index("owners_created_at_idx").on(table.createdAt),
+    tenantPhoneIdx: index("owners_tenant_phone_idx").on(table.tenantId, table.phone), // Search within tenant
   };
 });
 
 // Patients table
 export const patients = pgTable("patients", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Multi-tenant
   name: varchar("name", { length: 255 }).notNull(),
   species: varchar("species", { length: 100 }).notNull(),
   breed: varchar("breed", { length: 255 }),
@@ -139,7 +205,7 @@ export const patients = pgTable("patients", {
   specialMarks: text("special_marks"),
   status: varchar("status", { length: 20 }).default("healthy"),
   ownerId: varchar("owner_id").references(() => owners.id).notNull(),
-  branchId: varchar("branch_id").references(() => branches.id), // Temporarily nullable for migration
+  branchId: varchar("branch_id").references(() => branches.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -147,6 +213,7 @@ export const patients = pgTable("patients", {
     statusCheck: check("patients_status_check", sql`${table.status} IN ('healthy', 'sick', 'recovering', 'deceased')`),
     genderCheck: check("patients_gender_check", sql`${table.gender} IN ('male', 'female', 'unknown')`),
     weightCheck: check("patients_weight_check", sql`${table.weight} >= 0`),
+    tenantIdIdx: index("patients_tenant_id_idx").on(table.tenantId),
     ownerIdIdx: index("patients_owner_id_idx").on(table.ownerId),
     microchipIdx: index("patients_microchip_idx").on(table.microchipNumber),
     statusIdx: index("patients_status_idx").on(table.status),
@@ -155,12 +222,14 @@ export const patients = pgTable("patients", {
     speciesIdx: index("patients_species_idx").on(table.species),
     breedIdx: index("patients_breed_idx").on(table.breed),
     branchIdIdx: index("patients_branch_id_idx").on(table.branchId),
+    tenantMicrochipUnique: index("patients_tenant_microchip_unique_idx").on(table.tenantId, table.microchipNumber),
   };
 });
 
 // Doctors table
 export const doctors = pgTable("doctors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   specialization: varchar("specialization", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
@@ -171,6 +240,7 @@ export const doctors = pgTable("doctors", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
   return {
+    tenantIdIdx: index("doctors_tenant_id_idx").on(table.tenantId),
     nameIdx: index("doctors_name_idx").on(table.name),
     activeIdx: index("doctors_active_idx").on(table.isActive),
     specializationIdx: index("doctors_specialization_idx").on(table.specialization),
@@ -182,6 +252,7 @@ export const doctors = pgTable("doctors", {
 // Appointments table
 export const appointments = pgTable("appointments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   patientId: varchar("patient_id").references(() => patients.id).notNull(),
   doctorId: varchar("doctor_id").references(() => doctors.id).notNull(),
   appointmentDate: timestamp("appointment_date").notNull(),
@@ -196,6 +267,7 @@ export const appointments = pgTable("appointments", {
   return {
     statusCheck: check("appointments_status_check", sql`${table.status} IN ('scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show')`),
     durationCheck: check("appointments_duration_check", sql`${table.duration} > 0`),
+    tenantIdIdx: index("appointments_tenant_id_idx").on(table.tenantId),
     patientIdIdx: index("appointments_patient_id_idx").on(table.patientId),
     doctorIdIdx: index("appointments_doctor_id_idx").on(table.doctorId),
     appointmentDateIdx: index("appointments_date_idx").on(table.appointmentDate),
@@ -208,6 +280,7 @@ export const appointments = pgTable("appointments", {
 // Medical Records table
 export const medicalRecords = pgTable("medical_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   patientId: varchar("patient_id").references(() => patients.id).notNull(),
   doctorId: varchar("doctor_id").references(() => doctors.id).notNull(),
   appointmentId: varchar("appointment_id").references(() => appointments.id),
@@ -229,6 +302,7 @@ export const medicalRecords = pgTable("medical_records", {
     statusCheck: check("medical_records_status_check", sql`${table.status} IN ('active', 'completed', 'follow_up_required')`),
     temperatureCheck: check("medical_records_temperature_check", sql`${table.temperature} >= 30.0 AND ${table.temperature} <= 45.0`),
     weightCheck: check("medical_records_weight_check", sql`${table.weight} >= 0`),
+    tenantIdIdx: index("medical_records_tenant_id_idx").on(table.tenantId),
     patientIdIdx: index("medical_records_patient_id_idx").on(table.patientId),
     doctorIdIdx: index("medical_records_doctor_id_idx").on(table.doctorId),
     visitDateIdx: index("medical_records_visit_date_idx").on(table.visitDate),
@@ -258,6 +332,7 @@ export const medications = pgTable("medications", {
 // Services table
 export const services = pgTable("services", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   category: varchar("category", { length: 255 }).notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
@@ -281,6 +356,7 @@ export const services = pgTable("services", {
   return {
     priceCheck: check("services_price_check", sql`${table.price} >= 0`),
     durationCheck: check("services_duration_check", sql`${table.duration} IS NULL OR ${table.duration} > 0`),
+    tenantIdIdx: index("services_tenant_id_idx").on(table.tenantId),
     nameIdx: index("services_name_idx").on(table.name),
     categoryIdx: index("services_category_idx").on(table.category),
     activeIdx: index("services_active_idx").on(table.isActive),
@@ -290,6 +366,7 @@ export const services = pgTable("services", {
 // Products table
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   category: varchar("category", { length: 255 }).notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
@@ -316,6 +393,7 @@ export const products = pgTable("products", {
     priceCheck: check("products_price_check", sql`${table.price} >= 0`),
     stockCheck: check("products_stock_check", sql`${table.stock} >= 0`),
     minStockCheck: check("products_min_stock_check", sql`${table.minStock} >= 0`),
+    tenantIdIdx: index("products_tenant_id_idx").on(table.tenantId),
     nameIdx: index("products_name_idx").on(table.name),
     categoryIdx: index("products_category_idx").on(table.category),
     activeIdx: index("products_active_idx").on(table.isActive),
@@ -329,6 +407,7 @@ export const products = pgTable("products", {
 // Catalog Items table - unified catalog for services, products, and medications
 export const catalogItems = pgTable("catalog_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   type: varchar("type", { length: 20 }).notNull(), // 'service', 'product', 'medication'
   category: varchar("category", { length: 255 }).notNull(),
@@ -354,6 +433,7 @@ export const catalogItems = pgTable("catalog_items", {
     markingStatusCheck: check("catalog_items_marking_status_check", sql`${table.markingStatus} IN ('required', 'not_required', 'marked', 'validation_error')`),
     priceCheck: check("catalog_items_price_check", sql`${table.price} >= 0`),
     stockCheck: check("catalog_items_stock_check", sql`${table.stock} >= 0`),
+    tenantIdIdx: index("catalog_items_tenant_id_idx").on(table.tenantId),
     nameIdx: index("catalog_items_name_idx").on(table.name),
     typeIdx: index("catalog_items_type_idx").on(table.type),
     categoryIdx: index("catalog_items_category_idx").on(table.category),
@@ -393,6 +473,7 @@ export const catalogItemMarkings = pgTable("catalog_item_markings", {
 // Integration Accounts table - settings for external integrations
 export const integrationAccounts = pgTable("integration_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(), // Название интеграции
   type: varchar("type", { length: 20 }).notNull(), // '1c_kassa', 'moysklad', 'yookassa', 'honest_sign'
   status: varchar("status", { length: 20 }).default("inactive"),
@@ -408,6 +489,7 @@ export const integrationAccounts = pgTable("integration_accounts", {
   return {
     typeCheck: check("integration_accounts_type_check", sql`${table.type} IN ('1c_kassa', 'moysklad', 'yookassa', 'honest_sign')`),
     statusCheck: check("integration_accounts_status_check", sql`${table.status} IN ('active', 'inactive', 'error', 'testing')`),
+    tenantIdIdx: index("integration_accounts_tenant_id_idx").on(table.tenantId),
     nameIdx: index("integration_accounts_name_idx").on(table.name),
     typeIdx: index("integration_accounts_type_idx").on(table.type),
     statusIdx: index("integration_accounts_status_idx").on(table.status),
@@ -604,6 +686,7 @@ export const systemSettings = pgTable("system_settings", {
 // Invoices table
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   invoiceNumber: varchar("invoice_number", { length: 255 }).unique().notNull(),
   patientId: varchar("patient_id").references(() => patients.id).notNull(),
   appointmentId: varchar("appointment_id").references(() => appointments.id),
@@ -629,6 +712,7 @@ export const invoices = pgTable("invoices", {
     discountCheck: check("invoices_discount_check", sql`${table.discount} >= 0`),
     totalCheck: check("invoices_total_check", sql`${table.total} >= 0`),
     dueDateCheck: check("invoices_due_date_check", sql`${table.dueDate} IS NULL OR ${table.dueDate} >= ${table.issueDate}`),
+    tenantIdIdx: index("invoices_tenant_id_idx").on(table.tenantId),
     patientIdIdx: index("invoices_patient_id_idx").on(table.patientId),
     issueDateIdx: index("invoices_issue_date_idx").on(table.issueDate),
     statusIdx: index("invoices_status_idx").on(table.status),
@@ -698,6 +782,7 @@ export const patientFiles = pgTable("patient_files", {
 // Laboratory Studies catalog - справочник исследований
 export const labStudies = pgTable("lab_studies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(), // "Общий анализ крови", "Биохимический анализ"
   category: varchar("category", { length: 100 }).notNull(), // "гематология", "биохимия", "цитология"
   code: varchar("code", { length: 50 }).unique(), // internal code for integration
@@ -711,6 +796,7 @@ export const labStudies = pgTable("lab_studies", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
   return {
+    tenantIdIdx: index("lab_studies_tenant_id_idx").on(table.tenantId),
     nameIdx: index("lab_studies_name_idx").on(table.name),
     categoryIdx: index("lab_studies_category_idx").on(table.category),
     codeIdx: index("lab_studies_code_idx").on(table.code),
@@ -770,6 +856,7 @@ export const referenceRanges = pgTable("reference_ranges", {
 // Laboratory Orders - заказы на анализы
 export const labOrders = pgTable("lab_orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   orderNumber: varchar("order_number", { length: 50 }).unique().notNull(),
   patientId: varchar("patient_id").references(() => patients.id).notNull(),
   doctorId: varchar("doctor_id").references(() => doctors.id).notNull(),
@@ -790,6 +877,7 @@ export const labOrders = pgTable("lab_orders", {
   return {
     statusCheck: check("lab_orders_status_check", sql`${table.status} IN ('pending', 'sample_taken', 'in_progress', 'completed', 'cancelled')`),
     urgencyCheck: check("lab_orders_urgency_check", sql`${table.urgency} IN ('routine', 'urgent', 'stat')`),
+    tenantIdIdx: index("lab_orders_tenant_id_idx").on(table.tenantId),
     patientIdIdx: index("lab_orders_patient_id_idx").on(table.patientId),
     doctorIdIdx: index("lab_orders_doctor_id_idx").on(table.doctorId),
     studyIdIdx: index("lab_orders_study_id_idx").on(table.studyId),
@@ -1163,6 +1251,24 @@ export const loginSchema = z.object({
 });
 
 // ROLE_PERMISSIONS moved to client/src/contexts/AuthContext.tsx to avoid HMR cascades
+
+// Tenant schema for validation
+export const insertTenantSchema = createInsertSchema(tenants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  status: z.enum(TENANT_STATUS).default("trial"),
+  slug: z.string().min(3, "Slug должен содержать минимум 3 символа").regex(/^[a-z0-9-]+$/, "Slug может содержать только строчные буквы, цифры и дефисы"),
+  email: z.string().email("Неверный формат email").optional().or(z.literal("")),
+  billingEmail: z.string().email("Неверный формат email").optional().or(z.literal("")),
+  phone: z.string().optional(),
+  inn: z.string().length(10).or(z.string().length(12)).optional(), // ИНН может быть 10 или 12 символов
+  kpp: z.string().length(9).optional(),
+});
+
+export type Tenant = typeof tenants.$inferSelect;
+export type InsertTenant = z.infer<typeof insertTenantSchema>;
 
 // Branch schema for validation
 export const insertBranchSchema = createInsertSchema(branches).omit({
@@ -1676,6 +1782,7 @@ export type MarkPrintedRequest = z.infer<typeof markPrintedRequestSchema>;
 // Кассы и кассовые места
 export const cashRegisters = pgTable('cash_registers', {
   id: varchar('id', { length: 255 }).primaryKey(),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   branchId: varchar('branch_id', { length: 255 }).notNull().references(() => branches.id),
   name: varchar('name', { length: 255 }).notNull(),
   serialNumber: varchar('serial_number', { length: 255 }),
@@ -1687,7 +1794,9 @@ export const cashRegisters = pgTable('cash_registers', {
   settings: jsonb('settings').default({}), // Настройки кассы (скорость, таймауты и т.д.)
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
-});
+}, (table) => ({
+  tenantIdIdx: index('cash_registers_tenant_id_idx').on(table.tenantId),
+}));
 
 // Кассовые смены
 export const cashShifts = pgTable('cash_shifts', {
@@ -1712,6 +1821,7 @@ export const cashShifts = pgTable('cash_shifts', {
 // Клиенты/покупатели (расширенная версия владельцев)
 export const customers = pgTable('customers', {
   id: varchar('id', { length: 255 }).primaryKey(),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   branchId: varchar('branch_id', { length: 255 }).notNull().references(() => branches.id),
   // Основная информация
   type: varchar('type', { length: 20 }).default('individual'), // individual, legal
@@ -1744,11 +1854,14 @@ export const customers = pgTable('customers', {
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
-});
+}, (table) => ({
+  tenantIdIdx: index('customers_tenant_id_idx').on(table.tenantId),
+}));
 
 // Система скидок
 export const discountRules = pgTable('discount_rules', {
   id: varchar('id', { length: 255 }).primaryKey(),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   branchId: varchar('branch_id', { length: 255 }).notNull().references(() => branches.id),
   name: varchar('name', { length: 255 }).notNull(),
   type: varchar('type', { length: 50 }).notNull(), // percentage, fixed_amount, accumulative, special
@@ -1775,11 +1888,14 @@ export const discountRules = pgTable('discount_rules', {
   priority: integer('priority').default(0), // приоритет применения
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
-});
+}, (table) => ({
+  tenantIdIdx: index('discount_rules_tenant_id_idx').on(table.tenantId),
+}));
 
 // Способы оплаты
 export const paymentMethods = pgTable('payment_methods', {
   id: varchar('id', { length: 255 }).primaryKey(),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   branchId: varchar('branch_id', { length: 255 }).notNull().references(() => branches.id),
   name: varchar('name', { length: 255 }).notNull(),
   type: varchar('type', { length: 50 }).notNull(), // cash, card, mixed, bonus, transfer
@@ -1789,11 +1905,14 @@ export const paymentMethods = pgTable('payment_methods', {
   commission: decimal('commission', { precision: 5, scale: 2 }).default('0'), // комиссия в %
   settings: jsonb('settings').default({}), // настройки эквайринга и т.д.
   createdAt: timestamp('created_at').defaultNow()
-});
+}, (table) => ({
+  tenantIdIdx: index('payment_methods_tenant_id_idx').on(table.tenantId),
+}));
 
 // Транзакции по продажам (чеки)
 export const salesTransactions = pgTable('sales_transactions', {
   id: varchar('id', { length: 255 }).primaryKey(),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   registerId: varchar('register_id', { length: 255 }).notNull().references(() => cashRegisters.id),
   shiftId: varchar('shift_id', { length: 255 }).notNull().references(() => cashShifts.id),
   cashierId: varchar('cashier_id', { length: 255 }).notNull().references(() => users.id),
@@ -1829,7 +1948,9 @@ export const salesTransactions = pgTable('sales_transactions', {
   
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
-});
+}, (table) => ({
+  tenantIdIdx: index('sales_transactions_tenant_id_idx').on(table.tenantId),
+}));
 
 // Позиции в чеках
 export const salesTransactionItems = pgTable('sales_transaction_items', {
@@ -1860,6 +1981,7 @@ export const salesTransactionItems = pgTable('sales_transaction_items', {
 // Операции с деньгами (внесение/изъятие)
 export const cashOperations = pgTable('cash_operations', {
   id: varchar('id', { length: 255 }).primaryKey(),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   registerId: varchar('register_id', { length: 255 }).notNull().references(() => cashRegisters.id),
   shiftId: varchar('shift_id', { length: 255 }).notNull().references(() => cashShifts.id),
   cashierId: varchar('cashier_id', { length: 255 }).notNull().references(() => users.id),
@@ -1870,17 +1992,22 @@ export const cashOperations = pgTable('cash_operations', {
   notes: text('notes'),
   
   createdAt: timestamp('created_at').defaultNow()
-});
+}, (table) => ({
+  tenantIdIdx: index('cash_operations_tenant_id_idx').on(table.tenantId),
+}));
 
 // Роли и права пользователей в кассовой системе
 export const userRoles = pgTable('user_roles', {
   id: varchar('id', { length: 255 }).primaryKey(),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
   permissions: jsonb('permissions').default({}), // JSON с правами
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow()
-});
+}, (table) => ({
+  tenantIdIdx: index('user_roles_tenant_id_idx').on(table.tenantId),
+}));
 
 export const userRoleAssignments = pgTable('user_role_assignments', {
   id: varchar('id', { length: 255 }).primaryKey(),
@@ -1915,7 +2042,7 @@ export const subscriptionPlans = pgTable('subscription_plans', {
 // Подписки клиник (привязаны к филиалам)
 export const clinicSubscriptions = pgTable('clinic_subscriptions', {
   id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
-  branchId: varchar('branch_id').references(() => branches.id).notNull(), // Филиал клиники
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   planId: varchar('plan_id').references(() => subscriptionPlans.id).notNull(), // Тарифный план
   status: varchar('status', { length: 20 }).notNull().default('trial'), // active, expired, cancelled, suspended, trial
   startDate: timestamp('start_date').notNull(), // Дата начала подписки
@@ -1927,7 +2054,7 @@ export const clinicSubscriptions = pgTable('clinic_subscriptions', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 }, (table) => ({
-  branchIdIdx: index('clinic_subscriptions_branch_idx').on(table.branchId),
+  tenantIdIdx: index('clinic_subscriptions_tenant_id_idx').on(table.tenantId),
   statusIdx: index('clinic_subscriptions_status_idx').on(table.status),
   endDateIdx: index('clinic_subscriptions_end_date_idx').on(table.endDate),
   planIdIdx: index('clinic_subscriptions_plan_idx').on(table.planId)

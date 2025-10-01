@@ -1,6 +1,12 @@
 # Overview
 
-VetSystem is a comprehensive veterinary clinic management system designed to streamline operations across multiple domains including client/patient registry, appointment scheduling, electronic medical records, inventory management, and financial operations. The system is built as a full-stack web application with a React frontend and Express backend, targeting healthcare professionals who need an efficient, reliable system for managing veterinary practice operations.
+VetSystem is a **Multi-Tenant SaaS platform** - a comprehensive veterinary clinic management system designed to streamline operations across multiple domains including client/patient registry, appointment scheduling, electronic medical records, inventory management, and financial operations. The system is built as a full-stack web application with a React frontend and Express backend, targeting healthcare professionals who need an efficient, reliable system for managing veterinary practice operations.
+
+**Multi-Tenant Architecture**: Each veterinary clinic operates as an independent tenant with complete data isolation. Each tenant can have multiple branches (locations), with all data scoped by tenant_id for security and scalability. The system supports:
+- Independent clinic instances accessible via subdomains (e.g., clinic1.vetsystem.ru, clinic2.vetsystem.ru)
+- Superadmin portal (admin.vetsystem.ru) for platform-wide management
+- Tenant-specific subscriptions, billing, and quotas
+- Complete data isolation between clinics using Row-Level Security (RLS)
 
 The application supports the complete veterinary clinic workflow from initial client registration through appointment scheduling, medical record keeping, inventory tracking, and financial management. It emphasizes healthcare-focused design patterns inspired by enterprise medical applications like Epic MyChart.
 
