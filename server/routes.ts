@@ -4167,33 +4167,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Создаём запись платежа в БД ПЕРЕД обращением к YooKassa
-      const paymentId = uuidv4();
+      const priceAmount = parseFloat(plan.price);
+      const now = new Date();
+      const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 дней
       
-      await storage.createSubscriptionPayment({
-        id: paymentId,
+      const createdPayment = await storage.createSubscriptionPayment({
         subscriptionId: subscriptionId,
-        amount: plan.price,
+        amount: priceAmount.toFixed(2),
+        periodStart: now,
+        periodEnd: periodEnd,
         status: 'pending',
         paymentMethod: 'yookassa',
         yookassaPaymentId: null // будет обновлён после создания в YooKassa
       });
 
+      const paymentId = createdPayment.id;
+
       const yookassaPayment = await yookassa.createPayment({
         amount: {
-          value: plan.price.toFixed(2),
+          value: priceAmount.toFixed(2),
           currency: 'RUB'
         },
         description: `Подписка "${plan.name}" для клиники`,
         receipt: {
           customer: {
             full_name: branch.name,
-            email: branch.email,
-            phone: branch.phone
+            email: branch.email || undefined,
+            phone: branch.phone || undefined
           },
           items: [{
-            description: `${plan.name} - подписка на ${plan.durationDays} дней`,
+            description: `${plan.name} - месячная подписка`,
             amount: {
-              value: plan.price.toFixed(2),
+              value: priceAmount.toFixed(2),
               currency: 'RUB'
             },
             vat_code: 1, // без НДС
@@ -4202,8 +4207,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             payment_subject: 'service'
           }],
           tax_system_code: 2, // УСН доходы
-          email: branch.email,
-          phone: branch.phone,
+          email: branch.email || undefined,
+          phone: branch.phone || undefined,
           send: true
         },
         confirmation: {
@@ -4308,20 +4313,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           // Продлеваем подписку (только если ещё не продлена)
-          if (verifiedPayment.metadata?.subscription_id && verifiedPayment.metadata?.plan_id) {
+          if (verifiedPayment.metadata && verifiedPayment.metadata.subscription_id && verifiedPayment.metadata.plan_id) {
             const subscription = await storage.getClinicSubscriptions().then(subs =>
-              subs.find(s => s.id === verifiedPayment.metadata.subscription_id)
+              subs.find(s => s.id === verifiedPayment.metadata!.subscription_id)
             );
             
             if (subscription) {
               const plan = await storage.getSubscriptionPlan(verifiedPayment.metadata.plan_id);
               
               if (plan) {
-                // Вычисляем новую дату окончания
+                // Вычисляем новую дату окончания (30 дней для месячной подписки)
+                const durationDays = plan.billingPeriod === 'monthly' ? 30 : 
+                                    plan.billingPeriod === 'yearly' ? 365 : 30;
                 const currentEndDate = subscription.endDate ? new Date(subscription.endDate) : new Date();
                 const now = new Date();
                 const baseDate = currentEndDate > now ? currentEndDate : now;
-                const newEndDate = new Date(baseDate.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+                const newEndDate = new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
                 await storage.updateClinicSubscription(subscription.id, {
                   status: 'active',
@@ -4432,7 +4439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Обновляем уведомление
-      await storage.markBillingNotificationAsSent(id);
+      await storage.markNotificationAsSent(id);
       
       res.json({ success: true, message: "Уведомление отмечено как прочитанное" });
     } catch (error) {

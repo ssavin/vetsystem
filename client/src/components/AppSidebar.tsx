@@ -84,16 +84,31 @@ const menuItems = [
     url: "/subscriptions",
     icon: Layers,
     module: "users", // Только для администраторов
+    adminOnly: true, // Флаг для отображения только админам
+  },
+  {
+    title: "Моя подписка",
+    url: "/my-subscription",
+    icon: Layers,
+    module: null, // Доступно всем
+    userOnly: true, // Флаг для отображения только обычным пользователям
   },
 ]
 
 export default function AppSidebar() {
   const [location] = useLocation()
-  const { hasPermission } = useAuth()
+  const { hasPermission, user } = useAuth()
 
-  // Filter menu items based on user permissions
-  const visibleMenuItems = menuItems.filter((item) => {
-    if (!item.module) return true // Items without module check (like dashboard) are always visible
+  const isAdmin = user?.role === 'администратор' || user?.role === 'руководитель'
+
+  // Filter menu items based on user permissions and role
+  const visibleMenuItems = menuItems.filter((item: any) => {
+    // Скрываем админские пункты для обычных пользователей
+    if (item.adminOnly && !isAdmin) return false
+    // Скрываем пользовательские пункты для админов
+    if (item.userOnly && isAdmin) return false
+    // Стандартная проверка прав
+    if (!item.module) return true
     return hasPermission(item.module)
   })
 
