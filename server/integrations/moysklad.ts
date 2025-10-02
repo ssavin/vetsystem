@@ -65,32 +65,43 @@ type ServiceData = z.infer<typeof ServiceSchema>;
 const MOYSKLAD_API_BASE = 'https://api.moysklad.ru/api/remap/1.2';
 const MOYSKLAD_POS_API_BASE = 'https://online.moysklad.ru/api/posap/1.0';
 
-// Получение конфигурации из переменных окружения
+// МойСклад credentials interface for tenant-specific configuration
+export interface MoySkladCredentials {
+  apiToken?: string;
+  login?: string;
+  password?: string;
+  retailStoreId: string;
+}
+
+// Validate credentials
+function validateCredentials(credentials: MoySkladCredentials): void {
+  if (!credentials.retailStoreId) {
+    throw new Error('МойСклад: отсутствует retailStoreId');
+  }
+
+  if (!credentials.apiToken && (!credentials.login || !credentials.password)) {
+    throw new Error('МойСклад: необходим либо apiToken, либо login + password');
+  }
+}
+
+// Auth header для API запросов (с токеном)
+function getAuthHeader(credentials: MoySkladCredentials): string {
+  // Для МойСклад API токены используются как Bearer tokens
+  if (credentials.apiToken) {
+    return `Bearer ${credentials.apiToken}`;
+  }
+  
+  // Fallback на Basic Auth с логином/паролем если токен не доступен
+  const authString = Buffer.from(`${credentials.login}:${credentials.password}`).toString('base64');
+  return `Basic ${authString}`;
+}
+
+// DEPRECATED: Legacy config for backward compatibility
+// Use getAuthHeader(credentials) instead in new code
 const config = {
   login: process.env.MOYSKLAD_LOGIN!,
   password: process.env.MOYSKLAD_PASSWORD!,
   retailStoreId: process.env.MOYSKLAD_RETAIL_STORE_ID!,
-};
-
-// Проверка наличия обязательных переменных
-if (!config.retailStoreId) {
-  throw new Error('Отсутствует обязательная переменная окружения MOYSKLAD_RETAIL_STORE_ID для МойСклад');
-}
-
-if (!process.env.MOYSKLAD_API_TOKEN && (!config.login || !config.password)) {
-  throw new Error('Отсутствуют учетные данные для МойСклад: необходим либо MOYSKLAD_API_TOKEN, либо MOYSKLAD_LOGIN + MOYSKLAD_PASSWORD');
-}
-
-// Auth header для API запросов (с токеном)
-const getAuthHeader = () => {
-  // Для МойСклад API токены используются как Bearer tokens
-  if (process.env.MOYSKLAD_API_TOKEN) {
-    return `Bearer ${process.env.MOYSKLAD_API_TOKEN}`;
-  }
-  
-  // Fallback на Basic Auth с логином/паролем если токен не доступен
-  const credentials = Buffer.from(`${config.login}:${config.password}`).toString('base64');
-  return `Basic ${credentials}`;
 };
 
 // Схема для валидации позиций товаров
@@ -169,12 +180,20 @@ interface FiscalReceiptResult {
 }
 
 // Функция для выполнения HTTP запросов к API МойСклад
-async function makeApiRequest(endpoint: string, method: 'GET' | 'POST' | 'PUT' = 'GET', data?: any, usePosApi = false) {
+async function makeApiRequest(
+  credentials: MoySkladCredentials,
+  endpoint: string, 
+  method: 'GET' | 'POST' | 'PUT' = 'GET', 
+  data?: any, 
+  usePosApi = false
+) {
+  validateCredentials(credentials);
+  
   const baseUrl = usePosApi ? MOYSKLAD_POS_API_BASE : MOYSKLAD_API_BASE;
   const url = `${baseUrl}/${endpoint}`;
   
   const headers = {
-    'Authorization': getAuthHeader(),
+    'Authorization': getAuthHeader(credentials),
     'Content-Type': 'application/json',
     'Accept': 'application/json;charset=utf-8'
   };
@@ -208,9 +227,10 @@ async function makeApiRequest(endpoint: string, method: 'GET' | 'POST' | 'PUT' =
 }
 
 // Получение информации о точке продаж
-export async function getRetailStore(retailStoreId: string = config.retailStoreId) {
+export async function getRetailStore(credentials: MoySkladCredentials, retailStoreId?: string) {
   try {
-    const retailStore = await makeApiRequest(`entity/retailstore/${retailStoreId}`);
+    const storeId = retailStoreId || credentials.retailStoreId;
+    const retailStore = await makeApiRequest(credentials, `entity/retailstore/${storeId}`);
     return retailStore;
   } catch (error) {
     console.error('Ошибка получения точки продаж:', error);
@@ -219,10 +239,11 @@ export async function getRetailStore(retailStoreId: string = config.retailStoreI
 }
 
 // Получение активной розничной смены
-export async function getActiveRetailShift(retailStoreId: string = config.retailStoreId) {
+export async function getActiveRetailShift(credentials: MoySkladCredentials, retailStoreId?: string) {
   try {
+    const storeId = retailStoreId || credentials.retailStoreId;
     // Получаем список смен для точки продаж, фильтруем по активным
-    const shifts = await makeApiRequest(`entity/retailshift?filter=retailStore=${retailStoreId};open=true`);
+    const shifts = await makeApiRequest(credentials, `entity/retailshift?filter=retailStore=${storeId};open=true`);
     
     if (shifts.rows && shifts.rows.length > 0) {
       return shifts.rows[0]; // Возвращаем первую активную смену
@@ -236,7 +257,7 @@ export async function getActiveRetailShift(retailStoreId: string = config.retail
 }
 
 // Создание розничной продажи с фискализацией через POS API
-export async function createFiscalReceipt(data: Partial<RetailDemandData>): Promise<FiscalReceiptResult> {
+export async function createFiscalReceipt(credentials: MoySkladCredentials, data: Partial<RetailDemandData>): Promise<FiscalReceiptResult> {
   try {
     console.log('Создание фискального чека через МойСклад POS API');
     
@@ -255,7 +276,7 @@ export async function createFiscalReceipt(data: Partial<RetailDemandData>): Prom
     }
     
     // Получаем активную смену
-    const activeShift = await getActiveRetailShift();
+    const activeShift = await getActiveRetailShift(credentials);
     
     // Базовая структура документа розничной продажи
     const retailDemandData = {
@@ -266,7 +287,7 @@ export async function createFiscalReceipt(data: Partial<RetailDemandData>): Prom
       },
       retailStore: {
         meta: {
-          href: `${MOYSKLAD_API_BASE}/entity/retailstore/${config.retailStoreId}`,
+          href: `${MOYSKLAD_API_BASE}/entity/retailstore/${credentials.retailStoreId}`,
           type: 'retailstore',
           mediaType: 'application/json'
         }
@@ -309,6 +330,7 @@ export async function createFiscalReceipt(data: Partial<RetailDemandData>): Prom
     
     // Создание документа через POS API для автоматической фискализации
     const result = await makeApiRequest(
+      credentials,
       'cheque/minion/entity/retaildemand',
       'POST',
       validatedData,
@@ -371,9 +393,9 @@ export async function createFiscalReceipt(data: Partial<RetailDemandData>): Prom
 }
 
 // Получение статуса фискального чека
-export async function getFiscalReceiptStatus(receiptId: string): Promise<any> {
+export async function getFiscalReceiptStatus(credentials: MoySkladCredentials, receiptId: string): Promise<any> {
   try {
-    const receipt = await makeApiRequest(`entity/retaildemand/${receiptId}`);
+    const receipt = await makeApiRequest(credentials, `entity/retaildemand/${receiptId}`);
     return receipt;
   } catch (error) {
     console.error('Ошибка получения статуса чека:', error);
@@ -382,10 +404,10 @@ export async function getFiscalReceiptStatus(receiptId: string): Promise<any> {
 }
 
 // Тестовая функция для проверки подключения к API
-export async function testConnection(): Promise<{ success: boolean; message: string }> {
+export async function testConnection(credentials: MoySkladCredentials): Promise<{ success: boolean; message: string }> {
   try {
     // Проверяем доступность API и получаем информацию о текущем сотруднике
-    const employeeInfo = await makeApiRequest('entity/employee');
+    const employeeInfo = await makeApiRequest(credentials, 'entity/employee');
     
     // Получаем первого сотрудника из списка или используем одиночный объект
     const employee = Array.isArray(employeeInfo.rows) ? employeeInfo.rows[0] : employeeInfo;
@@ -411,14 +433,14 @@ export async function testConnection(): Promise<{ success: boolean; message: str
 /**
  * Создает товар в МойСклад
  */
-export async function createProduct(productData: ProductData): Promise<any> {
+export async function createProduct(credentials: MoySkladCredentials, productData: ProductData): Promise<any> {
   try {
     console.log('[МойСклад] Создание товара:', productData.name);
     
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/product`, {
       method: 'POST',
       headers: {
-        'Authorization': getAuthHeader(),
+        'Authorization': getAuthHeader(credentials),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       },
@@ -443,14 +465,14 @@ export async function createProduct(productData: ProductData): Promise<any> {
 /**
  * Создает услугу в МойСклад
  */
-export async function createService(serviceData: ServiceData): Promise<any> {
+export async function createService(credentials: MoySkladCredentials, serviceData: ServiceData): Promise<any> {
   try {
     console.log('[МойСклад] Создание услуги:', serviceData.name);
     
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/service`, {
       method: 'POST',
       headers: {
-        'Authorization': getAuthHeader(),
+        'Authorization': getAuthHeader(credentials),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       },
@@ -475,12 +497,12 @@ export async function createService(serviceData: ServiceData): Promise<any> {
 /**
  * Получает доступные типы цен из МойСклад
  */
-export async function getPriceTypes(): Promise<any[]> {
+export async function getPriceTypes(credentials: MoySkladCredentials): Promise<any[]> {
   try {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/product/metadata`, {
       method: 'GET',
       headers: {
-        'Authorization': getAuthHeader(),
+        'Authorization': getAuthHeader(credentials),
         'Content-Type': 'application/json',
         'Accept': 'application/json;charset=utf-8'
       }
@@ -501,12 +523,12 @@ export async function getPriceTypes(): Promise<any[]> {
 /**
  * Получает информацию о валюте (обычно RUB)
  */
-export async function getCurrency(): Promise<any> {
+export async function getCurrency(credentials: MoySkladCredentials): Promise<any> {
   try {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/currency`, {
       method: 'GET',
       headers: {
-        'Authorization': getAuthHeader(),
+        'Authorization': getAuthHeader(credentials),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       }
@@ -529,7 +551,7 @@ export async function getCurrency(): Promise<any> {
 /**
  * Загружает номенклатуру ИЗ МойСклад в нашу систему
  */
-export async function loadNomenclatureFromMoysklad(): Promise<{
+export async function loadNomenclatureFromMoysklad(credentials: MoySkladCredentials): Promise<{
   products: any[],
   services: any[],
   errors: string[]
@@ -550,7 +572,7 @@ export async function loadNomenclatureFromMoysklad(): Promise<{
 
     // Получаем товары из МойСклад
     try {
-      const productsResponse = await makeApiRequest('entity/product?limit=1000');
+      const productsResponse = await makeApiRequest(credentials, 'entity/product?limit=1000');
       console.log(`[МойСклад] Найдено товаров в МойСклад: ${productsResponse.rows?.length || 0}`);
       
       if (productsResponse.rows) {
@@ -604,7 +626,7 @@ export async function loadNomenclatureFromMoysklad(): Promise<{
 
     // Получаем услуги из МойСклад
     try {
-      const servicesResponse = await makeApiRequest('entity/service?limit=1000');
+      const servicesResponse = await makeApiRequest(credentials, 'entity/service?limit=1000');
       console.log(`[МойСклад] Найдено услуг в МойСклад: ${servicesResponse.rows?.length || 0}`);
       
       if (servicesResponse.rows) {
@@ -677,12 +699,12 @@ export async function loadNomenclatureFromMoysklad(): Promise<{
 /**
  * Получает существующую номенклатуру из МойСклад
  */
-export async function getAssortment(): Promise<any> {
+export async function getAssortment(credentials: MoySkladCredentials): Promise<any> {
   try {
     const response = await fetch(`${MOYSKLAD_API_BASE}/entity/assortment`, {
       method: 'GET',
       headers: {
-        'Authorization': getAuthHeader(),
+        'Authorization': getAuthHeader(credentials),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       }
@@ -721,7 +743,7 @@ function computeSyncHash(item: any): string {
 /**
  * Экспортирует услугу из VetSystem в МойСклад
  */
-export async function exportServiceToMoysklad(service: any): Promise<{ success: boolean; moyskladId?: string; error?: string }> {
+export async function exportServiceToMoysklad(credentials: MoySkladCredentials, service: any): Promise<{ success: boolean; moyskladId?: string; error?: string }> {
   try {
     const serviceData = {
       name: service.name,
@@ -754,7 +776,7 @@ export async function exportServiceToMoysklad(service: any): Promise<{ success: 
     const response = await fetch(endpoint, {
       method,
       headers: {
-        'Authorization': getAuthHeader(),
+        'Authorization': getAuthHeader(credentials),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       },
@@ -785,7 +807,7 @@ export async function exportServiceToMoysklad(service: any): Promise<{ success: 
 /**
  * Экспортирует товар из VetSystem в МойСклад
  */
-export async function exportProductToMoysklad(product: any): Promise<{ success: boolean; moyskladId?: string; error?: string }> {
+export async function exportProductToMoysklad(credentials: MoySkladCredentials, product: any): Promise<{ success: boolean; moyskladId?: string; error?: string }> {
   try {
     const productData = {
       name: product.name,
@@ -823,7 +845,7 @@ export async function exportProductToMoysklad(product: any): Promise<{ success: 
     const response = await fetch(endpoint, {
       method,
       headers: {
-        'Authorization': getAuthHeader(),
+        'Authorization': getAuthHeader(credentials),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       },
@@ -854,7 +876,7 @@ export async function exportProductToMoysklad(product: any): Promise<{ success: 
 /**
  * Архивирует товар/услугу в МойСклад (soft delete)
  */
-export async function archiveItemInMoysklad(moyskladId: string, type: 'product' | 'service'): Promise<{ success: boolean; error?: string }> {
+export async function archiveItemInMoysklad(credentials: MoySkladCredentials, moyskladId: string, type: 'product' | 'service'): Promise<{ success: boolean; error?: string }> {
   try {
     const endpoint = `${MOYSKLAD_API_BASE}/entity/${type}/${moyskladId}`;
     
@@ -862,7 +884,7 @@ export async function archiveItemInMoysklad(moyskladId: string, type: 'product' 
     const response = await fetch(endpoint, {
       method: 'PUT',
       headers: {
-        'Authorization': getAuthHeader(),
+        'Authorization': getAuthHeader(credentials),
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       },
@@ -887,7 +909,7 @@ export async function archiveItemInMoysklad(moyskladId: string, type: 'product' 
  * Двухсторонняя синхронизация номенклатуры (МойСклад ↔ VetSystem)
  * Приоритет: МойСклад (авторитетная система)
  */
-export async function syncNomenclature(): Promise<{
+export async function syncNomenclature(credentials: MoySkladCredentials): Promise<{
   success: boolean;
   // Импорт из МойСклад
   importedProducts: number;
@@ -916,12 +938,12 @@ export async function syncNomenclature(): Promise<{
     
     // Проверяем подключение к МойСклад перед началом
     try {
-      await makeApiRequest('context/employee');
+      await makeApiRequest(credentials, 'context/employee');
     } catch (error: any) {
       throw new Error(`Ошибка подключения к МойСклад: ${error.message}`);
     }
     
-    const importResult = await loadNomenclatureFromMoysklad();
+    const importResult = await loadNomenclatureFromMoysklad(credentials);
     importedProducts = importResult.products.length;
     importedServices = importResult.services.length;
     
@@ -932,12 +954,12 @@ export async function syncNomenclature(): Promise<{
 
     // КРИТИЧНО: МойСклад имеет приоритет - обновляем все конфликтующие записи
     console.log('[МойСклад] Применяем приоритет МойСклад для конфликтов...');
-    await enforceMoyskladPriority();
+    await enforceMoyskladPriority(credentials);
 
     // ===== ЭТАП 2: ЭКСПОРТ В МОЙСКЛАД (ТОЛЬКО НОВЫЕ/ИЗМЕНЁННЫЕ) =====
     console.log('[МойСклад] Этап 2: Экспорт изменений из VetSystem...');
     
-    const exportResult = await exportToMoysklad();
+    const exportResult = await exportToMoysklad(credentials);
     exportedServices = exportResult.exportedServices;
     exportedProducts = exportResult.exportedProducts;
     archivedItems = exportResult.archivedItems;
@@ -987,7 +1009,7 @@ export async function syncNomenclature(): Promise<{
 /**
  * Применяет приоритет МойСклад при конфликтах данных
  */
-async function enforceMoyskladPriority(): Promise<void> {
+async function enforceMoyskladPriority(credentials: MoySkladCredentials): Promise<void> {
   try {
     console.log('[МойСклад] Проверяем конфликты и применяем приоритет МойСклад...');
 
@@ -1003,7 +1025,7 @@ async function enforceMoyskladPriority(): Promise<void> {
     // Для каждой записи проверяем и обновляем если есть изменения в МойСклад
     for (const service of servicesWithMoyskladId) {
       try {
-        const moyskladData = await makeApiRequest(`entity/service/${service.moyskladId}`);
+        const moyskladData = await makeApiRequest(credentials, `entity/service/${service.moyskladId}`);
         
         // Подготавливаем данные для сравнения с сохранением локальных метаданных
         const normalizedData = {
@@ -1042,7 +1064,7 @@ async function enforceMoyskladPriority(): Promise<void> {
 
     for (const product of productsWithMoyskladId) {
       try {
-        const moyskladData = await makeApiRequest(`entity/product/${product.moyskladId}`);
+        const moyskladData = await makeApiRequest(credentials, `entity/product/${product.moyskladId}`);
         
         // Подготавливаем данные для сравнения с сохранением локальных метаданных
         const normalizedData = {
@@ -1089,7 +1111,7 @@ async function enforceMoyskladPriority(): Promise<void> {
 /**
  * Экспорт изменений из VetSystem в МойСклад с retry логикой
  */
-async function exportToMoysklad(): Promise<{
+async function exportToMoysklad(credentials: MoySkladCredentials): Promise<{
   exportedServices: number;
   exportedProducts: number;
   archivedItems: number;
@@ -1111,7 +1133,7 @@ async function exportToMoysklad(): Promise<{
       let lastError = null;
 
       while (retryCount < maxRetries) {
-        const result = await exportServiceToMoysklad(service);
+        const result = await exportServiceToMoysklad(credentials, service);
         
         if (result.success) {
           exportedServices++;
@@ -1150,7 +1172,7 @@ async function exportToMoysklad(): Promise<{
       let lastError = null;
 
       while (retryCount < maxRetries) {
-        const result = await exportProductToMoysklad(product);
+        const result = await exportProductToMoysklad(credentials, product);
         
         if (result.success) {
           exportedProducts++;
@@ -1185,7 +1207,7 @@ async function exportToMoysklad(): Promise<{
 
     for (const service of deletedServices) {
       if (service.moyskladId) {
-        const result = await archiveItemInMoysklad(service.moyskladId, 'service');
+        const result = await archiveItemInMoysklad(credentials, service.moyskladId, 'service');
         if (result.success) {
           archivedItems++;
           await storage.markServiceSynced(service.id, '');
@@ -1201,7 +1223,7 @@ async function exportToMoysklad(): Promise<{
 
     for (const product of deletedProducts) {
       if (product.moyskladId) {
-        const result = await archiveItemInMoysklad(product.moyskladId, 'product');
+        const result = await archiveItemInMoysklad(credentials, product.moyskladId, 'product');
         if (result.success) {
           archivedItems++;
           await storage.markProductSynced(product.id, '');
