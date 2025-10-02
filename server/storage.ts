@@ -1127,19 +1127,21 @@ export class DatabaseStorage implements IStorage {
       return withTenantContext(undefined, async (dbInstance) => {
         if (patientId) {
           // 🔒 CRITICAL: For specific patient, still enforce branch isolation
-          return await dbInstance.select()
+          const results = await dbInstance.select({ medicalRecord: medicalRecords })
             .from(medicalRecords)
             .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
             .where(and(eq(medicalRecords.patientId, patientId), eq(patients.branchId, branchId)))
             .orderBy(desc(medicalRecords.visitDate));
+          return results.map(r => r.medicalRecord);
         }
         
         // 🔒 CRITICAL: For all medical records, enforce branch isolation via patient join
-        return await dbInstance.select()
+        const results = await dbInstance.select({ medicalRecord: medicalRecords })
           .from(medicalRecords)
           .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
           .where(eq(patients.branchId, branchId))
           .orderBy(desc(medicalRecords.visitDate));
+        return results.map(r => r.medicalRecord);
       });
     });
   }

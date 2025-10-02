@@ -66,8 +66,6 @@ export default function MedicalRecords() {
       const patient = patientMap[record.patientId]
       const doctor = record.doctorId ? doctorMap[record.doctorId] : null
       
-      console.log('Record:', record.id, 'PatientId:', record.patientId, 'Patient found:', !!patient, 'DoctorId:', record.doctorId, 'Doctor found:', !!doctor, 'VisitDate:', record.visitDate)
-      
       const visitDate = new Date(record.visitDate)
       const isValidVisitDate = !isNaN(visitDate.getTime())
       
