@@ -65,14 +65,21 @@ export default function MedicalRecords() {
     return medicalRecords.map((record: MedicalRecord) => {
       const patient = patientMap[record.patientId]
       const doctor = doctorMap[record.doctorId]
+      
+      const visitDate = new Date(record.visitDate)
+      const isValidVisitDate = !isNaN(visitDate.getTime())
+      
+      const nextVisitDate = record.nextVisit ? new Date(record.nextVisit) : null
+      const isValidNextVisit = nextVisitDate && !isNaN(nextVisitDate.getTime())
+      
       return {
         ...record,
         patientId: record.patientId,
-        date: new Date(record.visitDate).toLocaleDateString('ru-RU'),
+        date: isValidVisitDate ? visitDate.toLocaleDateString('ru-RU') : 'Дата не указана',
         patientName: patient ? patient.name : 'Неизвестный пациент',
         doctorName: doctor ? doctor.name : 'Неизвестный врач',
         medications: [], // TODO: Fetch medications separately if needed
-        nextVisit: record.nextVisit ? new Date(record.nextVisit).toLocaleDateString('ru-RU') : undefined,
+        nextVisit: isValidNextVisit ? nextVisitDate.toLocaleDateString('ru-RU') : undefined,
         treatment: Array.isArray(record.treatment) ? record.treatment : []
       }
     })
