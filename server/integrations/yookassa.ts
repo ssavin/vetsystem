@@ -4,23 +4,24 @@ import { randomUUID } from 'crypto'
 // YooKassa API configuration
 const YOOKASSA_API_URL = 'https://api.yookassa.ru/v3'
 
+// YooKassa credentials interface for tenant-specific configuration
+export interface YooKassaCredentials {
+  shopId: string
+  secretKey: string
+}
+
 // Validate credentials at runtime
-const validateCredentials = () => {
-  const shopId = process.env.YOOKASSA_SHOP_ID
-  const secretKey = process.env.YOOKASSA_SECRET_KEY
-  
-  if (!shopId || !secretKey) {
-    throw new Error('YooKassa credentials not configured. Please set YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY environment variables.')
+function validateCredentials(credentials: YooKassaCredentials): void {
+  if (!credentials.shopId || !credentials.secretKey) {
+    throw new Error('YooKassa: необходимы shopId и secretKey')
   }
-  
-  return { shopId, secretKey }
 }
 
 // Basic auth header for YooKassa API
-const getAuthHeaders = (idempotenceKey?: string) => {
-  const { shopId, secretKey } = validateCredentials()
+function getAuthHeaders(credentials: YooKassaCredentials, idempotenceKey?: string) {
+  validateCredentials(credentials)
   return {
-    'Authorization': `Basic ${Buffer.from(`${shopId}:${secretKey}`).toString('base64')}`,
+    'Authorization': `Basic ${Buffer.from(`${credentials.shopId}:${credentials.secretKey}`).toString('base64')}`,
     'Content-Type': 'application/json',
     ...(idempotenceKey && { 'Idempotence-Key': idempotenceKey }),
   }
@@ -132,6 +133,7 @@ export type CreatePaymentRequest = z.infer<typeof createPaymentSchema>
  * Create a payment with fiscal receipt in YooKassa
  */
 export async function createPayment(
+  credentials: YooKassaCredentials,
   paymentData: CreatePaymentRequest, 
   idempotenceKey?: string
 ): Promise<YooKassaPayment> {
@@ -140,7 +142,7 @@ export async function createPayment(
     
     const response = await fetch(`${YOOKASSA_API_URL}/payments`, {
       method: 'POST',
-      headers: getAuthHeaders(idempotenceKey),
+      headers: getAuthHeaders(credentials, idempotenceKey),
       body: JSON.stringify(validatedData)
     })
 
@@ -160,15 +162,11 @@ export async function createPayment(
 /**
  * Get payment information by ID
  */
-export async function getPayment(paymentId: string): Promise<YooKassaPayment> {
+export async function getPayment(credentials: YooKassaCredentials, paymentId: string): Promise<YooKassaPayment> {
   try {
-    const { shopId, secretKey } = validateCredentials()
     const response = await fetch(`${YOOKASSA_API_URL}/payments/${paymentId}`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`${shopId}:${secretKey}`).toString('base64')}`,
-        'Content-Type': 'application/json'
-      }
+      headers: getAuthHeaders(credentials)
     })
 
     if (!response.ok) {
@@ -188,6 +186,7 @@ export async function getPayment(paymentId: string): Promise<YooKassaPayment> {
  * Create a receipt (for existing payment or standalone)
  */
 export async function createReceipt(
+  credentials: YooKassaCredentials,
   receiptData: {
     type?: 'payment' | 'refund'
     payment_id?: string
@@ -199,7 +198,7 @@ export async function createReceipt(
   try {
     const response = await fetch(`${YOOKASSA_API_URL}/receipts`, {
       method: 'POST',
-      headers: getAuthHeaders(idempotenceKey),
+      headers: getAuthHeaders(credentials, idempotenceKey),
       body: JSON.stringify(receiptData)
     })
 
@@ -218,11 +217,11 @@ export async function createReceipt(
 /**
  * Cancel a payment
  */
-export async function cancelPayment(paymentId: string, reason?: string): Promise<YooKassaPayment> {
+export async function cancelPayment(credentials: YooKassaCredentials, paymentId: string, reason?: string): Promise<YooKassaPayment> {
   try {
     const response = await fetch(`${YOOKASSA_API_URL}/payments/${paymentId}/cancel`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(credentials),
       body: JSON.stringify({
         ...(reason && { description: reason })
       })

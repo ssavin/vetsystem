@@ -2847,6 +2847,174 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // =================== Integration Credentials API ===================
+  
+  // Helper function to recursively mask all sensitive credential values
+  function maskCredentials(credentials: any): any {
+    // Allowlist of non-sensitive fields that don't need masking
+    const nonSensitiveFields = ['retailStoreId', 'shopId', 'storeId', 'accountId'];
+    
+    if (typeof credentials === 'string') {
+      // Mask all string values (assumed to be secrets)
+      return '***';
+    }
+    
+    if (Array.isArray(credentials)) {
+      // Recursively mask array elements
+      return credentials.map(item => maskCredentials(item));
+    }
+    
+    if (typeof credentials === 'object' && credentials !== null) {
+      // Recursively mask object properties
+      const masked: Record<string, any> = {};
+      for (const [key, value] of Object.entries(credentials)) {
+        if (nonSensitiveFields.includes(key)) {
+          masked[key] = value; // Keep non-sensitive fields as-is
+        } else {
+          masked[key] = maskCredentials(value); // Recursively mask
+        }
+      }
+      return masked;
+    }
+    
+    // Keep non-string primitives (numbers, booleans, null) as-is
+    return credentials;
+  }
+  
+  // GET /api/integration-credentials - Get all integration credentials for current tenant
+  app.get("/api/integration-credentials", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const tenantId = req.app.get('tenantId');
+      const credentials = await storage.getIntegrationCredentials(tenantId);
+      
+      // Mask ALL sensitive credential values for security
+      const maskedCredentials = credentials.map(cred => ({
+        ...cred,
+        credentials: maskCredentials(cred.credentials)
+      }));
+      
+      res.json(maskedCredentials);
+    } catch (error) {
+      console.error("Error fetching integration credentials:", error);
+      res.status(500).json({ error: "Failed to fetch integration credentials" });
+    }
+  });
+
+  // GET /api/integration-credentials/:provider - Get credentials for specific provider
+  app.get("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const tenantId = req.app.get('tenantId');
+      const { provider } = req.params;
+      
+      const credentials = await storage.getIntegrationCredentials(tenantId, provider);
+      
+      if (!credentials || credentials.length === 0) {
+        return res.status(404).json({ error: "Integration credentials not found" });
+      }
+      
+      // Mask ALL sensitive credential values for security
+      const maskedCredential = {
+        ...credentials[0],
+        credentials: maskCredentials(credentials[0].credentials)
+      };
+      
+      res.json(maskedCredential);
+    } catch (error) {
+      console.error("Error fetching integration credentials:", error);
+      res.status(500).json({ error: "Failed to fetch integration credentials" });
+    }
+  });
+
+  // PUT /api/integration-credentials/:provider - Upsert integration credentials
+  app.put("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const tenantId = req.app.get('tenantId');
+      const { provider } = req.params;
+      const { credentials, isActive } = req.body;
+      
+      if (!credentials || typeof credentials !== 'object') {
+        return res.status(400).json({ error: "Invalid credentials format" });
+      }
+      
+      const result = await storage.upsertIntegrationCredentials(
+        tenantId,
+        provider,
+        credentials,
+        isActive ?? true
+      );
+      
+      // Mask ALL sensitive credential values for security
+      const maskedResult = {
+        ...result,
+        credentials: maskCredentials(result.credentials)
+      };
+      
+      res.json(maskedResult);
+    } catch (error) {
+      console.error("Error upserting integration credentials:", error);
+      res.status(500).json({ error: "Failed to save integration credentials" });
+    }
+  });
+
+  // DELETE /api/integration-credentials/:provider - Delete integration credentials
+  app.delete("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const tenantId = req.app.get('tenantId');
+      const { provider } = req.params;
+      
+      const existing = await storage.getIntegrationCredentials(tenantId, provider);
+      if (!existing || existing.length === 0) {
+        return res.status(404).json({ error: "Integration credentials not found" });
+      }
+      
+      await storage.deleteIntegrationCredentials(tenantId, provider);
+      res.json({ message: "Integration credentials deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting integration credentials:", error);
+      res.status(500).json({ error: "Failed to delete integration credentials" });
+    }
+  });
+
+  // POST /api/integration-credentials/:provider/test - Test integration credentials
+  app.post("/api/integration-credentials/:provider/test", authenticateToken, requireRole('администратор'), async (req, res) => {
+    try {
+      const { provider } = req.params;
+      const { credentials } = req.body;
+      
+      if (!credentials || typeof credentials !== 'object') {
+        return res.status(400).json({ error: "Invalid credentials format" });
+      }
+      
+      // Test connection based on provider
+      if (provider === 'moysklad') {
+        const { testConnection } = await import('./integrations/moysklad.js');
+        const result = await testConnection(credentials);
+        res.json(result);
+      } else if (provider === 'yookassa') {
+        // YooKassa doesn't have a test endpoint, validate format only
+        if (!credentials.shopId || !credentials.secretKey) {
+          return res.status(400).json({ 
+            success: false,
+            message: "YooKassa требует shopId и secretKey" 
+          });
+        }
+        res.json({ 
+          success: true, 
+          message: "YooKassa credentials format valid" 
+        });
+      } else {
+        return res.status(400).json({ error: "Unknown provider" });
+      }
+    } catch (error) {
+      console.error("Error testing integration credentials:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to test integration credentials",
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // =================== МойСклад Номенклатура API ===================
   
   // GET /api/moysklad/nomenclature/sync-status - Получить статус синхронизации номенклатуры
