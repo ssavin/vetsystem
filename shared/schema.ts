@@ -1326,9 +1326,21 @@ export const insertMedicalRecordSchema = createInsertSchema(medicalRecords).omit
 }).extend({
   status: z.enum(MEDICAL_RECORD_STATUS).default("active"),
   visitDate: z.coerce.date(),
-  nextVisit: z.coerce.date().optional(),
-  temperature: z.coerce.number().min(30).max(45, "Temperature must be between 30-45°C").transform(val => val?.toString()).optional(),
-  weight: z.coerce.number().min(0, "Weight must be positive").transform(val => val?.toString()).optional(),
+  nextVisit: z.coerce.date().optional().nullable(),
+  temperature: z.string().optional().nullable().transform(val => {
+    if (!val || val === '') return undefined;
+    const num = parseFloat(val);
+    if (isNaN(num)) return undefined;
+    if (num < 30 || num > 45) throw new Error("Temperature must be between 30-45°C");
+    return val;
+  }),
+  weight: z.string().optional().nullable().transform(val => {
+    if (!val || val === '') return undefined;
+    const num = parseFloat(val);
+    if (isNaN(num)) return undefined;
+    if (num < 0) throw new Error("Weight must be positive");
+    return val;
+  }),
 });
 
 export const insertMedicationSchema = createInsertSchema(medications).omit({
