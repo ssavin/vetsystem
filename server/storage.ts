@@ -32,6 +32,7 @@ import {
   type SubscriptionPayment, type InsertSubscriptionPayment,
   type BillingNotification, type InsertBillingNotification,
   type Tenant, type InsertTenant,
+  type IntegrationCredentials, type InsertIntegrationCredentials,
   users, owners, patients, doctors, appointments, 
   medicalRecords, medications, services, products, 
   invoices, invoiceItems, branches, patientFiles,
@@ -41,7 +42,7 @@ import {
   customers, discountRules, paymentMethods, salesTransactions, 
   salesTransactionItems, cashOperations, userRoles, userRoleAssignments,
   integrationLogs, subscriptionPlans, clinicSubscriptions,
-  subscriptionPayments, billingNotifications, tenants
+  subscriptionPayments, billingNotifications, tenants, integrationCredentials
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -476,6 +477,28 @@ export interface IStorage {
   getPendingBillingNotifications(): Promise<any[]>;
   createBillingNotification(notification: any): Promise<any>;
   markNotificationAsSent(id: string): Promise<void>;
+
+  // === INTEGRATION CREDENTIALS ===
+  
+  // Get credentials for specific integration type
+  getIntegrationCredentials(tenantId: string, integrationType: string): Promise<IntegrationCredentials | undefined>;
+  
+  // Get all credentials for tenant
+  getAllIntegrationCredentials(tenantId: string): Promise<IntegrationCredentials[]>;
+  
+  // Create or update integration credentials
+  upsertIntegrationCredentials(credentials: InsertIntegrationCredentials): Promise<IntegrationCredentials>;
+  
+  // Delete integration credentials
+  deleteIntegrationCredentials(tenantId: string, integrationType: string): Promise<void>;
+  
+  // Update sync status
+  updateIntegrationSyncStatus(
+    tenantId: string, 
+    integrationType: string, 
+    status: string, 
+    error?: string
+  ): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3169,6 +3192,111 @@ export class DatabaseStorage implements IStorage {
       await db.update(billingNotifications)
         .set({ isSent: true, sentAt: new Date() })
         .where(eq(billingNotifications.id, id));
+    });
+  }
+
+  // ========================================
+  // INTEGRATION CREDENTIALS METHODS
+  // ========================================
+
+  async getIntegrationCredentials(tenantId: string, integrationType: string): Promise<IntegrationCredentials | undefined> {
+    return withPerformanceLogging('getIntegrationCredentials', async () => {
+      return withTenantContext(tenantId, async (dbInstance) => {
+        const [credentials] = await dbInstance.select()
+          .from(integrationCredentials)
+          .where(
+            and(
+              eq(integrationCredentials.tenantId, tenantId),
+              eq(integrationCredentials.integrationType, integrationType)
+            )
+          );
+        return credentials || undefined;
+      });
+    });
+  }
+
+  async getAllIntegrationCredentials(tenantId: string): Promise<IntegrationCredentials[]> {
+    return withPerformanceLogging('getAllIntegrationCredentials', async () => {
+      return withTenantContext(tenantId, async (dbInstance) => {
+        return await dbInstance.select()
+          .from(integrationCredentials)
+          .where(eq(integrationCredentials.tenantId, tenantId))
+          .orderBy(integrationCredentials.integrationType);
+      });
+    });
+  }
+
+  async upsertIntegrationCredentials(credentials: InsertIntegrationCredentials): Promise<IntegrationCredentials> {
+    return withPerformanceLogging('upsertIntegrationCredentials', async () => {
+      return withTenantContext(credentials.tenantId, async (dbInstance) => {
+        // Check if credentials exist
+        const existing = await this.getIntegrationCredentials(
+          credentials.tenantId, 
+          credentials.integrationType
+        );
+
+        if (existing) {
+          // Update existing
+          const [updated] = await dbInstance.update(integrationCredentials)
+            .set({
+              ...credentials,
+              updatedAt: new Date()
+            })
+            .where(
+              and(
+                eq(integrationCredentials.tenantId, credentials.tenantId),
+                eq(integrationCredentials.integrationType, credentials.integrationType)
+              )
+            )
+            .returning();
+          return updated;
+        } else {
+          // Insert new
+          const [newCredentials] = await dbInstance.insert(integrationCredentials)
+            .values(credentials)
+            .returning();
+          return newCredentials;
+        }
+      });
+    });
+  }
+
+  async deleteIntegrationCredentials(tenantId: string, integrationType: string): Promise<void> {
+    return withPerformanceLogging('deleteIntegrationCredentials', async () => {
+      return withTenantContext(tenantId, async (dbInstance) => {
+        await dbInstance.delete(integrationCredentials)
+          .where(
+            and(
+              eq(integrationCredentials.tenantId, tenantId),
+              eq(integrationCredentials.integrationType, integrationType)
+            )
+          );
+      });
+    });
+  }
+
+  async updateIntegrationSyncStatus(
+    tenantId: string, 
+    integrationType: string, 
+    status: string, 
+    error?: string
+  ): Promise<void> {
+    return withPerformanceLogging('updateIntegrationSyncStatus', async () => {
+      return withTenantContext(tenantId, async (dbInstance) => {
+        await dbInstance.update(integrationCredentials)
+          .set({
+            lastSyncAt: new Date(),
+            lastSyncStatus: status,
+            lastSyncError: error || null,
+            updatedAt: new Date()
+          })
+          .where(
+            and(
+              eq(integrationCredentials.tenantId, tenantId),
+              eq(integrationCredentials.integrationType, integrationType)
+            )
+          );
+      });
     });
   }
 }

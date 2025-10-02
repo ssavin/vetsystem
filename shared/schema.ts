@@ -2104,6 +2104,41 @@ export const billingNotifications = pgTable('billing_notifications', {
   typeIdx: index('billing_notifications_type_idx').on(table.type)
 }));
 
+// ========================================
+// INTEGRATION CREDENTIALS
+// ========================================
+
+// Tenant-specific integration credentials for multi-tenant SaaS
+// SECURITY NOTE: In production, credentials should be encrypted at rest
+// or stored in a dedicated secrets manager (e.g., HashiCorp Vault, AWS Secrets Manager)
+export const integrationCredentials = pgTable('integration_credentials', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(), // Each tenant has their own credentials
+  integrationType: varchar('integration_type', { length: 50 }).notNull(), // moysklad, yookassa, etc
+  isEnabled: boolean('is_enabled').default(false).notNull(),
+  
+  // SECURITY WARNING: credentials stored in JSONB
+  // For production: implement encryption at rest or use external secrets manager
+  // Format: { apiToken?, login?, password?, shopId?, secretKey?, retailStoreId? }
+  credentials: jsonb('credentials').notNull(), 
+  
+  // Additional settings specific to integration type
+  settings: jsonb('settings').default({}),
+  
+  // Sync metadata
+  lastSyncAt: timestamp('last_sync_at'),
+  lastSyncStatus: varchar('last_sync_status', { length: 50 }), // success, error, pending
+  lastSyncError: text('last_sync_error'),
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('integration_credentials_tenant_idx').on(table.tenantId),
+  tenantTypeUnique: uniqueIndex('integration_credentials_tenant_type_unique').on(table.tenantId, table.integrationType),
+  typeIdx: index('integration_credentials_type_idx').on(table.integrationType),
+  enabledIdx: index('integration_credentials_enabled_idx').on(table.isEnabled)
+}));
+
 // === Схемы для валидации ===
 
 export const insertCashRegisterSchema = createInsertSchema(cashRegisters).omit({
@@ -2231,3 +2266,16 @@ export type InsertSubscriptionPayment = z.infer<typeof insertSubscriptionPayment
 
 export type BillingNotification = typeof billingNotifications.$inferSelect;
 export type InsertBillingNotification = z.infer<typeof insertBillingNotificationSchema>;
+
+// Integration credentials schemas and types
+export const insertIntegrationCredentialsSchema = createInsertSchema(integrationCredentials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastSyncAt: true,
+  lastSyncStatus: true,
+  lastSyncError: true
+});
+
+export type IntegrationCredentials = typeof integrationCredentials.$inferSelect;
+export type InsertIntegrationCredentials = z.infer<typeof insertIntegrationCredentialsSchema>;
