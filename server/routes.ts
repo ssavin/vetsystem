@@ -131,10 +131,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use('/api/', generalLimiter);
 
-  // Configure multer for file uploads
+  // Configure multer for file uploads with tenant/branch isolation
   const storage_multer = multer.diskStorage({
     destination: async (req, file, cb) => {
-      const uploadPath = path.join(process.cwd(), 'uploads', 'patient-files');
+      // Get tenant and branch from authenticated user
+      const user = (req as any).user;
+      if (!user || !user.branchId) {
+        return cb(new Error('Authentication required for file upload'), '');
+      }
+      
+      // For superadmin without tenantId, use 'system' as tenant
+      const tenantId = user.tenantId || 'system';
+      
+      // Create tenant/branch-scoped upload path: uploads/{tenantId}/{branchId}/
+      const uploadPath = path.join(process.cwd(), 'uploads', tenantId, user.branchId);
       try {
         await fs.mkdir(uploadPath, { recursive: true });
         cb(null, uploadPath);
@@ -1360,11 +1370,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Multi-tenant validation: verify user belongs to current tenant
       // Exception: superadmin portal or superadmin users can bypass tenant validation
-      console.log(`Login attempt: user=${username}, role=${user.role}, isSuperAdmin=${isSuperAdmin}, req.isSuperAdmin=${req.isSuperAdmin}, req.tenantId=${req.tenantId}, user.tenantId=${user.tenantId}`);
-      
       if (!req.isSuperAdmin && !isSuperAdmin) {
         if (!req.tenantId) {
-          console.log(`Login failed: no req.tenantId for non-superadmin user`);
           return res.status(403).json({ 
             error: "Tenant не определён",
             message: "Невозможно войти: клиника не определена"
@@ -1372,7 +1379,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         if (user.tenantId !== req.tenantId) {
-          console.log(`Login failed: tenant mismatch - user.tenantId=${user.tenantId}, req.tenantId=${req.tenantId}`);
           return res.status(401).json({ 
             error: "Неверный логин или пароль",
             // Don't reveal tenant mismatch for security
@@ -1381,11 +1387,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify password with bcrypt
-      console.log(`Verifying password for user ${username}`);
       const isValidPassword = await storage.verifyPassword(password, user.password);
-      console.log(`Password verification result: ${isValidPassword}`);
       if (!isValidPassword) {
-        console.log(`Login failed: invalid password for user ${username}`);
         return res.status(401).json({ error: "Неверный логин или пароль" });
       }
       

@@ -31,6 +31,11 @@ Preferred communication style: Simple, everyday language.
 - **Database ORM**: Drizzle ORM for type-safe database operations
 - **Performance**: Built-in query performance monitoring and logging
 - **Data Validation**: Zod schemas for request/response validation
+- **File Storage**: Tenant/branch-scoped file system storage at `uploads/{tenantId}/{branchId}/`
+  - Medical records and patient files isolated per tenant and branch
+  - Automatic directory creation on upload
+  - Multer configuration enforces authentication and tenant context
+  - Superadmin files stored in `uploads/system/{branchId}/`
 
 ## Database Design
 - **Database**: PostgreSQL with Neon serverless hosting
