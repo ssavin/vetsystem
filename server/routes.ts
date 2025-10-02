@@ -829,7 +829,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log('✅ Creating medical record in database...');
-      const record = await storage.createMedicalRecord(req.body);
+      const record = await storage.createMedicalRecord({
+        ...req.body,
+        tenantId: (req as any).tenantId
+      });
       console.log('✅ Medical record created successfully:', record.id);
       res.status(201).json(record);
     } catch (error) {

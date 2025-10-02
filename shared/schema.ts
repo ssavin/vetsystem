@@ -1321,6 +1321,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
 
 export const insertMedicalRecordSchema = createInsertSchema(medicalRecords).omit({
   id: true,
+  tenantId: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
