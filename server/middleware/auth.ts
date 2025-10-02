@@ -14,7 +14,7 @@ declare global {
         role: string;
         email?: string;
         branchId?: string;
-        tenantId: string; // Added for multi-tenant support
+        tenantId: string | null; // Added for multi-tenant support, null for superadmin
         isSuperAdmin?: boolean;
       };
     }
@@ -35,11 +35,11 @@ export interface JWTPayload {
   userId: string;
   username: string;
   role: string;
-  tenantId: string; // Added for multi-tenant support
+  tenantId: string | null; // Added for multi-tenant support, null for superadmin
   branchId?: string;
 }
 
-export const generateTokens = (user: { id: string; username: string; role: string; tenantId: string; branchId?: string }) => {
+export const generateTokens = (user: { id: string; username: string; role: string; tenantId: string | null; branchId?: string }) => {
   const payload: JWTPayload = {
     userId: user.id,
     username: user.username,

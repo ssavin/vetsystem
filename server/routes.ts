@@ -1347,8 +1347,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Аккаунт заблокирован" });
       }
 
-      // Validate user has tenant_id
-      if (!user.tenantId) {
+      // Validate user has tenant_id (except superadmin)
+      if (!user.tenantId && user.role !== 'superadmin') {
         return res.status(500).json({ 
           error: "Invalid user data",
           message: "Пользователь не привязан к клинике"
