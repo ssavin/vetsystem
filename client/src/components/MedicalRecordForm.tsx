@@ -318,7 +318,7 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
                             max={45}
                             {...field}
                             value={field.value || ""}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            onChange={(e) => field.onChange(e.target.value || undefined)}
                             placeholder="38.5"
                             data-testid="input-temperature"
                           />
@@ -344,7 +344,7 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
                             min={0}
                             {...field}
                             value={field.value || ""}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            onChange={(e) => field.onChange(e.target.value || undefined)}
                             placeholder="4.2"
                             data-testid="input-weight"
                           />
