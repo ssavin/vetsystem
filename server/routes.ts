@@ -806,10 +806,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/medical-records", authenticateToken, requireModuleAccess('medical_records'), validateBody(insertMedicalRecordSchema), async (req, res) => {
     try {
       const user = (req as any).user;
+      console.log('📋 Creating medical record - User:', user.id, 'BranchId:', user.branchId, 'Data:', JSON.stringify(req.body, null, 2));
+      
       // 🔒 SECURITY: Verify patient belongs to user's branch
       if (!await ensurePatientAccess(user, req.body.patientId)) {
+        console.error('❌ Patient access denied for user', user.id, 'patient', req.body.patientId);
         return res.status(403).json({ error: 'Access denied: Patient not found' });
       }
+      console.log('✅ Patient access verified');
       
       // 🔒 SECURITY: If doctorId specified, verify doctor belongs to branch
       if (req.body.doctorId) {
@@ -818,14 +822,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const doctor = await storage.getDoctor(req.body.doctorId);
         if (!doctor || !await ensureEntityBranchAccess(doctor, userBranchId, 'doctor', req.body.doctorId)) {
+          console.error('❌ Doctor access denied for user', user.id, 'doctor', req.body.doctorId);
           return res.status(403).json({ error: 'Access denied: Doctor not found' });
         }
+        console.log('✅ Doctor access verified');
       }
       
+      console.log('✅ Creating medical record in database...');
       const record = await storage.createMedicalRecord(req.body);
+      console.log('✅ Medical record created successfully:', record.id);
       res.status(201).json(record);
     } catch (error) {
-      console.error("Error creating medical record:", error);
+      console.error("❌ Error creating medical record:", error);
       res.status(500).json({ error: "Failed to create medical record" });
     }
   });
