@@ -62,6 +62,12 @@ Preferred communication style: Simple, everyday language.
   - Auth middleware: Validates JWT tenant_id matches request tenant_id, enforces requireSuperAdmin for admin routes
   - Database RLS: Row-Level Security policies enforce tenant isolation at PostgreSQL level
   - RLS Bypass: Superadmin requests skip tenant_id context (app.tenant_id not set), enabling cross-tenant queries
+  - **Storage Layer (October 2025)**: All 94+ tenant-scoped storage methods refactored to use withTenantContext pattern
+    - Request-scoped database instances via AsyncLocalStorage for optimal performance
+    - Every tenant-facing query wrapped in withTenantContext(undefined, async (dbInstance) => {})
+    - Authentication methods (getUserByUsername, verifyPassword) intentionally excluded (pre-tenant determination)
+    - Superadmin tenant management methods bypass tenant context by design
+    - Performance logging maintained across all methods
 - **Session Management**: Express sessions with PostgreSQL session store
 - **User Management**: Role-based access control (RBAC) for clinic staff per tenant
 - **Data Validation**: Input sanitization and validation at API layer with Zod schemas
