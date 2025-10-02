@@ -2446,11 +2446,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Счет ${invoice.id} - ветеринарные услуги для ${patient.name}`
       });
 
+      // Get tenant credentials for YooKassa
+      const tenantId = req.tenantId!;
+      const credentials = await getIntegrationCredentialsOrThrow(tenantId, 'yookassa');
+      
       // Generate deterministic idempotence key with proper attempt number
       const idempotenceKey = yookassa.generateIdempotenceKey(invoiceId, attemptNumber);
       
       // Create payment in YooKassa with idempotent key
-      const payment = await yookassa.createPayment(paymentData, idempotenceKey);
+      const payment = await yookassa.createPayment(credentials, paymentData, idempotenceKey);
 
       // Create payment intent record
       const paymentIntentId = await storage.createPaymentIntent({
@@ -2492,7 +2496,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get payment status from YooKassa
   app.get("/api/payments/yookassa/:paymentId", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
-      const payment = await yookassa.getPayment(req.params.paymentId);
+      // Get tenant credentials for YooKassa
+      const tenantId = req.tenantId!;
+      const credentials = await getIntegrationCredentialsOrThrow(tenantId, 'yookassa');
+      
+      const payment = await yookassa.getPayment(credentials, req.params.paymentId);
       res.json(payment);
     } catch (error) {
       console.error("Error getting YooKassa payment:", error);
@@ -2694,6 +2702,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Get tenant credentials for МойСклад
+      const tenantId = req.tenantId!;
+      const credentials = await getIntegrationCredentialsOrThrow(tenantId, 'moysklad');
+      
       // Импортируем модуль МойСклад
       const { createFiscalReceipt } = await import('./integrations/moysklad');
       
@@ -2721,7 +2733,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Создаем фискальный чек через МойСклад
-      const result = await createFiscalReceipt(receiptData);
+      const result = await createFiscalReceipt(credentials, receiptData);
       
       if (result.success) {
         res.json({
@@ -2747,6 +2759,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // =================== Integration Credentials Helper ===================
+  
+  // Helper function to get integration credentials from database
+  async function getIntegrationCredentialsOrThrow(tenantId: string, provider: string): Promise<any> {
+    const integrationConfig = await storage.getIntegrationCredentials(tenantId, provider);
+    
+    if (!integrationConfig || !integrationConfig.isActive) {
+      throw new Error(`${provider} integration not configured or inactive`);
+    }
+    
+    return integrationConfig.credentials;
+  }
 
   // =================== System Settings API ===================
   
@@ -2884,16 +2909,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/integration-credentials - Get all integration credentials for current tenant
   app.get("/api/integration-credentials", authenticateToken, requireRole('администратор'), async (req, res) => {
     try {
-      const tenantId = req.app.get('tenantId');
-      const credentials = await storage.getIntegrationCredentials(tenantId);
+      const tenantId = req.tenantId!;
       
-      // Mask ALL sensitive credential values for security
-      const maskedCredentials = credentials.map(cred => ({
-        ...cred,
-        credentials: maskCredentials(cred.credentials)
-      }));
+      // Get all integration types and fetch credentials for each
+      const integrationTypes = ['moysklad', 'yookassa'];
+      const allCredentials = [];
       
-      res.json(maskedCredentials);
+      for (const type of integrationTypes) {
+        const cred = await storage.getIntegrationCredentials(tenantId, type);
+        if (cred) {
+          allCredentials.push({
+            ...cred,
+            credentials: maskCredentials(cred.credentials)
+          });
+        }
+      }
+      
+      res.json(allCredentials);
     } catch (error) {
       console.error("Error fetching integration credentials:", error);
       res.status(500).json({ error: "Failed to fetch integration credentials" });
@@ -2903,19 +2935,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/integration-credentials/:provider - Get credentials for specific provider
   app.get("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор'), async (req, res) => {
     try {
-      const tenantId = req.app.get('tenantId');
+      const tenantId = req.tenantId!;
       const { provider } = req.params;
       
       const credentials = await storage.getIntegrationCredentials(tenantId, provider);
       
-      if (!credentials || credentials.length === 0) {
+      if (!credentials) {
         return res.status(404).json({ error: "Integration credentials not found" });
       }
       
       // Mask ALL sensitive credential values for security
       const maskedCredential = {
-        ...credentials[0],
-        credentials: maskCredentials(credentials[0].credentials)
+        ...credentials,
+        credentials: maskCredentials(credentials.credentials)
       };
       
       res.json(maskedCredential);
@@ -2928,7 +2960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PUT /api/integration-credentials/:provider - Upsert integration credentials
   app.put("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор'), async (req, res) => {
     try {
-      const tenantId = req.app.get('tenantId');
+      const tenantId = req.tenantId!;
       const { provider } = req.params;
       const { credentials, isActive } = req.body;
       
@@ -2959,7 +2991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // DELETE /api/integration-credentials/:provider - Delete integration credentials
   app.delete("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор'), async (req, res) => {
     try {
-      const tenantId = req.app.get('tenantId');
+      const tenantId = req.tenantId!;
       const { provider } = req.params;
       
       const existing = await storage.getIntegrationCredentials(tenantId, provider);
@@ -3044,10 +3076,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('[МойСклад] Начинаем загрузку номенклатуры ИЗ МойСклад...');
       
+      // Get tenant credentials for МойСклад
+      const tenantId = req.tenantId!;
+      const credentials = await getIntegrationCredentialsOrThrow(tenantId, 'moysklad');
+      
       // Импортируем модуль МойСклад и запускаем загрузку
       const { syncNomenclature } = await import('./integrations/moysklad');
       
-      const result = await syncNomenclature();
+      const result = await syncNomenclature(credentials);
       
       console.log('[МойСклад] Загрузка завершена:', result);
       
@@ -3095,8 +3131,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/moysklad/nomenclature/remote - Получить номенклатуру из МойСклад
   app.get("/api/moysklad/nomenclature/remote", authenticateToken, requireRole('администратор'), async (req, res) => {
     try {
+      // Get tenant credentials for МойСклад
+      const tenantId = req.tenantId!;
+      const credentials = await getIntegrationCredentialsOrThrow(tenantId, 'moysklad');
+      
       const { getAssortment } = await import('./integrations/moysklad');
-      const assortment = await getAssortment();
+      const assortment = await getAssortment(credentials);
       
       res.json({
         success: true,
@@ -3118,8 +3158,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/moysklad/test-connection - Тестирование подключения к МойСклад
   app.post("/api/moysklad/test-connection", authenticateToken, requireRole('администратор'), async (req, res) => {
     try {
+      // Get tenant credentials for МойСклад
+      const tenantId = req.tenantId!;
+      const credentials = await getIntegrationCredentialsOrThrow(tenantId, 'moysklad');
+      
       const { testConnection } = await import('./integrations/moysklad');
-      const result = await testConnection();
+      const result = await testConnection(credentials);
       
       if (result.success) {
         res.json({
