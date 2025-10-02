@@ -1348,7 +1348,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate user has tenant_id (except superadmin)
-      if (!user.tenantId && user.role !== 'superadmin') {
+      // Superadmin can have null tenantId as they work across all tenants
+      const isSuperAdmin = user.role === 'superadmin';
+      if (!user.tenantId && !isSuperAdmin) {
+        console.error(`User ${username} has no tenantId and is not superadmin (role: ${user.role})`);
         return res.status(500).json({ 
           error: "Invalid user data",
           message: "Пользователь не привязан к клинике"
