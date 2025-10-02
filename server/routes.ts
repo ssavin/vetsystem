@@ -775,6 +775,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 🔒 SECURITY: Pass branchId to enforce branch isolation
       const records = await storage.getMedicalRecords(patientId, userBranchId);
+      console.log('📋 Medical records retrieved:', records.length, 'records');
+      if (records.length > 0) {
+        console.log('Sample record:', JSON.stringify(records[0], null, 2));
+      }
       res.json(records);
     } catch (error) {
       console.error("Error fetching medical records:", error);
