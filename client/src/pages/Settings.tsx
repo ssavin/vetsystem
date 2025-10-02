@@ -70,6 +70,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient"
 import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch, SystemSetting, insertSystemSettingSchema, updateSystemSettingSchema } from "@shared/schema"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
+import IntegrationsSettings from "@/components/IntegrationsSettings"
 
 // Form validation schema for branches
 const branchSchema = z.object({
@@ -2066,6 +2067,9 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Integrations Management */}
+      <IntegrationsSettings />
 
       {/* Save Button */}
       <div className="flex justify-end">
