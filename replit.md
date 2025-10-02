@@ -77,6 +77,28 @@ Preferred communication style: Simple, everyday language.
 - **API Routes**: /api/admin/tenants endpoints protected by authenticateToken + requireSuperAdmin middleware
 - **Security**: Superadmin role verified in JWT, tenant context skipped for cross-tenant access
 
+## Tenant-Specific Integrations (October 2025)
+- **Integration Credentials Management**: Each tenant has independent API credentials for external services
+  - МойСклад (MoySklad) integration: apiToken, login, password, retailStoreId per tenant
+  - YooKassa payment gateway: shopId, secretKey per tenant
+  - Stored in `integration_credentials` table with JSONB credentials column (requires encryption in production)
+  - Complete RLS policies ensure tenant data isolation
+- **Security Pattern**: 
+  - All integration functions accept credentials as first parameter instead of global env variables
+  - Recursive credential masking in API responses prevents secret leakage
+  - Secret fields (password, apiToken, secretKey) never returned to frontend
+  - Non-sensitive fields (retailStoreId, shopId) allowlisted for display
+- **UI Management**: IntegrationsSettings component in Settings page
+  - Card-based UI for each integration with status badges
+  - Form validation with Zod schemas
+  - Password/secret visibility toggles for secure input
+  - Test connection functionality for МойСклад
+  - Toast notifications for success/error feedback
+- **API Routes**: 
+  - GET/PUT `/api/integration-credentials/{integration_type}` for CRUD operations
+  - POST `/api/integration-credentials/moysklad/test` for connection testing
+  - All routes use req.tenantId from tenant-resolver middleware
+
 ## Design System
 - **Color Palette**: Medical-focused color scheme with primary blue (#2563eb), success green, warning orange, and error red
 - **Typography**: Inter font for readability with JetBrains Mono for technical data
