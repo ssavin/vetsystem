@@ -576,14 +576,20 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // User methods (keep existing for authentication)
+  // User methods
+  // NOTE: getUserByUsername and verifyPassword are used for authentication and don't use tenant context
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    return withPerformanceLogging('getUser', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [user] = await dbInstance.select().from(users).where(eq(users.id, id));
+        return user || undefined;
+      });
+    });
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     return withPerformanceLogging('getUserByUsername', async () => {
+      // No tenant context - used for authentication before tenant is determined
       const [user] = await db.select().from(users).where(eq(users.username, username));
       return user || undefined;
     });
@@ -591,226 +597,307 @@ export class DatabaseStorage implements IStorage {
 
   async verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
     return withPerformanceLogging('verifyPassword', async () => {
+      // No tenant context - used for authentication
       return await bcrypt.compare(password, hashedPassword);
     });
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     return withPerformanceLogging('createUser', async () => {
-      // Hash password before storing
-      const saltRounds = 12;
-      const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
-      
-      const [user] = await db
-        .insert(users)
-        .values({
-          ...insertUser,
-          password: hashedPassword,
-        })
-        .returning();
-      return user;
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Hash password before storing
+        const saltRounds = 12;
+        const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
+        
+        const [user] = await dbInstance
+          .insert(users)
+          .values({
+            ...insertUser,
+            password: hashedPassword,
+          })
+          .returning();
+        return user;
+      });
     });
   }
 
   async getUsers(): Promise<User[]> {
-    return await db.select().from(users).orderBy(users.createdAt);
+    return withPerformanceLogging('getUsers', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(users).orderBy(users.createdAt);
+      });
+    });
   }
 
   async updateUser(id: string, updateData: Partial<InsertUser>): Promise<User> {
     return withPerformanceLogging('updateUser', async () => {
-      // Hash password if it's being updated
-      let dataToUpdate = { ...updateData, updatedAt: new Date() };
-      if (updateData.password) {
-        const saltRounds = 12;
-        dataToUpdate.password = await bcrypt.hash(updateData.password, saltRounds);
-      }
-      
-      const [user] = await db
-        .update(users)
-        .set(dataToUpdate)
-        .where(eq(users.id, id))
-        .returning();
-      return user;
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Hash password if it's being updated
+        let dataToUpdate = { ...updateData, updatedAt: new Date() };
+        if (updateData.password) {
+          const saltRounds = 12;
+          dataToUpdate.password = await bcrypt.hash(updateData.password, saltRounds);
+        }
+        
+        const [user] = await dbInstance
+          .update(users)
+          .set(dataToUpdate)
+          .where(eq(users.id, id))
+          .returning();
+        return user;
+      });
     });
   }
 
   async updateUserLastLogin(id: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ lastLogin: new Date() })
-      .where(eq(users.id, id));
+    return withPerformanceLogging('updateUserLastLogin', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance
+          .update(users)
+          .set({ lastLogin: new Date() })
+          .where(eq(users.id, id));
+      });
+    });
   }
 
   async deleteUser(id: string): Promise<void> {
-    await db.delete(users).where(eq(users.id, id));
+    return withPerformanceLogging('deleteUser', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(users).where(eq(users.id, id));
+      });
+    });
   }
 
   // Owner methods - 🔒 SECURITY: branchId mandatory for PHI isolation
   async getOwners(branchId: string): Promise<Owner[]> {
     return withPerformanceLogging('getOwners', async () => {
-      return await db.select().from(owners)
-        .where(eq(owners.branchId, branchId))
-        .orderBy(desc(owners.createdAt));
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(owners)
+          .where(eq(owners.branchId, branchId))
+          .orderBy(desc(owners.createdAt));
+      });
     });
   }
 
   async getOwner(id: string): Promise<Owner | undefined> {
-    const [owner] = await db.select().from(owners).where(eq(owners.id, id));
-    return owner || undefined;
+    return withPerformanceLogging('getOwner', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [owner] = await dbInstance.select().from(owners).where(eq(owners.id, id));
+        return owner || undefined;
+      });
+    });
   }
 
   async createOwner(owner: InsertOwner): Promise<Owner> {
-    const [newOwner] = await db
-      .insert(owners)
-      .values(owner)
-      .returning();
-    return newOwner;
+    return withPerformanceLogging('createOwner', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newOwner] = await dbInstance
+          .insert(owners)
+          .values(owner)
+          .returning();
+        return newOwner;
+      });
+    });
   }
 
   async updateOwner(id: string, owner: Partial<InsertOwner>): Promise<Owner> {
-    const [updated] = await db
-      .update(owners)
-      .set({ ...owner, updatedAt: new Date() })
-      .where(eq(owners.id, id))
-      .returning();
-    return updated;
+    return withPerformanceLogging('updateOwner', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(owners)
+          .set({ ...owner, updatedAt: new Date() })
+          .where(eq(owners.id, id))
+          .returning();
+        return updated;
+      });
+    });
   }
 
   async deleteOwner(id: string): Promise<void> {
-    await db.delete(owners).where(eq(owners.id, id));
+    return withPerformanceLogging('deleteOwner', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(owners).where(eq(owners.id, id));
+      });
+    });
   }
 
   async searchOwners(query: string, branchId: string): Promise<Owner[]> {
     return withPerformanceLogging('searchOwners', async () => {
-      const searchQuery = `%${query}%`;
-      const searchConditions = or(
-        like(owners.name, searchQuery),
-        like(owners.phone, searchQuery),
-        like(owners.email, searchQuery)
-      );
-      
-      return await db
-        .select()
-        .from(owners)
-        .where(and(searchConditions, eq(owners.branchId, branchId)))
-        .orderBy(desc(owners.createdAt));
+      return withTenantContext(undefined, async (dbInstance) => {
+        const searchQuery = `%${query}%`;
+        const searchConditions = or(
+          like(owners.name, searchQuery),
+          like(owners.phone, searchQuery),
+          like(owners.email, searchQuery)
+        );
+        
+        return await dbInstance
+          .select()
+          .from(owners)
+          .where(and(searchConditions, eq(owners.branchId, branchId)))
+          .orderBy(desc(owners.createdAt));
+      });
     });
   }
 
   // Patient methods - 🔒 SECURITY: branchId mandatory for PHI isolation
   async getPatients(limit: number | undefined = 50, offset: number | undefined = 0, branchId: string): Promise<Patient[]> {
-    return withPerformanceLogging('getPatients', async () =>
-      await db
-        .select()
-        .from(patients)
-        .where(eq(patients.branchId, branchId))
-        .orderBy(desc(patients.createdAt))
-        .limit(limit || 50)
-        .offset(offset || 0)
-    );
+    return withPerformanceLogging('getPatients', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(patients)
+          .where(eq(patients.branchId, branchId))
+          .orderBy(desc(patients.createdAt))
+          .limit(limit || 50)
+          .offset(offset || 0);
+      });
+    });
   }
 
   async getPatient(id: string): Promise<Patient | undefined> {
-    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
-    return patient || undefined;
+    return withPerformanceLogging('getPatient', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [patient] = await dbInstance.select().from(patients).where(eq(patients.id, id));
+        return patient || undefined;
+      });
+    });
   }
 
   async getPatientsByOwner(ownerId: string, branchId: string): Promise<Patient[]> {
-    // 🔒 CRITICAL: branchId now mandatory for security
-    return await db
-      .select()
-      .from(patients)
-      .where(and(eq(patients.ownerId, ownerId), eq(patients.branchId, branchId)));
+    return withPerformanceLogging('getPatientsByOwner', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 CRITICAL: branchId now mandatory for security
+        return await dbInstance
+          .select()
+          .from(patients)
+          .where(and(eq(patients.ownerId, ownerId), eq(patients.branchId, branchId)));
+      });
+    });
   }
 
   async createPatient(patient: InsertPatient): Promise<Patient> {
-    const patientToInsert = {
-      ...patient,
-      weight: patient.weight !== undefined ? patient.weight.toString() : undefined
-    };
-    const [newPatient] = await db
-      .insert(patients)
-      .values(patientToInsert)
-      .returning();
-    return newPatient;
+    return withPerformanceLogging('createPatient', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const patientToInsert = {
+          ...patient,
+          weight: patient.weight !== undefined ? patient.weight.toString() : undefined
+        };
+        const [newPatient] = await dbInstance
+          .insert(patients)
+          .values(patientToInsert)
+          .returning();
+        return newPatient;
+      });
+    });
   }
 
   async updatePatient(id: string, patient: Partial<InsertPatient>): Promise<Patient> {
-    const patientToUpdate = {
-      ...patient,
-      weight: patient.weight !== undefined ? patient.weight.toString() : undefined,
-      updatedAt: new Date()
-    };
-    const [updated] = await db
-      .update(patients)
-      .set(patientToUpdate)
-      .where(eq(patients.id, id))
-      .returning();
-    return updated;
+    return withPerformanceLogging('updatePatient', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const patientToUpdate = {
+          ...patient,
+          weight: patient.weight !== undefined ? patient.weight.toString() : undefined,
+          updatedAt: new Date()
+        };
+        const [updated] = await dbInstance
+          .update(patients)
+          .set(patientToUpdate)
+          .where(eq(patients.id, id))
+          .returning();
+        return updated;
+      });
+    });
   }
 
   async deletePatient(id: string): Promise<void> {
-    await db.delete(patients).where(eq(patients.id, id));
+    return withPerformanceLogging('deletePatient', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(patients).where(eq(patients.id, id));
+      });
+    });
   }
 
   async searchPatients(query: string, branchId: string): Promise<Patient[]> {
     return withPerformanceLogging('searchPatients', async () => {
-      const searchQuery = `%${query}%`;
-      const searchConditions = or(
-        like(patients.name, searchQuery),
-        like(patients.species, searchQuery),
-        like(patients.breed, searchQuery),
-        like(patients.microchipNumber, searchQuery)
-      );
-      
-      // 🔒 CRITICAL: branchId now mandatory for security
-      return await db
-        .select()
-        .from(patients)
-        .where(and(searchConditions, eq(patients.branchId, branchId)))
-        .orderBy(desc(patients.createdAt));
+      return withTenantContext(undefined, async (dbInstance) => {
+        const searchQuery = `%${query}%`;
+        const searchConditions = or(
+          like(patients.name, searchQuery),
+          like(patients.species, searchQuery),
+          like(patients.breed, searchQuery),
+          like(patients.microchipNumber, searchQuery)
+        );
+        
+        // 🔒 CRITICAL: branchId now mandatory for security
+        return await dbInstance
+          .select()
+          .from(patients)
+          .where(and(searchConditions, eq(patients.branchId, branchId)))
+          .orderBy(desc(patients.createdAt));
+      });
     });
   }
 
   // Doctor methods - 🔒 SECURITY: branchId mandatory for PHI isolation
   async getDoctors(branchId: string): Promise<Doctor[]> {
     return withPerformanceLogging('getDoctors', async () => {
-      return await db.select().from(doctors)
-        .where(eq(doctors.branchId, branchId))
-        .orderBy(desc(doctors.createdAt));
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(doctors)
+          .where(eq(doctors.branchId, branchId))
+          .orderBy(desc(doctors.createdAt));
+      });
     });
   }
 
   async getDoctor(id: string): Promise<Doctor | undefined> {
-    const [doctor] = await db.select().from(doctors).where(eq(doctors.id, id));
-    return doctor || undefined;
+    return withPerformanceLogging('getDoctor', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [doctor] = await dbInstance.select().from(doctors).where(eq(doctors.id, id));
+        return doctor || undefined;
+      });
+    });
   }
 
   async createDoctor(doctor: InsertDoctor): Promise<Doctor> {
-    const [newDoctor] = await db
-      .insert(doctors)
-      .values(doctor)
-      .returning();
-    return newDoctor;
+    return withPerformanceLogging('createDoctor', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newDoctor] = await dbInstance
+          .insert(doctors)
+          .values(doctor)
+          .returning();
+        return newDoctor;
+      });
+    });
   }
 
   async updateDoctor(id: string, doctor: Partial<InsertDoctor>): Promise<Doctor> {
-    const [updated] = await db
-      .update(doctors)
-      .set({ ...doctor, updatedAt: new Date() })
-      .where(eq(doctors.id, id))
-      .returning();
-    return updated;
+    return withPerformanceLogging('updateDoctor', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(doctors)
+          .set({ ...doctor, updatedAt: new Date() })
+          .where(eq(doctors.id, id))
+          .returning();
+        return updated;
+      });
+    });
   }
 
   async deleteDoctor(id: string): Promise<void> {
-    await db.delete(doctors).where(eq(doctors.id, id));
+    return withPerformanceLogging('deleteDoctor', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(doctors).where(eq(doctors.id, id));
+      });
+    });
   }
 
   async getActiveDoctors(branchId: string): Promise<Doctor[]> {
     return withPerformanceLogging('getActiveDoctors', async () => {
-      return await db.select().from(doctors)
-        .where(and(eq(doctors.isActive, true), eq(doctors.branchId, branchId)));
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(doctors)
+          .where(and(eq(doctors.isActive, true), eq(doctors.branchId, branchId)));
+      });
     });
   }
 
@@ -901,333 +988,445 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAppointment(id: string): Promise<Appointment | undefined> {
-    const [appointment] = await db.select().from(appointments).where(eq(appointments.id, id));
-    return appointment || undefined;
+    return withPerformanceLogging('getAppointment', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [appointment] = await dbInstance.select().from(appointments).where(eq(appointments.id, id));
+        return appointment || undefined;
+      });
+    });
   }
 
   async getAppointmentsByDoctor(doctorId: string, date: Date | undefined, branchId: string): Promise<Appointment[]> {
-    if (date) {
-      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-      
-      let whereConditions = [
-        eq(appointments.doctorId, doctorId),
-        gte(appointments.appointmentDate, startOfDay),
-        lte(appointments.appointmentDate, endOfDay)
-      ];
-      
-      // 🔒 CRITICAL: Add branch isolation via patient join if branchId provided
-      if (branchId) {
-        return await db.select().from(appointments)
-          .leftJoin(patients, eq(appointments.patientId, patients.id))
-          .where(and(...whereConditions, eq(patients.branchId, branchId)))
+    return withPerformanceLogging('getAppointmentsByDoctor', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        if (date) {
+          const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+          const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+          
+          let whereConditions = [
+            eq(appointments.doctorId, doctorId),
+            gte(appointments.appointmentDate, startOfDay),
+            lte(appointments.appointmentDate, endOfDay)
+          ];
+          
+          // 🔒 CRITICAL: Add branch isolation via patient join if branchId provided
+          if (branchId) {
+            return await dbInstance.select().from(appointments)
+              .leftJoin(patients, eq(appointments.patientId, patients.id))
+              .where(and(...whereConditions, eq(patients.branchId, branchId)))
+              .orderBy(appointments.appointmentDate);
+          }
+          
+          return await dbInstance.select().from(appointments)
+            .where(and(...whereConditions))
+            .orderBy(appointments.appointmentDate);
+        }
+        
+        // 🔒 CRITICAL: For all appointments by doctor, enforce branch isolation if branchId provided
+        if (branchId) {
+          return await dbInstance.select().from(appointments)
+            .leftJoin(patients, eq(appointments.patientId, patients.id))
+            .where(and(eq(appointments.doctorId, doctorId), eq(patients.branchId, branchId)))
+            .orderBy(appointments.appointmentDate);
+        }
+        
+        return await dbInstance.select().from(appointments)
+          .where(eq(appointments.doctorId, doctorId))
           .orderBy(appointments.appointmentDate);
-      }
-      
-      return await db.select().from(appointments)
-        .where(and(...whereConditions))
-        .orderBy(appointments.appointmentDate);
-    }
-    
-    // 🔒 CRITICAL: For all appointments by doctor, enforce branch isolation if branchId provided
-    if (branchId) {
-      return await db.select().from(appointments)
-        .leftJoin(patients, eq(appointments.patientId, patients.id))
-        .where(and(eq(appointments.doctorId, doctorId), eq(patients.branchId, branchId)))
-        .orderBy(appointments.appointmentDate);
-    }
-    
-    return await db.select().from(appointments)
-      .where(eq(appointments.doctorId, doctorId))
-      .orderBy(appointments.appointmentDate);
+      });
+    });
   }
 
   async getAppointmentsByPatient(patientId: string, branchId: string): Promise<Appointment[]> {
-    // 🔒 CRITICAL: Enforce branch isolation via patient join
-    return await db
-      .select()
-      .from(appointments)
-      .leftJoin(patients, eq(appointments.patientId, patients.id))
-      .where(and(eq(appointments.patientId, patientId), eq(patients.branchId, branchId)))
-      .orderBy(desc(appointments.appointmentDate));
+    return withPerformanceLogging('getAppointmentsByPatient', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 CRITICAL: Enforce branch isolation via patient join
+        return await dbInstance
+          .select()
+          .from(appointments)
+          .leftJoin(patients, eq(appointments.patientId, patients.id))
+          .where(and(eq(appointments.patientId, patientId), eq(patients.branchId, branchId)))
+          .orderBy(desc(appointments.appointmentDate));
+      });
+    });
   }
 
   async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
-    const [newAppointment] = await db
-      .insert(appointments)
-      .values(appointment)
-      .returning();
-    return newAppointment;
+    return withPerformanceLogging('createAppointment', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newAppointment] = await dbInstance
+          .insert(appointments)
+          .values(appointment)
+          .returning();
+        return newAppointment;
+      });
+    });
   }
 
   async updateAppointment(id: string, appointment: Partial<InsertAppointment>): Promise<Appointment> {
-    const [updated] = await db
-      .update(appointments)
-      .set({ ...appointment, updatedAt: new Date() })
-      .where(eq(appointments.id, id))
-      .returning();
-    return updated;
+    return withPerformanceLogging('updateAppointment', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(appointments)
+          .set({ ...appointment, updatedAt: new Date() })
+          .where(eq(appointments.id, id))
+          .returning();
+        return updated;
+      });
+    });
   }
 
   async deleteAppointment(id: string): Promise<void> {
-    await db.delete(appointments).where(eq(appointments.id, id));
+    return withPerformanceLogging('deleteAppointment', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(appointments).where(eq(appointments.id, id));
+      });
+    });
   }
 
   async checkAppointmentConflicts(doctorId: string, date: Date, duration: number, excludeId?: string): Promise<boolean> {
-    const endTime = new Date(date.getTime() + duration * 60000);
-    
-    const baseConditions = [
-      eq(appointments.doctorId, doctorId),
-      or(
-        and(
-          lte(appointments.appointmentDate, date),
-          gte(sql`${appointments.appointmentDate} + INTERVAL '1 minute' * ${appointments.duration}`, date)
-        ),
-        and(
-          lte(appointments.appointmentDate, endTime),
-          gte(sql`${appointments.appointmentDate} + INTERVAL '1 minute' * ${appointments.duration}`, endTime)
-        ),
-        and(
-          gte(appointments.appointmentDate, date),
-          lte(sql`${appointments.appointmentDate} + INTERVAL '1 minute' * ${appointments.duration}`, endTime)
-        )
-      )
-    ];
-      
-    if (excludeId) {
-      baseConditions.push(sql`${appointments.id} != ${excludeId}`);
-    }
-    
-    const conflicts = await db
-      .select()
-      .from(appointments)
-      .where(and(...baseConditions));
-      
-    return conflicts.length > 0;
+    return withPerformanceLogging('checkAppointmentConflicts', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const endTime = new Date(date.getTime() + duration * 60000);
+        
+        const baseConditions = [
+          eq(appointments.doctorId, doctorId),
+          or(
+            and(
+              lte(appointments.appointmentDate, date),
+              gte(sql`${appointments.appointmentDate} + INTERVAL '1 minute' * ${appointments.duration}`, date)
+            ),
+            and(
+              lte(appointments.appointmentDate, endTime),
+              gte(sql`${appointments.appointmentDate} + INTERVAL '1 minute' * ${appointments.duration}`, endTime)
+            ),
+            and(
+              gte(appointments.appointmentDate, date),
+              lte(sql`${appointments.appointmentDate} + INTERVAL '1 minute' * ${appointments.duration}`, endTime)
+            )
+          )
+        ];
+          
+        if (excludeId) {
+          baseConditions.push(sql`${appointments.id} != ${excludeId}`);
+        }
+        
+        const conflicts = await dbInstance
+          .select()
+          .from(appointments)
+          .where(and(...baseConditions));
+          
+        return conflicts.length > 0;
+      });
+    });
   }
 
   // Medical Record methods - 🔒 SECURITY: branchId mandatory for PHI isolation
   async getMedicalRecords(patientId: string | undefined, branchId: string): Promise<MedicalRecord[]> {
-    if (patientId) {
-      // 🔒 CRITICAL: For specific patient, still enforce branch isolation
-      return await db.select()
-        .from(medicalRecords)
-        .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
-        .where(and(eq(medicalRecords.patientId, patientId), eq(patients.branchId, branchId)))
-        .orderBy(desc(medicalRecords.visitDate));
-    }
-    
-    // 🔒 CRITICAL: For all medical records, enforce branch isolation via patient join
-    return await db.select()
-      .from(medicalRecords)
-      .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
-      .where(eq(patients.branchId, branchId))
-      .orderBy(desc(medicalRecords.visitDate));
+    return withPerformanceLogging('getMedicalRecords', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        if (patientId) {
+          // 🔒 CRITICAL: For specific patient, still enforce branch isolation
+          return await dbInstance.select()
+            .from(medicalRecords)
+            .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
+            .where(and(eq(medicalRecords.patientId, patientId), eq(patients.branchId, branchId)))
+            .orderBy(desc(medicalRecords.visitDate));
+        }
+        
+        // 🔒 CRITICAL: For all medical records, enforce branch isolation via patient join
+        return await dbInstance.select()
+          .from(medicalRecords)
+          .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
+          .where(eq(patients.branchId, branchId))
+          .orderBy(desc(medicalRecords.visitDate));
+      });
+    });
   }
 
   async getMedicalRecord(id: string): Promise<MedicalRecord | undefined> {
-    const [record] = await db.select().from(medicalRecords).where(eq(medicalRecords.id, id));
-    return record || undefined;
+    return withPerformanceLogging('getMedicalRecord', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [record] = await dbInstance.select().from(medicalRecords).where(eq(medicalRecords.id, id));
+        return record || undefined;
+      });
+    });
   }
 
   async createMedicalRecord(record: InsertMedicalRecord): Promise<MedicalRecord> {
-    const recordToInsert = {
-      ...record,
-      weight: record.weight !== undefined ? record.weight.toString() : undefined,
-      temperature: record.temperature !== undefined ? record.temperature.toString() : undefined
-    };
-    const [newRecord] = await db
-      .insert(medicalRecords)
-      .values(recordToInsert)
-      .returning();
-    return newRecord;
+    return withPerformanceLogging('createMedicalRecord', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const recordToInsert = {
+          ...record,
+          weight: record.weight !== undefined ? record.weight.toString() : undefined,
+          temperature: record.temperature !== undefined ? record.temperature.toString() : undefined
+        };
+        const [newRecord] = await dbInstance
+          .insert(medicalRecords)
+          .values(recordToInsert)
+          .returning();
+        return newRecord;
+      });
+    });
   }
 
   async updateMedicalRecord(id: string, record: Partial<InsertMedicalRecord>): Promise<MedicalRecord> {
-    const recordToUpdate = {
-      ...record,
-      weight: record.weight !== undefined ? record.weight.toString() : undefined,
-      temperature: record.temperature !== undefined ? record.temperature.toString() : undefined,
-      updatedAt: new Date()
-    };
-    const [updated] = await db
-      .update(medicalRecords)
-      .set(recordToUpdate)
-      .where(eq(medicalRecords.id, id))
-      .returning();
-    return updated;
+    return withPerformanceLogging('updateMedicalRecord', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const recordToUpdate = {
+          ...record,
+          weight: record.weight !== undefined ? record.weight.toString() : undefined,
+          temperature: record.temperature !== undefined ? record.temperature.toString() : undefined,
+          updatedAt: new Date()
+        };
+        const [updated] = await dbInstance
+          .update(medicalRecords)
+          .set(recordToUpdate)
+          .where(eq(medicalRecords.id, id))
+          .returning();
+        return updated;
+      });
+    });
   }
 
   async deleteMedicalRecord(id: string): Promise<void> {
-    await db.delete(medicalRecords).where(eq(medicalRecords.id, id));
+    return withPerformanceLogging('deleteMedicalRecord', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(medicalRecords).where(eq(medicalRecords.id, id));
+      });
+    });
   }
 
   // Medication methods
   async getMedicationsByRecord(recordId: string): Promise<Medication[]> {
-    return await db
-      .select()
-      .from(medications)
-      .where(eq(medications.recordId, recordId))
-      .orderBy(desc(medications.createdAt));
+    return withPerformanceLogging('getMedicationsByRecord', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(medications)
+          .where(eq(medications.recordId, recordId))
+          .orderBy(desc(medications.createdAt));
+      });
+    });
   }
 
   async createMedication(medication: InsertMedication): Promise<Medication> {
-    const [newMedication] = await db
-      .insert(medications)
-      .values(medication)
-      .returning();
-    return newMedication;
+    return withPerformanceLogging('createMedication', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newMedication] = await dbInstance
+          .insert(medications)
+          .values(medication)
+          .returning();
+        return newMedication;
+      });
+    });
   }
 
   async updateMedication(id: string, medication: Partial<InsertMedication>): Promise<Medication> {
-    const [updated] = await db
-      .update(medications)
-      .set(medication)
-      .where(eq(medications.id, id))
-      .returning();
-    return updated;
+    return withPerformanceLogging('updateMedication', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(medications)
+          .set(medication)
+          .where(eq(medications.id, id))
+          .returning();
+        return updated;
+      });
+    });
   }
 
   async deleteMedication(id: string): Promise<void> {
-    await db.delete(medications).where(eq(medications.id, id));
+    return withPerformanceLogging('deleteMedication', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(medications).where(eq(medications.id, id));
+      });
+    });
   }
 
   // Service methods
   async getServices(activeOnly = false): Promise<Service[]> {
-    if (activeOnly) {
-      return await db.select().from(services)
-        .where(and(eq(services.isActive, true), isNull(services.deletedAt)))
-        .orderBy(services.category, services.name);
-    }
+    return withPerformanceLogging('getServices', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        if (activeOnly) {
+          return await dbInstance.select().from(services)
+            .where(and(eq(services.isActive, true), isNull(services.deletedAt)))
+            .orderBy(services.category, services.name);
+        }
     
-    return await db.select().from(services)
-      .where(isNull(services.deletedAt))
-      .orderBy(services.category, services.name);
+        return await dbInstance.select().from(services)
+          .where(isNull(services.deletedAt))
+          .orderBy(services.category, services.name);
+      });
+    });
   }
 
   // Получить услуги для синхронизации с МойСклад (новые/измененные)
   async getServicesForSync(): Promise<Service[]> {
-    return await db.select().from(services)
-      .where(and(
-        isNull(services.deletedAt),
-        or(
-          isNull(services.lastSyncedAt), // Новые записи
-          gt(services.updatedAt, services.lastSyncedAt) // Измененные записи
-        )
-      ))
-      .orderBy(services.updatedAt);
+    return withPerformanceLogging('getServicesForSync', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(services)
+          .where(and(
+            isNull(services.deletedAt),
+            or(
+              isNull(services.lastSyncedAt), // Новые записи
+              gt(services.updatedAt, services.lastSyncedAt) // Измененные записи
+            )
+          ))
+          .orderBy(services.updatedAt);
+      });
+    });
   }
 
   // Получить удаленные услуги для архивирования в МойСклад
   async getDeletedServicesForSync(): Promise<Service[]> {
-    return await db.select().from(services)
-      .where(and(
-        isNotNull(services.deletedAt),
-        or(
-          isNull(services.lastSyncedAt),
-          gt(services.deletedAt, services.lastSyncedAt)
-        )
-      ))
-      .orderBy(services.deletedAt);
+    return withPerformanceLogging('getDeletedServicesForSync', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(services)
+          .where(and(
+            isNotNull(services.deletedAt),
+            or(
+              isNull(services.lastSyncedAt),
+              gt(services.deletedAt, services.lastSyncedAt)
+            )
+          ))
+          .orderBy(services.deletedAt);
+      });
+    });
   }
 
   async getService(id: string): Promise<Service | undefined> {
-    const [service] = await db.select().from(services).where(eq(services.id, id));
-    return service || undefined;
+    return withPerformanceLogging('getService', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [service] = await dbInstance.select().from(services).where(eq(services.id, id));
+        return service || undefined;
+      });
+    });
   }
 
   async createService(service: InsertService): Promise<Service> {
-    const serviceToInsert = {
-      ...service,
-      price: service.price.toString()
-    };
-    const [newService] = await db
-      .insert(services)
-      .values(serviceToInsert)
-      .returning();
-    return newService;
+    return withPerformanceLogging('createService', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const serviceToInsert = {
+          ...service,
+          price: service.price.toString()
+        };
+        const [newService] = await dbInstance
+          .insert(services)
+          .values(serviceToInsert)
+          .returning();
+        return newService;
+      });
+    });
   }
 
   async updateService(id: string, service: Partial<InsertService>): Promise<Service> {
-    const serviceToUpdate = {
-      ...service,
-      price: service.price !== undefined ? service.price.toString() : undefined,
-      updatedAt: new Date()
-    };
-    const [updated] = await db
-      .update(services)
-      .set(serviceToUpdate)
-      .where(eq(services.id, id))
-      .returning();
-    return updated;
+    return withPerformanceLogging('updateService', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const serviceToUpdate = {
+          ...service,
+          price: service.price !== undefined ? service.price.toString() : undefined,
+          updatedAt: new Date()
+        };
+        const [updated] = await dbInstance
+          .update(services)
+          .set(serviceToUpdate)
+          .where(eq(services.id, id))
+          .returning();
+        return updated;
+      });
+    });
   }
 
   async deleteService(id: string): Promise<void> {
-    // Soft delete - mark as deleted but keep in DB for sync
-    await db.update(services)
-      .set({ 
-        deletedAt: new Date(),
-        updatedAt: new Date()
-      })
-      .where(eq(services.id, id));
+    return withPerformanceLogging('deleteService', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Soft delete - mark as deleted but keep in DB for sync
+        await dbInstance.update(services)
+          .set({ 
+            deletedAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(services.id, id));
+      });
+    });
   }
 
   // External system integration methods for services
   async getServiceByExternalId(externalId: string, system: string): Promise<Service | undefined> {
-    const [service] = await db.select().from(services)
-      .where(and(
-        eq(services.externalId, externalId),
-        eq(services.externalSystem, system),
-        isNull(services.deletedAt)
-      ));
-    return service || undefined;
+    return withPerformanceLogging('getServiceByExternalId', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [service] = await dbInstance.select().from(services)
+          .where(and(
+            eq(services.externalId, externalId),
+            eq(services.externalSystem, system),
+            isNull(services.deletedAt)
+          ));
+        return service || undefined;
+      });
+    });
   }
 
   async getServicesByExternalSystem(system: string): Promise<Service[]> {
-    return await db.select().from(services)
-      .where(and(
-        eq(services.externalSystem, system),
-        isNull(services.deletedAt)
-      ))
-      .orderBy(services.name);
+    return withPerformanceLogging('getServicesByExternalSystem', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(services)
+          .where(and(
+            eq(services.externalSystem, system),
+            isNull(services.deletedAt)
+          ))
+          .orderBy(services.name);
+      });
+    });
   }
 
   // Отметить услугу как синхронизированную
   async markServiceSynced(id: string, syncHash: string): Promise<void> {
-    await db.update(services)
-      .set({ 
-        lastSyncedAt: new Date(),
-        syncHash: syncHash
-      })
-      .where(eq(services.id, id));
+    return withPerformanceLogging('markServiceSynced', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.update(services)
+          .set({ 
+            lastSyncedAt: new Date(),
+            syncHash: syncHash
+          })
+          .where(eq(services.id, id));
+      });
+    });
   }
 
   async searchServices(query: string): Promise<Service[]> {
-    const searchQuery = `%${query}%`;
-    return await db
-      .select()
-      .from(services)
-      .where(
-        or(
-          like(services.name, searchQuery),
-          like(services.category, searchQuery),
-          like(services.description, searchQuery)
-        )
-      )
-      .orderBy(services.name);
+    return withPerformanceLogging('searchServices', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const searchQuery = `%${query}%`;
+        return await dbInstance
+          .select()
+          .from(services)
+          .where(
+            or(
+              like(services.name, searchQuery),
+              like(services.category, searchQuery),
+              like(services.description, searchQuery)
+            )
+          )
+          .orderBy(services.name);
+      });
+    });
   }
 
   // Product methods
   async getProducts(activeOnly = false): Promise<Product[]> {
-    if (activeOnly) {
-      return await db.select().from(products)
-        .where(and(eq(products.isActive, true), isNull(products.deletedAt)))
-        .orderBy(products.category, products.name);
-    }
+    return withPerformanceLogging('getProducts', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        if (activeOnly) {
+          return await dbInstance.select().from(products)
+            .where(and(eq(products.isActive, true), isNull(products.deletedAt)))
+            .orderBy(products.category, products.name);
+        }
     
-    return await db.select().from(products)
-      .where(isNull(products.deletedAt))
-      .orderBy(products.category, products.name);
+        return await dbInstance.select().from(products)
+          .where(isNull(products.deletedAt))
+          .orderBy(products.category, products.name);
+      });
+    });
   }
 
   // Получить товары для синхронизации с МойСклад (новые/измененные)
@@ -1257,114 +1456,154 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
-    return product || undefined;
+    return withPerformanceLogging('getProduct', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [product] = await dbInstance.select().from(products).where(eq(products.id, id));
+        return product || undefined;
+      });
+    });
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
-    const productToInsert = {
-      ...product,
-      price: product.price.toString()
-    };
-    const [newProduct] = await db
-      .insert(products)
-      .values(productToInsert)
-      .returning();
-    return newProduct;
+    return withPerformanceLogging('createProduct', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const productToInsert = {
+          ...product,
+          price: product.price.toString()
+        };
+        const [newProduct] = await dbInstance
+          .insert(products)
+          .values(productToInsert)
+          .returning();
+        return newProduct;
+      });
+    });
   }
 
   async updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product> {
-    const productToUpdate = {
-      ...product,
-      price: product.price !== undefined ? product.price.toString() : undefined,
-      updatedAt: new Date()
-    };
-    const [updated] = await db
-      .update(products)
-      .set(productToUpdate)
-      .where(eq(products.id, id))
-      .returning();
-    return updated;
+    return withPerformanceLogging('updateProduct', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const productToUpdate = {
+          ...product,
+          price: product.price !== undefined ? product.price.toString() : undefined,
+          updatedAt: new Date()
+        };
+        const [updated] = await dbInstance
+          .update(products)
+          .set(productToUpdate)
+          .where(eq(products.id, id))
+          .returning();
+        return updated;
+      });
+    });
   }
 
   async deleteProduct(id: string): Promise<void> {
-    // Soft delete - mark as deleted but keep in DB for sync
-    await db.update(products)
-      .set({ 
-        deletedAt: new Date(),
-        updatedAt: new Date()
-      })
-      .where(eq(products.id, id));
+    return withPerformanceLogging('deleteProduct', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Soft delete - mark as deleted but keep in DB for sync
+        await dbInstance.update(products)
+          .set({ 
+            deletedAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(products.id, id));
+      });
+    });
   }
 
   // Отметить товар как синхронизированный
   async markProductSynced(id: string, syncHash: string): Promise<void> {
-    await db.update(products)
-      .set({ 
-        lastSyncedAt: new Date(),
-        syncHash: syncHash
-      })
-      .where(eq(products.id, id));
+    return withPerformanceLogging('markProductSynced', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.update(products)
+          .set({ 
+            lastSyncedAt: new Date(),
+            syncHash: syncHash
+          })
+          .where(eq(products.id, id));
+      });
+    });
   }
 
   async searchProducts(query: string): Promise<Product[]> {
-    const searchQuery = `%${query}%`;
-    return await db
-      .select()
-      .from(products)
-      .where(
-        or(
-          like(products.name, searchQuery),
-          like(products.category, searchQuery),
-          like(products.description, searchQuery)
-        )
-      )
-      .orderBy(products.name);
+    return withPerformanceLogging('searchProducts', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const searchQuery = `%${query}%`;
+        return await dbInstance
+          .select()
+          .from(products)
+          .where(
+            or(
+              like(products.name, searchQuery),
+              like(products.category, searchQuery),
+              like(products.description, searchQuery)
+            )
+          )
+          .orderBy(products.name);
+      });
+    });
   }
 
   async getLowStockProducts(): Promise<Product[]> {
-    return await db
-      .select()
-      .from(products)
-      .where(
-        and(
-          eq(products.isActive, true),
-          sql`${products.stock} <= ${products.minStock}`
-        )
-      )
-      .orderBy(products.name);
+    return withPerformanceLogging('getLowStockProducts', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(products)
+          .where(
+            and(
+              eq(products.isActive, true),
+              sql`${products.stock} <= ${products.minStock}`
+            )
+          )
+          .orderBy(products.name);
+      });
+    });
   }
 
   async updateProductStock(id: string, quantity: number): Promise<Product> {
-    const [updated] = await db
-      .update(products)
-      .set({ 
-        stock: sql`${products.stock} + ${quantity}`,
-        updatedAt: new Date()
-      })
-      .where(eq(products.id, id))
-      .returning();
-    return updated;
+    return withPerformanceLogging('updateProductStock', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(products)
+          .set({ 
+            stock: sql`${products.stock} + ${quantity}`,
+            updatedAt: new Date()
+          })
+          .where(eq(products.id, id))
+          .returning();
+        return updated;
+      });
+    });
   }
 
   // External system integration methods for products
   async getProductByExternalId(externalId: string, system: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products)
-      .where(and(
-        eq(products.externalId, externalId),
-        eq(products.externalSystem, system),
-        isNull(products.deletedAt)
-      ));
-    return product || undefined;
+    return withPerformanceLogging('getProductByExternalId', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [product] = await dbInstance.select().from(products)
+          .where(and(
+            eq(products.externalId, externalId),
+            eq(products.externalSystem, system),
+            isNull(products.deletedAt)
+          ));
+        return product || undefined;
+      });
+    });
   }
 
   async getProductsByExternalSystem(system: string): Promise<Product[]> {
-    return await db.select().from(products)
-      .where(and(
-        eq(products.externalSystem, system),
-        isNull(products.deletedAt)
-      ))
-      .orderBy(products.name);
+    return withPerformanceLogging('getProductsByExternalSystem', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(products)
+          .where(and(
+            eq(products.externalSystem, system),
+            isNull(products.deletedAt)
+          ))
+          .orderBy(products.name);
+      });
+    });
   }
 
   // Invoice methods - 🔒 SECURITY: branchId mandatory for PHI isolation
@@ -1412,271 +1651,325 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getInvoices(status: string | undefined, branchId: string): Promise<Invoice[]> {
-    // 🔒 CRITICAL: Enforce branch isolation via patient join
-    let query = db.select({
-      id: invoices.id,
-      invoiceNumber: invoices.invoiceNumber,
-      patientId: invoices.patientId,
-      appointmentId: invoices.appointmentId,
-      issueDate: invoices.issueDate,
-      dueDate: invoices.dueDate,
-      subtotal: invoices.subtotal,
-      discount: invoices.discount,
-      total: invoices.total,
-      status: invoices.status,
-      paymentMethod: invoices.paymentMethod,
-      paidDate: invoices.paidDate,
-      paymentId: invoices.paymentId,
-      paymentUrl: invoices.paymentUrl,
-      fiscalReceiptId: invoices.fiscalReceiptId,
-      fiscalReceiptUrl: invoices.fiscalReceiptUrl,
-      notes: invoices.notes,
-      createdAt: invoices.createdAt,
-      updatedAt: invoices.updatedAt,
-    }).from(invoices)
-      .leftJoin(patients, eq(invoices.patientId, patients.id))
-      .where(eq(patients.branchId, branchId));
+    return withPerformanceLogging('getInvoices', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 CRITICAL: Enforce branch isolation via patient join
+        let query = dbInstance.select({
+          id: invoices.id,
+          invoiceNumber: invoices.invoiceNumber,
+          patientId: invoices.patientId,
+          appointmentId: invoices.appointmentId,
+          issueDate: invoices.issueDate,
+          dueDate: invoices.dueDate,
+          subtotal: invoices.subtotal,
+          discount: invoices.discount,
+          total: invoices.total,
+          status: invoices.status,
+          paymentMethod: invoices.paymentMethod,
+          paidDate: invoices.paidDate,
+          paymentId: invoices.paymentId,
+          paymentUrl: invoices.paymentUrl,
+          fiscalReceiptId: invoices.fiscalReceiptId,
+          fiscalReceiptUrl: invoices.fiscalReceiptUrl,
+          notes: invoices.notes,
+          createdAt: invoices.createdAt,
+          updatedAt: invoices.updatedAt,
+        }).from(invoices)
+          .leftJoin(patients, eq(invoices.patientId, patients.id))
+          .where(eq(patients.branchId, branchId));
     
-    if (status) {
-      query = query.where(and(eq(patients.branchId, branchId), eq(invoices.status, status)));
-    }
+        if (status) {
+          query = query.where(and(eq(patients.branchId, branchId), eq(invoices.status, status)));
+        }
     
-    return await query.orderBy(desc(invoices.issueDate));
+        return await query.orderBy(desc(invoices.issueDate));
+      });
+    });
   }
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
-    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
-    return invoice || undefined;
+    return withPerformanceLogging('getInvoice', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [invoice] = await dbInstance.select().from(invoices).where(eq(invoices.id, id));
+        return invoice || undefined;
+      });
+    });
   }
 
   async getInvoicesByPatient(patientId: string, branchId: string): Promise<Invoice[]> {
-    // 🔒 CRITICAL: Enforce branch isolation via patient join
-    return await db
-      .select({
-        id: invoices.id,
-        invoiceNumber: invoices.invoiceNumber,
-        patientId: invoices.patientId,
-        appointmentId: invoices.appointmentId,
-        issueDate: invoices.issueDate,
-        dueDate: invoices.dueDate,
-        subtotal: invoices.subtotal,
-        discount: invoices.discount,
-        total: invoices.total,
-        status: invoices.status,
-        paymentMethod: invoices.paymentMethod,
-        paidDate: invoices.paidDate,
-        paymentId: invoices.paymentId,
-        paymentUrl: invoices.paymentUrl,
-        fiscalReceiptId: invoices.fiscalReceiptId,
-        fiscalReceiptUrl: invoices.fiscalReceiptUrl,
-        notes: invoices.notes,
-        createdAt: invoices.createdAt,
-        updatedAt: invoices.updatedAt,
-      })
-      .from(invoices)
-      .leftJoin(patients, eq(invoices.patientId, patients.id))
-      .where(and(eq(invoices.patientId, patientId), eq(patients.branchId, branchId)))
-      .orderBy(desc(invoices.issueDate));
+    return withPerformanceLogging('getInvoicesByPatient', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 CRITICAL: Enforce branch isolation via patient join
+        return await dbInstance
+          .select({
+            id: invoices.id,
+            invoiceNumber: invoices.invoiceNumber,
+            patientId: invoices.patientId,
+            appointmentId: invoices.appointmentId,
+            issueDate: invoices.issueDate,
+            dueDate: invoices.dueDate,
+            subtotal: invoices.subtotal,
+            discount: invoices.discount,
+            total: invoices.total,
+            status: invoices.status,
+            paymentMethod: invoices.paymentMethod,
+            paidDate: invoices.paidDate,
+            paymentId: invoices.paymentId,
+            paymentUrl: invoices.paymentUrl,
+            fiscalReceiptId: invoices.fiscalReceiptId,
+            fiscalReceiptUrl: invoices.fiscalReceiptUrl,
+            notes: invoices.notes,
+            createdAt: invoices.createdAt,
+            updatedAt: invoices.updatedAt,
+          })
+          .from(invoices)
+          .leftJoin(patients, eq(invoices.patientId, patients.id))
+          .where(and(eq(invoices.patientId, patientId), eq(patients.branchId, branchId)))
+          .orderBy(desc(invoices.issueDate));
+      });
+    });
   }
 
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
-    // Generate invoice number if not provided
-    let invoiceNumber = invoice.invoiceNumber;
-    if (!invoiceNumber) {
-      // Generate invoice number in format: INV-YYYYMMDD-XXXXX
-      const date = new Date();
-      const dateStr = date.getFullYear().toString() + 
-                     (date.getMonth() + 1).toString().padStart(2, '0') + 
-                     date.getDate().toString().padStart(2, '0');
+    return withPerformanceLogging('createInvoice', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Generate invoice number if not provided
+        let invoiceNumber = invoice.invoiceNumber;
+        if (!invoiceNumber) {
+          // Generate invoice number in format: INV-YYYYMMDD-XXXXX
+          const date = new Date();
+          const dateStr = date.getFullYear().toString() + 
+                         (date.getMonth() + 1).toString().padStart(2, '0') + 
+                         date.getDate().toString().padStart(2, '0');
       
-      // Get count of invoices created today for sequential numbering
-      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+          // Get count of invoices created today for sequential numbering
+          const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+          const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
       
-      const todayInvoices = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(invoices)
-        .where(and(
-          gte(invoices.issueDate, startOfDay),
-          lt(invoices.issueDate, endOfDay)
-        ));
+          const todayInvoices = await dbInstance
+            .select({ count: sql<number>`count(*)` })
+            .from(invoices)
+            .where(and(
+              gte(invoices.issueDate, startOfDay),
+              lt(invoices.issueDate, endOfDay)
+            ));
       
-      const sequentialNumber = (todayInvoices[0]?.count || 0) + 1;
-      invoiceNumber = `INV-${dateStr}-${sequentialNumber.toString().padStart(5, '0')}`;
-    }
+          const sequentialNumber = (todayInvoices[0]?.count || 0) + 1;
+          invoiceNumber = `INV-${dateStr}-${sequentialNumber.toString().padStart(5, '0')}`;
+        }
 
-    const invoiceToInsert = {
-      ...invoice,
-      invoiceNumber,
-      subtotal: invoice.subtotal.toString(),
-      discount: invoice.discount !== undefined ? invoice.discount.toString() : "0",
-      total: invoice.total.toString()
-    };
-    const [newInvoice] = await db
-      .insert(invoices)
-      .values(invoiceToInsert)
-      .returning();
-    return newInvoice;
+        const invoiceToInsert = {
+          ...invoice,
+          invoiceNumber,
+          subtotal: invoice.subtotal.toString(),
+          discount: invoice.discount !== undefined ? invoice.discount.toString() : "0",
+          total: invoice.total.toString()
+        };
+        const [newInvoice] = await dbInstance
+          .insert(invoices)
+          .values(invoiceToInsert)
+          .returning();
+        return newInvoice;
+      });
+    });
   }
 
   async updateInvoice(id: string, invoice: Partial<InsertInvoice>): Promise<Invoice> {
-    const invoiceToUpdate = {
-      ...invoice,
-      subtotal: invoice.subtotal !== undefined ? invoice.subtotal.toString() : undefined,
-      discount: invoice.discount !== undefined ? invoice.discount.toString() : undefined,
-      total: invoice.total !== undefined ? invoice.total.toString() : undefined,
-      updatedAt: new Date()
-    };
-    const [updated] = await db
-      .update(invoices)
-      .set(invoiceToUpdate)
-      .where(eq(invoices.id, id))
-      .returning();
-    return updated;
+    return withPerformanceLogging('updateInvoice', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const invoiceToUpdate = {
+          ...invoice,
+          subtotal: invoice.subtotal !== undefined ? invoice.subtotal.toString() : undefined,
+          discount: invoice.discount !== undefined ? invoice.discount.toString() : undefined,
+          total: invoice.total !== undefined ? invoice.total.toString() : undefined,
+          updatedAt: new Date()
+        };
+        const [updated] = await dbInstance
+          .update(invoices)
+          .set(invoiceToUpdate)
+          .where(eq(invoices.id, id))
+          .returning();
+        return updated;
+      });
+    });
   }
 
   async deleteInvoice(id: string): Promise<void> {
-    await db.delete(invoices).where(eq(invoices.id, id));
+    return withPerformanceLogging('deleteInvoice', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(invoices).where(eq(invoices.id, id));
+      });
+    });
   }
 
   async getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]> {
-    return await db
-      .select()
-      .from(invoiceItems)
-      .where(eq(invoiceItems.invoiceId, invoiceId))
-      .orderBy(invoiceItems.itemName);
+    return withPerformanceLogging('getInvoiceItems', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(invoiceItems)
+          .where(eq(invoiceItems.invoiceId, invoiceId))
+          .orderBy(invoiceItems.itemName);
+      });
+    });
   }
 
   async createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem> {
-    const itemToInsert = {
-      ...item,
-      price: item.price.toString(),
-      total: item.total.toString()
-    };
-    const [newItem] = await db
-      .insert(invoiceItems)
-      .values(itemToInsert)
-      .returning();
-    return newItem;
+    return withPerformanceLogging('createInvoiceItem', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const itemToInsert = {
+          ...item,
+          price: item.price.toString(),
+          total: item.total.toString()
+        };
+        const [newItem] = await dbInstance
+          .insert(invoiceItems)
+          .values(itemToInsert)
+          .returning();
+        return newItem;
+      });
+    });
   }
 
   async deleteInvoiceItem(id: string): Promise<void> {
-    await db.delete(invoiceItems).where(eq(invoiceItems.id, id));
+    return withPerformanceLogging('deleteInvoiceItem', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(invoiceItems).where(eq(invoiceItems.id, id));
+      });
+    });
   }
 
   async getOverdueInvoices(branchId: string): Promise<Invoice[]> {
-    // 🔒 CRITICAL: Enforce branch isolation via patient join
-    const now = new Date();
-    return await db
-      .select()
-      .from(invoices)
-      .leftJoin(patients, eq(invoices.patientId, patients.id))
-      .where(
-        and(
-          eq(patients.branchId, branchId),
-          eq(invoices.status, 'pending'),
-          lte(invoices.dueDate, now)
-        )
-      )
-      .orderBy(invoices.dueDate);
+    return withPerformanceLogging('getOverdueInvoices', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 CRITICAL: Enforce branch isolation via patient join
+        const now = new Date();
+        return await dbInstance
+          .select()
+          .from(invoices)
+          .leftJoin(patients, eq(invoices.patientId, patients.id))
+          .where(
+            and(
+              eq(patients.branchId, branchId),
+              eq(invoices.status, 'pending'),
+              lte(invoices.dueDate, now)
+            )
+          )
+          .orderBy(invoices.dueDate);
+      });
+    });
   }
 
   async getDashboardStats() {
     return withPerformanceLogging('getDashboardStats', async () => {
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      return withTenantContext(undefined, async (dbInstance) => {
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
 
-      // Single optimized query using CTEs to get all stats in one round trip
-      const result = await db.execute(sql`
-        WITH dashboard_stats AS (
-          SELECT 
-            (SELECT COUNT(*)::int FROM ${patients}) as total_patients,
-            (SELECT COUNT(*)::int 
-             FROM ${appointments} 
-             WHERE ${appointments.appointmentDate} >= ${startOfDay} 
-             AND ${appointments.appointmentDate} < ${endOfDay}) as today_appointments,
-            (SELECT COUNT(*)::int 
-             FROM ${appointments} 
-             WHERE ${appointments.appointmentDate} >= ${startOfDay} 
-             AND ${appointments.appointmentDate} < ${endOfDay}
-             AND ${appointments.status} = 'in_progress') as active_appointments,
-            (SELECT COALESCE(SUM(CAST(${invoices.total} AS NUMERIC)), 0)::int
-             FROM ${invoices}
-             WHERE ${invoices.status} = 'paid'
-             AND ${invoices.issueDate} >= ${startOfMonth}
-             AND ${invoices.issueDate} < ${endOfMonth}) as revenue,
-            (SELECT COUNT(*)::int 
-             FROM ${invoices} 
-             WHERE ${invoices.status} = 'pending') as pending_payments,
-            (SELECT COUNT(*)::int 
-             FROM ${products} 
-             WHERE ${products.isActive} = true 
-             AND ${products.stock} <= ${products.minStock}) as low_stock
-        )
-        SELECT * FROM dashboard_stats
-      `);
+        // Single optimized query using CTEs to get all stats in one round trip
+        const result = await dbInstance.execute(sql`
+          WITH dashboard_stats AS (
+            SELECT 
+              (SELECT COUNT(*)::int FROM ${patients}) as total_patients,
+              (SELECT COUNT(*)::int 
+               FROM ${appointments} 
+               WHERE ${appointments.appointmentDate} >= ${startOfDay} 
+               AND ${appointments.appointmentDate} < ${endOfDay}) as today_appointments,
+              (SELECT COUNT(*)::int 
+               FROM ${appointments} 
+               WHERE ${appointments.appointmentDate} >= ${startOfDay} 
+               AND ${appointments.appointmentDate} < ${endOfDay}
+               AND ${appointments.status} = 'in_progress') as active_appointments,
+              (SELECT COALESCE(SUM(CAST(${invoices.total} AS NUMERIC)), 0)::int
+               FROM ${invoices}
+               WHERE ${invoices.status} = 'paid'
+               AND ${invoices.issueDate} >= ${startOfMonth}
+               AND ${invoices.issueDate} < ${endOfMonth}) as revenue,
+              (SELECT COUNT(*)::int 
+               FROM ${invoices} 
+               WHERE ${invoices.status} = 'pending') as pending_payments,
+              (SELECT COUNT(*)::int 
+               FROM ${products} 
+               WHERE ${products.isActive} = true 
+               AND ${products.stock} <= ${products.minStock}) as low_stock
+          )
+          SELECT * FROM dashboard_stats
+        `);
 
-      const row = result.rows[0] as any;
-      return {
-        totalPatients: row.total_patients || 0,
-        todayAppointments: row.today_appointments || 0,
-        activeAppointments: row.active_appointments || 0,
-        revenue: row.revenue || 0,
-        pendingPayments: row.pending_payments || 0,
-        lowStock: row.low_stock || 0
-      };
+        const row = result.rows[0] as any;
+        return {
+          totalPatients: row.total_patients || 0,
+          todayAppointments: row.today_appointments || 0,
+          activeAppointments: row.active_appointments || 0,
+          revenue: row.revenue || 0,
+          pendingPayments: row.pending_payments || 0,
+          lowStock: row.low_stock || 0
+        };
+      });
     });
   }
 
   // Branch methods
   async getBranches(): Promise<Branch[]> {
     return await withPerformanceLogging('getBranches', async () => {
-      return await db.select().from(branches).orderBy(desc(branches.createdAt));
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(branches).orderBy(desc(branches.createdAt));
+      });
     });
   }
 
   async getActiveBranches(): Promise<Branch[]> {
     return await withPerformanceLogging('getActiveBranches', async () => {
-      return await db.select().from(branches)
-        .where(eq(branches.status, 'active'))
-        .orderBy(branches.name);
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(branches)
+          .where(eq(branches.status, 'active'))
+          .orderBy(branches.name);
+      });
     });
   }
 
   async getBranch(id: string): Promise<Branch | undefined> {
     return await withPerformanceLogging('getBranch', async () => {
-      const [branch] = await db.select().from(branches).where(eq(branches.id, id));
-      return branch || undefined;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [branch] = await dbInstance.select().from(branches).where(eq(branches.id, id));
+        return branch || undefined;
+      });
     });
   }
 
   async createBranch(branch: InsertBranch): Promise<Branch> {
     return await withPerformanceLogging('createBranch', async () => {
-      const [newBranch] = await db
-        .insert(branches)
-        .values(branch)
-        .returning();
-      return newBranch;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newBranch] = await dbInstance
+          .insert(branches)
+          .values(branch)
+          .returning();
+        return newBranch;
+      });
     });
   }
 
   async updateBranch(id: string, branch: Partial<InsertBranch>): Promise<Branch> {
     return await withPerformanceLogging('updateBranch', async () => {
-      const [updated] = await db
-        .update(branches)
-        .set({ ...branch, updatedAt: new Date() })
-        .where(eq(branches.id, id))
-        .returning();
-      return updated;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(branches)
+          .set({ ...branch, updatedAt: new Date() })
+          .where(eq(branches.id, id))
+          .returning();
+        return updated;
+      });
     });
   }
 
   async deleteBranch(id: string): Promise<void> {
     return await withPerformanceLogging('deleteBranch', async () => {
-      await db.delete(branches).where(eq(branches.id, id));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(branches).where(eq(branches.id, id));
+      });
     });
   }
 
@@ -1726,369 +2019,437 @@ export class DatabaseStorage implements IStorage {
   // Patient File methods implementation
   async createPatientFile(file: InsertPatientFile): Promise<PatientFile> {
     return withPerformanceLogging('createPatientFile', async () => {
-      const [newFile] = await db
-        .insert(patientFiles)
-        .values(file)
-        .returning();
-      return newFile;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newFile] = await dbInstance
+          .insert(patientFiles)
+          .values(file)
+          .returning();
+        return newFile;
+      });
     });
   }
 
   async getPatientFiles(patientId: string, fileType?: string): Promise<PatientFile[]> {
     return withPerformanceLogging('getPatientFiles', async () => {
-      const conditions = [eq(patientFiles.patientId, patientId)];
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = [eq(patientFiles.patientId, patientId)];
       
-      if (fileType) {
-        conditions.push(eq(patientFiles.fileType, fileType));
-      }
+        if (fileType) {
+          conditions.push(eq(patientFiles.fileType, fileType));
+        }
 
-      return await db
-        .select()
-        .from(patientFiles)
-        .where(and(...conditions))
-        .orderBy(desc(patientFiles.createdAt));
+        return await dbInstance
+          .select()
+          .from(patientFiles)
+          .where(and(...conditions))
+          .orderBy(desc(patientFiles.createdAt));
+      });
     });
   }
 
   async getPatientFileById(fileId: string): Promise<PatientFile | undefined> {
     return withPerformanceLogging('getPatientFileById', async () => {
-      const [file] = await db
-        .select()
-        .from(patientFiles)
-        .where(eq(patientFiles.id, fileId));
-      return file || undefined;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [file] = await dbInstance
+          .select()
+          .from(patientFiles)
+          .where(eq(patientFiles.id, fileId));
+        return file || undefined;
+      });
     });
   }
 
   async deletePatientFile(fileId: string): Promise<void> {
     return withPerformanceLogging('deletePatientFile', async () => {
-      await db.delete(patientFiles).where(eq(patientFiles.id, fileId));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(patientFiles).where(eq(patientFiles.id, fileId));
+      });
     });
   }
 
   // Laboratory Study methods implementation
   async getLabStudies(activeOnly?: boolean): Promise<LabStudy[]> {
     return withPerformanceLogging('getLabStudies', async () => {
-      const conditions = activeOnly ? [eq(labStudies.isActive, true)] : [];
-      return await db
-        .select()
-        .from(labStudies)
-        .where(conditions.length ? and(...conditions) : undefined)
-        .orderBy(labStudies.category, labStudies.name);
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = activeOnly ? [eq(labStudies.isActive, true)] : [];
+        return await dbInstance
+          .select()
+          .from(labStudies)
+          .where(conditions.length ? and(...conditions) : undefined)
+          .orderBy(labStudies.category, labStudies.name);
+      });
     });
   }
 
   async getLabStudy(id: string): Promise<LabStudy | undefined> {
     return withPerformanceLogging('getLabStudy', async () => {
-      const [study] = await db.select().from(labStudies).where(eq(labStudies.id, id));
-      return study || undefined;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [study] = await dbInstance.select().from(labStudies).where(eq(labStudies.id, id));
+        return study || undefined;
+      });
     });
   }
 
   async createLabStudy(study: InsertLabStudy): Promise<LabStudy> {
     return withPerformanceLogging('createLabStudy', async () => {
-      const [newStudy] = await db
-        .insert(labStudies)
-        .values(study)
-        .returning();
-      return newStudy;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newStudy] = await dbInstance
+          .insert(labStudies)
+          .values(study)
+          .returning();
+        return newStudy;
+      });
     });
   }
 
   async updateLabStudy(id: string, study: Partial<InsertLabStudy>): Promise<LabStudy> {
     return withPerformanceLogging('updateLabStudy', async () => {
-      const [updated] = await db
-        .update(labStudies)
-        .set({ ...study, updatedAt: new Date() })
-        .where(eq(labStudies.id, id))
-        .returning();
-      return updated;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(labStudies)
+          .set({ ...study, updatedAt: new Date() })
+          .where(eq(labStudies.id, id))
+          .returning();
+        return updated;
+      });
     });
   }
 
   async deleteLabStudy(id: string): Promise<void> {
     return withPerformanceLogging('deleteLabStudy', async () => {
-      await db.delete(labStudies).where(eq(labStudies.id, id));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(labStudies).where(eq(labStudies.id, id));
+      });
     });
   }
 
   async searchLabStudies(query: string): Promise<LabStudy[]> {
     return withPerformanceLogging('searchLabStudies', async () => {
-      return await db
-        .select()
-        .from(labStudies)
-        .where(
-          or(
-            like(labStudies.name, `%${query}%`),
-            like(labStudies.category, `%${query}%`),
-            like(labStudies.description, `%${query}%`)
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(labStudies)
+          .where(
+            or(
+              like(labStudies.name, `%${query}%`),
+              like(labStudies.category, `%${query}%`),
+              like(labStudies.description, `%${query}%`)
+            )
           )
-        )
-        .orderBy(labStudies.category, labStudies.name);
+          .orderBy(labStudies.category, labStudies.name);
+      });
     });
   }
 
   // Laboratory Parameter methods implementation
   async getLabParameters(studyId?: string): Promise<LabParameter[]> {
     return withPerformanceLogging('getLabParameters', async () => {
-      const conditions = studyId ? [eq(labParameters.studyId, studyId)] : [];
-      return await db
-        .select()
-        .from(labParameters)
-        .where(conditions.length ? and(...conditions) : undefined)
-        .orderBy(labParameters.sortOrder, labParameters.name);
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = studyId ? [eq(labParameters.studyId, studyId)] : [];
+        return await dbInstance
+          .select()
+          .from(labParameters)
+          .where(conditions.length ? and(...conditions) : undefined)
+          .orderBy(labParameters.sortOrder, labParameters.name);
+      });
     });
   }
 
   async getLabParameter(id: string): Promise<LabParameter | undefined> {
     return withPerformanceLogging('getLabParameter', async () => {
-      const [parameter] = await db.select().from(labParameters).where(eq(labParameters.id, id));
-      return parameter || undefined;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [parameter] = await dbInstance.select().from(labParameters).where(eq(labParameters.id, id));
+        return parameter || undefined;
+      });
     });
   }
 
   async createLabParameter(parameter: InsertLabParameter): Promise<LabParameter> {
     return withPerformanceLogging('createLabParameter', async () => {
-      const [newParameter] = await db
-        .insert(labParameters)
-        .values(parameter)
-        .returning();
-      return newParameter;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newParameter] = await dbInstance
+          .insert(labParameters)
+          .values(parameter)
+          .returning();
+        return newParameter;
+      });
     });
   }
 
   async updateLabParameter(id: string, parameter: Partial<InsertLabParameter>): Promise<LabParameter> {
     return withPerformanceLogging('updateLabParameter', async () => {
-      const [updated] = await db
-        .update(labParameters)
-        .set({ ...parameter, updatedAt: new Date() })
-        .where(eq(labParameters.id, id))
-        .returning();
-      return updated;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(labParameters)
+          .set({ ...parameter, updatedAt: new Date() })
+          .where(eq(labParameters.id, id))
+          .returning();
+        return updated;
+      });
     });
   }
 
   async deleteLabParameter(id: string): Promise<void> {
     return withPerformanceLogging('deleteLabParameter', async () => {
-      await db.delete(labParameters).where(eq(labParameters.id, id));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(labParameters).where(eq(labParameters.id, id));
+      });
     });
   }
 
   // Reference Range methods implementation
   async getReferenceRanges(parameterId?: string, species?: string): Promise<ReferenceRange[]> {
     return withPerformanceLogging('getReferenceRanges', async () => {
-      const conditions = [];
-      if (parameterId) conditions.push(eq(referenceRanges.parameterId, parameterId));
-      if (species) conditions.push(eq(referenceRanges.species, species));
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = [];
+        if (parameterId) conditions.push(eq(referenceRanges.parameterId, parameterId));
+        if (species) conditions.push(eq(referenceRanges.species, species));
       
-      return await db
-        .select()
-        .from(referenceRanges)
-        .where(conditions.length ? and(...conditions) : undefined)
-        .orderBy(referenceRanges.species, referenceRanges.breed);
+        return await dbInstance
+          .select()
+          .from(referenceRanges)
+          .where(conditions.length ? and(...conditions) : undefined)
+          .orderBy(referenceRanges.species, referenceRanges.breed);
+      });
     });
   }
 
   async getReferenceRange(id: string): Promise<ReferenceRange | undefined> {
     return withPerformanceLogging('getReferenceRange', async () => {
-      const [range] = await db.select().from(referenceRanges).where(eq(referenceRanges.id, id));
-      return range || undefined;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [range] = await dbInstance.select().from(referenceRanges).where(eq(referenceRanges.id, id));
+        return range || undefined;
+      });
     });
   }
 
   async createReferenceRange(range: InsertReferenceRange): Promise<ReferenceRange> {
     return withPerformanceLogging('createReferenceRange', async () => {
-      const [newRange] = await db
-        .insert(referenceRanges)
-        .values(range)
-        .returning();
-      return newRange;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newRange] = await dbInstance
+          .insert(referenceRanges)
+          .values(range)
+          .returning();
+        return newRange;
+      });
     });
   }
 
   async updateReferenceRange(id: string, range: Partial<InsertReferenceRange>): Promise<ReferenceRange> {
     return withPerformanceLogging('updateReferenceRange', async () => {
-      const [updated] = await db
-        .update(referenceRanges)
-        .set({ ...range, updatedAt: new Date() })
-        .where(eq(referenceRanges.id, id))
-        .returning();
-      return updated;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(referenceRanges)
+          .set({ ...range, updatedAt: new Date() })
+          .where(eq(referenceRanges.id, id))
+          .returning();
+        return updated;
+      });
     });
   }
 
   async deleteReferenceRange(id: string): Promise<void> {
     return withPerformanceLogging('deleteReferenceRange', async () => {
-      await db.delete(referenceRanges).where(eq(referenceRanges.id, id));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(referenceRanges).where(eq(referenceRanges.id, id));
+      });
     });
   }
 
   async getApplicableReferenceRange(parameterId: string, species: string, breed?: string, age?: number, sex?: string): Promise<ReferenceRange | undefined> {
     return withPerformanceLogging('getApplicableReferenceRange', async () => {
-      const conds: (SQL<unknown> | undefined)[] = [
-        eq(referenceRanges.parameterId, parameterId),
-        eq(referenceRanges.species, species),
-        eq(referenceRanges.isActive, true),
-        sex ? or(isNull(referenceRanges.gender), eq(referenceRanges.gender, sex)) : undefined,
-        breed ? or(isNull(referenceRanges.breed), eq(referenceRanges.breed, breed)) : undefined,
-        age !== undefined ? or(isNull(referenceRanges.ageMin), lte(referenceRanges.ageMin, age)) : undefined,
-        age !== undefined ? or(isNull(referenceRanges.ageMax), gte(referenceRanges.ageMax, age)) : undefined,
-      ];
-      const where = and(...conds.filter((c): c is SQL<unknown> => c !== undefined));
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conds: (SQL<unknown> | undefined)[] = [
+          eq(referenceRanges.parameterId, parameterId),
+          eq(referenceRanges.species, species),
+          eq(referenceRanges.isActive, true),
+          sex ? or(isNull(referenceRanges.gender), eq(referenceRanges.gender, sex)) : undefined,
+          breed ? or(isNull(referenceRanges.breed), eq(referenceRanges.breed, breed)) : undefined,
+          age !== undefined ? or(isNull(referenceRanges.ageMin), lte(referenceRanges.ageMin, age)) : undefined,
+          age !== undefined ? or(isNull(referenceRanges.ageMax), gte(referenceRanges.ageMax, age)) : undefined,
+        ];
+        const where = and(...conds.filter((c): c is SQL<unknown> => c !== undefined));
       
-      const [range] = await db
-        .select()
-        .from(referenceRanges)
-        .where(where)
-        .orderBy(
-          sql`CASE WHEN ${referenceRanges.breed} IS NOT NULL THEN 0 ELSE 1 END`,
-          sql`CASE WHEN ${referenceRanges.gender} IS NOT NULL THEN 0 ELSE 1 END`
-        )
-        .limit(1);
+        const [range] = await dbInstance
+          .select()
+          .from(referenceRanges)
+          .where(where)
+          .orderBy(
+            sql`CASE WHEN ${referenceRanges.breed} IS NOT NULL THEN 0 ELSE 1 END`,
+            sql`CASE WHEN ${referenceRanges.gender} IS NOT NULL THEN 0 ELSE 1 END`
+          )
+          .limit(1);
         
-      return range || undefined;
+        return range || undefined;
+      });
     });
   }
 
   // Laboratory Order methods implementation - 🔒 SECURITY: branchId mandatory for PHI isolation
   async getLabOrders(patientId: string | undefined, status: string | undefined, branchId: string): Promise<LabOrder[]> {
     return withPerformanceLogging('getLabOrders', async () => {
-      const conditions = [eq(patients.branchId, branchId)];
-      if (patientId) conditions.push(eq(labOrders.patientId, patientId));
-      if (status) conditions.push(eq(labOrders.status, status));
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = [eq(patients.branchId, branchId)];
+        if (patientId) conditions.push(eq(labOrders.patientId, patientId));
+        if (status) conditions.push(eq(labOrders.status, status));
       
-      // 🔒 CRITICAL: Enforce branch isolation via patient join
-      return await db
-        .select()
-        .from(labOrders)
-        .leftJoin(patients, eq(labOrders.patientId, patients.id))
-        .where(and(...conditions))
-        .orderBy(desc(labOrders.orderedDate));
+        // 🔒 CRITICAL: Enforce branch isolation via patient join
+        return await dbInstance
+          .select()
+          .from(labOrders)
+          .leftJoin(patients, eq(labOrders.patientId, patients.id))
+          .where(and(...conditions))
+          .orderBy(desc(labOrders.orderedDate));
+      });
     });
   }
 
   async getLabOrder(id: string): Promise<LabOrder | undefined> {
     return withPerformanceLogging('getLabOrder', async () => {
-      const [order] = await db.select().from(labOrders).where(eq(labOrders.id, id));
-      return order || undefined;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [order] = await dbInstance.select().from(labOrders).where(eq(labOrders.id, id));
+        return order || undefined;
+      });
     });
   }
 
   async createLabOrder(order: InsertLabOrder): Promise<LabOrder> {
     return withPerformanceLogging('createLabOrder', async () => {
-      const [newOrder] = await db
-        .insert(labOrders)
-        .values(order)
-        .returning();
-      return newOrder;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newOrder] = await dbInstance
+          .insert(labOrders)
+          .values(order)
+          .returning();
+        return newOrder;
+      });
     });
   }
 
   async updateLabOrder(id: string, order: Partial<InsertLabOrder>): Promise<LabOrder> {
     return withPerformanceLogging('updateLabOrder', async () => {
-      const [updated] = await db
-        .update(labOrders)
-        .set({ ...order, updatedAt: new Date() })
-        .where(eq(labOrders.id, id))
-        .returning();
-      return updated;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(labOrders)
+          .set({ ...order, updatedAt: new Date() })
+          .where(eq(labOrders.id, id))
+          .returning();
+        return updated;
+      });
     });
   }
 
   async deleteLabOrder(id: string): Promise<void> {
     return withPerformanceLogging('deleteLabOrder', async () => {
-      await db.delete(labOrders).where(eq(labOrders.id, id));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(labOrders).where(eq(labOrders.id, id));
+      });
     });
   }
 
   async getLabOrdersByDoctor(doctorId: string, branchId: string): Promise<LabOrder[]> {
     return withPerformanceLogging('getLabOrdersByDoctor', async () => {
-      // 🔒 CRITICAL: Enforce branch isolation via patient join
-      return await db
-        .select()
-        .from(labOrders)
-        .leftJoin(patients, eq(labOrders.patientId, patients.id))
-        .where(and(eq(labOrders.doctorId, doctorId), eq(patients.branchId, branchId)))
-        .orderBy(desc(labOrders.orderedDate));
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 CRITICAL: Enforce branch isolation via patient join
+        return await dbInstance
+          .select()
+          .from(labOrders)
+          .leftJoin(patients, eq(labOrders.patientId, patients.id))
+          .where(and(eq(labOrders.doctorId, doctorId), eq(patients.branchId, branchId)))
+          .orderBy(desc(labOrders.orderedDate));
+      });
     });
   }
 
   async getLabOrdersByAppointment(appointmentId: string, branchId: string): Promise<LabOrder[]> {
     return withPerformanceLogging('getLabOrdersByAppointment', async () => {
-      // 🔒 CRITICAL: Enforce branch isolation via patient join
-      return await db
-        .select()
-        .from(labOrders)
-        .leftJoin(patients, eq(labOrders.patientId, patients.id))
-        .where(and(eq(labOrders.appointmentId, appointmentId), eq(patients.branchId, branchId)))
-        .orderBy(desc(labOrders.orderedDate));
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 CRITICAL: Enforce branch isolation via patient join
+        return await dbInstance
+          .select()
+          .from(labOrders)
+          .leftJoin(patients, eq(labOrders.patientId, patients.id))
+          .where(and(eq(labOrders.appointmentId, appointmentId), eq(patients.branchId, branchId)))
+          .orderBy(desc(labOrders.orderedDate));
+      });
     });
   }
 
   // Laboratory Result Detail methods implementation
   async getLabResultDetails(orderId: string): Promise<LabResultDetail[]> {
     return withPerformanceLogging('getLabResultDetails', async () => {
-      return await db
-        .select()
-        .from(labResultDetails)
-        .where(eq(labResultDetails.orderId, orderId))
-        .orderBy(labResultDetails.createdAt);
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(labResultDetails)
+          .where(eq(labResultDetails.orderId, orderId))
+          .orderBy(labResultDetails.createdAt);
+      });
     });
   }
 
   async getLabResultDetail(id: string): Promise<LabResultDetail | undefined> {
     return withPerformanceLogging('getLabResultDetail', async () => {
-      const [detail] = await db.select().from(labResultDetails).where(eq(labResultDetails.id, id));
-      return detail || undefined;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [detail] = await dbInstance.select().from(labResultDetails).where(eq(labResultDetails.id, id));
+        return detail || undefined;
+      });
     });
   }
 
   async createLabResultDetail(detail: InsertLabResultDetail): Promise<LabResultDetail> {
     return withPerformanceLogging('createLabResultDetail', async () => {
-      const values: typeof labResultDetails.$inferInsert = {
-        ...detail,
-        numericValue: detail.numericValue === undefined ? null : String(detail.numericValue),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      const [newDetail] = await db
-        .insert(labResultDetails)
-        .values(values)
-        .returning();
-      return newDetail;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const values: typeof labResultDetails.$inferInsert = {
+          ...detail,
+          numericValue: detail.numericValue === undefined ? null : String(detail.numericValue),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        const [newDetail] = await dbInstance
+          .insert(labResultDetails)
+          .values(values)
+          .returning();
+        return newDetail;
+      });
     });
   }
 
   async updateLabResultDetail(id: string, detail: Partial<InsertLabResultDetail>): Promise<LabResultDetail> {
     return withPerformanceLogging('updateLabResultDetail', async () => {
-      const patch: Partial<typeof labResultDetails.$inferInsert> = {
-        ...detail,
-        numericValue: detail.numericValue === undefined ? undefined : String(detail.numericValue),
-        updatedAt: new Date(),
-      };
+      return withTenantContext(undefined, async (dbInstance) => {
+        const patch: Partial<typeof labResultDetails.$inferInsert> = {
+          ...detail,
+          numericValue: detail.numericValue === undefined ? undefined : String(detail.numericValue),
+          updatedAt: new Date(),
+        };
       
-      const [updated] = await db
-        .update(labResultDetails)
-        .set(patch)
-        .where(eq(labResultDetails.id, id))
-        .returning();
-      return updated;
+        const [updated] = await dbInstance
+          .update(labResultDetails)
+          .set(patch)
+          .where(eq(labResultDetails.id, id))
+          .returning();
+        return updated;
+      });
     });
   }
 
   async deleteLabResultDetail(id: string): Promise<void> {
     return withPerformanceLogging('deleteLabResultDetail', async () => {
-      await db.delete(labResultDetails).where(eq(labResultDetails.id, id));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(labResultDetails).where(eq(labResultDetails.id, id));
+      });
     });
   }
 
   async getLabResultsByParameter(parameterId: string): Promise<LabResultDetail[]> {
     return withPerformanceLogging('getLabResultsByParameter', async () => {
-      return await db
-        .select()
-        .from(labResultDetails)
-        .where(eq(labResultDetails.parameterId, parameterId))
-        .orderBy(desc(labResultDetails.createdAt));
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(labResultDetails)
+          .where(eq(labResultDetails.parameterId, parameterId))
+          .orderBy(desc(labResultDetails.createdAt));
+      });
     });
   }
 
@@ -2105,23 +2466,25 @@ export class DatabaseStorage implements IStorage {
     errorMessage: string | null;
   }): Promise<string> {
     return withPerformanceLogging('createPaymentIntent', async () => {
-      const [created] = await db
-        .insert(paymentIntents)
-        .values({
-          invoiceId: paymentIntentData.invoiceId,
-          amount: paymentIntentData.amount.toString(),
-          currency: paymentIntentData.currency,
-          paymentMethod: paymentIntentData.paymentMethod,
-          status: paymentIntentData.status,
-          integrationAccountId: paymentIntentData.integrationAccountId,
-          externalPaymentId: paymentIntentData.externalPaymentId,
-          paymentData: paymentIntentData.paymentData,
-          errorMessage: paymentIntentData.errorMessage,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning({ id: paymentIntents.id });
-      return created.id;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [created] = await dbInstance
+          .insert(paymentIntents)
+          .values({
+            invoiceId: paymentIntentData.invoiceId,
+            amount: paymentIntentData.amount.toString(),
+            currency: paymentIntentData.currency,
+            paymentMethod: paymentIntentData.paymentMethod,
+            status: paymentIntentData.status,
+            integrationAccountId: paymentIntentData.integrationAccountId,
+            externalPaymentId: paymentIntentData.externalPaymentId,
+            paymentData: paymentIntentData.paymentData,
+            errorMessage: paymentIntentData.errorMessage,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning({ id: paymentIntents.id });
+        return created.id;
+      });
     });
   }
 
@@ -2131,13 +2494,15 @@ export class DatabaseStorage implements IStorage {
     errorMessage?: string | null;
   }): Promise<void> {
     return withPerformanceLogging('updatePaymentIntent', async () => {
-      await db
-        .update(paymentIntents)
-        .set({
-          ...updates,
-          updatedAt: new Date(),
-        })
-        .where(eq(paymentIntents.id, id));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance
+          .update(paymentIntents)
+          .set({
+            ...updates,
+            updatedAt: new Date(),
+          })
+          .where(eq(paymentIntents.id, id));
+      });
     });
   }
   
@@ -2165,34 +2530,36 @@ export class DatabaseStorage implements IStorage {
     errorMessage: string | null;
   }): Promise<string> {
     return withPerformanceLogging('createFiscalReceipt', async () => {
-      const [created] = await db
-        .insert(fiscalReceipts)
-        .values({
-          invoiceId: fiscalReceiptData.invoiceId,
-          receiptNumber: fiscalReceiptData.receiptNumber,
-          status: fiscalReceiptData.status,
-          receiptType: fiscalReceiptData.receiptType,
-          paymentMethod: fiscalReceiptData.paymentMethod,
-          customerEmail: fiscalReceiptData.customerEmail,
-          customerPhone: fiscalReceiptData.customerPhone,
-          taxationSystem: fiscalReceiptData.taxationSystem,
-          operatorName: fiscalReceiptData.operatorName,
-          operatorInn: fiscalReceiptData.operatorInn,
-          totalAmount: fiscalReceiptData.totalAmount.toString(),
-          vatAmount: fiscalReceiptData.vatAmount.toString(),
-          cashAmount: fiscalReceiptData.cashAmount.toString(),
-          cardAmount: fiscalReceiptData.cardAmount.toString(),
-          items: fiscalReceiptData.items,
-          markingStatus: fiscalReceiptData.markingStatus,
-          fiscalData: fiscalReceiptData.fiscalData,
-          integrationAccountId: fiscalReceiptData.integrationAccountId,
-          externalReceiptId: fiscalReceiptData.externalReceiptId,
-          errorMessage: fiscalReceiptData.errorMessage,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning({ id: fiscalReceipts.id });
-      return created.id;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [created] = await dbInstance
+          .insert(fiscalReceipts)
+          .values({
+            invoiceId: fiscalReceiptData.invoiceId,
+            receiptNumber: fiscalReceiptData.receiptNumber,
+            status: fiscalReceiptData.status,
+            receiptType: fiscalReceiptData.receiptType,
+            paymentMethod: fiscalReceiptData.paymentMethod,
+            customerEmail: fiscalReceiptData.customerEmail,
+            customerPhone: fiscalReceiptData.customerPhone,
+            taxationSystem: fiscalReceiptData.taxationSystem,
+            operatorName: fiscalReceiptData.operatorName,
+            operatorInn: fiscalReceiptData.operatorInn,
+            totalAmount: fiscalReceiptData.totalAmount.toString(),
+            vatAmount: fiscalReceiptData.vatAmount.toString(),
+            cashAmount: fiscalReceiptData.cashAmount.toString(),
+            cardAmount: fiscalReceiptData.cardAmount.toString(),
+            items: fiscalReceiptData.items,
+            markingStatus: fiscalReceiptData.markingStatus,
+            fiscalData: fiscalReceiptData.fiscalData,
+            integrationAccountId: fiscalReceiptData.integrationAccountId,
+            externalReceiptId: fiscalReceiptData.externalReceiptId,
+            errorMessage: fiscalReceiptData.errorMessage,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning({ id: fiscalReceipts.id });
+        return created.id;
+      });
     });
   }
 
@@ -2205,13 +2572,15 @@ export class DatabaseStorage implements IStorage {
     errorMessage?: string | null;
   }): Promise<void> {
     return withPerformanceLogging('updateFiscalReceipt', async () => {
-      await db
-        .update(fiscalReceipts)
-        .set({
-          ...updates,
-          updatedAt: new Date(),
-        })
-        .where(eq(fiscalReceipts.id, id));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance
+          .update(fiscalReceipts)
+          .set({
+            ...updates,
+            updatedAt: new Date(),
+          })
+          .where(eq(fiscalReceipts.id, id));
+      });
     });
   }
   
@@ -2235,28 +2604,30 @@ export class DatabaseStorage implements IStorage {
     createdAt: Date;
   } | undefined> {
     return withPerformanceLogging('getFiscalReceipt', async () => {
-      const [receipt] = await db
-        .select({
-          id: fiscalReceipts.id,
-          invoiceId: fiscalReceipts.invoiceId,
-          items: fiscalReceipts.items,
-          totalAmount: fiscalReceipts.totalAmount,
-          customerEmail: fiscalReceipts.customerEmail,
-          customerPhone: fiscalReceipts.customerPhone,
-          paymentMethod: fiscalReceipts.paymentMethod,
-          taxationSystem: fiscalReceipts.taxationSystem,
-          operatorName: fiscalReceipts.operatorName,
-          receiptType: fiscalReceipts.receiptType,
-          localPrintStatus: fiscalReceipts.localPrintStatus,
-          localPrinterType: fiscalReceipts.localPrinterType,
-          localPrintedAt: fiscalReceipts.localPrintedAt,
-          localPrintData: fiscalReceipts.localPrintData,
-          localPrintError: fiscalReceipts.localPrintError,
-          createdAt: fiscalReceipts.createdAt,
-        })
-        .from(fiscalReceipts)
-        .where(eq(fiscalReceipts.id, id));
-      return receipt || undefined;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [receipt] = await dbInstance
+          .select({
+            id: fiscalReceipts.id,
+            invoiceId: fiscalReceipts.invoiceId,
+            items: fiscalReceipts.items,
+            totalAmount: fiscalReceipts.totalAmount,
+            customerEmail: fiscalReceipts.customerEmail,
+            customerPhone: fiscalReceipts.customerPhone,
+            paymentMethod: fiscalReceipts.paymentMethod,
+            taxationSystem: fiscalReceipts.taxationSystem,
+            operatorName: fiscalReceipts.operatorName,
+            receiptType: fiscalReceipts.receiptType,
+            localPrintStatus: fiscalReceipts.localPrintStatus,
+            localPrinterType: fiscalReceipts.localPrinterType,
+            localPrintedAt: fiscalReceipts.localPrintedAt,
+            localPrintData: fiscalReceipts.localPrintData,
+            localPrintError: fiscalReceipts.localPrintError,
+            createdAt: fiscalReceipts.createdAt,
+          })
+          .from(fiscalReceipts)
+          .where(eq(fiscalReceipts.id, id));
+        return receipt || undefined;
+      });
     });
   }
 
@@ -2274,51 +2645,55 @@ export class DatabaseStorage implements IStorage {
     createdAt: Date;
   }[]> {
     return withPerformanceLogging('getPendingLocalPrintReceipts', async () => {
-      return await db
-        .select({
-          id: fiscalReceipts.id,
-          invoiceId: fiscalReceipts.invoiceId,
-          items: fiscalReceipts.items,
-          totalAmount: fiscalReceipts.totalAmount,
-          customerEmail: fiscalReceipts.customerEmail,
-          customerPhone: fiscalReceipts.customerPhone,
-          paymentMethod: fiscalReceipts.paymentMethod,
-          taxationSystem: fiscalReceipts.taxationSystem,
-          operatorName: fiscalReceipts.operatorName,
-          receiptType: fiscalReceipts.receiptType,
-          createdAt: fiscalReceipts.createdAt,
-        })
-        .from(fiscalReceipts)
-        .innerJoin(invoices, eq(fiscalReceipts.invoiceId, invoices.id))
-        .innerJoin(patients, eq(invoices.patientId, patients.id))
-        .where(
-          and(
-            eq(patients.branchId, branchId),
-            eq(fiscalReceipts.localPrintRequested, true),
-            eq(fiscalReceipts.localPrintStatus, 'pending')
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select({
+            id: fiscalReceipts.id,
+            invoiceId: fiscalReceipts.invoiceId,
+            items: fiscalReceipts.items,
+            totalAmount: fiscalReceipts.totalAmount,
+            customerEmail: fiscalReceipts.customerEmail,
+            customerPhone: fiscalReceipts.customerPhone,
+            paymentMethod: fiscalReceipts.paymentMethod,
+            taxationSystem: fiscalReceipts.taxationSystem,
+            operatorName: fiscalReceipts.operatorName,
+            receiptType: fiscalReceipts.receiptType,
+            createdAt: fiscalReceipts.createdAt,
+          })
+          .from(fiscalReceipts)
+          .innerJoin(invoices, eq(fiscalReceipts.invoiceId, invoices.id))
+          .innerJoin(patients, eq(invoices.patientId, patients.id))
+          .where(
+            and(
+              eq(patients.branchId, branchId),
+              eq(fiscalReceipts.localPrintRequested, true),
+              eq(fiscalReceipts.localPrintStatus, 'pending')
+            )
           )
-        )
-        .orderBy(asc(fiscalReceipts.createdAt));
+          .orderBy(asc(fiscalReceipts.createdAt));
+      });
     });
   }
 
   async markReceiptAsPrinted(receiptId: string, printResult: any, printedAt: Date): Promise<boolean> {
     return withPerformanceLogging('markReceiptAsPrinted', async () => {
-      const success = printResult.success === true;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const success = printResult.success === true;
       
-      const result = await db
-        .update(fiscalReceipts)
-        .set({
-          localPrintStatus: success ? 'printed' : 'failed',
-          localPrintedAt: printedAt,
-          localPrintData: printResult,
-          localPrintError: success ? null : (printResult.error || 'Unknown print error'),
-          updatedAt: new Date(),
-        })
-        .where(eq(fiscalReceipts.id, receiptId))
-        .returning({ id: fiscalReceipts.id });
+        const result = await dbInstance
+          .update(fiscalReceipts)
+          .set({
+            localPrintStatus: success ? 'printed' : 'failed',
+            localPrintedAt: printedAt,
+            localPrintData: printResult,
+            localPrintError: success ? null : (printResult.error || 'Unknown print error'),
+            updatedAt: new Date(),
+          })
+          .where(eq(fiscalReceipts.id, receiptId))
+          .returning({ id: fiscalReceipts.id });
       
-      return result.length > 0;
+        return result.length > 0;
+      });
     });
   }
 
@@ -2781,85 +3156,87 @@ export class DatabaseStorage implements IStorage {
 
   async requestLocalPrint(invoiceId: string, printerType: string, operatorName: string): Promise<string> {
     return withPerformanceLogging('requestLocalPrint', async () => {
-      // Проверяем, есть ли уже фискальный чек для этого счета
-      const [existingReceipt] = await db
-        .select({ id: fiscalReceipts.id })
-        .from(fiscalReceipts)
-        .where(eq(fiscalReceipts.invoiceId, invoiceId));
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Проверяем, есть ли уже фискальный чек для этого счета
+        const [existingReceipt] = await dbInstance
+          .select({ id: fiscalReceipts.id })
+          .from(fiscalReceipts)
+          .where(eq(fiscalReceipts.invoiceId, invoiceId));
 
-      if (existingReceipt) {
-        // Обновляем существующий чек для локальной печати
-        await db
-          .update(fiscalReceipts)
-          .set({
-            localPrintRequested: true,
-            localPrintStatus: 'pending',
-            localPrinterType: printerType,
-            operatorName: operatorName,
-            updatedAt: new Date(),
-          })
-          .where(eq(fiscalReceipts.id, existingReceipt.id));
+        if (existingReceipt) {
+          // Обновляем существующий чек для локальной печати
+          await dbInstance
+            .update(fiscalReceipts)
+            .set({
+              localPrintRequested: true,
+              localPrintStatus: 'pending',
+              localPrinterType: printerType,
+              operatorName: operatorName,
+              updatedAt: new Date(),
+            })
+            .where(eq(fiscalReceipts.id, existingReceipt.id));
         
-        return existingReceipt.id;
-      } else {
-        // Получаем данные счета для создания фискального чека
-        const invoice = await this.getInvoice(invoiceId);
-        if (!invoice) {
-          throw new Error('Invoice not found');
+          return existingReceipt.id;
+        } else {
+          // Получаем данные счета для создания фискального чека
+          const invoice = await this.getInvoice(invoiceId);
+          if (!invoice) {
+            throw new Error('Invoice not found');
+          }
+
+          const invoiceItems = await this.getInvoiceItems(invoiceId);
+        
+          // Формируем позиции чека согласно 54-ФЗ
+          const receiptItems = invoiceItems.map(item => ({
+            name: item.itemName,
+            quantity: parseFloat(item.quantity.toString()),
+            price: parseFloat(item.price),
+            amount: parseFloat(item.total),
+            vatRate: item.vatRate || 'not_applicable',
+            paymentMethod: 'full_payment',
+            paymentObject: 'service'
+          }));
+
+          // Создаем новый фискальный чек
+          const [created] = await dbInstance
+            .insert(fiscalReceipts)
+            .values({
+              invoiceId: invoiceId,
+              receiptNumber: null,
+              status: 'draft',
+              receiptType: 'sale',
+              paymentMethod: 'cash', // По умолчанию наличные, может быть изменено
+              customerEmail: null,
+              customerPhone: null,
+              taxationSystem: 'simplified_income', // УСН доходы по умолчанию
+              operatorName: operatorName,
+              operatorInn: null,
+              totalAmount: invoice.total,
+              vatAmount: '0', // Рассчитывается при необходимости
+              cashAmount: invoice.total,
+              cardAmount: '0',
+              items: receiptItems,
+              markingStatus: 'not_required',
+              fiscalData: null,
+              integrationAccountId: null,
+              externalReceiptId: null,
+              localPrintRequested: true,
+              localPrintStatus: 'pending',
+              localPrinterType: printerType,
+              localPrintedAt: null,
+              localPrintData: null,
+              localPrintError: null,
+              errorMessage: null,
+              sentAt: null,
+              registeredAt: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .returning({ id: fiscalReceipts.id });
+
+          return created.id;
         }
-
-        const invoiceItems = await this.getInvoiceItems(invoiceId);
-        
-        // Формируем позиции чека согласно 54-ФЗ
-        const receiptItems = invoiceItems.map(item => ({
-          name: item.itemName,
-          quantity: parseFloat(item.quantity.toString()),
-          price: parseFloat(item.price),
-          amount: parseFloat(item.total),
-          vatRate: item.vatRate || 'not_applicable',
-          paymentMethod: 'full_payment',
-          paymentObject: 'service'
-        }));
-
-        // Создаем новый фискальный чек
-        const [created] = await db
-          .insert(fiscalReceipts)
-          .values({
-            invoiceId: invoiceId,
-            receiptNumber: null,
-            status: 'draft',
-            receiptType: 'sale',
-            paymentMethod: 'cash', // По умолчанию наличные, может быть изменено
-            customerEmail: null,
-            customerPhone: null,
-            taxationSystem: 'simplified_income', // УСН доходы по умолчанию
-            operatorName: operatorName,
-            operatorInn: null,
-            totalAmount: invoice.total,
-            vatAmount: '0', // Рассчитывается при необходимости
-            cashAmount: invoice.total,
-            cardAmount: '0',
-            items: receiptItems,
-            markingStatus: 'not_required',
-            fiscalData: null,
-            integrationAccountId: null,
-            externalReceiptId: null,
-            localPrintRequested: true,
-            localPrintStatus: 'pending',
-            localPrinterType: printerType,
-            localPrintedAt: null,
-            localPrintData: null,
-            localPrintError: null,
-            errorMessage: null,
-            sentAt: null,
-            registeredAt: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .returning({ id: fiscalReceipts.id });
-
-        return created.id;
-      }
+      });
     });
   }
   
@@ -3027,171 +3404,209 @@ export class DatabaseStorage implements IStorage {
 
   async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
     return withPerformanceLogging('getSubscriptionPlans', async () => {
-      return await db.select().from(subscriptionPlans).orderBy(subscriptionPlans.price);
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(subscriptionPlans).orderBy(subscriptionPlans.price);
+      });
     });
   }
 
   async getSubscriptionPlan(id: string): Promise<SubscriptionPlan | null> {
     return withPerformanceLogging('getSubscriptionPlan', async () => {
-      const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, id)).limit(1);
-      return plan || null;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [plan] = await dbInstance.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, id)).limit(1);
+        return plan || null;
+      });
     });
   }
 
   async getActiveSubscriptionPlans(): Promise<SubscriptionPlan[]> {
     return withPerformanceLogging('getActiveSubscriptionPlans', async () => {
-      return await db.select()
-        .from(subscriptionPlans)
-        .where(eq(subscriptionPlans.isActive, true))
-        .orderBy(subscriptionPlans.price);
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select()
+          .from(subscriptionPlans)
+          .where(eq(subscriptionPlans.isActive, true))
+          .orderBy(subscriptionPlans.price);
+      });
     });
   }
 
   async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
     return withPerformanceLogging('createSubscriptionPlan', async () => {
-      const [newPlan] = await db.insert(subscriptionPlans).values(plan).returning();
-      return newPlan;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newPlan] = await dbInstance.insert(subscriptionPlans).values(plan).returning();
+        return newPlan;
+      });
     });
   }
 
   async updateSubscriptionPlan(id: string, updates: Partial<InsertSubscriptionPlan>): Promise<SubscriptionPlan> {
     return withPerformanceLogging('updateSubscriptionPlan', async () => {
-      const [updated] = await db.update(subscriptionPlans)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(subscriptionPlans.id, id))
-        .returning();
-      return updated;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance.update(subscriptionPlans)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(subscriptionPlans.id, id))
+          .returning();
+        return updated;
+      });
     });
   }
 
   async deleteSubscriptionPlan(id: string): Promise<void> {
     return withPerformanceLogging('deleteSubscriptionPlan', async () => {
-      await db.delete(subscriptionPlans).where(eq(subscriptionPlans.id, id));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(subscriptionPlans).where(eq(subscriptionPlans.id, id));
+      });
     });
   }
 
   async getClinicSubscription(branchId: string): Promise<ClinicSubscription | null> {
     return withPerformanceLogging('getClinicSubscription', async () => {
-      const [subscription] = await db.select()
-        .from(clinicSubscriptions)
-        .where(eq(clinicSubscriptions.branchId, branchId))
-        .orderBy(desc(clinicSubscriptions.createdAt))
-        .limit(1);
-      return subscription || null;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [subscription] = await dbInstance.select()
+          .from(clinicSubscriptions)
+          .where(eq(clinicSubscriptions.branchId, branchId))
+          .orderBy(desc(clinicSubscriptions.createdAt))
+          .limit(1);
+        return subscription || null;
+      });
     });
   }
 
   async getClinicSubscriptions(): Promise<ClinicSubscription[]> {
     return withPerformanceLogging('getClinicSubscriptions', async () => {
-      return await db.select().from(clinicSubscriptions).orderBy(desc(clinicSubscriptions.createdAt));
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(clinicSubscriptions).orderBy(desc(clinicSubscriptions.createdAt));
+      });
     });
   }
 
   async createClinicSubscription(subscription: InsertClinicSubscription): Promise<ClinicSubscription> {
     return withPerformanceLogging('createClinicSubscription', async () => {
-      const [newSubscription] = await db.insert(clinicSubscriptions).values(subscription).returning();
-      return newSubscription;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newSubscription] = await dbInstance.insert(clinicSubscriptions).values(subscription).returning();
+        return newSubscription;
+      });
     });
   }
 
   async updateClinicSubscription(id: string, updates: Partial<InsertClinicSubscription>): Promise<ClinicSubscription> {
     return withPerformanceLogging('updateClinicSubscription', async () => {
-      const [updated] = await db.update(clinicSubscriptions)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(clinicSubscriptions.id, id))
-        .returning();
-      return updated;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance.update(clinicSubscriptions)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(clinicSubscriptions.id, id))
+          .returning();
+        return updated;
+      });
     });
   }
 
   async checkSubscriptionStatus(branchId: string): Promise<{ active: boolean; daysLeft: number; subscription: ClinicSubscription | null }> {
     return withPerformanceLogging('checkSubscriptionStatus', async () => {
-      const subscription = await this.getClinicSubscription(branchId);
+      return withTenantContext(undefined, async (dbInstance) => {
+        const subscription = await this.getClinicSubscription(branchId);
       
-      if (!subscription) {
-        return { active: false, daysLeft: 0, subscription: null };
-      }
+        if (!subscription) {
+          return { active: false, daysLeft: 0, subscription: null };
+        }
 
-      const now = new Date();
-      const endDate = new Date(subscription.endDate);
-      const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const now = new Date();
+        const endDate = new Date(subscription.endDate);
+        const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-      const active = subscription.status === 'active' && daysLeft > 0;
+        const active = subscription.status === 'active' && daysLeft > 0;
 
-      return { active, daysLeft, subscription };
+        return { active, daysLeft, subscription };
+      });
     });
   }
 
   async getSubscriptionPayments(subscriptionId: string): Promise<SubscriptionPayment[]> {
     return withPerformanceLogging('getSubscriptionPayments', async () => {
-      return await db.select()
-        .from(subscriptionPayments)
-        .where(eq(subscriptionPayments.subscriptionId, subscriptionId))
-        .orderBy(desc(subscriptionPayments.createdAt));
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select()
+          .from(subscriptionPayments)
+          .where(eq(subscriptionPayments.subscriptionId, subscriptionId))
+          .orderBy(desc(subscriptionPayments.createdAt));
+      });
     });
   }
 
   async getAllSubscriptionPayments(): Promise<SubscriptionPayment[]> {
     return withPerformanceLogging('getAllSubscriptionPayments', async () => {
-      return await db.select()
-        .from(subscriptionPayments)
-        .orderBy(desc(subscriptionPayments.createdAt));
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select()
+          .from(subscriptionPayments)
+          .orderBy(desc(subscriptionPayments.createdAt));
+      });
     });
   }
 
   async createSubscriptionPayment(payment: InsertSubscriptionPayment): Promise<SubscriptionPayment> {
     return withPerformanceLogging('createSubscriptionPayment', async () => {
-      const [newPayment] = await db.insert(subscriptionPayments).values(payment).returning();
-      return newPayment;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newPayment] = await dbInstance.insert(subscriptionPayments).values(payment).returning();
+        return newPayment;
+      });
     });
   }
 
   async updateSubscriptionPayment(id: string, updates: Partial<InsertSubscriptionPayment>): Promise<SubscriptionPayment> {
     return withPerformanceLogging('updateSubscriptionPayment', async () => {
-      const [updated] = await db.update(subscriptionPayments)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(subscriptionPayments.id, id))
-        .returning();
-      return updated;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance.update(subscriptionPayments)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(subscriptionPayments.id, id))
+          .returning();
+        return updated;
+      });
     });
   }
 
   async getBillingNotifications(subscriptionId: string): Promise<BillingNotification[]> {
     return withPerformanceLogging('getBillingNotifications', async () => {
-      return await db.select()
-        .from(billingNotifications)
-        .where(eq(billingNotifications.subscriptionId, subscriptionId))
-        .orderBy(desc(billingNotifications.createdAt));
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select()
+          .from(billingNotifications)
+          .where(eq(billingNotifications.subscriptionId, subscriptionId))
+          .orderBy(desc(billingNotifications.createdAt));
+      });
     });
   }
 
   async getPendingBillingNotifications(): Promise<BillingNotification[]> {
     return withPerformanceLogging('getPendingBillingNotifications', async () => {
-      const now = new Date();
-      return await db.select()
-        .from(billingNotifications)
-        .where(
-          and(
-            eq(billingNotifications.isSent, false),
-            lte(billingNotifications.scheduledFor, now)
+      return withTenantContext(undefined, async (dbInstance) => {
+        const now = new Date();
+        return await dbInstance.select()
+          .from(billingNotifications)
+          .where(
+            and(
+              eq(billingNotifications.isSent, false),
+              lte(billingNotifications.scheduledFor, now)
+            )
           )
-        )
-        .orderBy(billingNotifications.scheduledFor);
+          .orderBy(billingNotifications.scheduledFor);
+      });
     });
   }
 
   async createBillingNotification(notification: InsertBillingNotification): Promise<BillingNotification> {
     return withPerformanceLogging('createBillingNotification', async () => {
-      const [newNotification] = await db.insert(billingNotifications).values(notification).returning();
-      return newNotification;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newNotification] = await dbInstance.insert(billingNotifications).values(notification).returning();
+        return newNotification;
+      });
     });
   }
 
   async markNotificationAsSent(id: string): Promise<void> {
     return withPerformanceLogging('markNotificationAsSent', async () => {
-      await db.update(billingNotifications)
-        .set({ isSent: true, sentAt: new Date() })
-        .where(eq(billingNotifications.id, id));
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.update(billingNotifications)
+          .set({ isSent: true, sentAt: new Date() })
+          .where(eq(billingNotifications.id, id));
+      });
     });
   }
 
