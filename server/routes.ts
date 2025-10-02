@@ -1359,8 +1359,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Multi-tenant validation: verify user belongs to current tenant
-      // Exception: superadmin portal allows cross-tenant login
-      if (!req.isSuperAdmin) {
+      // Exception: superadmin portal or superadmin users can bypass tenant validation
+      if (!req.isSuperAdmin && !isSuperAdmin) {
         if (!req.tenantId) {
           return res.status(403).json({ 
             error: "Tenant не определён",
@@ -1389,7 +1389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify branch belongs to same tenant (except for superadmin)
-      if (!req.isSuperAdmin && selectedBranch.tenantId !== user.tenantId) {
+      if (!req.isSuperAdmin && !isSuperAdmin && selectedBranch.tenantId !== user.tenantId) {
         return res.status(403).json({ 
           error: "Доступ запрещён",
           message: "Филиал не принадлежит вашей клинике"
