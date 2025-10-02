@@ -91,12 +91,15 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
   })
 
   const onSubmit = (data: InsertMedicalRecord) => {
+    console.log('Form submitted:', data)
+    console.log('Form errors:', form.formState.errors)
     // Convert treatment string to array if it's a string
     const processedData = {
       ...data,
       treatment: data.treatment || [],
       appointmentId: data.appointmentId || null,
     }
+    console.log('Processed data:', processedData)
     createMutation.mutate(processedData)
   }
 
