@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { insertMedicalRecordSchema, type InsertMedicalRecord, MEDICAL_RECORD_STATUS } from "@shared/schema"
 import { apiRequest } from "@/lib/queryClient"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -89,6 +89,13 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
       })
     }
   })
+
+  // Log form errors when they change
+  useEffect(() => {
+    if (Object.keys(form.formState.errors).length > 0) {
+      console.log('Form validation errors:', form.formState.errors)
+    }
+  }, [form.formState.errors])
 
   const onSubmit = (data: InsertMedicalRecord) => {
     console.log('Form submitted:', data)
