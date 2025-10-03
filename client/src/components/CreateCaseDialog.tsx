@@ -33,6 +33,14 @@ const createCaseSchema = z.object({
 
 type CreateCaseFormValues = z.infer<typeof createCaseSchema>
 
+interface CreatedCaseResponse {
+  id: string
+  patientId: string
+  reasonForVisit: string
+  status: string
+  startDate: string
+}
+
 interface CreateCaseDialogProps {
   patientId: string
   patientName: string
@@ -51,9 +59,9 @@ export default function CreateCaseDialog({ patientId, patientName, trigger }: Cr
     },
   })
 
-  const createCaseMutation = useMutation({
+  const createCaseMutation = useMutation<CreatedCaseResponse, Error, CreateCaseFormValues>({
     mutationFn: async (values: CreateCaseFormValues) => {
-      return await apiRequest('POST', `/api/patients/${patientId}/clinical-cases`, values)
+      return await apiRequest('POST', `/api/patients/${patientId}/clinical-cases`, values) as unknown as CreatedCaseResponse
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinical-cases'] })

@@ -5248,12 +5248,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Reason for visit is required" });
       }
 
-      const newCase = await storage.createClinicalCase({
+      if (!user.branchId) {
+        return res.status(400).json({ error: "User branch not found" });
+      }
+
+      // 🔒 SECURITY: Add tenantId and branchId from request context
+      const clinicalCaseData = {
         patientId,
         reasonForVisit,
         status: 'open',
-        createdByUserId: user.id
-      });
+        createdByUserId: user.id,
+        tenantId: req.tenantId!,
+        branchId: user.branchId
+      };
+
+      const newCase = await storage.createClinicalCase(clinicalCaseData as any);
 
       res.status(201).json(newCase);
     } catch (error) {
