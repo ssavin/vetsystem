@@ -5172,6 +5172,285 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // CLINICAL CASES MODULE ROUTES
+  // ========================================
+
+  // GET /api/clinical-cases - Get list of clinical cases (with filters)
+  app.get("/api/clinical-cases", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user!;
+      const { search, startDate, endDate, limit, offset } = req.query;
+      const userBranchId = user.branchId || '';
+
+      const filters = {
+        search: search as string,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+        offset: offset ? parseInt(offset as string) : undefined
+      };
+
+      const cases = await storage.getClinicalCases(filters, userBranchId);
+      res.json(cases);
+    } catch (error) {
+      console.error("Error fetching clinical cases:", error);
+      res.status(500).json({ error: "Failed to fetch clinical cases" });
+    }
+  });
+
+  // GET /api/clinical-cases/:id - Get clinical case details with encounters
+  app.get("/api/clinical-cases/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const clinicalCase = await storage.getClinicalCase(id);
+      
+      if (!clinicalCase) {
+        return res.status(404).json({ error: "Clinical case not found" });
+      }
+
+      // Get encounters for this case
+      const encounters = await storage.getClinicalEncounters(id);
+      
+      res.json({
+        ...clinicalCase,
+        encounters
+      });
+    } catch (error) {
+      console.error("Error fetching clinical case:", error);
+      res.status(500).json({ error: "Failed to fetch clinical case" });
+    }
+  });
+
+  // GET /api/patients/:patientId/clinical-cases - Get all clinical cases for a patient
+  app.get("/api/patients/:patientId/clinical-cases", authenticateToken, async (req, res) => {
+    try {
+      const { patientId } = req.params;
+      const user = req.user!;
+      const userBranchId = user.branchId || '';
+
+      const cases = await storage.getClinicalCasesByPatient(patientId, userBranchId);
+      res.json(cases);
+    } catch (error) {
+      console.error("Error fetching patient clinical cases:", error);
+      res.status(500).json({ error: "Failed to fetch patient clinical cases" });
+    }
+  });
+
+  // POST /api/patients/:patientId/clinical-cases - Create new clinical case
+  app.post("/api/patients/:patientId/clinical-cases", authenticateToken, async (req, res) => {
+    try {
+      const { patientId } = req.params;
+      const user = req.user!;
+      const { reasonForVisit } = req.body;
+
+      if (!reasonForVisit) {
+        return res.status(400).json({ error: "Reason for visit is required" });
+      }
+
+      const newCase = await storage.createClinicalCase({
+        patientId,
+        reasonForVisit,
+        status: 'open',
+        createdByUserId: user.id
+      });
+
+      res.status(201).json(newCase);
+    } catch (error) {
+      console.error("Error creating clinical case:", error);
+      res.status(500).json({ error: "Failed to create clinical case" });
+    }
+  });
+
+  // PATCH /api/clinical-cases/:id - Update clinical case
+  app.patch("/api/clinical-cases/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const updatedCase = await storage.updateClinicalCase(id, updates);
+      res.json(updatedCase);
+    } catch (error) {
+      console.error("Error updating clinical case:", error);
+      res.status(500).json({ error: "Failed to update clinical case" });
+    }
+  });
+
+  // POST /api/clinical-cases/:id/close - Close a clinical case
+  app.post("/api/clinical-cases/:id/close", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const closedCase = await storage.closeClinicalCase(id);
+      res.json(closedCase);
+    } catch (error) {
+      console.error("Error closing clinical case:", error);
+      res.status(500).json({ error: "Failed to close clinical case" });
+    }
+  });
+
+  // POST /api/clinical-cases/:caseId/encounters - Create encounter for a case
+  app.post("/api/clinical-cases/:caseId/encounters", authenticateToken, async (req, res) => {
+    try {
+      const { caseId } = req.params;
+      const user = req.user!;
+      const { doctorId, anamnesis, diagnosis, treatmentPlan, notes } = req.body;
+
+      if (!doctorId) {
+        return res.status(400).json({ error: "Doctor ID is required" });
+      }
+
+      const newEncounter = await storage.createClinicalEncounter({
+        clinicalCaseId: caseId,
+        doctorId,
+        anamnesis,
+        diagnosis,
+        treatmentPlan,
+        notes
+      });
+
+      res.status(201).json(newEncounter);
+    } catch (error) {
+      console.error("Error creating clinical encounter:", error);
+      res.status(500).json({ error: "Failed to create clinical encounter" });
+    }
+  });
+
+  // PATCH /api/encounters/:id - Update clinical encounter
+  app.patch("/api/encounters/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const updatedEncounter = await storage.updateClinicalEncounter(id, updates);
+      res.json(updatedEncounter);
+    } catch (error) {
+      console.error("Error updating clinical encounter:", error);
+      res.status(500).json({ error: "Failed to update clinical encounter" });
+    }
+  });
+
+  // GET /api/encounters/:id - Get encounter details
+  app.get("/api/encounters/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const encounter = await storage.getClinicalEncounter(id);
+      
+      if (!encounter) {
+        return res.status(404).json({ error: "Encounter not found" });
+      }
+
+      // Get lab analyses for this encounter
+      const labAnalyses = await storage.getLabAnalyses(id);
+      
+      res.json({
+        ...encounter,
+        labAnalyses
+      });
+    } catch (error) {
+      console.error("Error fetching clinical encounter:", error);
+      res.status(500).json({ error: "Failed to fetch clinical encounter" });
+    }
+  });
+
+  // POST /api/encounters/:encounterId/analyses - Create lab analysis order
+  app.post("/api/encounters/:encounterId/analyses", authenticateToken, async (req, res) => {
+    try {
+      const { encounterId } = req.params;
+      const user = req.user!;
+      const { analysisName } = req.body;
+
+      if (!analysisName) {
+        return res.status(400).json({ error: "Analysis name is required" });
+      }
+
+      const newAnalysis = await storage.createLabAnalysis({
+        encounterId,
+        analysisName,
+        status: 'ordered'
+      });
+
+      res.status(201).json(newAnalysis);
+    } catch (error) {
+      console.error("Error creating lab analysis:", error);
+      res.status(500).json({ error: "Failed to create lab analysis" });
+    }
+  });
+
+  // PATCH /api/analyses/:id - Update lab analysis
+  app.patch("/api/analyses/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const updatedAnalysis = await storage.updateLabAnalysis(id, updates);
+      res.json(updatedAnalysis);
+    } catch (error) {
+      console.error("Error updating lab analysis:", error);
+      res.status(500).json({ error: "Failed to update lab analysis" });
+    }
+  });
+
+  // POST /api/analyses/:analysisId/attachments - Upload attachment for analysis
+  app.post("/api/analyses/:analysisId/attachments", authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+      const { analysisId } = req.params;
+      const user = req.user!;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ error: "File is required" });
+      }
+
+      const newAttachment = await storage.createAttachment({
+        entityId: analysisId,
+        entityType: 'lab_analysis',
+        fileName: file.originalname,
+        filePath: file.path,
+        mimeType: file.mimetype,
+        fileSize: file.size,
+        uploadedByUserId: user.id
+      });
+
+      res.status(201).json(newAttachment);
+    } catch (error) {
+      console.error("Error uploading attachment:", error);
+      res.status(500).json({ error: "Failed to upload attachment" });
+    }
+  });
+
+  // GET /api/attachments/:entityId - Get attachments for entity
+  app.get("/api/attachments/:entityId", authenticateToken, async (req, res) => {
+    try {
+      const { entityId } = req.params;
+      const { entityType } = req.query;
+
+      if (!entityType) {
+        return res.status(400).json({ error: "Entity type is required" });
+      }
+
+      const attachments = await storage.getAttachments(entityId, entityType as string);
+      res.json(attachments);
+    } catch (error) {
+      console.error("Error fetching attachments:", error);
+      res.status(500).json({ error: "Failed to fetch attachments" });
+    }
+  });
+
+  // GET /api/patients/:patientId/full-history - Get complete medical history for patient
+  app.get("/api/patients/:patientId/full-history", authenticateToken, async (req, res) => {
+    try {
+      const { patientId } = req.params;
+      const user = req.user!;
+      const userBranchId = user.branchId || '';
+
+      const history = await storage.getPatientFullHistory(patientId, userBranchId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching patient full history:", error);
+      res.status(500).json({ error: "Failed to fetch patient full history" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
