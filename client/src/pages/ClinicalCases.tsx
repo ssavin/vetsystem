@@ -61,39 +61,10 @@ export default function ClinicalCases() {
     queryKey: ['/api/clinical-cases'],
   })
 
-  // Fetch patients for display names
-  const { 
-    data: patients = [], 
-    isLoading: isLoadingPatients,
-    isFetching: isFetchingPatients,
-    error: patientsError, 
-    refetch: refetchPatients 
-  } = useQuery<Patient[]>({
-    queryKey: ['/api/patients'],
-  })
-
-  // Fetch owners
-  const { 
-    data: owners = [], 
-    isLoading: isLoadingOwners,
-    isFetching: isFetchingOwners,
-    error: ownersError, 
-    refetch: refetchOwners 
-  } = useQuery<Owner[]>({
-    queryKey: ['/api/owners'],
-  })
-
-  const isLoadingAny = isLoading || isLoadingPatients || isLoadingOwners
-  const isFetchingAny = isFetching || isFetchingPatients || isFetchingOwners
-
-  // Show error toast if any query fails
+  // Show error toast if query fails
   useEffect(() => {
-    if (error || patientsError || ownersError) {
-      const errorMessage = 
-        (error instanceof Error ? error.message : '') ||
-        (patientsError instanceof Error ? patientsError.message : '') ||
-        (ownersError instanceof Error ? ownersError.message : '') ||
-        'Ошибка загрузки данных'
+    if (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки данных'
       
       toast({
         title: "Ошибка загрузки данных",
@@ -101,45 +72,13 @@ export default function ClinicalCases() {
         variant: "destructive",
       })
     }
-  }, [error, patientsError, ownersError, toast])
-
-  // Create lookup maps
-  const patientMap = useMemo(() => {
-    const map: Record<string, Patient> = {}
-    patients.forEach((patient) => {
-      map[patient.id] = patient
-    })
-    return map
-  }, [patients])
-
-  const ownerMap = useMemo(() => {
-    const map: Record<string, Owner> = {}
-    owners.forEach((owner) => {
-      map[owner.id] = owner
-    })
-    return map
-  }, [owners])
-
-  // Transform cases with patient and owner data
-  const transformedCases = useMemo(() => {
-    return clinicalCases.map((clinicalCase) => {
-      const patient = patientMap[clinicalCase.patientId]
-      const owner = patient ? ownerMap[patient.ownerId] : null
-      
-      return {
-        ...clinicalCase,
-        patientName: patient ? patient.name : 'Неизвестный пациент',
-        species: patient ? patient.species : '',
-        breed: patient ? patient.breed : '',
-        ownerName: owner ? owner.name : 'Неизвестный владелец',
-        ownerPhone: owner ? owner.phone : '',
-      }
-    })
-  }, [clinicalCases, patientMap, ownerMap])
+  }, [error, toast])
 
   // Filter cases
   const filteredCases = useMemo(() => {
-    let cases = transformedCases
+    if (!Array.isArray(clinicalCases)) return []
+    
+    let cases = clinicalCases
 
     // Filter by status
     if (statusFilter !== 'all') {
@@ -157,10 +96,14 @@ export default function ClinicalCases() {
     }
 
     return cases
-  }, [transformedCases, searchTerm, statusFilter])
+  }, [clinicalCases, searchTerm, statusFilter])
 
   // Statistics
   const stats = useMemo(() => {
+    if (!Array.isArray(clinicalCases)) {
+      return { total: 0, open: 0, closed: 0, resolved: 0 }
+    }
+    
     return {
       total: clinicalCases.length,
       open: clinicalCases.filter(c => c.status === 'open').length,
@@ -192,8 +135,6 @@ export default function ClinicalCases() {
 
   const handleRetry = () => {
     refetchCases()
-    refetchPatients()
-    refetchOwners()
   }
 
   return (
@@ -329,7 +270,7 @@ export default function ClinicalCases() {
       </Card>
 
       {/* Cases List */}
-      {isLoadingAny ? (
+      {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
             <Card key={i}>
@@ -343,7 +284,7 @@ export default function ClinicalCases() {
             </Card>
           ))}
         </div>
-      ) : (error || patientsError || ownersError) ? (
+      ) : error ? (
         <Card className="text-center py-8">
           <CardContent>
             <p className="text-destructive mb-4">
@@ -352,10 +293,10 @@ export default function ClinicalCases() {
             <Button 
               onClick={handleRetry} 
               variant="outline"
-              disabled={isFetchingAny}
+              disabled={isFetching}
               data-testid="button-retry-load"
             >
-              {isFetchingAny ? "Загрузка..." : "Повторить попытку"}
+              {isFetching ? "Загрузка..." : "Повторить попытку"}
             </Button>
           </CardContent>
         </Card>
