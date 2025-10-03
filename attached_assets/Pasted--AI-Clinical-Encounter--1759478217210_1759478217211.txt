@@ -1,0 +1,183 @@
+Техническое Задание для AI-агента: Модуль "Клинический Прием" (Clinical Encounter)
+Цель: Разработать полнофункциональный модуль для ведения медицинской документации в рамках платформы VetSystem. Модуль должен реализовывать иерархическую структуру: Пациент -> Клинический Случай -> Обследование/Прием, и предоставлять интуитивно понятный интерфейс для врачей.
+
+Часть 1: Проектирование Базы Данных (PostgreSQL / Drizzle ORM)
+Необходимо расширить существующую схему базы данных, добавив следующие модели. Все таблицы должны содержать колонку tenant_id для обеспечения изоляции данных через RLS.
+
+Модель clinical_cases (Клинические случаи):
+
+id (PRIMARY KEY, UUID)
+
+patient_id (FOREIGN KEY к patients.id)
+
+tenant_id (FOREIGN KEY к tenants.id, обязательно для RLS)
+
+reason_for_visit (TEXT, краткая причина обращения, напр. "Хромота на правую лапу")
+
+status (ENUM: 'open', 'closed'), default 'open'
+
+start_date (TIMESTAMP, дата создания случая)
+
+created_by_user_id (FOREIGN KEY к users.id)
+
+created_at, updated_at (TIMESTAMPS)
+
+Модель clinical_encounters (Обследования/Приемы):
+
+id (PRIMARY KEY, UUID)
+
+clinical_case_id (FOREIGN KEY к clinical_cases.id)
+
+tenant_id (FOREIGN KEY к tenants.id, обязательно для RLS)
+
+doctor_id (FOREIGN KEY к doctors.id)
+
+anamnesis (TEXT, анамнез и данные осмотра)
+
+diagnosis (TEXT, предварительный/окончательный диагноз)
+
+treatment_plan (TEXT, назначения)
+
+encounter_date (TIMESTAMP)
+
+created_at, updated_at (TIMESTAMPS)
+
+Модель lab_analyses (Лабораторные анализы):
+
+id (PRIMARY KEY, UUID)
+
+encounter_id (FOREIGN KEY к clinical_encounters.id)
+
+tenant_id (FOREIGN KEY к tenants.id, обязательно для RLS)
+
+analysis_name (VARCHAR, напр. "Общий анализ крови")
+
+status (ENUM: 'ordered', 'sample_taken', 'completed'), default 'ordered'
+
+order_date (TIMESTAMP)
+
+Модель attachments (Прикрепленные файлы):
+
+id (PRIMARY KEY, UUID)
+
+tenant_id (FOREIGN KEY к tenants.id, обязательно для RLS)
+
+entity_id (UUID, ID сущности, к которой прикреплен файл)
+
+entity_type (VARCHAR, тип сущности, напр. 'lab_analysis', 'clinical_encounter')
+
+file_name (VARCHAR, оригинальное имя файла)
+
+file_path (VARCHAR, путь к файлу в облачном хранилище, напр. S3)
+
+mime_type (VARCHAR, тип файла, напр. 'application/pdf')
+
+uploaded_by_user_id (FOREIGN KEY к users.id)
+
+created_at (TIMESTAMP)
+
+Задача для AI: На основе этих описаний создай миграции Drizzle ORM для добавления данных таблиц в схему PostgreSQL.
+
+Часть 2: Архитектура Бэкенда (Express / TypeScript / Drizzle ORM)
+Необходимо создать новые RESTful API эндпоинты. Все эндпоинты должны быть защищены authenticateToken и использовать tenant_id из JWT для запросов к БД, чтобы RLS работала корректно.
+
+GET /api/clinical-cases
+
+Описание: Получение списка клинических случаев для главного экрана "Журнал".
+
+Query Params: search (string), startDate (ISO date), endDate (ISO date), limit (number), offset (number).
+
+Логика: Фильтрует случаи по дате и/или по вхождению строки search в owners.full_name или patients.name. Возвращает массив объектов, объединенных с информацией о владельце и пациенте.
+
+Валидация Zod: Схема для query params.
+
+GET /api/patients/:patientId/clinical-cases
+
+Описание: Получение всех клинических случаев для конкретного пациента.
+
+Логика: Возвращает массив всех случаев для patientId.
+
+POST /api/patients/:patientId/clinical-cases
+
+Описание: Создание нового клинического случая.
+
+Request Body: { "reason_for_visit": "string" }.
+
+Логика: Создает новую запись в clinical_cases, привязанную к patientId.
+
+Валидация Zod: Схема для request body.
+
+GET /api/clinical-cases/:caseId
+
+Описание: Получение детальной информации по одному клиническому случаю, включая все связанные обследования (encounters).
+
+Логика: Возвращает объект случая с вложенным массивом обследований.
+
+POST /api/clinical-cases/:caseId/encounters
+
+Описание: Создание нового обследования в рамках клинического случая.
+
+Request Body: { "doctorId": "uuid", "anamnesis": "string", "diagnosis": "string", "treatment_plan": "string" }.
+
+Логика: Создает новую запись в clinical_encounters.
+
+Валидация Zod: Схема для request body.
+
+POST /api/encounters/:encounterId/analyses
+
+Описание: Назначение лабораторного анализа для обследования.
+
+Request Body: { "analysis_name": "string" }.
+
+Логика: Создает запись в lab_analyses.
+
+POST /api/analyses/:analysisId/attachments
+
+Описание: Прикрепление файла с результатом к анализу.
+
+Тип запроса: multipart/form-data.
+
+Логика: Принимает файл, загружает его в облачное хранилище, создает запись в таблице attachments, связывая ее с analysisId.
+
+GET /api/patients/:patientId/full-history
+
+Описание: Получение отформатированной полной истории болезни для печати.
+
+Логика: Агрегирует данные из clinical_cases, clinical_encounters, lab_analyses и attachments для указанного пациента и возвращает их в виде структурированного объекта или готового HTML.
+
+Задача для AI: Создай роутеры, контроллеры и сервисные классы для реализации этих API эндпоинтов, используя Express, TypeScript и Drizzle ORM. Не забудь про валидацию Zod и middleware для аутентификации.
+
+Часть 3: Архитектура Фронтенда (React / TypeScript / Shadcn/ui)
+Необходимо создать новые React-компоненты для реализации пользовательского интерфейса.
+
+Компонент ClinicalCasesJournal.tsx (Журнал клинических случаев):
+
+UI: Используй Input от Shadcn для поиска, DatePicker для выбора дат, Button для действий и DataTable (созданный на основе Table от Shadcn) для отображения данных.
+
+State Management: Используй хук useQuery от TanStack Query для получения данных с эндпоинта GET /api/clinical-cases. Состояние фильтров управляй через useState.
+
+Routing: Используй useLocation от Wouter для навигации на страницу медкарты (/patients/:id/medical-record) при двойном клике на строку таблицы.
+
+Компонент PatientMedicalRecord.tsx (Медицинская карта пациента):
+
+UI: Отображение статической информации о пациенте и владельце. Кнопка Button ("Создать новый клинический случай"), которая открывает CreateCaseDialog. DataTable для отображения списка случаев пациента.
+
+State Management: Получение patientId из URL. useQuery для получения данных с GET /api/patients/:patientId/clinical-cases.
+
+Dialogs: Компонент CreateCaseDialog.tsx с использованием Dialog от Shadcn, React Hook Form и Zod для формы создания нового случая.
+
+Компонент ClinicalCaseDetail.tsx (Детали клинического случая):
+
+UI: Используй Tabs от Shadcn для переключения между "Обследованиями" и "Общей историей болезни". Вкладка "Обследования" содержит Button ("Создать обследование") и DataTable со списком обследований.
+
+State Management: useQuery для получения данных с GET /api/clinical-cases/:caseId.
+
+Вложенные компоненты:
+
+EncounterDialog.tsx: Диалог для создания/редактирования обследования. Содержит вкладки Tabs ("Анамнез", "Анализы").
+
+Вкладка "Анализы" содержит таблицу назначенных анализов и кнопку "Прикрепить результат" для каждой строки, которая открывает FileUpload компонент.
+
+Печать: Кнопки "Печать" вызывают функции, которые либо открывают новое окно с отформатированным HTML, либо инициируют скачивание PDF (требуется бэкенд или клиентская библиотека для генерации PDF).
+
+Задача для AI: Разработай иерархию React-компонентов, как описано выше. Используй Shadcn/ui для UI, TanStack Query для управления серверным состоянием, React Hook Form и Zod для форм. Реализуй логику взаимодействия с созданными на бэкенде API-эндпоинтами. Начни с компонента ClinicalCasesJournal.tsx

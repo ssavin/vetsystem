@@ -11,6 +11,9 @@ export const MEDICAL_RECORD_STATUS = ['active', 'completed', 'follow_up_required
 export const INVOICE_STATUS = ['pending', 'paid', 'overdue', 'cancelled'] as const;
 export const INVOICE_ITEM_TYPE = ['service', 'product'] as const;
 export const PATIENT_GENDER = ['male', 'female', 'unknown'] as const;
+export const CLINICAL_CASE_STATUS = ['open', 'closed'] as const;
+export const ANALYSIS_STATUS = ['ordered', 'sample_taken', 'completed'] as const;
+export const ATTACHMENT_ENTITY_TYPE = ['lab_analysis', 'clinical_encounter', 'clinical_case'] as const;
 
 // File and lab analysis enums
 export const FILE_TYPES = ['medical_image', 'xray', 'scan', 'receipt', 'lab_result', 'vaccine_record', 'document', 'other'] as const;
@@ -2152,6 +2155,98 @@ export const integrationCredentials = pgTable('integration_credentials', {
   enabledIdx: index('integration_credentials_enabled_idx').on(table.isEnabled)
 }));
 
+// ========================================
+// CLINICAL CASES MODULE
+// ========================================
+
+// Клинические случаи (Clinical Cases) - основная сущность для ведения истории болезни
+export const clinicalCases = pgTable('clinical_cases', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  patientId: varchar('patient_id').references(() => patients.id).notNull(),
+  reasonForVisit: text('reason_for_visit').notNull(), // Причина обращения
+  status: varchar('status', { length: 20 }).default('open').notNull(), // open, closed
+  startDate: timestamp('start_date').defaultNow().notNull(),
+  closeDate: timestamp('close_date'),
+  createdByUserId: varchar('created_by_user_id').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('clinical_cases_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('clinical_cases_branch_idx').on(table.branchId),
+  patientIdIdx: index('clinical_cases_patient_idx').on(table.patientId),
+  statusIdx: index('clinical_cases_status_idx').on(table.status),
+  startDateIdx: index('clinical_cases_start_date_idx').on(table.startDate),
+  statusCheck: check('clinical_cases_status_check', sql`${table.status} IN ('open', 'closed')`)
+}));
+
+// Обследования/Приемы (Clinical Encounters) - записи о каждом приеме в рамках клинического случая
+export const clinicalEncounters = pgTable('clinical_encounters', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  clinicalCaseId: varchar('clinical_case_id').references(() => clinicalCases.id).notNull(),
+  doctorId: varchar('doctor_id').references(() => doctors.id).notNull(),
+  encounterDate: timestamp('encounter_date').defaultNow().notNull(),
+  anamnesis: text('anamnesis'), // Анамнез и данные осмотра
+  diagnosis: text('diagnosis'), // Диагноз
+  treatmentPlan: text('treatment_plan'), // План лечения и назначения
+  notes: text('notes'), // Дополнительные заметки
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('clinical_encounters_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('clinical_encounters_branch_idx').on(table.branchId),
+  caseIdIdx: index('clinical_encounters_case_idx').on(table.clinicalCaseId),
+  doctorIdIdx: index('clinical_encounters_doctor_idx').on(table.doctorId),
+  encounterDateIdx: index('clinical_encounters_date_idx').on(table.encounterDate)
+}));
+
+// Лабораторные анализы (Lab Analyses) - назначенные анализы в рамках обследования
+export const labAnalyses = pgTable('lab_analyses', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  encounterId: varchar('encounter_id').references(() => clinicalEncounters.id).notNull(),
+  analysisName: varchar('analysis_name', { length: 255 }).notNull(),
+  status: varchar('status', { length: 20 }).default('ordered').notNull(), // ordered, sample_taken, completed
+  orderDate: timestamp('order_date').defaultNow().notNull(),
+  completionDate: timestamp('completion_date'),
+  results: text('results'), // Результаты анализа
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('lab_analyses_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('lab_analyses_branch_idx').on(table.branchId),
+  encounterIdIdx: index('lab_analyses_encounter_idx').on(table.encounterId),
+  statusIdx: index('lab_analyses_status_idx').on(table.status),
+  orderDateIdx: index('lab_analyses_order_date_idx').on(table.orderDate),
+  statusCheck: check('lab_analyses_status_check', sql`${table.status} IN ('ordered', 'sample_taken', 'completed')`)
+}));
+
+// Прикрепленные файлы (Attachments) - файлы, привязанные к различным сущностям
+export const attachments = pgTable('attachments', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  entityId: varchar('entity_id').notNull(), // ID сущности, к которой прикреплен файл
+  entityType: varchar('entity_type', { length: 50 }).notNull(), // lab_analysis, clinical_encounter, clinical_case
+  fileName: varchar('file_name', { length: 255 }).notNull(),
+  filePath: varchar('file_path', { length: 500 }).notNull(),
+  mimeType: varchar('mime_type', { length: 100 }).notNull(),
+  fileSize: integer('file_size'), // Размер файла в байтах
+  uploadedByUserId: varchar('uploaded_by_user_id').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('attachments_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('attachments_branch_idx').on(table.branchId),
+  entityIdx: index('attachments_entity_idx').on(table.entityId, table.entityType),
+  entityTypeIdx: index('attachments_entity_type_idx').on(table.entityType),
+  entityTypeCheck: check('attachments_entity_type_check', sql`${table.entityType} IN ('lab_analysis', 'clinical_encounter', 'clinical_case')`)
+}));
+
 // === Схемы для валидации ===
 
 export const insertCashRegisterSchema = createInsertSchema(cashRegisters).omit({
@@ -2292,3 +2387,47 @@ export const insertIntegrationCredentialsSchema = createInsertSchema(integration
 
 export type IntegrationCredentials = typeof integrationCredentials.$inferSelect;
 export type InsertIntegrationCredentials = z.infer<typeof insertIntegrationCredentialsSchema>;
+
+// Clinical Cases schemas and types
+export const insertClinicalCaseSchema = createInsertSchema(clinicalCases).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true,
+  branchId: true
+});
+
+export const insertClinicalEncounterSchema = createInsertSchema(clinicalEncounters).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true,
+  branchId: true
+});
+
+export const insertLabAnalysisSchema = createInsertSchema(labAnalyses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true,
+  branchId: true
+});
+
+export const insertAttachmentSchema = createInsertSchema(attachments).omit({
+  id: true,
+  createdAt: true,
+  tenantId: true,
+  branchId: true
+});
+
+export type ClinicalCase = typeof clinicalCases.$inferSelect;
+export type InsertClinicalCase = z.infer<typeof insertClinicalCaseSchema>;
+
+export type ClinicalEncounter = typeof clinicalEncounters.$inferSelect;
+export type InsertClinicalEncounter = z.infer<typeof insertClinicalEncounterSchema>;
+
+export type LabAnalysis = typeof labAnalyses.$inferSelect;
+export type InsertLabAnalysis = z.infer<typeof insertLabAnalysisSchema>;
+
+export type Attachment = typeof attachments.$inferSelect;
+export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
