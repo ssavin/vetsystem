@@ -33,6 +33,10 @@ import {
   type BillingNotification, type InsertBillingNotification,
   type Tenant, type InsertTenant,
   type IntegrationCredentials, type InsertIntegrationCredentials,
+  type ClinicalCase, type InsertClinicalCase,
+  type ClinicalEncounter, type InsertClinicalEncounter,
+  type LabAnalysis, type InsertLabAnalysis,
+  type Attachment, type InsertAttachment,
   users, owners, patients, doctors, appointments, 
   medicalRecords, medications, services, products, 
   invoices, invoiceItems, branches, patientFiles,
@@ -42,7 +46,8 @@ import {
   customers, discountRules, paymentMethods, salesTransactions, 
   salesTransactionItems, cashOperations, userRoles, userRoleAssignments,
   integrationLogs, subscriptionPlans, clinicSubscriptions,
-  subscriptionPayments, billingNotifications, tenants, integrationCredentials
+  subscriptionPayments, billingNotifications, tenants, integrationCredentials,
+  clinicalCases, clinicalEncounters, labAnalyses, attachments
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -499,6 +504,39 @@ export interface IStorage {
     status: string, 
     error?: string
   ): Promise<void>;
+
+  // === CLINICAL CASES MODULE ===
+  
+  // Clinical Cases methods - 🔒 SECURITY: branchId required for PHI isolation
+  getClinicalCases(filters?: { search?: string; startDate?: Date; endDate?: Date; limit?: number; offset?: number }, branchId?: string): Promise<any[]>;
+  getClinicalCase(id: string): Promise<any | undefined>;
+  getClinicalCasesByPatient(patientId: string, branchId: string): Promise<any[]>;
+  createClinicalCase(clinicalCase: InsertClinicalCase): Promise<ClinicalCase>;
+  updateClinicalCase(id: string, updates: Partial<InsertClinicalCase>): Promise<ClinicalCase>;
+  closeClinicalCase(id: string): Promise<ClinicalCase>;
+  
+  // Clinical Encounters methods - 🔒 SECURITY: branchId required for PHI isolation
+  getClinicalEncounters(caseId: string): Promise<any[]>;
+  getClinicalEncounter(id: string): Promise<any | undefined>;
+  createClinicalEncounter(encounter: InsertClinicalEncounter): Promise<ClinicalEncounter>;
+  updateClinicalEncounter(id: string, updates: Partial<InsertClinicalEncounter>): Promise<ClinicalEncounter>;
+  deleteClinicalEncounter(id: string): Promise<void>;
+  
+  // Lab Analyses methods - 🔒 SECURITY: branchId required for PHI isolation
+  getLabAnalyses(encounterId: string): Promise<any[]>;
+  getLabAnalysis(id: string): Promise<any | undefined>;
+  createLabAnalysis(analysis: InsertLabAnalysis): Promise<LabAnalysis>;
+  updateLabAnalysis(id: string, updates: Partial<InsertLabAnalysis>): Promise<LabAnalysis>;
+  deleteLabAnalysis(id: string): Promise<void>;
+  
+  // Attachments methods - 🔒 SECURITY: branchId required for PHI isolation
+  getAttachments(entityId: string, entityType: string): Promise<Attachment[]>;
+  getAttachment(id: string): Promise<Attachment | undefined>;
+  createAttachment(attachment: InsertAttachment): Promise<Attachment>;
+  deleteAttachment(id: string): Promise<void>;
+  
+  // Full medical history for patient
+  getPatientFullHistory(patientId: string, branchId: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3713,6 +3751,389 @@ export class DatabaseStorage implements IStorage {
               eq(integrationCredentials.integrationType, integrationType)
             )
           );
+      });
+    });
+  }
+
+  // ========================================
+  // CLINICAL CASES MODULE METHODS
+  // ========================================
+
+  async getClinicalCases(filters?: { search?: string; startDate?: Date; endDate?: Date; limit?: number; offset?: number }, branchId?: string): Promise<any[]> {
+    return withPerformanceLogging('getClinicalCases', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        let query = dbInstance
+          .select({
+            clinicalCase: clinicalCases,
+            patient: patients,
+            owner: owners
+          })
+          .from(clinicalCases)
+          .leftJoin(patients, eq(clinicalCases.patientId, patients.id))
+          .leftJoin(owners, eq(patients.ownerId, owners.id))
+          .orderBy(desc(clinicalCases.startDate));
+
+        const conditions: SQL[] = [];
+        if (branchId) {
+          conditions.push(eq(clinicalCases.branchId, branchId));
+        }
+        if (filters?.search) {
+          conditions.push(
+            or(
+              ilike(owners.fullName, `%${filters.search}%`),
+              ilike(patients.name, `%${filters.search}%`)
+            )!
+          );
+        }
+        if (filters?.startDate) {
+          conditions.push(gte(clinicalCases.startDate, filters.startDate));
+        }
+        if (filters?.endDate) {
+          conditions.push(lte(clinicalCases.startDate, filters.endDate));
+        }
+
+        if (conditions.length > 0) {
+          query = query.where(and(...conditions)) as any;
+        }
+
+        if (filters?.limit) {
+          query = query.limit(filters.limit) as any;
+        }
+        if (filters?.offset) {
+          query = query.offset(filters.offset) as any;
+        }
+
+        return await query;
+      });
+    });
+  }
+
+  async getClinicalCase(id: string): Promise<any | undefined> {
+    return withPerformanceLogging('getClinicalCase', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const results = await dbInstance
+          .select({
+            clinicalCase: clinicalCases,
+            patient: patients,
+            owner: owners,
+            createdBy: users
+          })
+          .from(clinicalCases)
+          .leftJoin(patients, eq(clinicalCases.patientId, patients.id))
+          .leftJoin(owners, eq(patients.ownerId, owners.id))
+          .leftJoin(users, eq(clinicalCases.createdByUserId, users.id))
+          .where(eq(clinicalCases.id, id));
+        
+        return results[0];
+      });
+    });
+  }
+
+  async getClinicalCasesByPatient(patientId: string, branchId: string): Promise<any[]> {
+    return withPerformanceLogging('getClinicalCasesByPatient', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(clinicalCases)
+          .where(
+            and(
+              eq(clinicalCases.patientId, patientId),
+              eq(clinicalCases.branchId, branchId)
+            )
+          )
+          .orderBy(desc(clinicalCases.startDate));
+      });
+    });
+  }
+
+  async createClinicalCase(clinicalCase: InsertClinicalCase): Promise<ClinicalCase> {
+    return withPerformanceLogging('createClinicalCase', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newCase] = await dbInstance.insert(clinicalCases)
+          .values(clinicalCase)
+          .returning();
+        return newCase;
+      });
+    });
+  }
+
+  async updateClinicalCase(id: string, updates: Partial<InsertClinicalCase>): Promise<ClinicalCase> {
+    return withPerformanceLogging('updateClinicalCase', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updatedCase] = await dbInstance.update(clinicalCases)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(clinicalCases.id, id))
+          .returning();
+        return updatedCase;
+      });
+    });
+  }
+
+  async closeClinicalCase(id: string): Promise<ClinicalCase> {
+    return withPerformanceLogging('closeClinicalCase', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [closedCase] = await dbInstance.update(clinicalCases)
+          .set({ 
+            status: 'closed',
+            closeDate: new Date(),
+            updatedAt: new Date() 
+          })
+          .where(eq(clinicalCases.id, id))
+          .returning();
+        return closedCase;
+      });
+    });
+  }
+
+  async getClinicalEncounters(caseId: string): Promise<any[]> {
+    return withPerformanceLogging('getClinicalEncounters', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select({
+            encounter: clinicalEncounters,
+            doctor: doctors
+          })
+          .from(clinicalEncounters)
+          .leftJoin(doctors, eq(clinicalEncounters.doctorId, doctors.id))
+          .where(eq(clinicalEncounters.clinicalCaseId, caseId))
+          .orderBy(desc(clinicalEncounters.encounterDate));
+      });
+    });
+  }
+
+  async getClinicalEncounter(id: string): Promise<any | undefined> {
+    return withPerformanceLogging('getClinicalEncounter', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const results = await dbInstance
+          .select({
+            encounter: clinicalEncounters,
+            doctor: doctors
+          })
+          .from(clinicalEncounters)
+          .leftJoin(doctors, eq(clinicalEncounters.doctorId, doctors.id))
+          .where(eq(clinicalEncounters.id, id));
+        
+        return results[0];
+      });
+    });
+  }
+
+  async createClinicalEncounter(encounter: InsertClinicalEncounter): Promise<ClinicalEncounter> {
+    return withPerformanceLogging('createClinicalEncounter', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newEncounter] = await dbInstance.insert(clinicalEncounters)
+          .values(encounter)
+          .returning();
+        return newEncounter;
+      });
+    });
+  }
+
+  async updateClinicalEncounter(id: string, updates: Partial<InsertClinicalEncounter>): Promise<ClinicalEncounter> {
+    return withPerformanceLogging('updateClinicalEncounter', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updatedEncounter] = await dbInstance.update(clinicalEncounters)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(clinicalEncounters.id, id))
+          .returning();
+        return updatedEncounter;
+      });
+    });
+  }
+
+  async deleteClinicalEncounter(id: string): Promise<void> {
+    return withPerformanceLogging('deleteClinicalEncounter', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(clinicalEncounters)
+          .where(eq(clinicalEncounters.id, id));
+      });
+    });
+  }
+
+  async getLabAnalyses(encounterId: string): Promise<any[]> {
+    return withPerformanceLogging('getLabAnalyses', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(labAnalyses)
+          .where(eq(labAnalyses.encounterId, encounterId))
+          .orderBy(desc(labAnalyses.orderDate));
+      });
+    });
+  }
+
+  async getLabAnalysis(id: string): Promise<any | undefined> {
+    return withPerformanceLogging('getLabAnalysis', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [analysis] = await dbInstance
+          .select()
+          .from(labAnalyses)
+          .where(eq(labAnalyses.id, id));
+        return analysis;
+      });
+    });
+  }
+
+  async createLabAnalysis(analysis: InsertLabAnalysis): Promise<LabAnalysis> {
+    return withPerformanceLogging('createLabAnalysis', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newAnalysis] = await dbInstance.insert(labAnalyses)
+          .values(analysis)
+          .returning();
+        return newAnalysis;
+      });
+    });
+  }
+
+  async updateLabAnalysis(id: string, updates: Partial<InsertLabAnalysis>): Promise<LabAnalysis> {
+    return withPerformanceLogging('updateLabAnalysis', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updatedAnalysis] = await dbInstance.update(labAnalyses)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(labAnalyses.id, id))
+          .returning();
+        return updatedAnalysis;
+      });
+    });
+  }
+
+  async deleteLabAnalysis(id: string): Promise<void> {
+    return withPerformanceLogging('deleteLabAnalysis', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(labAnalyses)
+          .where(eq(labAnalyses.id, id));
+      });
+    });
+  }
+
+  async getAttachments(entityId: string, entityType: string): Promise<Attachment[]> {
+    return withPerformanceLogging('getAttachments', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(attachments)
+          .where(
+            and(
+              eq(attachments.entityId, entityId),
+              eq(attachments.entityType, entityType)
+            )
+          )
+          .orderBy(desc(attachments.createdAt));
+      });
+    });
+  }
+
+  async getAttachment(id: string): Promise<Attachment | undefined> {
+    return withPerformanceLogging('getAttachment', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [attachment] = await dbInstance
+          .select()
+          .from(attachments)
+          .where(eq(attachments.id, id));
+        return attachment;
+      });
+    });
+  }
+
+  async createAttachment(attachment: InsertAttachment): Promise<Attachment> {
+    return withPerformanceLogging('createAttachment', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newAttachment] = await dbInstance.insert(attachments)
+          .values(attachment)
+          .returning();
+        return newAttachment;
+      });
+    });
+  }
+
+  async deleteAttachment(id: string): Promise<void> {
+    return withPerformanceLogging('deleteAttachment', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(attachments)
+          .where(eq(attachments.id, id));
+      });
+    });
+  }
+
+  async getPatientFullHistory(patientId: string, branchId: string): Promise<any> {
+    return withPerformanceLogging('getPatientFullHistory', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Get patient info
+        const [patient] = await dbInstance
+          .select({
+            patient: patients,
+            owner: owners
+          })
+          .from(patients)
+          .leftJoin(owners, eq(patients.ownerId, owners.id))
+          .where(eq(patients.id, patientId));
+
+        // Get all clinical cases for this patient
+        const cases = await dbInstance
+          .select()
+          .from(clinicalCases)
+          .where(
+            and(
+              eq(clinicalCases.patientId, patientId),
+              eq(clinicalCases.branchId, branchId)
+            )
+          )
+          .orderBy(desc(clinicalCases.startDate));
+
+        // For each case, get encounters and analyses
+        const casesWithDetails = await Promise.all(
+          cases.map(async (clinicalCase) => {
+            const encounters = await dbInstance
+              .select({
+                encounter: clinicalEncounters,
+                doctor: doctors
+              })
+              .from(clinicalEncounters)
+              .leftJoin(doctors, eq(clinicalEncounters.doctorId, doctors.id))
+              .where(eq(clinicalEncounters.clinicalCaseId, clinicalCase.id))
+              .orderBy(desc(clinicalEncounters.encounterDate));
+
+            // For each encounter, get lab analyses and attachments
+            const encountersWithDetails = await Promise.all(
+              encounters.map(async (enc) => {
+                const analyses = await dbInstance
+                  .select()
+                  .from(labAnalyses)
+                  .where(eq(labAnalyses.encounterId, enc.encounter.id));
+
+                const analysesWithAttachments = await Promise.all(
+                  analyses.map(async (analysis) => {
+                    const analysisAttachments = await dbInstance
+                      .select()
+                      .from(attachments)
+                      .where(
+                        and(
+                          eq(attachments.entityId, analysis.id),
+                          eq(attachments.entityType, 'lab_analysis')
+                        )
+                      );
+                    return { ...analysis, attachments: analysisAttachments };
+                  })
+                );
+
+                return {
+                  ...enc,
+                  labAnalyses: analysesWithAttachments
+                };
+              })
+            );
+
+            return {
+              ...clinicalCase,
+              encounters: encountersWithDetails
+            };
+          })
+        );
+
+        return {
+          patient,
+          cases: casesWithDetails
+        };
       });
     });
   }
