@@ -394,7 +394,7 @@ export default function ClinicalCases() {
                         </p>
                         <p className="text-sm text-muted-foreground">
                           <Calendar className="h-3 w-3 inline mr-1" />
-                          Открыт: {format(new Date(clinicalCase.startDate), 'dd MMM yyyy', { locale: ru })}
+                          Открыт: {clinicalCase.startDate ? format(new Date(clinicalCase.startDate), 'dd MMM yyyy', { locale: ru }) : 'Не указано'}
                           {clinicalCase.closeDate && (
                             <span className="ml-3">
                               Закрыт: {format(new Date(clinicalCase.closeDate), 'dd MMM yyyy', { locale: ru })}

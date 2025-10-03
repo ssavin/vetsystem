@@ -5192,7 +5192,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const cases = await storage.getClinicalCases(filters, userBranchId);
-      res.json(cases);
+      
+      // Transform nested structure to flat structure for frontend
+      const flatCases = cases.map((item: any) => ({
+        ...item.clinicalCase,
+        patientName: item.patient?.name || 'Unknown',
+        species: item.patient?.species || '',
+        breed: item.patient?.breed || '',
+        ownerName: item.owner?.fullName || 'Unknown',
+        ownerPhone: item.owner?.phone || ''
+      }));
+      
+      res.json(flatCases);
     } catch (error) {
       console.error("Error fetching clinical cases:", error);
       res.status(500).json({ error: "Failed to fetch clinical cases" });
