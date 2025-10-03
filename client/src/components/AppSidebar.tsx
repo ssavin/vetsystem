@@ -1,4 +1,4 @@
-import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, Building2, Database, Layers } from "lucide-react"
+import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield } from "lucide-react"
 import { Link, useLocation } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -66,32 +66,6 @@ const menuItems = [
     url: "/settings",
     icon: Settings,
     module: "settings",
-  },
-  {
-    title: "МойСклад",
-    url: "/moysklad-nomenclature",
-    icon: Database,
-    module: "settings", // Используем тот же модуль что и настройки
-  },
-  {
-    title: "1С Розница",
-    url: "/onec-retail",
-    icon: Database,
-    module: "settings", // Используем тот же модуль что и настройки
-  },
-  {
-    title: "Подписки",
-    url: "/subscriptions",
-    icon: Layers,
-    module: "users", // Только для администраторов
-    adminOnly: true, // Флаг для отображения только админам
-  },
-  {
-    title: "Моя подписка",
-    url: "/my-subscription",
-    icon: Layers,
-    module: null, // Доступно всем
-    userOnly: true, // Флаг для отображения только обычным пользователям
   },
   {
     title: "Админ-панель",
