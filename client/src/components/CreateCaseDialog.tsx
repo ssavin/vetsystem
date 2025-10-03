@@ -61,7 +61,8 @@ export default function CreateCaseDialog({ patientId, patientName, trigger }: Cr
 
   const createCaseMutation = useMutation<CreatedCaseResponse, Error, CreateCaseFormValues>({
     mutationFn: async (values: CreateCaseFormValues) => {
-      return await apiRequest('POST', `/api/patients/${patientId}/clinical-cases`, values) as unknown as CreatedCaseResponse
+      const response = await apiRequest('POST', `/api/patients/${patientId}/clinical-cases`, values)
+      return await response.json() as CreatedCaseResponse
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinical-cases'] })
