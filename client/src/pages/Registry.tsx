@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Plus, Filter, FileText, Calendar, Phone, User } from "lucide-react"
+import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
+import CreateCaseDialog from "@/components/CreateCaseDialog"
 import { useLocation } from "wouter"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -99,6 +100,20 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
       </TableCell>
       <TableCell className="text-right">
         <div className="flex gap-1 justify-end">
+          <CreateCaseDialog 
+            patientId={patient.id} 
+            patientName={patient.name}
+            trigger={
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => e.stopPropagation()}
+                data-testid={`button-create-case-${patient.id}`}
+              >
+                <ClipboardList className="h-3 w-3" />
+              </Button>
+            }
+          />
           <Button
             size="sm"
             variant="outline"

@@ -1,4 +1,4 @@
-import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield } from "lucide-react"
+import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, ClipboardList } from "lucide-react"
 import { Link, useLocation } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -35,6 +35,12 @@ const menuItems = [
     title: "Мед. карты",
     url: "/medical-records",
     icon: Stethoscope,
+    module: "medical_records",
+  },
+  {
+    title: "Клинические случаи",
+    url: "/clinical-cases",
+    icon: ClipboardList,
     module: "medical_records",
   },
   {

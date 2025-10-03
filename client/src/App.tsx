@@ -11,6 +11,8 @@ import DashboardPage from "@/pages/Dashboard";
 import Registry from "@/pages/Registry";
 import Schedule from "@/pages/Schedule";
 import MedicalRecords from "@/pages/MedicalRecords";
+import ClinicalCases from "@/pages/ClinicalCases";
+import ClinicalCaseDetail from "@/pages/ClinicalCaseDetail";
 import Laboratory from "@/pages/Laboratory";
 import ServicesInventory from "@/pages/ServicesInventory";
 import Finance from "@/pages/Finance";
@@ -69,6 +71,8 @@ function AuthenticatedApp() {
               <Route path="/registry" component={Registry} />
               <Route path="/schedule" component={Schedule} />
               <Route path="/medical-records" component={MedicalRecords} />
+              <Route path="/clinical-cases" component={ClinicalCases} />
+              <Route path="/clinical-cases/:id" component={ClinicalCaseDetail} />
               <Route path="/laboratory" component={Laboratory} />
               <Route path="/services-inventory" component={ServicesInventory} />
               <Route path="/finance" component={Finance} />
