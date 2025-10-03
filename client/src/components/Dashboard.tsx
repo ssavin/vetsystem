@@ -231,7 +231,7 @@ export default function Dashboard() {
               data-testid="button-inventory"
             >
               <Package className="h-5 w-5" />
-              <span>Склад</span>
+              <span>Прейскурант</span>
             </Button>
           </div>
         </CardContent>
