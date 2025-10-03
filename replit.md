@@ -46,6 +46,11 @@ Preferred communication style: Simple, everyday language.
   - Doctors with specializations and contact details
   - Appointments with scheduling and status management
   - Medical records with treatment history and file attachments
+  - **Clinical Cases Module (October 2025)**: Comprehensive patient care tracking system
+    - Clinical Cases: Long-term medical cases tracking (open/closed/resolved status)
+    - Clinical Encounters: Individual doctor visits within a case (in_progress/completed status)
+    - Lab Analyses: Laboratory test orders and results (ordered/in_progress/completed/cancelled status)
+    - Attachments: File attachments for analyses (lab results, images, documents)
   - Services and products for inventory management
   - Invoicing system with line items and payment tracking
 - **Indexing**: Strategic database indexes on frequently queried fields (names, phones, dates)
