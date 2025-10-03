@@ -5214,19 +5214,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/clinical-cases/:id", authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
-      const clinicalCase = await storage.getClinicalCase(id);
+      const caseData = await storage.getClinicalCase(id);
       
-      if (!clinicalCase) {
+      if (!caseData) {
         return res.status(404).json({ error: "Clinical case not found" });
       }
 
       // Get encounters for this case
       const encounters = await storage.getClinicalEncounters(id);
       
-      res.json({
-        ...clinicalCase,
+      // Transform nested structure to flat structure for frontend
+      const flatCase = {
+        ...caseData.clinicalCase,
+        patient: caseData.patient,
+        owner: caseData.owner,
+        createdBy: caseData.createdBy,
         encounters
-      });
+      };
+      
+      res.json(flatCase);
     } catch (error) {
       console.error("Error fetching clinical case:", error);
       res.status(500).json({ error: "Failed to fetch clinical case" });

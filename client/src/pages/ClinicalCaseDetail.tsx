@@ -20,7 +20,7 @@ import {
   Paperclip
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { format } from "date-fns"
+import { format, isValid } from "date-fns"
 import { ru } from "date-fns/locale"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 import {
@@ -264,10 +264,12 @@ export default function ClinicalCaseDetail() {
               <p className="text-sm font-medium text-muted-foreground">Дата открытия</p>
               <p className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                {format(new Date(clinicalCase.startDate), 'dd MMMM yyyy, HH:mm', { locale: ru })}
+                {clinicalCase.startDate && isValid(new Date(clinicalCase.startDate))
+                  ? format(new Date(clinicalCase.startDate), 'dd MMMM yyyy, HH:mm', { locale: ru })
+                  : 'Не указано'}
               </p>
             </div>
-            {clinicalCase.closeDate && (
+            {clinicalCase.closeDate && isValid(new Date(clinicalCase.closeDate)) && (
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Дата закрытия</p>
                 <p className="flex items-center gap-2">
@@ -328,7 +330,9 @@ export default function ClinicalCaseDetail() {
                           </div>
                           <p className="text-sm text-muted-foreground flex items-center gap-2">
                             <Calendar className="h-3 w-3" />
-                            {format(new Date(encounter.encounterDate), 'dd MMMM yyyy, HH:mm', { locale: ru })}
+                            {encounter.encounterDate && isValid(new Date(encounter.encounterDate))
+                              ? format(new Date(encounter.encounterDate), 'dd MMMM yyyy, HH:mm', { locale: ru })
+                              : 'Не указано'}
                           </p>
                         </div>
                         {getEncounterStatusBadge(encounter.status)}
@@ -378,8 +382,10 @@ export default function ClinicalCaseDetail() {
                                 <div className="flex-1">
                                   <p className="font-medium text-sm">{analysis.analysisName}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    Заказан: {format(new Date(analysis.orderDate), 'dd.MM.yyyy', { locale: ru })}
-                                    {analysis.completionDate && (
+                                    Заказан: {analysis.orderDate && isValid(new Date(analysis.orderDate))
+                                      ? format(new Date(analysis.orderDate), 'dd.MM.yyyy', { locale: ru })
+                                      : 'Не указано'}
+                                    {analysis.completionDate && isValid(new Date(analysis.completionDate)) && (
                                       <span className="ml-2">
                                         • Готов: {format(new Date(analysis.completionDate), 'dd.MM.yyyy', { locale: ru })}
                                       </span>
