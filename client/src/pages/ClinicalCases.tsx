@@ -3,10 +3,10 @@ import { useQuery } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Filter, Calendar, FileText, Clock, CheckCircle2, XCircle } from "lucide-react"
+import { Search, Plus, Filter, Calendar, FileText, Clock, CheckCircle2, XCircle, Info, ArrowRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
@@ -186,11 +186,7 @@ export default function ClinicalCases() {
     navigate(`/clinical-cases/${caseId}`)
   }
 
-  const handleCreateCase = () => {
-    toast({
-      title: "Создание клинического случая",
-      description: "Пожалуйста, выберите пациента для создания нового случая",
-    })
+  const handleGoToRegistry = () => {
     navigate('/registry')
   }
 
@@ -207,11 +203,38 @@ export default function ClinicalCases() {
           <h1 className="text-3xl font-bold" data-testid="text-clinical-cases-title">Клинические случаи</h1>
           <p className="text-muted-foreground">Ведение и отслеживание клинических случаев пациентов</p>
         </div>
-        <Button onClick={handleCreateCase} data-testid="button-create-case">
-          <Plus className="h-4 w-4 mr-2" />
-          Новый случай
-        </Button>
       </div>
+
+      {/* Info card */}
+      <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                Как создать клинический случай?
+              </h3>
+              <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                Чтобы создать новый клинический случай, перейдите в <strong>Регистратуру</strong> и нажмите на иконку 
+                <FileText className="h-3 w-3 inline mx-1" /> 
+                рядом с нужным пациентом.
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleGoToRegistry}
+                className="bg-white dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-950"
+                data-testid="button-go-to-registry"
+              >
+                Перейти в регистратуру
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -394,20 +417,26 @@ export default function ClinicalCases() {
             <Card className="text-center py-8">
               <CardContent>
                 <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mb-2">
                   {searchTerm || statusFilter !== 'all' 
                     ? 'Клинические случаи не найдены' 
                     : 'Клинические случаи отсутствуют'}
                 </p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={handleCreateCase}
-                  data-testid="button-create-first-case"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Создать первый случай
-                </Button>
+                {!searchTerm && statusFilter === 'all' && (
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Перейдите в регистратуру, чтобы создать первый случай
+                  </p>
+                )}
+                {!searchTerm && statusFilter === 'all' && (
+                  <Button 
+                    variant="outline" 
+                    onClick={handleGoToRegistry}
+                    data-testid="button-create-first-case"
+                  >
+                    Перейти в регистратуру
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}

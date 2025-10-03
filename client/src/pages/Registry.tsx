@@ -110,7 +110,8 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
                 onClick={(e) => e.stopPropagation()}
                 data-testid={`button-create-case-${patient.id}`}
               >
-                <ClipboardList className="h-3 w-3" />
+                <ClipboardList className="h-3 w-3 mr-1" />
+                Случай
               </Button>
             }
           />
