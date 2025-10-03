@@ -149,7 +149,8 @@ export default function ClinicalCaseDetail() {
     }
   }
 
-  const getDoctorName = (doctorId: string) => {
+  const getDoctorName = (doctorId: string | undefined) => {
+    if (!doctorId) return 'Врач не указан'
     if (isLoadingDoctors) return 'Загрузка...'
     if (!Array.isArray(doctors) || doctors.length === 0) return 'Врач не указан'
     const doctor = doctors.find((d: any) => d.id === doctorId)
