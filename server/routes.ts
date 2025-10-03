@@ -5263,6 +5263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const newCase = await storage.createClinicalCase(clinicalCaseData as any);
+      console.log('Created clinical case:', JSON.stringify(newCase, null, 2));
 
       res.status(201).json(newCase);
     } catch (error) {
