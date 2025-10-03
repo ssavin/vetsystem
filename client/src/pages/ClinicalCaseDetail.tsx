@@ -83,7 +83,7 @@ export default function ClinicalCaseDetail() {
   })
 
   // Fetch doctors for display
-  const { data: doctors = [] } = useQuery({
+  const { data: doctors = [], isLoading: isLoadingDoctors } = useQuery({
     queryKey: ['/api/doctors'],
   })
 
@@ -150,8 +150,10 @@ export default function ClinicalCaseDetail() {
   }
 
   const getDoctorName = (doctorId: string) => {
+    if (isLoadingDoctors) return 'Загрузка...'
+    if (!Array.isArray(doctors) || doctors.length === 0) return 'Врач не указан'
     const doctor = doctors.find((d: any) => d.id === doctorId)
-    return doctor ? doctor.name : 'Неизвестный врач'
+    return doctor ? doctor.name : `Врач не найден (ID: ${doctorId.substring(0, 8)})`
   }
 
   const handleBack = () => {
