@@ -5233,17 +5233,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get encounters for this case
       const encountersData = await storage.getClinicalEncounters(id);
-      console.log('Raw encounters data:', JSON.stringify(encountersData, null, 2));
       
       // Transform encounters from nested to flat structure
-      const encounters = encountersData.map((item: any) => {
-        console.log('Processing encounter item:', JSON.stringify(item, null, 2));
-        return {
-          ...item.encounter,
-          doctorName: item.doctor?.name || null,
-        };
-      });
-      console.log('Transformed encounters:', JSON.stringify(encounters, null, 2));
+      const encounters = encountersData.map((item: any) => ({
+        ...item.encounter,
+        doctorName: item.doctor?.name || null,
+      }));
       
       // Transform nested structure to flat structure for frontend
       const flatCase = {
