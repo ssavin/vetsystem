@@ -1814,7 +1814,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===============================
 
   // Upload file for patient
-  app.post("/api/patients/:patientId/files", authenticateToken, requireModuleAccess('medical_records'), upload.single('file'), validateBody(insertPatientFileSchema.omit({ fileName: true, filePath: true })), async (req, res) => {
+  app.post("/api/patients/:patientId/files", authenticateToken, requireModuleAccess('medical_records'), upload.single('file'), validateBody(insertPatientFileSchema.omit({ 
+    id: true,
+    patientId: true,
+    fileName: true, 
+    filePath: true, 
+    originalName: true, 
+    mimeType: true, 
+    fileSize: true,
+    uploadedBy: true,
+    createdAt: true,
+    updatedAt: true
+  })), async (req, res) => {
     try {
       const { patientId } = req.params;
       const file = req.file;
@@ -5327,13 +5338,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const newEncounter = await storage.createClinicalEncounter({
+        tenantId: req.tenantId!,
+        branchId: user.branchId,
         clinicalCaseId: caseId,
         doctorId,
         anamnesis,
         diagnosis,
         treatmentPlan,
         notes
-      });
+      } as any);
 
       res.status(201).json(newEncounter);
     } catch (error) {
