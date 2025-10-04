@@ -25,13 +25,7 @@ export default function LanguageSwitcher() {
       await i18n.changeLanguage(languageCode);
       
       // Save to user profile
-      await apiRequest('/api/user/locale', {
-        method: 'PUT',
-        body: JSON.stringify({ locale: languageCode }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      await apiRequest('PUT', '/api/user/locale', { locale: languageCode });
       
       // Invalidate user cache to refresh UI
       queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
