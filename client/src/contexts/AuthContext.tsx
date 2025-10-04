@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { User } from '@shared/schema'
 import { queryClient } from '@/lib/queryClient'
+import i18n from '@/i18n'
 
 import { ROLE_PERMISSIONS } from '../shared/permissions';
 
@@ -133,6 +134,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     checkAuth()
   }, [])
+
+  // Sync user locale with i18n
+  useEffect(() => {
+    if (user?.locale && i18n.language !== user.locale) {
+      i18n.changeLanguage(user.locale)
+    }
+  }, [user?.locale])
 
   return (
     <AuthContext.Provider
