@@ -2017,6 +2017,30 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async countBranchRelations(branchId: string): Promise<{ owners: number; patients: number; users: number }> {
+    return await withPerformanceLogging('countBranchRelations', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [ownersResult, patientsResult, usersResult] = await Promise.all([
+          dbInstance.select({ count: sql<number>`count(*)` })
+            .from(owners)
+            .where(eq(owners.branchId, branchId)),
+          dbInstance.select({ count: sql<number>`count(*)` })
+            .from(patients)
+            .where(eq(patients.branchId, branchId)),
+          dbInstance.select({ count: sql<number>`count(*)` })
+            .from(users)
+            .where(eq(users.branchId, branchId))
+        ]);
+
+        return {
+          owners: Number(ownersResult[0]?.count || 0),
+          patients: Number(patientsResult[0]?.count || 0),
+          users: Number(usersResult[0]?.count || 0)
+        };
+      });
+    });
+  }
+
   async deleteBranch(id: string): Promise<void> {
     return await withPerformanceLogging('deleteBranch', async () => {
       return withTenantContext(undefined, async (dbInstance) => {

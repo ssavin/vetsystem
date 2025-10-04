@@ -1738,15 +1738,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete branch
-  app.delete("/api/branches/:id", authenticateToken, requireRole('руководитель'), async (req, res) => {
+  app.delete("/api/branches/:id", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
     try {
       const existingBranch = await storage.getBranch(req.params.id);
       if (!existingBranch) {
         return res.status(404).json({ error: "Branch not found" });
       }
       
-      // TODO: Add check if branch has associated data (users, patients, etc.)
-      // For now, allow deletion but consider adding safety checks
+      // Check for associated data before deletion using branch-scoped counts
+      // getBranch already enforces tenant isolation via withTenantContext
+      const counts = await storage.countBranchRelations(req.params.id);
+
+      if (counts.owners > 0 || counts.patients > 0 || counts.users > 0) {
+        return res.status(400).json({ 
+          error: "Невозможно удалить филиал",
+          details: "Филиал содержит связанные записи (клиенты, пациенты или пользователи). Сначала переместите или удалите их."
+        });
+      }
       
       await storage.deleteBranch(req.params.id);
       res.status(204).send();
