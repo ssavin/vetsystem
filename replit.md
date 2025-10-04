@@ -125,6 +125,7 @@ Preferred communication style: Simple, everyday language.
     - `scripts/update-branches-batch.ts`: Batch branch assignment (500 records/batch)
   - Security: Vetais credentials stored in Replit Secrets (VETAIS_DB_HOST, VETAIS_DB_PORT, VETAIS_DB_NAME, VETAIS_DB_USER, VETAIS_DB_PASSWORD)
   - Performance: Batch operations with pre-loaded duplicate detection for optimal speed
+  - **NULL Branch Handling**: Storage methods (getOwners, getPatients, searchOwners, searchPatients) include records with NULL branch_id in all branches for visibility until branch assignment
 
 ## Design System
 - **Color Palette**: Medical-focused color scheme with primary blue (#2563eb), success green, warning orange, and error red

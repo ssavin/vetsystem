@@ -723,7 +723,7 @@ export class DatabaseStorage implements IStorage {
     return withPerformanceLogging('getOwners', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         return await dbInstance.select().from(owners)
-          .where(eq(owners.branchId, branchId))
+          .where(or(eq(owners.branchId, branchId), isNull(owners.branchId)))
           .orderBy(desc(owners.createdAt));
       });
     });
@@ -784,7 +784,7 @@ export class DatabaseStorage implements IStorage {
         return await dbInstance
           .select()
           .from(owners)
-          .where(and(searchConditions, eq(owners.branchId, branchId)))
+          .where(and(searchConditions, or(eq(owners.branchId, branchId), isNull(owners.branchId))))
           .orderBy(desc(owners.createdAt));
       });
     });
@@ -797,7 +797,7 @@ export class DatabaseStorage implements IStorage {
         return await dbInstance
           .select()
           .from(patients)
-          .where(eq(patients.branchId, branchId))
+          .where(or(eq(patients.branchId, branchId), isNull(patients.branchId)))
           .orderBy(desc(patients.createdAt))
           .limit(limit || 50)
           .offset(offset || 0);
@@ -821,7 +821,7 @@ export class DatabaseStorage implements IStorage {
         return await dbInstance
           .select()
           .from(patients)
-          .where(and(eq(patients.ownerId, ownerId), eq(patients.branchId, branchId)));
+          .where(and(eq(patients.ownerId, ownerId), or(eq(patients.branchId, branchId), isNull(patients.branchId))));
       });
     });
   }
@@ -883,7 +883,7 @@ export class DatabaseStorage implements IStorage {
         return await dbInstance
           .select()
           .from(patients)
-          .where(and(searchConditions, eq(patients.branchId, branchId)))
+          .where(and(searchConditions, or(eq(patients.branchId, branchId), isNull(patients.branchId))))
           .orderBy(desc(patients.createdAt));
       });
     });
