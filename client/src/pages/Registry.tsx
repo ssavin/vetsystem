@@ -179,15 +179,18 @@ export default function Registry() {
   // Create owner map
   const ownerMap = useMemo(() => {
     const map: Record<string, any> = {}
-    ;(ownersData as any[]).forEach((owner: any) => {
-      map[owner.id] = owner
-    })
+    if (Array.isArray(ownersData)) {
+      ownersData.forEach((owner: any) => {
+        map[owner.id] = owner
+      })
+    }
     return map
   }, [ownersData])
 
   // Transform patients to match table format
   const transformedPatients = useMemo(() => {
-    return (patientsData as any[]).map((patient: any) => {
+    if (!Array.isArray(patientsData)) return []
+    return patientsData.map((patient: any) => {
       const owner = ownerMap[patient.ownerId]
       const birthDate = patient.birthDate ? new Date(patient.birthDate) : null
       const age = birthDate 
