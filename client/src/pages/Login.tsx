@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useLocation } from "wouter"
 import { LogIn, Eye, EyeOff, MapPin } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
+import logoPath from "@assets/logo_1759552922114.png"
 
 type Branch = {
   id: string;
@@ -67,9 +68,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-              <LogIn className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <img src={logoPath} alt="VetSystem" className="w-20 h-20 rounded-lg" />
           </div>
           <CardTitle className="text-2xl text-center">VetSystem</CardTitle>
           <CardDescription className="text-center">

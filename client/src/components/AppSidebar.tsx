@@ -11,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import logoPath from "@assets/logo_1759552922114.png"
 
 const menuItems = [
   {
@@ -105,9 +106,12 @@ export default function AppSidebar() {
   return (
     <Sidebar>
       <SidebarContent>
-        <div className="p-4 border-b">
-          <h2 className="font-semibold text-lg text-sidebar-primary">VetSystem</h2>
-          <p className="text-sm text-muted-foreground">Ветеринарная клиника</p>
+        <div className="p-4 border-b flex items-center gap-3">
+          <img src={logoPath} alt="VetSystem" className="w-12 h-12 rounded-md" />
+          <div>
+            <h2 className="font-semibold text-lg text-sidebar-primary">VetSystem</h2>
+            <p className="text-sm text-muted-foreground">Ветеринарная клиника</p>
+          </div>
         </div>
         <SidebarGroup>
           <SidebarGroupLabel>Модули системы</SidebarGroupLabel>
