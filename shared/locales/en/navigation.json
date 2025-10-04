@@ -13,5 +13,6 @@
     "adminPanel": "Admin Panel"
   },
   "appTitle": "VetSystem",
-  "appSubtitle": "Veterinary Clinic"
+  "appSubtitle": "Veterinary Clinic",
+  "moduleTitle": "System Modules"
 }

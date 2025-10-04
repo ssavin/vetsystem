@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useLocation } from "wouter"
 import { LogIn, Eye, EyeOff, MapPin } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import logoPath from "@assets/logo_1759553178604.png"
 
 type Branch = {
@@ -29,12 +30,12 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const { login, isLoading } = useAuth()
   const { toast } = useToast()
+  const { t } = useTranslation('auth')
   
-  // Fetch available branches
   const { data: branches = [], isLoading: branchesLoading } = useQuery({
     queryKey: ['/api/branches/active'],
     queryFn: () => fetch('/api/branches/active').then(res => res.json()),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const form = useForm<LoginFormValues>({
@@ -50,14 +51,14 @@ export default function Login() {
     try {
       await login(values.username, values.password, values.branchId)
       toast({
-        title: "Успешно",
-        description: "Добро пожаловать в VetSystem!",
+        title: t('login.success'),
+        description: t('login.welcomeMessage'),
       })
       navigate("/")
     } catch (error) {
       toast({
-        title: "Ошибка входа",
-        description: error instanceof Error ? error.message : "Неверные данные для входа",
+        title: t('login.error'),
+        description: error instanceof Error ? error.message : t('login.invalidCredentials'),
         variant: "destructive",
       })
     }
@@ -70,9 +71,9 @@ export default function Login() {
           <div className="flex items-center justify-center mb-4">
             <img src={logoPath} alt="VetSystem" className="w-20 h-20 rounded-lg" />
           </div>
-          <CardTitle className="text-2xl text-center">VetSystem</CardTitle>
+          <CardTitle className="text-2xl text-center">{t('login.title')}</CardTitle>
           <CardDescription className="text-center">
-            Войдите в систему управления ветеринарной клиникой
+            {t('login.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -83,11 +84,11 @@ export default function Login() {
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Имя пользователя</FormLabel>
+                    <FormLabel>{t('login.username')}</FormLabel>
                     <FormControl>
                       <Input
                         type="text"
-                        placeholder="Введите имя пользователя"
+                        placeholder={t('login.usernamePlaceholder')}
                         autoComplete="username"
                         data-testid="input-username"
                         {...field}
@@ -103,12 +104,12 @@ export default function Login() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Пароль</FormLabel>
+                    <FormLabel>{t('login.password')}</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Input
                           type={showPassword ? "text" : "password"}
-                          placeholder="Введите пароль"
+                          placeholder={t('login.passwordPlaceholder')}
                           autoComplete="current-password"
                           data-testid="input-password"
                           {...field}
@@ -141,12 +142,12 @@ export default function Login() {
                   <FormItem>
                     <FormLabel className="flex items-center gap-2">
                       <MapPin className="h-4 w-4" />
-                      Филиал клиники
+                      {t('login.branch')}
                     </FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value} disabled={branchesLoading}>
                       <FormControl>
                         <SelectTrigger data-testid="select-branch">
-                          <SelectValue placeholder={branchesLoading ? "Загрузка филиалов..." : "Выберите филиал"} />
+                          <SelectValue placeholder={branchesLoading ? t('login.loadingBranches') : t('login.branchPlaceholder')} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -171,14 +172,14 @@ export default function Login() {
                 disabled={isLoading}
                 data-testid="button-login"
               >
-                {isLoading ? "Вход..." : "Войти"}
+                {isLoading ? t('login.loggingIn') : t('login.loginButton')}
               </Button>
             </form>
           </Form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Для получения доступа обратитесь к администратору системы
+              {t('login.contactAdmin')}
             </p>
           </div>
         </CardContent>
