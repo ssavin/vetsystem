@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Users, Calendar, Clock, AlertCircle, Banknote, Package } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { useLocation } from "wouter"
+import { useTranslation } from "react-i18next"
 import { type DashboardStats, type Appointment } from "@shared/schema"
 import AppointmentCard from "./AppointmentCard"
 import { StatCardSkeleton, AppointmentCardSkeleton, NotificationRowSkeleton } from "./ui/loading-skeletons"
@@ -55,8 +56,8 @@ const formatAppointmentForCard = (appointment: Appointment) => ({
 
 export default function Dashboard() {
   const [, navigate] = useLocation()
+  const { t } = useTranslation('dashboard')
 
-  // Fetch dashboard statistics
   const { 
     data: stats, 
     isLoading: statsLoading, 
@@ -65,7 +66,6 @@ export default function Dashboard() {
     queryKey: ['/api/dashboard/stats']
   });
 
-  // Fetch today's appointments
   const { 
     data: appointments, 
     isLoading: appointmentsLoading, 
@@ -79,14 +79,13 @@ export default function Dashboard() {
     }
   });
 
-
   const todayAppointments = appointments ? appointments.slice(0, 3).map(formatAppointmentForCard) : [];
 
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold" data-testid="text-dashboard-title">Начальная страница VetSystem</h1>
-        <p className="text-muted-foreground">Обзор деятельности клиники</p>
+        <h1 className="text-3xl font-bold" data-testid="text-dashboard-title">{t('title')}</h1>
+        <p className="text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {/* Statistics Cards */}
@@ -96,17 +95,17 @@ export default function Dashboard() {
         ) : (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Всего пациентов сегодня</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('stats.totalPatientsToday')}</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               {statsError ? (
-                <div className="text-2xl font-bold text-destructive">Ошибка</div>
+                <div className="text-2xl font-bold text-destructive">{t('stats.error')}</div>
               ) : (
                 <div className="text-2xl font-bold" data-testid="text-total-patients">{appointments?.length || 0}</div>
               )}
               <p className="text-xs text-muted-foreground">
-                На приеме в клинике
+                {t('stats.inClinic')}
               </p>
             </CardContent>
           </Card>
@@ -130,17 +129,17 @@ export default function Dashboard() {
         ) : (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Уведомления</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('notifications.title')}</CardTitle>
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm">Долги</span>
+                  <span className="text-sm">{t('notifications.debts')}</span>
                   <Badge variant="destructive" className="text-xs">{stats?.pendingPayments || 0}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm">Мало товара</span>
+                  <span className="text-sm">{t('notifications.lowStock')}</span>
                   <Badge variant="secondary" className="text-xs">{stats?.lowStockCount || 0}</Badge>
                 </div>
               </div>
@@ -149,13 +148,12 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Today's Schedule */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Расписание на сегодня
+              {t('schedule.title')}
             </CardTitle>
             <Button 
               variant="outline" 
@@ -163,7 +161,7 @@ export default function Dashboard() {
               onClick={() => navigate('/schedule')}
               data-testid="button-view-full-schedule"
             >
-              Весь день
+              {t('schedule.viewFullDay')}
             </Button>
           </div>
         </CardHeader>
@@ -176,7 +174,7 @@ export default function Dashboard() {
             </div>
           ) : appointmentsError ? (
             <div className="text-center py-4 text-muted-foreground">
-              Ошибка загрузки записей
+              {t('schedule.loadingError')}
             </div>
           ) : todayAppointments.length > 0 ? (
             todayAppointments.map(appointment => (
@@ -184,16 +182,15 @@ export default function Dashboard() {
             ))
           ) : (
             <div className="text-center py-4 text-muted-foreground">
-              Нет записей на сегодня
+              {t('schedule.noAppointments')}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Быстрые действия</CardTitle>
+          <CardTitle>{t('quickActions.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -204,7 +201,7 @@ export default function Dashboard() {
               data-testid="button-new-patient"
             >
               <Users className="h-5 w-5" />
-              <span>Новый пациент</span>
+              <span>{t('quickActions.newPatient')}</span>
             </Button>
             <Button 
               className="h-16 flex-col gap-2" 
@@ -213,7 +210,7 @@ export default function Dashboard() {
               data-testid="button-new-appointment"
             >
               <Calendar className="h-5 w-5" />
-              <span>Запись на прием</span>
+              <span>{t('quickActions.newAppointment')}</span>
             </Button>
             <Button 
               className="h-16 flex-col gap-2" 
@@ -222,7 +219,7 @@ export default function Dashboard() {
               data-testid="button-new-invoice"
             >
               <Banknote className="h-5 w-5" />
-              <span>Создать счет</span>
+              <span>{t('quickActions.newInvoice')}</span>
             </Button>
             <Button 
               className="h-16 flex-col gap-2" 
@@ -231,7 +228,7 @@ export default function Dashboard() {
               data-testid="button-inventory"
             >
               <Package className="h-5 w-5" />
-              <span>Прейскурант</span>
+              <span>{t('quickActions.inventory')}</span>
             </Button>
           </div>
         </CardContent>

@@ -1,0 +1,27 @@
+{
+  "title": "Начальная страница VetSystem",
+  "subtitle": "Обзор деятельности клиники",
+  "stats": {
+    "totalPatientsToday": "Всего пациентов сегодня",
+    "inClinic": "На приеме в клинике",
+    "error": "Ошибка"
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "debts": "Долги",
+    "lowStock": "Мало товара"
+  },
+  "schedule": {
+    "title": "Расписание на сегодня",
+    "viewFullDay": "Весь день",
+    "loadingError": "Ошибка загрузки записей",
+    "noAppointments": "Нет записей на сегодня"
+  },
+  "quickActions": {
+    "title": "Быстрые действия",
+    "newPatient": "Новый пациент",
+    "newAppointment": "Запись на прием",
+    "newInvoice": "Создать счет",
+    "inventory": "Прейскурант"
+  }
+}

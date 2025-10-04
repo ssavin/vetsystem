@@ -1,0 +1,27 @@
+{
+  "title": "VetSystem Dashboard",
+  "subtitle": "Clinic activity overview",
+  "stats": {
+    "totalPatientsToday": "Total patients today",
+    "inClinic": "In clinic",
+    "error": "Error"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "debts": "Debts",
+    "lowStock": "Low stock"
+  },
+  "schedule": {
+    "title": "Today's Schedule",
+    "viewFullDay": "Full day",
+    "loadingError": "Error loading appointments",
+    "noAppointments": "No appointments today"
+  },
+  "quickActions": {
+    "title": "Quick Actions",
+    "newPatient": "New Patient",
+    "newAppointment": "Schedule Appointment",
+    "newInvoice": "Create Invoice",
+    "inventory": "Services & Inventory"
+  }
+}
