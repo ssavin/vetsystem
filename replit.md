@@ -110,6 +110,16 @@ Preferred communication style: Simple, everyday language.
   - POST `/api/integration-credentials/moysklad/test` for connection testing
   - All routes use req.tenantId from tenant-resolver middleware
 
+## Data Migration (October 2025)
+- **Vetais Migration**: Successfully migrated 60,142+ client records from legacy Vetais PostgreSQL database
+  - Source: Vetais Java/PostgreSQL system (file_clients table, 67,235 active records)
+  - Field Mapping: nazev_kado→name, telefon/mobil→phone, email (cleaned), mesto_k+adresar→address
+  - Data Quality: 52% with email, 85% with address, 100% with unique phone numbers
+  - Filter: Only active clients (vymaz=0) migrated, duplicates and invalid records skipped
+  - Scripts: `scripts/explore-vetais-db.ts` (exploration), `scripts/migrate-vetais-batch.ts` (optimized batch migration)
+  - Security: Vetais credentials stored in Replit Secrets (VETAIS_DB_HOST, VETAIS_DB_PORT, VETAIS_DB_NAME, VETAIS_DB_USER, VETAIS_DB_PASSWORD)
+  - Performance: Batch inserts (1000 records per batch) with pre-loaded duplicate detection for optimal speed
+
 ## Design System
 - **Color Palette**: Medical-focused color scheme with primary blue (#2563eb), success green, warning orange, and error red
 - **Typography**: Inter font for readability with JetBrains Mono for technical data
