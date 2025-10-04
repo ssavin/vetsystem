@@ -210,6 +210,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🔒 Get all owners from all branches within tenant
+  app.get("/api/owners/all", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
+    try {
+      const owners = await storage.getAllOwners();
+      res.json(owners);
+    } catch (error) {
+      console.error("Error fetching all owners:", error);
+      res.status(500).json({ error: "Failed to fetch all owners" });
+    }
+  });
+
   app.get("/api/owners/:id", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
       const user = (req as any).user;
@@ -328,6 +339,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching patients:", error);
       res.status(500).json({ error: "Failed to fetch patients" });
+    }
+  });
+
+  // 🔒 Get all patients from all branches within tenant
+  app.get("/api/patients/all", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      const patients = await storage.getAllPatients(limit, offset);
+      res.json(patients);
+    } catch (error) {
+      console.error("Error fetching all patients:", error);
+      res.status(500).json({ error: "Failed to fetch all patients" });
     }
   });
 

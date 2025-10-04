@@ -161,6 +161,7 @@ export interface IStorage {
 
   // Owner methods - 🔒 SECURITY: branchId required for PHI isolation
   getOwners(branchId: string): Promise<Owner[]>;
+  getAllOwners(): Promise<Owner[]>; // 🔒 All owners from all branches within tenant
   getOwner(id: string): Promise<Owner | undefined>;
   createOwner(owner: InsertOwner): Promise<Owner>;
   updateOwner(id: string, owner: Partial<InsertOwner>): Promise<Owner>;
@@ -169,6 +170,7 @@ export interface IStorage {
 
   // Patient methods - 🔒 SECURITY: branchId required for PHI isolation
   getPatients(limit: number | undefined, offset: number | undefined, branchId: string): Promise<Patient[]>;
+  getAllPatients(limit: number | undefined, offset: number | undefined): Promise<Patient[]>; // 🔒 All patients from all branches within tenant
   getPatient(id: string): Promise<Patient | undefined>;
   getPatientsByOwner(ownerId: string, branchId: string): Promise<Patient[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
@@ -771,6 +773,15 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async getAllOwners(): Promise<Owner[]> {
+    return withPerformanceLogging('getAllOwners', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance.select().from(owners)
+          .orderBy(desc(owners.createdAt));
+      });
+    });
+  }
+
   async searchOwners(query: string, branchId: string): Promise<Owner[]> {
     return withPerformanceLogging('searchOwners', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
@@ -864,6 +875,19 @@ export class DatabaseStorage implements IStorage {
     return withPerformanceLogging('deletePatient', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         await dbInstance.delete(patients).where(eq(patients.id, id));
+      });
+    });
+  }
+
+  async getAllPatients(limit: number | undefined = 50, offset: number | undefined = 0): Promise<Patient[]> {
+    return withPerformanceLogging('getAllPatients', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(patients)
+          .orderBy(desc(patients.createdAt))
+          .limit(limit || 50)
+          .offset(offset || 0);
       });
     });
   }
