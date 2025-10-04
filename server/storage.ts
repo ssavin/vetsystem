@@ -144,6 +144,7 @@ export interface IStorage {
   getUsers(): Promise<User[]>;
   updateUser(id: string, updateData: Partial<InsertUser>): Promise<User>;
   updateUserLastLogin(id: string): Promise<void>;
+  updateUserLocale(id: string, locale: string): Promise<void>;
   deleteUser(id: string): Promise<void>;
 
   // Branch methods
@@ -693,6 +694,17 @@ export class DatabaseStorage implements IStorage {
         await dbInstance
           .update(users)
           .set({ lastLogin: new Date() })
+          .where(eq(users.id, id));
+      });
+    });
+  }
+
+  async updateUserLocale(id: string, locale: string): Promise<void> {
+    return withPerformanceLogging('updateUserLocale', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance
+          .update(users)
+          .set({ locale, updatedAt: new Date() })
           .where(eq(users.id, id));
       });
     });

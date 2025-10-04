@@ -1,0 +1,17 @@
+{
+  "menu": {
+    "dashboard": "Dashboard",
+    "registry": "Registry",
+    "schedule": "Schedule",
+    "medicalRecords": "Medical Records",
+    "clinicalCases": "Clinical Cases",
+    "laboratory": "Laboratory",
+    "servicesInventory": "Services & Inventory",
+    "finance": "Finance",
+    "reports": "Reports",
+    "settings": "Settings",
+    "adminPanel": "Admin Panel"
+  },
+  "appTitle": "VetSystem",
+  "appSubtitle": "Veterinary Clinic"
+}

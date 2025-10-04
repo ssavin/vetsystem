@@ -1658,6 +1658,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user locale endpoint
+  app.put("/api/user/locale", authenticateToken, validateBody(z.object({
+    locale: z.string().min(2).max(10)
+  })), async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Пользователь не аутентифицирован" });
+      }
+      
+      const { locale } = req.body;
+      await storage.updateUserLocale(req.user.id, locale);
+      
+      res.json({ 
+        success: true,
+        locale,
+        message: "Язык успешно обновлен" 
+      });
+    } catch (error) {
+      console.error("Update locale error:", error);
+      res.status(500).json({ error: "Ошибка при обновлении языка" });
+    }
+  });
+
   // ===============================
   // BRANCH MANAGEMENT API ENDPOINTS
   // ===============================

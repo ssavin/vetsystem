@@ -130,6 +130,7 @@ export const users = pgTable("users", {
   fullName: varchar("full_name", { length: 255 }).notNull(),
   role: varchar("role", { length: 50 }).notNull(),
   status: varchar("status", { length: 20 }).default("active"),
+  locale: varchar("locale", { length: 10 }).default("ru"), // User's preferred language (ru, en, etc.)
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

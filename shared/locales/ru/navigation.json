@@ -1,0 +1,17 @@
+{
+  "menu": {
+    "dashboard": "Начальная страница",
+    "registry": "Регистратура",
+    "schedule": "Расписание",
+    "medicalRecords": "Мед. карты",
+    "clinicalCases": "Клинические случаи",
+    "laboratory": "Лаборатория",
+    "servicesInventory": "Прейскурант",
+    "finance": "Финансы",
+    "reports": "Отчеты",
+    "settings": "Настройки",
+    "adminPanel": "Админ-панель"
+  },
+  "appTitle": "VetSystem",
+  "appSubtitle": "Ветеринарная клиника"
+}

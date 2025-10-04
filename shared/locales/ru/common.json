@@ -1,0 +1,47 @@
+{
+  "buttons": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "create": "Создать",
+    "add": "Добавить",
+    "search": "Поиск",
+    "filter": "Фильтры",
+    "back": "Назад",
+    "next": "Далее",
+    "submit": "Отправить",
+    "close": "Закрыть",
+    "confirm": "Подтвердить",
+    "retry": "Повторить"
+  },
+  "status": {
+    "active": "Активно",
+    "inactive": "Неактивно",
+    "pending": "В ожидании",
+    "completed": "Завершено",
+    "cancelled": "Отменено"
+  },
+  "messages": {
+    "loading": "Загрузка...",
+    "saving": "Сохранение...",
+    "saved": "Сохранено",
+    "error": "Ошибка",
+    "success": "Успешно",
+    "noData": "Нет данных",
+    "confirmDelete": "Вы уверены, что хотите удалить?",
+    "deleteSuccess": "Успешно удалено",
+    "saveSuccess": "Успешно сохранено"
+  },
+  "fields": {
+    "name": "Название",
+    "description": "Описание",
+    "date": "Дата",
+    "time": "Время",
+    "phone": "Телефон",
+    "email": "Email",
+    "address": "Адрес",
+    "city": "Город",
+    "status": "Статус"
+  }
+}
