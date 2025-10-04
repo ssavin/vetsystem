@@ -4,13 +4,26 @@
   "registrationTitle": "Регистрация нового пациента",
   "registrationSubtitle": "Добавление животного в базу данных",
   "backToRegistry": "Назад к регистратуре",
+  "filters": "Фильтры",
   "tabs": {
     "patients": "Пациенты",
     "owners": "Владельцы"
   },
   "patients": {
     "add": "Добавить пациента",
-    "search": "Поиск пациента...",
+    "search": "Поиск пациентов",
+    "searchPlaceholder": "Поиск по кличке, владельцу или телефону...",
+    "notFound": "Пациенты не найдены",
+    "empty": "Пациенты отсутствуют",
+    "tableHeaders": {
+      "patient": "Пациент",
+      "speciesBreed": "Вид/порода",
+      "owner": "Владелец",
+      "phone": "Телефон",
+      "status": "Статус",
+      "lastVisit": "Последний визит",
+      "actions": "Действия"
+    },
     "name": "Кличка",
     "species": "Вид",
     "breed": "Порода",

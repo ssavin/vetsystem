@@ -4,13 +4,26 @@
   "registrationTitle": "New Patient Registration",
   "registrationSubtitle": "Add animal to database",
   "backToRegistry": "Back to Registry",
+  "filters": "Filters",
   "tabs": {
     "patients": "Patients",
     "owners": "Owners"
   },
   "patients": {
     "add": "Add Patient",
-    "search": "Search patient...",
+    "search": "Search Patients",
+    "searchPlaceholder": "Search by name, owner or phone...",
+    "notFound": "No patients found",
+    "empty": "No patients available",
+    "tableHeaders": {
+      "patient": "Patient",
+      "speciesBreed": "Species/Breed",
+      "owner": "Owner",
+      "phone": "Phone",
+      "status": "Status",
+      "lastVisit": "Last Visit",
+      "actions": "Actions"
+    },
     "name": "Name",
     "species": "Species",
     "breed": "Breed",

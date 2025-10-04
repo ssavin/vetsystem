@@ -240,7 +240,7 @@ export default function Registry() {
             onClick={() => setShowRegistrationForm(false)}
             data-testid="button-back-to-registry"
           >
-            Назад к списку
+            {t('backToRegistry')}
           </Button>
         </div>
         <PatientRegistrationForm />
@@ -260,20 +260,20 @@ export default function Registry() {
           data-testid="button-new-patient"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Новый пациент
+          {t('patients.add')}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Поиск пациентов</CardTitle>
+          <CardTitle>{t('patients.search')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Поиск по кличке, владельцу или телефону..."
+                placeholder={t('patients.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="pl-10"
@@ -282,7 +282,7 @@ export default function Registry() {
             </div>
             <Button variant="outline" data-testid="button-filters">
               <Filter className="h-4 w-4 mr-2" />
-              Фильтры
+              {t('filters')}
             </Button>
           </div>
         </CardContent>
@@ -299,20 +299,20 @@ export default function Registry() {
           ) : filteredPatients.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">
-                {searchTerm ? 'Пациенты не найдены' : 'Пациенты отсутствуют'}
+                {searchTerm ? t('patients.notFound') : t('patients.empty')}
               </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Пациент</TableHead>
-                  <TableHead>Вид/Порода</TableHead>
-                  <TableHead>Владелец</TableHead>
-                  <TableHead>Телефон</TableHead>
-                  <TableHead>Статус</TableHead>
-                  <TableHead>Последний визит</TableHead>
-                  <TableHead className="text-right">Действия</TableHead>
+                  <TableHead>{t('patients.tableHeaders.patient')}</TableHead>
+                  <TableHead>{t('patients.tableHeaders.speciesBreed')}</TableHead>
+                  <TableHead>{t('patients.tableHeaders.owner')}</TableHead>
+                  <TableHead>{t('patients.tableHeaders.phone')}</TableHead>
+                  <TableHead>{t('patients.tableHeaders.status')}</TableHead>
+                  <TableHead>{t('patients.tableHeaders.lastVisit')}</TableHead>
+                  <TableHead className="text-right">{t('patients.tableHeaders.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
