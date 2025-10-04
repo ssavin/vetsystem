@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useLocation } from "wouter"
 import { LogIn, Eye, EyeOff, MapPin } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
-import logoPath from "@assets/logo_1759552922114.png"
+import logoPath from "@assets/logo_1759553178604.png"
 
 type Branch = {
   id: string;

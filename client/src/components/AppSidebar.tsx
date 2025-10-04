@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import logoPath from "@assets/logo_1759552922114.png"
+import logoPath from "@assets/logo_1759553178604.png"
 
 const menuItems = [
   {
