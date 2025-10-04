@@ -199,11 +199,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/owners", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
       const user = (req as any).user;
-      const userBranchId = requireValidBranchId(req, res);
-      if (!userBranchId) return; // 403 already sent
+      const requestedBranchId = req.query.branchId as string;
       
-      const owners = await storage.getOwners(userBranchId);
-      res.json(owners);
+      if (requestedBranchId) {
+        // Validate user has access to requested branch
+        const hasAccess = await storage.canUserAccessBranch(user.id, requestedBranchId);
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied: Branch not accessible" });
+        }
+        const owners = await storage.getOwners(requestedBranchId);
+        res.json(owners);
+      } else {
+        // Default to user's branch
+        const userBranchId = requireValidBranchId(req, res);
+        if (!userBranchId) return;
+        const owners = await storage.getOwners(userBranchId);
+        res.json(owners);
+      }
     } catch (error) {
       console.error("Error fetching owners:", error);
       res.status(500).json({ error: "Failed to fetch owners" });
@@ -328,14 +340,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/patients", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
       const user = (req as any).user;
-      const userBranchId = requireValidBranchId(req, res);
-      if (!userBranchId) return; // 403 already sent
-      
+      const requestedBranchId = req.query.branchId as string;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
-      // 🔒 SECURITY: Pass branchId to enforce branch isolation
-      const patients = await storage.getPatients(limit, offset, userBranchId);
-      res.json(patients);
+      
+      if (requestedBranchId) {
+        // Validate user has access to requested branch
+        const hasAccess = await storage.canUserAccessBranch(user.id, requestedBranchId);
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied: Branch not accessible" });
+        }
+        const patients = await storage.getPatients(limit, offset, requestedBranchId);
+        res.json(patients);
+      } else {
+        // Default to user's branch
+        const userBranchId = requireValidBranchId(req, res);
+        if (!userBranchId) return;
+        const patients = await storage.getPatients(limit, offset, userBranchId);
+        res.json(patients);
+      }
     } catch (error) {
       console.error("Error fetching patients:", error);
       res.status(500).json({ error: "Failed to fetch patients" });

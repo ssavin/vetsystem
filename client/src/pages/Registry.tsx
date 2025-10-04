@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2 } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import CreateCaseDialog from "@/components/CreateCaseDialog"
 import { useLocation } from "wouter"
@@ -146,14 +147,40 @@ export default function Registry() {
   const { t } = useTranslation('registry')
   const [searchTerm, setSearchTerm] = useState("")
   const [showRegistrationForm, setShowRegistrationForm] = useState(false)
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("all")
 
-  // Fetch patients and owners from API
+  // Fetch available branches
+  const { data: branchesData = [] } = useQuery({
+    queryKey: ['/api/branches/active'],
+  })
+
+  // Fetch patients and owners from API based on selected branch
   const { data: patientsData = [], isLoading } = useQuery({
-    queryKey: ['/api/patients'],
+    queryKey: ['/api/patients', selectedBranchId],
+    queryFn: async () => {
+      const endpoint = selectedBranchId === "all" 
+        ? '/api/patients/all' 
+        : `/api/patients?branchId=${selectedBranchId}`
+      const res = await fetch(endpoint, {
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error('Failed to fetch patients')
+      return res.json()
+    },
   })
 
   const { data: ownersData = [] } = useQuery({
-    queryKey: ['/api/owners'],
+    queryKey: ['/api/owners', selectedBranchId],
+    queryFn: async () => {
+      const endpoint = selectedBranchId === "all" 
+        ? '/api/owners/all' 
+        : `/api/owners?branchId=${selectedBranchId}`
+      const res = await fetch(endpoint, {
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error('Failed to fetch owners')
+      return res.json()
+    },
   })
 
   // Create owner map
@@ -269,6 +296,24 @@ export default function Registry() {
           <CardTitle>{t('patients.search')}</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="flex gap-4 mb-4">
+            <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+              <SelectTrigger className="w-[250px]" data-testid="select-branch">
+                <Building2 className="h-4 w-4 mr-2" />
+                <SelectValue placeholder={t('selectBranch', 'Выберите филиал')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" data-testid="branch-option-all">
+                  {t('allBranches', 'Все филиалы')}
+                </SelectItem>
+                {Array.isArray(branchesData) && branchesData.map((branch: any) => (
+                  <SelectItem key={branch.id} value={branch.id} data-testid={`branch-option-${branch.id}`}>
+                    {branch.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
