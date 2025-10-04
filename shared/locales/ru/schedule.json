@@ -1,0 +1,55 @@
+{
+  "title": "Расписание приемов",
+  "subtitle": "Управление записями и расписанием врачей",
+  "addAppointment": "Новая запись",
+  "today": "Сегодня",
+  "viewMode": {
+    "day": "День",
+    "week": "Неделя",
+    "month": "Месяц"
+  },
+  "filters": {
+    "doctor": "Доктор",
+    "allDoctors": "Все врачи",
+    "type": "Тип",
+    "allTypes": "Все типы",
+    "status": "Статус",
+    "allStatuses": "Все статусы"
+  },
+  "types": {
+    "allTypes": "Все типы",
+    "examination": "Осмотр",
+    "surgery": "Операция",
+    "consultation": "Консультация",
+    "diagnostics": "Диагностика",
+    "vaccination": "Вакцинация"
+  },
+  "statuses": {
+    "scheduled": "Запланирована",
+    "confirmed": "Подтверждена",
+    "in_progress": "В процессе",
+    "completed": "Завершена",
+    "cancelled": "Отменена",
+    "no_show": "Не пришел"
+  },
+  "table": {
+    "time": "Время",
+    "patient": "Пациент",
+    "owner": "Владелец",
+    "doctor": "Врач",
+    "type": "Тип",
+    "status": "Статус",
+    "actions": "Действия"
+  },
+  "duration": {
+    "minutes": "мин"
+  },
+  "defaultNames": {
+    "patient": "Пациент",
+    "animal": "Животное",
+    "owner": "Владелец",
+    "doctor": "Доктор"
+  },
+  "noData": "Нет записей на выбранную дату",
+  "loading": "Загрузка расписания..."
+}

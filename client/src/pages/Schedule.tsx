@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,32 +37,40 @@ const mapAppointmentStatus = (dbStatus: string | null): 'scheduled' | 'confirmed
   }
 }
 
-// Helper function to format appointment data for AppointmentCard
-const formatAppointmentForCard = (appointment: any) => ({
-  id: appointment.id,
-  time: new Date(appointment.appointmentDate).toLocaleTimeString('ru-RU', {
-    hour: '2-digit',
-    minute: '2-digit'
-  }),
-  duration: `${appointment.duration} мин`,
-  appointmentDate: new Date(appointment.appointmentDate),
-  patientName: appointment.patientName || "Пациент",
-  patientSpecies: appointment.patientSpecies || "Животное",
-  ownerName: appointment.ownerName || "Владелец",
-  doctorName: appointment.doctorName || "Доктор",
-  appointmentType: appointment.appointmentType,
-  status: mapAppointmentStatus(appointment.status),
-  notes: appointment.notes || ""
-})
-
-// Filter options - will be populated from actual data
-const appointmentTypes = ["Все типы", "Осмотр", "Операция", "Консультация", "Диагностика", "Вакцинация"]
-
 export default function Schedule() {
+  const { t } = useTranslation('schedule')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('day')
-  const [selectedDoctor, setSelectedDoctor] = useState("Все врачи")
-  const [selectedType, setSelectedType] = useState("Все типы")
+  const [selectedDoctor, setSelectedDoctor] = useState(t('filters.allDoctors'))
+  const [selectedType, setSelectedType] = useState(t('types.allTypes'))
+
+  // Helper function to format appointment data for AppointmentCard
+  const formatAppointmentForCard = (appointment: any) => ({
+    id: appointment.id,
+    time: new Date(appointment.appointmentDate).toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }),
+    duration: `${appointment.duration} ${t('duration.minutes')}`,
+    appointmentDate: new Date(appointment.appointmentDate),
+    patientName: appointment.patientName || t('defaultNames.patient'),
+    patientSpecies: appointment.patientSpecies || t('defaultNames.animal'),
+    ownerName: appointment.ownerName || t('defaultNames.owner'),
+    doctorName: appointment.doctorName || t('defaultNames.doctor'),
+    appointmentType: appointment.appointmentType,
+    status: mapAppointmentStatus(appointment.status),
+    notes: appointment.notes || ""
+  })
+
+  // Filter options - will be populated from actual data
+  const appointmentTypes = [
+    t('types.allTypes'),
+    t('types.examination'),
+    t('types.surgery'),
+    t('types.consultation'),
+    t('types.diagnostics'),
+    t('types.vaccination')
+  ]
 
   // Helper functions for date range queries
   const getWeekRange = (date: Date) => {
@@ -151,12 +160,12 @@ export default function Schedule() {
     // For day view, the backend already filters by date
     
     // Apply doctor filter
-    if (selectedDoctor !== "Все врачи") {
+    if (selectedDoctor !== t('filters.allDoctors')) {
       filtered = filtered.filter(apt => apt.doctorName === selectedDoctor)
     }
     
     // Apply appointment type filter
-    if (selectedType !== "Все типы") {
+    if (selectedType !== t('types.allTypes')) {
       filtered = filtered.filter(apt => apt.appointmentType === selectedType)
     }
     
@@ -167,7 +176,7 @@ export default function Schedule() {
   const formattedAppointments = getFilteredAppointments()
   
   // Get unique doctors from appointments for filter
-  const doctors = ["Все врачи", ...Array.from(new Set(formattedAppointments.map(apt => apt.doctorName).filter(Boolean)))]
+  const doctors = [t('filters.allDoctors'), ...Array.from(new Set(formattedAppointments.map(apt => apt.doctorName).filter(Boolean)))]
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('ru-RU', {
@@ -198,8 +207,8 @@ export default function Schedule() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-schedule-title">Расписание приемов</h1>
-          <p className="text-muted-foreground">Управление записями и расписанием врачей</p>
+          <h1 className="text-3xl font-bold" data-testid="text-schedule-title">{t('title')}</h1>
+          <p className="text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex gap-2">
           {/* View Mode Switcher */}

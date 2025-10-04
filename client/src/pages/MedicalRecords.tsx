@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 
 
 export default function MedicalRecords() {
+  const { t } = useTranslation('medicalRecords')
   const [searchTerm, setSearchTerm] = useState("")
   const [showAIAssistant, setShowAIAssistant] = useState(false)
   const [selectedPatientForAI, setSelectedPatientForAI] = useState<any>(null)
@@ -75,15 +77,15 @@ export default function MedicalRecords() {
       return {
         ...record,
         patientId: record.patientId,
-        date: isValidVisitDate ? visitDate.toLocaleDateString('ru-RU') : 'Дата не указана',
-        patientName: patient ? patient.name : 'Неизвестный пациент',
-        doctorName: doctor ? doctor.name : 'Неизвестный врач',
-        medications: [], // TODO: Fetch medications separately if needed
+        date: isValidVisitDate ? visitDate.toLocaleDateString('ru-RU') : t('unknownDate'),
+        patientName: patient ? patient.name : t('unknownPatient'),
+        doctorName: doctor ? doctor.name : t('unknownDoctor'),
+        medications: [],
         nextVisit: isValidNextVisit ? nextVisitDate.toLocaleDateString('ru-RU') : undefined,
         treatment: Array.isArray(record.treatment) ? record.treatment : []
       }
     })
-  }, [medicalRecords, patientMap, doctorMap])
+  }, [medicalRecords, patientMap, doctorMap, t])
 
   // Filter records based on search term and selected patient
   const filteredRecords = useMemo(() => {
@@ -121,23 +123,23 @@ export default function MedicalRecords() {
 
   const handleFiltersClick = () => {
     toast({
-      title: "Фильтры",
-      description: "Функция фильтрации находится в разработке",
+      title: t('filtersTitle'),
+      description: t('filtersDescription'),
     })
   }
 
   const handlePeriodClick = () => {
     toast({
-      title: "Выбор периода",
-      description: "Функция выбора временного периода находится в разработке",
+      title: t('periodTitle'),
+      description: t('periodDescription'),
     })
   }
 
   const handleAIAssistantToggle = () => {
     if (!showAIAssistant && !selectedPatientForAI) {
       toast({
-        title: "Выберите пациента",
-        description: "Для использования ИИ-помощника необходимо выбрать пациента",
+        title: t('selectPatientTitle'),
+        description: t('selectPatientDescription'),
         variant: "destructive",
       })
       return
@@ -149,8 +151,8 @@ export default function MedicalRecords() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-medical-records-title">Электронные медицинские карты</h1>
-          <p className="text-muted-foreground">История болезней и медицинские записи пациентов</p>
+          <h1 className="text-3xl font-bold" data-testid="text-medical-records-title">{t('title')}</h1>
+          <p className="text-muted-foreground">{t('subtitle')}</p>
         </div>
         <MedicalRecordForm />
       </div>
@@ -158,7 +160,7 @@ export default function MedicalRecords() {
       {selectedPatientName && (
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-sm py-2 px-3">
-            Пациент: {selectedPatientName}
+            {t('showingForPatient')}: {selectedPatientName}
             <Button
               variant="ghost"
               size="sm"
@@ -177,14 +179,14 @@ export default function MedicalRecords() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Поиск медицинских записей</CardTitle>
+          <CardTitle>{t('searchTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Поиск по пациенту, врачу или диагнозу..."
+                placeholder={t('searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="pl-10"
@@ -193,11 +195,11 @@ export default function MedicalRecords() {
             </div>
             <Button variant="outline" onClick={handleFiltersClick} data-testid="button-filter-records">
               <Filter className="h-4 w-4 mr-2" />
-              Фильтры
+              {t('filtersButton')}
             </Button>
             <Button variant="outline" onClick={handlePeriodClick} data-testid="button-date-range">
               <Calendar className="h-4 w-4 mr-2" />
-              Период
+              {t('periodButton')}
             </Button>
             <Button
               variant={showAIAssistant ? "default" : "outline"}
@@ -205,19 +207,18 @@ export default function MedicalRecords() {
               data-testid="button-toggle-ai"
             >
               <Brain className="h-4 w-4 mr-2" />
-              ИИ-Помощник
+              {t('aiAssistant')}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* ИИ-Помощник */}
       {showAIAssistant && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5 text-blue-500" />
-              Ветеринарный ИИ-Помощник
+              {t('aiAssistantTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>

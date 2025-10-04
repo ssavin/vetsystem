@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,14 +23,6 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
   }
 }
 
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'healthy': return 'Здоров'
-    case 'treatment': return 'Лечение'
-    case 'critical': return 'Критическое'
-    default: return 'Неизвестно'
-  }
-}
 
 interface PatientTableRowProps {
   patient: {
@@ -47,7 +40,12 @@ interface PatientTableRowProps {
 }
 
 function PatientTableRow({ patient }: PatientTableRowProps) {
+  const { t } = useTranslation('registry')
   const [, navigate] = useLocation()
+
+  const getStatusText = (status: string) => {
+    return t(`status.${status}`, { defaultValue: t('status.unknown') })
+  }
 
   return (
     <TableRow className="hover-elevate">
@@ -111,7 +109,7 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
                 data-testid={`button-create-case-${patient.id}`}
               >
                 <ClipboardList className="h-3 w-3 mr-1" />
-                Случай
+                {t('patients.createCase')}
               </Button>
             }
           />
@@ -143,27 +141,9 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
   )
 }
 
-// Helper function for age word form
-function getYearWord(years: number) {
-  const lastDigit = years % 10
-  const lastTwoDigits = years % 100
-
-  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
-    return 'лет'
-  }
-
-  if (lastDigit === 1) {
-    return 'год'
-  }
-
-  if (lastDigit >= 2 && lastDigit <= 4) {
-    return 'года'
-  }
-
-  return 'лет'
-}
 
 export default function Registry() {
+  const { t } = useTranslation('registry')
   const [searchTerm, setSearchTerm] = useState("")
   const [showRegistrationForm, setShowRegistrationForm] = useState(false)
 
@@ -187,29 +167,49 @@ export default function Registry() {
     return map
   }, [ownersData])
 
+  // Helper function for age word form
+  const getYearWord = (years: number) => {
+    const lastDigit = years % 10
+    const lastTwoDigits = years % 100
+
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
+      return t('patients.year_many')
+    }
+    if (lastDigit === 1) {
+      return t('patients.year_one')
+    }
+    if (lastDigit >= 2 && lastDigit <= 4) {
+      return t('patients.year_few')
+    }
+    return t('patients.year_many')
+  }
+
   // Transform patients to match table format
   const transformedPatients = useMemo(() => {
     if (!Array.isArray(patientsData)) return []
     return patientsData.map((patient: any) => {
       const owner = ownerMap[patient.ownerId]
       const birthDate = patient.birthDate ? new Date(patient.birthDate) : null
-      const age = birthDate 
-        ? `${Math.floor((Date.now() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 365))} ${getYearWord(Math.floor((Date.now() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 365)))}`
-        : 'Неизвестно'
+      const years = birthDate 
+        ? Math.floor((Date.now() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 365))
+        : null
+      const age = years !== null
+        ? `${years} ${getYearWord(years)}`
+        : t('patients.unknown')
 
       return {
         id: patient.id,
         name: patient.name,
         species: patient.species,
-        breed: patient.breed || 'Неизвестна',
+        breed: patient.breed || t('patients.unknownBreed'),
         age,
-        owner: owner ? owner.name : 'Неизвестен',
+        owner: owner ? owner.name : t('patients.unknownOwner'),
         ownerPhone: owner ? owner.phone : '-',
-        status: 'healthy' as const, // TODO: Get actual status from medical records
-        lastVisit: undefined // TODO: Get from appointments/medical records
+        status: 'healthy' as const,
+        lastVisit: undefined
       }
     })
-  }, [patientsData, ownerMap])
+  }, [patientsData, ownerMap, t])
 
   // Filter patients based on search
   const filteredPatients = useMemo(() => {
@@ -232,8 +232,8 @@ export default function Registry() {
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Регистрация нового пациента</h1>
-            <p className="text-muted-foreground">Добавление животного в базу данных</p>
+            <h1 className="text-3xl font-bold">{t('registrationTitle')}</h1>
+            <p className="text-muted-foreground">{t('registrationSubtitle')}</p>
           </div>
           <Button 
             variant="outline" 
@@ -252,8 +252,8 @@ export default function Registry() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-registry-title">Регистратура</h1>
-          <p className="text-muted-foreground">Управление клиентской базой и пациентами</p>
+          <h1 className="text-3xl font-bold" data-testid="text-registry-title">{t('title')}</h1>
+          <p className="text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button 
           onClick={() => setShowRegistrationForm(true)}

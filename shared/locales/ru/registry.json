@@ -1,0 +1,51 @@
+{
+  "title": "Регистратура",
+  "subtitle": "Управление клиентской базой и пациентами",
+  "registrationTitle": "Регистрация нового пациента",
+  "registrationSubtitle": "Добавление животного в базу данных",
+  "backToRegistry": "Назад к регистратуре",
+  "tabs": {
+    "patients": "Пациенты",
+    "owners": "Владельцы"
+  },
+  "patients": {
+    "add": "Добавить пациента",
+    "search": "Поиск пациента...",
+    "name": "Кличка",
+    "species": "Вид",
+    "breed": "Порода",
+    "owner": "Владелец",
+    "ownerPhone": "Телефон владельца",
+    "age": "Возраст",
+    "status": "Статус",
+    "lastVisit": "Последний визит",
+    "actions": "Действия",
+    "noData": "Нет пациентов",
+    "loading": "Загрузка пациентов...",
+    "createCase": "Случай",
+    "viewRecords": "Карта",
+    "unknown": "Неизвестно",
+    "unknownBreed": "Неизвестна",
+    "unknownOwner": "Неизвестен",
+    "year_one": "год",
+    "year_few": "года",
+    "year_many": "лет"
+  },
+  "status": {
+    "healthy": "Здоров",
+    "treatment": "Лечение",
+    "critical": "Критическое",
+    "unknown": "Неизвестно"
+  },
+  "owners": {
+    "add": "Добавить владельца",
+    "search": "Поиск владельца...",
+    "name": "Имя",
+    "phone": "Телефон",
+    "email": "Email",
+    "address": "Адрес",
+    "actions": "Действия",
+    "noData": "Нет владельцев",
+    "loading": "Загрузка владельцев..."
+  }
+}

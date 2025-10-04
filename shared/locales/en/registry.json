@@ -1,0 +1,51 @@
+{
+  "title": "Registry",
+  "subtitle": "Manage client database and patients",
+  "registrationTitle": "New Patient Registration",
+  "registrationSubtitle": "Add animal to database",
+  "backToRegistry": "Back to Registry",
+  "tabs": {
+    "patients": "Patients",
+    "owners": "Owners"
+  },
+  "patients": {
+    "add": "Add Patient",
+    "search": "Search patient...",
+    "name": "Name",
+    "species": "Species",
+    "breed": "Breed",
+    "owner": "Owner",
+    "ownerPhone": "Owner Phone",
+    "age": "Age",
+    "status": "Status",
+    "lastVisit": "Last Visit",
+    "actions": "Actions",
+    "noData": "No patients",
+    "loading": "Loading patients...",
+    "createCase": "Case",
+    "viewRecords": "Records",
+    "unknown": "Unknown",
+    "unknownBreed": "Unknown",
+    "unknownOwner": "Unknown",
+    "year_one": "year",
+    "year_few": "years",
+    "year_many": "years"
+  },
+  "status": {
+    "healthy": "Healthy",
+    "treatment": "Treatment",
+    "critical": "Critical",
+    "unknown": "Unknown"
+  },
+  "owners": {
+    "add": "Add Owner",
+    "search": "Search owner...",
+    "name": "Name",
+    "phone": "Phone",
+    "email": "Email",
+    "address": "Address",
+    "actions": "Actions",
+    "noData": "No owners",
+    "loading": "Loading owners..."
+  }
+}

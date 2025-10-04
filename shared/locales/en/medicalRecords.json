@@ -1,0 +1,38 @@
+{
+  "title": "Electronic Medical Records",
+  "subtitle": "Patient medical history and records",
+  "addRecord": "New Record",
+  "searchTitle": "Search Medical Records",
+  "searchPlaceholder": "Search by patient, doctor or diagnosis...",
+  "aiAssistant": "AI Assistant",
+  "aiAssistantTitle": "Veterinary AI Assistant",
+  "selectPatientTitle": "Select a patient",
+  "selectPatientDescription": "You need to select a patient to use the AI assistant",
+  "showingForPatient": "Patient",
+  "clearFilter": "Clear filter",
+  "filtersButton": "Filters",
+  "filtersTitle": "Filters",
+  "filtersDescription": "Filter functionality is under development",
+  "periodButton": "Period",
+  "periodTitle": "Select Period",
+  "periodDescription": "Date range selection functionality is under development",
+  "unknownDate": "Date not specified",
+  "unknownPatient": "Unknown patient",
+  "unknownDoctor": "Unknown doctor",
+  "filters": {
+    "patient": "Patient",
+    "allPatients": "All Patients",
+    "doctor": "Doctor",
+    "allDoctors": "All Doctors"
+  },
+  "table": {
+    "date": "Date",
+    "patient": "Patient",
+    "doctor": "Doctor",
+    "diagnosis": "Diagnosis",
+    "treatment": "Treatment",
+    "actions": "Actions"
+  },
+  "noData": "No medical records",
+  "loading": "Loading records..."
+}

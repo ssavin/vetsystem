@@ -1,0 +1,38 @@
+{
+  "title": "Электронные медицинские карты",
+  "subtitle": "История болезней и медицинские записи пациентов",
+  "addRecord": "Новая запись",
+  "searchTitle": "Поиск медицинских записей",
+  "searchPlaceholder": "Поиск по пациенту, врачу или диагнозу...",
+  "aiAssistant": "ИИ-Помощник",
+  "aiAssistantTitle": "Ветеринарный ИИ-Помощник",
+  "selectPatientTitle": "Выберите пациента",
+  "selectPatientDescription": "Для использования ИИ-помощника необходимо выбрать пациента",
+  "showingForPatient": "Пациент",
+  "clearFilter": "Сбросить фильтр",
+  "filtersButton": "Фильтры",
+  "filtersTitle": "Фильтры",
+  "filtersDescription": "Функция фильтрации находится в разработке",
+  "periodButton": "Период",
+  "periodTitle": "Выбор периода",
+  "periodDescription": "Функция выбора временного периода находится в разработке",
+  "unknownDate": "Дата не указана",
+  "unknownPatient": "Неизвестный пациент",
+  "unknownDoctor": "Неизвестный врач",
+  "filters": {
+    "patient": "Пациент",
+    "allPatients": "Все пациенты",
+    "doctor": "Врач",
+    "allDoctors": "Все врачи"
+  },
+  "table": {
+    "date": "Дата",
+    "patient": "Пациент",
+    "doctor": "Врач",
+    "diagnosis": "Диагноз",
+    "treatment": "Лечение",
+    "actions": "Действия"
+  },
+  "noData": "Нет медицинских записей",
+  "loading": "Загрузка записей..."
+}

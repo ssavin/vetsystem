@@ -1,0 +1,55 @@
+{
+  "title": "Appointment Schedule",
+  "subtitle": "Manage appointments and doctor schedules",
+  "addAppointment": "New Appointment",
+  "today": "Today",
+  "viewMode": {
+    "day": "Day",
+    "week": "Week",
+    "month": "Month"
+  },
+  "filters": {
+    "doctor": "Doctor",
+    "allDoctors": "All Doctors",
+    "type": "Type",
+    "allTypes": "All Types",
+    "status": "Status",
+    "allStatuses": "All Statuses"
+  },
+  "types": {
+    "allTypes": "All Types",
+    "examination": "Examination",
+    "surgery": "Surgery",
+    "consultation": "Consultation",
+    "diagnostics": "Diagnostics",
+    "vaccination": "Vaccination"
+  },
+  "statuses": {
+    "scheduled": "Scheduled",
+    "confirmed": "Confirmed",
+    "in_progress": "In Progress",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "no_show": "No Show"
+  },
+  "table": {
+    "time": "Time",
+    "patient": "Patient",
+    "owner": "Owner",
+    "doctor": "Doctor",
+    "type": "Type",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "duration": {
+    "minutes": "min"
+  },
+  "defaultNames": {
+    "patient": "Patient",
+    "animal": "Animal",
+    "owner": "Owner",
+    "doctor": "Doctor"
+  },
+  "noData": "No appointments for selected date",
+  "loading": "Loading schedule..."
+}
