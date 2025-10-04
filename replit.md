@@ -111,14 +111,20 @@ Preferred communication style: Simple, everyday language.
   - All routes use req.tenantId from tenant-resolver middleware
 
 ## Data Migration (October 2025)
-- **Vetais Migration**: Successfully migrated 60,142+ client records from legacy Vetais PostgreSQL database
+- **Vetais Migration**: Successfully migrated 60,142+ client records from legacy Vetais PostgreSQL database with branch distribution
   - Source: Vetais Java/PostgreSQL system (file_clients table, 67,235 active records)
   - Field Mapping: nazev_kado→name, telefon/mobil→phone, email (cleaned), mesto_k+adresar→address
+  - Branch Mapping: Automatic branch creation and assignment based on clinic_id/created_clinic_id
+    - 3 branches created: Бутово (20,755 clients), Новопеределкино (11,509), Лобачевского (6,980)
+    - 22,677 clients without branch assignment (no clinic_id in Vetais)
   - Data Quality: 52% with email, 85% with address, 100% with unique phone numbers
   - Filter: Only active clients (vymaz=0) migrated, duplicates and invalid records skipped
-  - Scripts: `scripts/explore-vetais-db.ts` (exploration), `scripts/migrate-vetais-batch.ts` (optimized batch migration)
+  - Scripts: 
+    - `scripts/explore-vetais-db.ts`: Database exploration and structure analysis
+    - `scripts/migrate-vetais-batch.ts`: Optimized batch client migration (1000 records/batch)
+    - `scripts/update-branches-batch.ts`: Batch branch assignment (500 records/batch)
   - Security: Vetais credentials stored in Replit Secrets (VETAIS_DB_HOST, VETAIS_DB_PORT, VETAIS_DB_NAME, VETAIS_DB_USER, VETAIS_DB_PASSWORD)
-  - Performance: Batch inserts (1000 records per batch) with pre-loaded duplicate detection for optimal speed
+  - Performance: Batch operations with pre-loaded duplicate detection for optimal speed
 
 ## Design System
 - **Color Palette**: Medical-focused color scheme with primary blue (#2563eb), success green, warning orange, and error red
