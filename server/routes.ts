@@ -5210,7 +5210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         patientName: item.patient?.name || 'Unknown',
         species: item.patient?.species || '',
         breed: item.patient?.breed || '',
-        ownerName: item.owner?.fullName || 'Unknown',
+        ownerName: item.owner?.name || 'Unknown',
         ownerPhone: item.owner?.phone || ''
       }));
       

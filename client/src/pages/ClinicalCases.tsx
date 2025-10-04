@@ -28,6 +28,12 @@ interface ClinicalCase {
   createdByUserId: string
   tenantId: string
   branchId: string
+  // Joined fields from API
+  patientName?: string
+  species?: string
+  breed?: string
+  ownerName?: string
+  ownerPhone?: string
 }
 
 interface Patient {
