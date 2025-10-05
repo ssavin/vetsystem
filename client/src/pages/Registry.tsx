@@ -104,15 +104,22 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
             patientId={patient.id} 
             patientName={patient.name}
             trigger={
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => e.stopPropagation()}
-                data-testid={`button-create-case-${patient.id}`}
-              >
-                <ClipboardList className="h-3 w-3 mr-1" />
-                {t('patients.createCase')}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => e.stopPropagation()}
+                    data-testid={`button-create-case-${patient.id}`}
+                  >
+                    <ClipboardList className="h-3 w-3 mr-1" />
+                    {t('patients.createCase')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('patients.createCaseTooltip', 'Создать клинический случай')}</p>
+                </TooltipContent>
+              </Tooltip>
             }
           />
           <Tooltip>
