@@ -1,3 +1,8 @@
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { z } from "zod"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -5,310 +10,640 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { CalendarIcon, Save, X } from "lucide-react"
-import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { useToast } from "@/hooks/use-toast"
+import { apiRequest, queryClient } from "@/lib/queryClient"
+import { Save, X, Plus, UserPlus, Star, Trash2, Search } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
-interface PatientData {
+// Patient creation schema matching backend
+const patientFormSchema = z.object({
+  name: z.string().min(1, "Введите кличку"),
+  species: z.string().min(1, "Выберите вид"),
+  breed: z.string().optional(),
+  gender: z.enum(["male", "female", "unknown"]).optional(),
+  birthDate: z.string().optional(),
+  color: z.string().optional(),
+  weight: z.string().optional(),
+  microchipNumber: z.string().optional(),
+  isNeutered: z.boolean().default(false),
+  allergies: z.string().optional(),
+  chronicConditions: z.string().optional(),
+  specialMarks: z.string().optional(),
+  branchId: z.string().optional(),
+  ownerIds: z.array(z.string()).min(1, "Выберите хотя бы одного владельца"),
+})
+
+type PatientFormData = z.infer<typeof patientFormSchema>
+
+interface Owner {
+  id: string
   name: string
-  species: string
-  breed: string
-  gender: string
-  birthDate: string
-  color: string
-  weight: string
-  microchipNumber: string
-  isNeutered: boolean
-  allergies: string
-  chronicConditions: string
-  specialMarks: string
-  ownerName: string
-  ownerPhone: string
-  ownerEmail: string
-  ownerAddress: string
-  notes: string
+  phone?: string
+  email?: string
+  address?: string
 }
 
-export default function PatientRegistrationForm() {
-  const [formData, setFormData] = useState<PatientData>({
-    name: '',
-    species: '',
-    breed: '',
-    gender: '',
-    birthDate: '',
-    color: '',
-    weight: '',
-    microchipNumber: '',
-    isNeutered: false,
-    allergies: '',
-    chronicConditions: '',
-    specialMarks: '',
-    ownerName: '',
-    ownerPhone: '',
-    ownerEmail: '',
-    ownerAddress: '',
-    notes: ''
+interface SelectedOwner extends Owner {
+  isPrimary: boolean
+}
+
+interface PatientRegistrationFormProps {
+  onSuccess?: () => void
+  onCancel?: () => void
+}
+
+export default function PatientRegistrationForm({ onSuccess, onCancel }: PatientRegistrationFormProps) {
+  const { toast } = useToast()
+  const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isOwnerDialogOpen, setIsOwnerDialogOpen] = useState(false)
+  const [isNewOwnerDialogOpen, setIsNewOwnerDialogOpen] = useState(false)
+  const [newOwnerData, setNewOwnerData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: ""
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log('Patient registration form submitted:', formData)
-    // Reset form
-    setFormData({
-      name: '',
-      species: '',
-      breed: '',
-      gender: '',
-      birthDate: '',
-      color: '',
-      weight: '',
-      microchipNumber: '',
+  // Get current branch
+  const { data: currentBranch } = useQuery<{ id: string, name: string }>({
+    queryKey: ['/api/auth/current-branch'],
+  })
+
+  // Search owners
+  const { data: searchResults = [] } = useQuery<Owner[]>({
+    queryKey: ['/api/owners/search', searchQuery],
+    queryFn: async () => {
+      if (!searchQuery || searchQuery.length < 2) return []
+      const res = await fetch(`/api/owners/search?query=${encodeURIComponent(searchQuery)}&limit=20`, {
+        credentials: 'include',
+      })
+      if (!res.ok) return []
+      return res.json()
+    },
+    enabled: searchQuery.length >= 2,
+  })
+
+  const form = useForm<PatientFormData>({
+    resolver: zodResolver(patientFormSchema),
+    defaultValues: {
+      name: "",
+      species: "",
+      breed: "",
+      gender: undefined,
+      birthDate: "",
+      color: "",
+      weight: "",
+      microchipNumber: "",
       isNeutered: false,
-      allergies: '',
-      chronicConditions: '',
-      specialMarks: '',
-      ownerName: '',
-      ownerPhone: '',
-      ownerEmail: '',
-      ownerAddress: '',
-      notes: ''
+      allergies: "",
+      chronicConditions: "",
+      specialMarks: "",
+      branchId: "",
+      ownerIds: [],
+    },
+  })
+
+  // Sync branchId when current branch loads
+  useEffect(() => {
+    if (currentBranch?.id) {
+      form.setValue('branchId', currentBranch.id)
+    }
+  }, [currentBranch?.id, form])
+
+  // Sync ownerIds with selectedOwners (primary owner must be first)
+  useEffect(() => {
+    // Sort owners: primary first, then others by original order
+    const sortedOwners = [...selectedOwners].sort((a, b) => {
+      if (a.isPrimary) return -1
+      if (b.isPrimary) return 1
+      return 0
     })
+    const ownerIds = sortedOwners.map(o => o.id)
+    form.setValue('ownerIds', ownerIds)
+    form.trigger('ownerIds') // Trigger validation
+  }, [selectedOwners, form])
+
+  // Create owner mutation
+  const createOwnerMutation = useMutation({
+    mutationFn: async (ownerData: typeof newOwnerData) => {
+      const res = await apiRequest('POST', '/api/owners', ownerData)
+      return await res.json() as Owner
+    },
+    onSuccess: (newOwner: Owner) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owners'] })
+      addOwner(newOwner, selectedOwners.length === 0)
+      setIsNewOwnerDialogOpen(false)
+      setNewOwnerData({ name: "", phone: "", email: "", address: "" })
+      toast({
+        title: "Владелец создан",
+        description: `${newOwner.name} успешно добавлен`,
+      })
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось создать владельца",
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Create patient mutation
+  const createPatientMutation = useMutation({
+    mutationFn: async (data: PatientFormData) => {
+      const res = await apiRequest('POST', '/api/patients', data)
+      return await res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/patients'] })
+      toast({
+        title: "Пациент зарегистрирован",
+        description: "Пациент успешно добавлен в систему",
+      })
+      if (onSuccess) onSuccess()
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка регистрации",
+        description: error.message || "Не удалось зарегистрировать пациента",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const addOwner = (owner: Owner, setPrimary: boolean = false) => {
+    if (selectedOwners.some(o => o.id === owner.id)) {
+      toast({
+        title: "Владелец уже добавлен",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    const newOwner: SelectedOwner = {
+      ...owner,
+      isPrimary: setPrimary || selectedOwners.length === 0 // First owner is primary by default
+    }
+    
+    setSelectedOwners([...selectedOwners, newOwner])
+    setSearchQuery("")
+    setIsOwnerDialogOpen(false)
   }
 
-  const updateField = (field: keyof PatientData, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const removeOwner = (ownerId: string) => {
+    const removedOwner = selectedOwners.find(o => o.id === ownerId)
+    const newOwners = selectedOwners.filter(o => o.id !== ownerId)
+    
+    // If removed owner was primary and there are other owners, make first one primary
+    if (removedOwner?.isPrimary && newOwners.length > 0) {
+      newOwners[0].isPrimary = true
+    }
+    
+    setSelectedOwners(newOwners)
+  }
+
+  const setPrimaryOwner = (ownerId: string) => {
+    // Update isPrimary flags and reorder so primary is first
+    const updatedOwners = selectedOwners.map(owner => ({
+      ...owner,
+      isPrimary: owner.id === ownerId
+    }))
+    
+    // Sort: primary first
+    const sortedOwners = [...updatedOwners].sort((a, b) => {
+      if (a.isPrimary) return -1
+      if (b.isPrimary) return 1
+      return 0
+    })
+    
+    setSelectedOwners(sortedOwners)
+  }
+
+  const onSubmit = (data: PatientFormData) => {
+    // Ensure branchId is set
+    if (!data.branchId && !currentBranch?.id) {
+      toast({
+        title: "Ошибка",
+        description: "Филиал не определен. Попробуйте обновить страницу.",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    // Sort owners: primary first (backend uses first as primary)
+    const sortedOwners = [...selectedOwners].sort((a, b) => {
+      if (a.isPrimary) return -1
+      if (b.isPrimary) return 1
+      return 0
+    })
+    
+    const submitData = {
+      ...data,
+      ownerIds: sortedOwners.map(o => o.id),
+      branchId: data.branchId || currentBranch?.id,
+    }
+    
+    createPatientMutation.mutate(submitData)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Регистрация пациента</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Кличка *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => updateField('name', e.target.value)}
-                placeholder="Введите кличку животного"
-                required
-                data-testid="input-patient-name"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Owner Selection Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Владельцы пациента</span>
+              <div className="flex gap-2">
+                <Dialog open={isOwnerDialogOpen} onOpenChange={setIsOwnerDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button type="button" size="sm" variant="outline" data-testid="button-select-owner">
+                      <Search className="h-4 w-4 mr-2" />
+                      Выбрать владельца
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Поиск владельца</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <Input
+                        placeholder="Введите имя или телефон..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        data-testid="input-search-owner"
+                      />
+                      <ScrollArea className="h-[400px]">
+                        <div className="space-y-2">
+                          {searchResults.map((owner) => (
+                            <Card key={owner.id} className="cursor-pointer hover-elevate" onClick={() => addOwner(owner)}>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="font-semibold">{owner.name}</p>
+                                    <p className="text-sm text-muted-foreground">{owner.phone}</p>
+                                    {owner.email && <p className="text-xs text-muted-foreground">{owner.email}</p>}
+                                  </div>
+                                  <Button type="button" size="sm" variant="ghost" data-testid={`button-add-owner-${owner.id}`}>
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                          {searchQuery.length >= 2 && searchResults.length === 0 && (
+                            <p className="text-center text-muted-foreground py-8">Владельцы не найдены</p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={isNewOwnerDialogOpen} onOpenChange={setIsNewOwnerDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button type="button" size="sm" data-testid="button-create-owner">
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Новый владелец
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Создать владельца</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="new-owner-name">ФИО *</Label>
+                        <Input
+                          id="new-owner-name"
+                          value={newOwnerData.name}
+                          onChange={(e) => setNewOwnerData({ ...newOwnerData, name: e.target.value })}
+                          placeholder="Фамилия Имя Отчество"
+                          required
+                          data-testid="input-new-owner-name"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="new-owner-phone">Телефон *</Label>
+                        <Input
+                          id="new-owner-phone"
+                          value={newOwnerData.phone}
+                          onChange={(e) => setNewOwnerData({ ...newOwnerData, phone: e.target.value })}
+                          placeholder="+7 (999) 123-45-67"
+                          required
+                          data-testid="input-new-owner-phone"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="new-owner-email">Email</Label>
+                        <Input
+                          id="new-owner-email"
+                          type="email"
+                          value={newOwnerData.email}
+                          onChange={(e) => setNewOwnerData({ ...newOwnerData, email: e.target.value })}
+                          placeholder="email@example.com"
+                          data-testid="input-new-owner-email"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="new-owner-address">Адрес</Label>
+                        <Input
+                          id="new-owner-address"
+                          value={newOwnerData.address}
+                          onChange={(e) => setNewOwnerData({ ...newOwnerData, address: e.target.value })}
+                          placeholder="Адрес проживания"
+                          data-testid="input-new-owner-address"
+                        />
+                      </div>
+                      <Button 
+                        type="button" 
+                        className="w-full" 
+                        onClick={() => createOwnerMutation.mutate(newOwnerData)}
+                        disabled={!newOwnerData.name || !newOwnerData.phone || createOwnerMutation.isPending}
+                        data-testid="button-save-new-owner"
+                      >
+                        {createOwnerMutation.isPending ? "Создание..." : "Создать владельца"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {selectedOwners.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">Выберите владельца пациента</p>
+            ) : (
+              <div className="space-y-2">
+                {selectedOwners.map((owner) => (
+                  <Card key={owner.id}>
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant={owner.isPrimary ? "default" : "outline"}
+                          onClick={() => setPrimaryOwner(owner.id)}
+                          title={owner.isPrimary ? "Основной владелец" : "Сделать основным"}
+                          data-testid={`button-set-primary-${owner.id}`}
+                        >
+                          <Star className="h-4 w-4" />
+                        </Button>
+                        <div>
+                          <p className="font-semibold flex items-center gap-2">
+                            {owner.name}
+                            {owner.isPrimary && <Badge variant="default">Основной</Badge>}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{owner.phone}</p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeOwner(owner.id)}
+                        data-testid={`button-remove-owner-${owner.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+            {form.formState.errors.ownerIds && (
+              <p className="text-sm text-destructive mt-2">{form.formState.errors.ownerIds.message}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Patient Information Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Информация о пациенте</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Кличка *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Введите кличку" data-testid="input-patient-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="species"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Вид *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-species">
+                          <SelectValue placeholder="Выберите вид" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="cat">Кошка</SelectItem>
+                        <SelectItem value="dog">Собака</SelectItem>
+                        <SelectItem value="rabbit">Кролик</SelectItem>
+                        <SelectItem value="bird">Птица</SelectItem>
+                        <SelectItem value="hamster">Хомяк</SelectItem>
+                        <SelectItem value="other">Другое</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="breed"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Порода</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Введите породу" data-testid="input-breed" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="gender"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Пол</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-gender">
+                          <SelectValue placeholder="Выберите пол" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="male">Мужской</SelectItem>
+                        <SelectItem value="female">Женский</SelectItem>
+                        <SelectItem value="unknown">Неизвестно</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="birthDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Дата рождения</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} data-testid="input-birth-date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="color"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Окрас</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Описание окраса" data-testid="input-color" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="weight"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Вес (кг)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} placeholder="0.0" data-testid="input-weight" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="microchipNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Номер чипа</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Номер микрочипа" data-testid="input-microchip" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="species">Вид *</Label>
-              <Select value={formData.species} onValueChange={(value) => updateField('species', value)}>
-                <SelectTrigger data-testid="select-species">
-                  <SelectValue placeholder="Выберите вид" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cat">Кошка</SelectItem>
-                  <SelectItem value="dog">Собака</SelectItem>
-                  <SelectItem value="rabbit">Кролик</SelectItem>
-                  <SelectItem value="bird">Птица</SelectItem>
-                  <SelectItem value="hamster">Хомяк</SelectItem>
-                  <SelectItem value="other">Другое</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="breed">Порода</Label>
-              <Input
-                id="breed"
-                value={formData.breed}
-                onChange={(e) => updateField('breed', e.target.value)}
-                placeholder="Введите породу"
-                data-testid="input-breed"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="gender">Пол</Label>
-              <Select value={formData.gender} onValueChange={(value) => updateField('gender', value)}>
-                <SelectTrigger data-testid="select-gender">
-                  <SelectValue placeholder="Выберите пол" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">Мужской</SelectItem>
-                  <SelectItem value="female">Женский</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="birthDate">Дата рождения</Label>
-              <Input
-                id="birthDate"
-                type="date"
-                value={formData.birthDate}
-                onChange={(e) => updateField('birthDate', e.target.value)}
-                data-testid="input-birth-date"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="color">Окрас</Label>
-              <Input
-                id="color"
-                value={formData.color}
-                onChange={(e) => updateField('color', e.target.value)}
-                placeholder="Описание окраса"
-                data-testid="input-color"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="weight">Вес (кг)</Label>
-              <Input
-                id="weight"
-                type="number"
-                step="0.1"
-                value={formData.weight}
-                onChange={(e) => updateField('weight', e.target.value)}
-                placeholder="0.0"
-                data-testid="input-weight"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="microchip">Номер чипа</Label>
-              <Input
-                id="microchip"
-                value={formData.microchipNumber}
-                onChange={(e) => updateField('microchipNumber', e.target.value)}
-                placeholder="Номер микрочипа"
-                data-testid="input-microchip"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="neutered"
-              checked={formData.isNeutered}
-              onCheckedChange={(checked) => updateField('isNeutered', checked as boolean)}
-              data-testid="checkbox-neutered"
+            <FormField
+              control={form.control}
+              name="isNeutered"
+              render={({ field }) => (
+                <FormItem className="flex items-center space-x-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="checkbox-neutered"
+                    />
+                  </FormControl>
+                  <FormLabel className="!mt-0">Кастрирован/стерилизован</FormLabel>
+                </FormItem>
+              )}
             />
-            <Label htmlFor="neutered">Кастрирован/стерилизован</Label>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="allergies">Аллергии</Label>
-            <Textarea
-              id="allergies"
-              value={formData.allergies}
-              onChange={(e) => updateField('allergies', e.target.value)}
-              placeholder="Известные аллергии..."
-              data-testid="textarea-allergies"
+            <FormField
+              control={form.control}
+              name="allergies"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Аллергии</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Известные аллергии..." data-testid="textarea-allergies" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="chronic">Хронические заболевания</Label>
-            <Textarea
-              id="chronic"
-              value={formData.chronicConditions}
-              onChange={(e) => updateField('chronicConditions', e.target.value)}
-              placeholder="Хронические заболевания..."
-              data-testid="textarea-chronic"
+            <FormField
+              control={form.control}
+              name="chronicConditions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Хронические заболевания</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Хронические заболевания..." data-testid="textarea-chronic" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="marks">Особые приметы</Label>
-            <Textarea
-              id="marks"
-              value={formData.specialMarks}
-              onChange={(e) => updateField('specialMarks', e.target.value)}
-              placeholder="Шрамы, особые отметки..."
-              data-testid="textarea-marks"
+            <FormField
+              control={form.control}
+              name="specialMarks"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Особые приметы</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Шрамы, особые отметки..." data-testid="textarea-marks" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Информация о владельце</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="ownerName">ФИО владельца *</Label>
-              <Input
-                id="ownerName"
-                value={formData.ownerName}
-                onChange={(e) => updateField('ownerName', e.target.value)}
-                placeholder="Фамилия Имя Отчество"
-                required
-                data-testid="input-owner-name"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ownerPhone">Телефон *</Label>
-              <Input
-                id="ownerPhone"
-                type="tel"
-                value={formData.ownerPhone}
-                onChange={(e) => updateField('ownerPhone', e.target.value)}
-                placeholder="+7 (999) 123-45-67"
-                required
-                data-testid="input-owner-phone"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ownerEmail">Email</Label>
-              <Input
-                id="ownerEmail"
-                type="email"
-                value={formData.ownerEmail}
-                onChange={(e) => updateField('ownerEmail', e.target.value)}
-                placeholder="email@example.com"
-                data-testid="input-owner-email"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ownerAddress">Адрес</Label>
-              <Input
-                id="ownerAddress"
-                value={formData.ownerAddress}
-                onChange={(e) => updateField('ownerAddress', e.target.value)}
-                placeholder="Адрес проживания"
-                data-testid="input-owner-address"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Дополнительные заметки</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => updateField('notes', e.target.value)}
-              placeholder="Дополнительная информация..."
-              data-testid="textarea-notes"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex gap-4 justify-end">
-        <Button type="button" variant="outline" data-testid="button-cancel">
-          <X className="h-4 w-4 mr-2" />
-          Отменить
-        </Button>
-        <Button type="submit" data-testid="button-save-patient">
-          <Save className="h-4 w-4 mr-2" />
-          Сохранить пациента
-        </Button>
-      </div>
-    </form>
+        <div className="flex gap-4 justify-end">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onCancel}
+            disabled={createPatientMutation.isPending}
+            data-testid="button-cancel"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Отменить
+          </Button>
+          <Button 
+            type="submit" 
+            disabled={createPatientMutation.isPending || selectedOwners.length === 0}
+            data-testid="button-save-patient"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {createPatientMutation.isPending ? "Сохранение..." : "Сохранить пациента"}
+          </Button>
+        </div>
+      </form>
+    </Form>
   )
 }
