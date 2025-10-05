@@ -1260,12 +1260,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Patient-Owner relationship methods - 🔒 SECURITY: tenant-scoped
-  async getPatientOwners(patientId: string): Promise<PatientOwner[]> {
+  async getPatientOwners(patientId: string): Promise<any[]> {
     return withPerformanceLogging('getPatientOwners', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         return await dbInstance
-          .select()
+          .select({
+            id: patientOwners.id,
+            patientId: patientOwners.patientId,
+            ownerId: patientOwners.ownerId,
+            isPrimary: patientOwners.isPrimary,
+            createdAt: patientOwners.createdAt,
+            owner: {
+              id: owners.id,
+              name: owners.name,
+              phone: owners.phone,
+              email: owners.email,
+              address: owners.address,
+            }
+          })
           .from(patientOwners)
+          .leftJoin(owners, eq(patientOwners.ownerId, owners.id))
           .where(eq(patientOwners.patientId, patientId))
           .orderBy(desc(patientOwners.isPrimary));
       });
