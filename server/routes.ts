@@ -3461,7 +3461,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   // GET /api/integration-credentials - Get all integration credentials for current tenant
-  app.get("/api/integration-credentials", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.get("/api/integration-credentials", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       const tenantId = req.tenantId!;
       
@@ -3487,7 +3487,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/integration-credentials/:provider - Get credentials for specific provider
-  app.get("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.get("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       const tenantId = req.tenantId!;
       const { provider } = req.params;
@@ -3512,7 +3512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PUT /api/integration-credentials/:provider - Upsert integration credentials
-  app.put("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.put("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       const tenantId = req.tenantId!;
       const { provider } = req.params;
@@ -3543,7 +3543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // DELETE /api/integration-credentials/:provider - Delete integration credentials
-  app.delete("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.delete("/api/integration-credentials/:provider", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       const tenantId = req.tenantId!;
       const { provider } = req.params;
@@ -3562,7 +3562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/integration-credentials/:provider/test - Test integration credentials
-  app.post("/api/integration-credentials/:provider/test", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.post("/api/integration-credentials/:provider/test", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       const { provider } = req.params;
       const { credentials } = req.body;
@@ -3604,7 +3604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =================== МойСклад Номенклатура API ===================
   
   // GET /api/moysklad/nomenclature/sync-status - Получить статус синхронизации номенклатуры
-  app.get("/api/moysklad/nomenclature/sync-status", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.get("/api/moysklad/nomenclature/sync-status", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       // Получаем количество товаров и услуг в локальной системе
       const products = await storage.getProducts();
@@ -3626,7 +3626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/moysklad/nomenclature/sync - Загрузить номенклатуру ИЗ МойСклад
-  app.post("/api/moysklad/nomenclature/sync", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.post("/api/moysklad/nomenclature/sync", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       console.log('[МойСклад] Начинаем загрузку номенклатуры ИЗ МойСклад...');
       
@@ -3683,7 +3683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/moysklad/nomenclature/remote - Получить номенклатуру из МойСклад
-  app.get("/api/moysklad/nomenclature/remote", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.get("/api/moysklad/nomenclature/remote", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       // Get tenant credentials for МойСклад
       const tenantId = req.tenantId!;
@@ -3710,7 +3710,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/moysklad/test-connection - Тестирование подключения к МойСклад
-  app.post("/api/moysklad/test-connection", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.post("/api/moysklad/test-connection", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       // Get tenant credentials for МойСклад
       const tenantId = req.tenantId!;
@@ -3744,7 +3744,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =================== 1С Розница/Касса API ===================
   
   // POST /api/onec/products/sync - Синхронизация товаров из 1С Розница
-  app.post("/api/onec/products/sync", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.post("/api/onec/products/sync", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       console.log('[1С Розница] Начинаем синхронизацию товаров...');
       
@@ -3771,7 +3771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/onec/services/sync - Синхронизация услуг из 1С Розница
-  app.post("/api/onec/services/sync", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.post("/api/onec/services/sync", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       console.log('[1С Розница] Начинаем синхронизацию услуг...');
       
@@ -3798,7 +3798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/onec/stats - Статистика интеграции с 1С Розница
-  app.get("/api/onec/stats", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.get("/api/onec/stats", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       // Получаем товары и услуги из 1С системы
       const products = await storage.getProductsByExternalSystem('onec');
@@ -3834,7 +3834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/onec/test-connection - Проверка подключения к 1С Розница
-  app.post("/api/onec/test-connection", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.post("/api/onec/test-connection", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       console.log('[1С Розница] Проверяем подключение...');
       
@@ -3863,7 +3863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/onec/config - Сохранение конфигурации 1С Розница
-  app.post("/api/onec/config", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.post("/api/onec/config", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       const { baseUrl, username, password, organizationKey, cashRegisterKey } = req.body;
       
@@ -3900,7 +3900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/onec/config - Получение конфигурации 1С Розница
-  app.get("/api/onec/config", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.get("/api/onec/config", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       console.log('[1С Розница] Загружаем конфигурацию...');
       
@@ -5317,7 +5317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/billing/notifications/:subscriptionId - Получить уведомления по подписке (для администратора)
-  app.get("/api/billing/notifications/:subscriptionId", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.get("/api/billing/notifications/:subscriptionId", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
       const { subscriptionId } = req.params;
       const notifications = await storage.getBillingNotifications(subscriptionId);
