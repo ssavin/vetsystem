@@ -396,6 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const requestedBranchId = req.query.branchId as string;
       const page = req.query.page ? parseInt(req.query.page as string) : undefined;
       const isPaginated = page !== undefined;
+      console.log('GET /api/patients - requestedBranchId:', requestedBranchId, 'isPaginated:', isPaginated, 'userId:', user.id);
       
       if (isPaginated) {
         // Paginated response
