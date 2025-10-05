@@ -217,6 +217,21 @@ function PatientTableRow({ patient, onEdit, onDelete }: PatientTableRowProps) {
 }
 
 
+// Translate species from English to Russian
+function translateSpecies(species: string): string {
+  const speciesMap: Record<string, string> = {
+    'cat': 'Кошка',
+    'dog': 'Собака',
+    'exotic': 'Экзотическое',
+    'reptile': 'Рептилия',
+    'bird': 'Птица',
+    'other': 'Другое',
+    'rodent': 'Грызун',
+    'rabbit': 'Кролик',
+  }
+  return speciesMap[species.toLowerCase()] || species
+}
+
 export default function Registry() {
   const { t } = useTranslation('registry')
   const { toast } = useToast()
@@ -431,7 +446,7 @@ export default function Registry() {
       return {
         id: patient.id,
         name: patient.name,
-        species: patient.species,
+        species: translateSpecies(patient.species),
         breed: patient.breed || t('patients.unknownBreed'),
         age,
         owner: ownerDisplay,
