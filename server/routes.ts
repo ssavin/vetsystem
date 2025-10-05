@@ -2107,8 +2107,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===============================
 
   // Get all branches
-  app.get("/api/branches", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
+  app.get("/api/branches", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin, руководитель, or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const branches = await storage.getBranches();
       res.json(branches);
     } catch (error) {
@@ -2118,8 +2123,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get branch by ID
-  app.get("/api/branches/:id", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
+  app.get("/api/branches/:id", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin, руководитель, or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const branch = await storage.getBranch(req.params.id);
       if (!branch) {
         return res.status(404).json({ error: "Branch not found" });
@@ -2132,8 +2142,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new branch
-  app.post("/api/branches", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertBranchSchema), async (req, res) => {
+  app.post("/api/branches", authenticateToken, validateBody(insertBranchSchema), async (req, res) => {
     try {
+      // Check permission: superadmin, руководитель, or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const branch = await storage.createBranch(req.body);
       res.status(201).json(branch);
     } catch (error) {
@@ -2143,8 +2158,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update branch
-  app.put("/api/branches/:id", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertBranchSchema.partial()), async (req, res) => {
+  app.put("/api/branches/:id", authenticateToken, validateBody(insertBranchSchema.partial()), async (req, res) => {
     try {
+      // Check permission: superadmin, руководитель, or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const existingBranch = await storage.getBranch(req.params.id);
       if (!existingBranch) {
         return res.status(404).json({ error: "Branch not found" });
@@ -2159,8 +2179,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete branch
-  app.delete("/api/branches/:id", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
+  app.delete("/api/branches/:id", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin, руководитель, or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const existingBranch = await storage.getBranch(req.params.id);
       if (!existingBranch) {
         return res.status(404).json({ error: "Branch not found" });
@@ -2186,8 +2211,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // USER MANAGEMENT ROUTES (for administrators)
-  app.get("/api/users", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
+  app.get("/api/users", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin, руководитель, or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const users = await storage.getUsers();
       // Remove passwords from response
       const safeUsers = users.map(({ password, ...user }) => user);
@@ -2198,8 +2228,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertUserSchema), async (req, res) => {
+  app.post("/api/users", authenticateToken, validateBody(insertUserSchema), async (req, res) => {
     try {
+      // Check permission: superadmin, руководитель, or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const newUser = await storage.createUser(req.body);
       const { password: _, ...safeUser } = newUser;
       res.status(201).json(safeUser);
@@ -2210,8 +2245,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PATCH route for user updates (with safe password handling)
-  app.patch("/api/users/:id", authenticateToken, requireRole('руководитель', 'администратор'), async (req, res) => {
+  app.patch("/api/users/:id", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin, руководитель, or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       // Create update schema that allows partial updates and optional password
       const updateUserSchema = insertUserSchema.partial().extend({
         password: z.string()
@@ -2240,8 +2280,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:id", authenticateToken, requireRole('руководитель', 'администратор'), validateBody(insertUserSchema.partial()), async (req, res) => {
+  app.put("/api/users/:id", authenticateToken, validateBody(insertUserSchema.partial()), async (req, res) => {
     try {
+      // Check permission: superadmin, руководитель, or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const updatedUser = await storage.updateUser(req.params.id, req.body);
       const { password: _, ...safeUser } = updatedUser;
       res.json(safeUser);
@@ -2251,8 +2296,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/users/:id", authenticateToken, requireRole('руководитель'), async (req, res) => {
+  app.delete("/api/users/:id", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin or руководитель
+      if (!req.isSuperAdmin && req.user?.role !== 'руководитель') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       await storage.deleteUser(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -3250,8 +3300,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =================== System Settings API ===================
   
   // GET /api/system-settings - Get all system settings
-  app.get("/api/system-settings", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.get("/api/system-settings", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const settings = await storage.getSystemSettings();
       res.json(settings);
     } catch (error) {
@@ -3261,8 +3316,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/system-settings/:key - Get specific system setting
-  app.get("/api/system-settings/:key", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.get("/api/system-settings/:key", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const { key } = req.params;
       const setting = await storage.getSystemSetting(key);
       
@@ -3278,8 +3338,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/system-settings/category/:category - Get settings by category
-  app.get("/api/system-settings/category/:category", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.get("/api/system-settings/category/:category", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const { category } = req.params;
       const settings = await storage.getSystemSettingsByCategory(category);
       res.json(settings);
@@ -3290,8 +3355,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/system-settings - Create new system setting
-  app.post("/api/system-settings", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.post("/api/system-settings", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const validatedData = insertSystemSettingSchema.parse(req.body);
       const setting = await storage.createSystemSetting(validatedData);
       res.status(201).json(setting);
@@ -3305,8 +3375,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PUT /api/system-settings/:key - Update system setting
-  app.put("/api/system-settings/:key", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.put("/api/system-settings/:key", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const { key } = req.params;
       const validatedData = updateSystemSettingSchema.parse(req.body);
       
@@ -3328,8 +3403,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // DELETE /api/system-settings/:key - Delete system setting
-  app.delete("/api/system-settings/:key", authenticateToken, requireRole('администратор'), async (req, res) => {
+  app.delete("/api/system-settings/:key", authenticateToken, async (req, res) => {
     try {
+      // Check permission: superadmin or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
       const { key } = req.params;
       
       // Check if setting exists
