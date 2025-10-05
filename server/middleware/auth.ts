@@ -103,19 +103,21 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     }
 
     // Additional tenant validation: verify user belongs to correct tenant
-    // Exception: superadmins can access any tenant
-    if (!user.tenantId) {
-      return res.status(500).json({ 
-        error: 'Invalid user data',
-        message: 'Пользователь не привязан к клинике'
-      });
-    }
+    // Exception: superadmins can access any tenant and may not have tenantId
+    if (!isSuperAdmin) {
+      if (!user.tenantId) {
+        return res.status(500).json({ 
+          error: 'Invalid user data',
+          message: 'Пользователь не привязан к клинике'
+        });
+      }
 
-    if (!isSuperAdmin && user.tenantId !== req.tenantId) {
-      return res.status(403).json({ 
-        error: 'Access denied',
-        message: 'Пользователь не принадлежит текущей клинике'
-      });
+      if (user.tenantId !== req.tenantId) {
+        return res.status(403).json({ 
+          error: 'Access denied',
+          message: 'Пользователь не принадлежит текущей клинике'
+        });
+      }
     }
 
     req.user = {
@@ -132,6 +134,12 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     next();
   } catch (error) {
     console.error('Authentication error:', error);
+    console.error('Error details:', {
+      userId: payload?.userId,
+      tenantId: req.tenantId,
+      isSuperAdmin: (error as any)?.user?.isSuperAdmin,
+      stack: (error as Error)?.stack
+    });
     return res.status(500).json({ error: 'Ошибка аутентификации' });
   }
 };
