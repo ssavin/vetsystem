@@ -89,10 +89,10 @@ type UserFormValues = z.infer<typeof insertUserSchema>
 type UpdateUserFormValues = z.infer<typeof updateUserSchema>
 
 export default function Settings() {
-  const [clinicName, setClinicName] = useState("Ветеринарная клиника \"Здоровый питомец\"")
-  const [clinicAddress, setClinicAddress] = useState("г. Москва, ул. Примерная, д. 123")
-  const [clinicPhone, setClinicPhone] = useState("+7 (499) 123-45-67")
-  const [clinicEmail, setClinicEmail] = useState("info@vetclinic.ru")
+  const [clinicName, setClinicName] = useState("")
+  const [clinicAddress, setClinicAddress] = useState("")
+  const [clinicPhone, setClinicPhone] = useState("")
+  const [clinicEmail, setClinicEmail] = useState("")
   
   // Branch management state
   const [searchTerm, setSearchTerm] = useState("")
