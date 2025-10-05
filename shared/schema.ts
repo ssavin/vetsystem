@@ -140,10 +140,14 @@ export const users = pgTable("users", {
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
   twoFactorMethod: varchar("two_factor_method", { length: 10 }).default("sms"),
   branchId: varchar("branch_id"),
+  department: varchar("department", { length: 100 }), // Отделение в клинике
+  vetaisId: integer("vetais_id"), // Vetais user ID for migration tracking
   isSuperAdmin: boolean("is_super_admin").default(false),
 }, (table) => {
   return {
     tenantIdIdx: index("users_tenant_id_idx").on(table.tenantId),
+    branchIdIdx: index("users_branch_id_idx").on(table.branchId),
+    vetaisIdIdx: index("users_vetais_id_idx").on(table.vetaisId),
     // Username unique per tenant (WHERE tenant_id IS NOT NULL allows superadmin to have any username)
     tenantUsernameUnique: uniqueIndex("users_tenant_username_unique_idx").on(table.tenantId, table.username).where(sql`${table.tenantId} IS NOT NULL`),
   };

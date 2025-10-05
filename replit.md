@@ -51,11 +51,18 @@ Preferred communication style: Simple, everyday language.
 - UI allows managing, validating, and testing integration connections.
 
 ## Data Migration
-- Successfully migrated over 60,000 client records from a legacy Vetais PostgreSQL database, including branch distribution.
-- Migrated full client names (surname + first name + patronymic) from Vetais fields: `nazev_kado` (surname), `poznamka_kado` (first name), `jmeno` (patronymic).
-- Batch update scripts used to correct 64,066 existing client records with complete names.
-- Utilizes batch processing scripts (500 records per batch) for efficient migration and updates.
-- Handles NULL branch IDs in storage methods for visibility until assignment.
+- **Client Migration**: Successfully migrated over 60,000 client records from legacy Vetais PostgreSQL database.
+  - Migrated full client names (surname + first name + patronymic) from Vetais fields.
+  - Branch distribution: 8,370 clients correctly assigned to branches, 54,242 remain with NULL branch_id (visible to all until manual assignment).
+  - Vetais clinic ID mapping: 10000=Бутово, 10001=Лобачевского, 10002=Новопеределкино.
+- **User Migration**: Successfully migrated 57 active users from Vetais system_users table.
+  - User schema enhanced with `department` (отделение) and `vetais_id` fields for migration tracking.
+  - Role mapping: Vetais funkce codes mapped to system roles (врач, администратор, менеджер, руководитель).
+  - Distribution: 27 administrators, 18 doctors, 10 managers, 6 supervisors.
+  - Branch distribution: Бутово (29 users), Новопеределкино (21 users), Лобачевского (7 users).
+  - Default password: Alisa2024! (users must change on first login).
+- Utilizes batch processing scripts for efficient migration and updates.
+- Migration scripts: `migrate-vetais-batch.ts`, `fix-client-branches-fast.ts`, `migrate-users-vetais.ts`.
 
 ## Design System
 - **Color Palette**: Medical-focused scheme with primary blue, success green, warning orange, and error red.
