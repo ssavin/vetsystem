@@ -166,7 +166,7 @@ export default function Settings() {
   })
 
   // Fetch current tenant info (invalidated on user change via AuthContext)
-  const { data: currentTenant, isLoading: tenantLoading } = useQuery<{
+  const { data: currentTenant, isLoading: tenantLoading, refetch: refetchTenant } = useQuery<{
     id: string;
     name: string;
     legalAddress: string | null;
@@ -178,6 +178,7 @@ export default function Settings() {
     queryKey: ['/api/tenant/current'],
     staleTime: 0, // Always refetch
     gcTime: 0, // Don't cache
+    refetchOnMount: 'always', // Always refetch when component mounts
   })
 
   // Initialize clinic info from tenant data
@@ -562,8 +563,9 @@ export default function Settings() {
         }
       })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tenant/current'] })
+    onSuccess: async () => {
+      // Force refetch to bypass HTTP cache
+      await refetchTenant()
       toast({
         title: "Настройки сохранены",
         description: "Информация о клинике успешно обновлена",

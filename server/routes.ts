@@ -5757,6 +5757,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/tenant/current - Get current tenant info
   app.get("/api/tenant/current", authenticateToken, async (req, res) => {
     try {
+      // Disable HTTP caching for this endpoint
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       // Superadmin doesn't have a tenant
       if (req.user?.isSuperAdmin) {
         return res.json({ 
