@@ -5762,6 +5762,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       
+      console.log('🔍 GET /api/tenant/current - User info:', {
+        userId: req.user?.id,
+        role: req.user?.role,
+        isSuperAdmin: req.user?.isSuperAdmin,
+        tenantId: req.tenantId
+      });
+      
       // Superadmin doesn't have a tenant
       if (req.user?.isSuperAdmin) {
         return res.json({ 
