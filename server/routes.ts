@@ -444,23 +444,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/patients", authenticateToken, requireModuleAccess('patients'), validateBody(insertPatientSchema), async (req, res) => {
+  // Extended schema for patient creation with multi-owner support
+  const createPatientSchema = insertPatientSchema.extend({
+    ownerIds: z.array(z.string()).optional()
+  });
+
+  app.post("/api/patients", authenticateToken, requireModuleAccess('patients'), validateBody(createPatientSchema), async (req, res) => {
     try {
       const user = (req as any).user;
       const userBranchId = requireValidBranchId(req, res);
       if (!userBranchId) return; // 403 already sent
       
+      // Extract ownerIds from body if provided (multi-owner support)
+      const { ownerIds, ...patientBody } = req.body;
+      
+      // 🔒 SECURITY: Validate all owners BEFORE creating patient (atomicity)
+      if (ownerIds && Array.isArray(ownerIds) && ownerIds.length > 0) {
+        for (const ownerId of ownerIds) {
+          const owner = await storage.getOwner(ownerId);
+          if (!owner) {
+            return res.status(404).json({ error: `Owner ${ownerId} not found` });
+          }
+          if (!await ensureEntityBranchAccess(owner, userBranchId, 'owner', ownerId)) {
+            return res.status(403).json({ error: `Access denied: Owner ${ownerId} not found` });
+          }
+        }
+      }
+      
       // 🔒 SECURITY: Force branchId from user token, ignore any branchId in body
-      const patientData = { ...req.body, branchId: userBranchId };
+      const patientData = { ...patientBody, branchId: userBranchId };
       const patient = await storage.createPatient(patientData);
-      res.status(201).json(patient);
+      
+      // If ownerIds array provided, create patient-owner relationships
+      if (ownerIds && Array.isArray(ownerIds) && ownerIds.length > 0) {
+        // Add all owners (first one will be primary)
+        for (let i = 0; i < ownerIds.length; i++) {
+          await storage.addPatientOwner({ 
+            patientId: patient.id, 
+            ownerId: ownerIds[i], 
+            isPrimary: false 
+          });
+          // Set first owner as primary
+          if (i === 0) {
+            await storage.setPrimaryOwner(patient.id, ownerIds[i]);
+          }
+        }
+      }
+      
+      // Fetch complete patient with owners array
+      const completePatient = await storage.getPatient(patient.id);
+      res.status(201).json(completePatient);
     } catch (error) {
       console.error("Error creating patient:", error);
       res.status(500).json({ error: "Failed to create patient" });
     }
   });
 
-  app.put("/api/patients/:id", authenticateToken, requireModuleAccess('patients'), validateBody(insertPatientSchema.partial()), async (req, res) => {
+  // Extended schema for patient update with multi-owner support
+  const updatePatientSchema = insertPatientSchema.partial().extend({
+    ownerIds: z.array(z.string()).optional()
+  });
+
+  app.put("/api/patients/:id", authenticateToken, requireModuleAccess('patients'), validateBody(updatePatientSchema), async (req, res) => {
     try {
       const user = (req as any).user;
       const userBranchId = requireValidBranchId(req, res);
@@ -475,12 +520,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Access denied: Patient not found' });
       }
       
+      // Extract ownerIds from body if provided (multi-owner support)
+      const { ownerIds, ...patientBody } = req.body;
+      
+      // 🔒 SECURITY: Validate all owners BEFORE updating patient (atomicity)
+      if (ownerIds && Array.isArray(ownerIds)) {
+        for (const ownerId of ownerIds) {
+          const owner = await storage.getOwner(ownerId);
+          if (!owner) {
+            return res.status(404).json({ error: `Owner ${ownerId} not found` });
+          }
+          if (!await ensureEntityBranchAccess(owner, userBranchId, 'owner', ownerId)) {
+            return res.status(403).json({ error: `Access denied: Owner ${ownerId} not found` });
+          }
+        }
+      }
+      
       // 🔒 SECURITY: Remove branchId from update body - cannot be changed
-      const updateData = { ...req.body };
+      const updateData = { ...patientBody };
       delete updateData.branchId;
       
       const patient = await storage.updatePatient(req.params.id, updateData);
-      res.json(patient);
+      
+      // If ownerIds array provided, update patient-owner relationships
+      if (ownerIds && Array.isArray(ownerIds)) {
+        // Get current owners
+        const currentOwners = await storage.getPatientOwners(req.params.id);
+        const currentOwnerIds = currentOwners.map(o => o.ownerId);
+        
+        // Remove owners that are not in new list
+        for (const currentOwner of currentOwners) {
+          if (!ownerIds.includes(currentOwner.ownerId)) {
+            await storage.removePatientOwner(req.params.id, currentOwner.ownerId);
+          }
+        }
+        
+        // Add new owners that are not in current list
+        for (let i = 0; i < ownerIds.length; i++) {
+          if (!currentOwnerIds.includes(ownerIds[i])) {
+            await storage.addPatientOwner({ 
+              patientId: req.params.id, 
+              ownerId: ownerIds[i], 
+              isPrimary: false 
+            });
+          }
+          // Set first owner as primary
+          if (i === 0) {
+            await storage.setPrimaryOwner(req.params.id, ownerIds[i]);
+          }
+        }
+      }
+      
+      // Fetch complete patient with owners array
+      const completePatient = await storage.getPatient(req.params.id);
+      res.json(completePatient);
     } catch (error) {
       console.error("Error updating patient:", error);
       res.status(500).json({ error: "Failed to update patient" });
@@ -522,6 +615,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error searching patients:", error);
       res.status(500).json({ error: "Failed to search patients" });
+    }
+  });
+
+  // PATIENT-OWNER MANAGEMENT ROUTES
+  // Get all owners for a patient
+  app.get("/api/patients/:id/owners", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      const existingPatient = await storage.getPatient(req.params.id);
+      if (!existingPatient) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+      if (!await ensureEntityBranchAccess(existingPatient, userBranchId, 'patient', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
+      const owners = await storage.getPatientOwners(req.params.id);
+      res.json(owners);
+    } catch (error) {
+      console.error("Error fetching patient owners:", error);
+      res.status(500).json({ error: "Failed to fetch patient owners" });
+    }
+  });
+
+  // Add owner to patient
+  app.post("/api/patients/:id/owners", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      const { ownerId } = req.body;
+      if (!ownerId) {
+        return res.status(400).json({ error: "ownerId is required" });
+      }
+      
+      const existingPatient = await storage.getPatient(req.params.id);
+      if (!existingPatient) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+      if (!await ensureEntityBranchAccess(existingPatient, userBranchId, 'patient', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
+      // 🔒 SECURITY: Verify owner belongs to same branch as patient
+      const owner = await storage.getOwner(ownerId);
+      if (!owner) {
+        return res.status(404).json({ error: "Owner not found" });
+      }
+      if (!await ensureEntityBranchAccess(owner, userBranchId, 'owner', ownerId)) {
+        return res.status(403).json({ error: 'Access denied: Owner not found' });
+      }
+      
+      await storage.addPatientOwner({ 
+        patientId: req.params.id, 
+        ownerId, 
+        isPrimary: false 
+      });
+      const owners = await storage.getPatientOwners(req.params.id);
+      res.json(owners);
+    } catch (error) {
+      console.error("Error adding patient owner:", error);
+      res.status(500).json({ error: "Failed to add patient owner" });
+    }
+  });
+
+  // Remove owner from patient
+  app.delete("/api/patients/:id/owners/:ownerId", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      const existingPatient = await storage.getPatient(req.params.id);
+      if (!existingPatient) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+      if (!await ensureEntityBranchAccess(existingPatient, userBranchId, 'patient', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
+      await storage.removePatientOwner(req.params.id, req.params.ownerId);
+      const owners = await storage.getPatientOwners(req.params.id);
+      res.json(owners);
+    } catch (error) {
+      console.error("Error removing patient owner:", error);
+      res.status(500).json({ error: "Failed to remove patient owner" });
+    }
+  });
+
+  // Set primary owner for patient
+  app.patch("/api/patients/:id/owners/:ownerId/primary", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      const existingPatient = await storage.getPatient(req.params.id);
+      if (!existingPatient) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+      if (!await ensureEntityBranchAccess(existingPatient, userBranchId, 'patient', req.params.id)) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
+      // 🔒 SECURITY: Verify owner belongs to same branch as patient
+      const owner = await storage.getOwner(req.params.ownerId);
+      if (!owner) {
+        return res.status(404).json({ error: "Owner not found" });
+      }
+      if (!await ensureEntityBranchAccess(owner, userBranchId, 'owner', req.params.ownerId)) {
+        return res.status(403).json({ error: 'Access denied: Owner not found' });
+      }
+      
+      await storage.setPrimaryOwner(req.params.id, req.params.ownerId);
+      const owners = await storage.getPatientOwners(req.params.id);
+      res.json(owners);
+    } catch (error) {
+      console.error("Error setting primary owner:", error);
+      res.status(500).json({ error: "Failed to set primary owner" });
     }
   });
 
