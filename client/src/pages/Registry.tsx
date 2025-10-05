@@ -54,9 +54,11 @@ interface PatientTableRowProps {
     lastVisit?: string
     avatar?: string
   }
+  onEdit?: (patient: any) => void
+  onDelete?: (patient: { id: string, name: string }) => void
 }
 
-function PatientTableRow({ patient }: PatientTableRowProps) {
+function PatientTableRow({ patient, onEdit, onDelete }: PatientTableRowProps) {
   const { t } = useTranslation('registry')
   const [, navigate] = useLocation()
 
@@ -168,6 +170,46 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
               <p>{t('patients.scheduleAppointment', 'Записать на прием')}</p>
             </TooltipContent>
           </Tooltip>
+          {onEdit && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEdit(patient)
+                  }}
+                  data-testid={`button-edit-patient-${patient.id}`}
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('patients.editPatient', 'Редактировать пациента')}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {onDelete && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete({ id: patient.id, name: patient.name })
+                  }}
+                  data-testid={`button-delete-patient-${patient.id}`}
+                >
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('patients.deletePatient', 'Удалить пациента')}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </TableCell>
     </TableRow>
@@ -188,6 +230,8 @@ export default function Registry() {
   const [pageSize] = useState(50)
   const [ownerToDelete, setOwnerToDelete] = useState<{ id: string, name: string } | null>(null)
   const [ownerToEdit, setOwnerToEdit] = useState<{ id: string, name: string, phone?: string, email?: string, address?: string } | null>(null)
+  const [patientToDelete, setPatientToDelete] = useState<{ id: string, name: string } | null>(null)
+  const [patientToEdit, setPatientToEdit] = useState<any | null>(null)
 
   // Debounce search term
   useEffect(() => {
@@ -288,6 +332,39 @@ export default function Registry() {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось удалить клиента",
+        variant: "destructive"
+      })
+    }
+  })
+
+  // Delete patient mutation
+  const deletePatientMutation = useMutation({
+    mutationFn: async (patientId: string) => {
+      const response = await fetch(`/api/patients/${patientId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      if (!response.ok) {
+        throw new Error('Не удалось удалить пациента')
+      }
+      // 204 No Content doesn't have a body
+      if (response.status === 204) {
+        return null
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/patients'] })
+      toast({
+        title: "Пациент удален",
+        description: "Пациент успешно удален из системы",
+      })
+      setPatientToDelete(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось удалить пациента",
         variant: "destructive"
       })
     }
@@ -676,7 +753,12 @@ export default function Registry() {
                   </TableHeader>
                   <TableBody>
                     {transformedPatients.map((patient: any) => (
-                      <PatientTableRow key={patient.id} patient={patient} />
+                      <PatientTableRow 
+                        key={patient.id} 
+                        patient={patient}
+                        onEdit={setPatientToEdit}
+                        onDelete={setPatientToDelete}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -730,7 +812,7 @@ export default function Registry() {
         </TabsContent>
       </Tabs>
 
-      {/* Delete confirmation dialog */}
+      {/* Delete owner confirmation dialog */}
       <AlertDialog open={!!ownerToDelete} onOpenChange={(open) => !open && setOwnerToDelete(null)}>
         <AlertDialogContent data-testid="dialog-delete-owner-confirm">
           <AlertDialogHeader>
@@ -745,6 +827,28 @@ export default function Registry() {
               onClick={() => ownerToDelete && deleteOwnerMutation.mutate(ownerToDelete.id)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-delete"
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete patient confirmation dialog */}
+      <AlertDialog open={!!patientToDelete} onOpenChange={(open) => !open && setPatientToDelete(null)}>
+        <AlertDialogContent data-testid="dialog-delete-patient-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить пациента?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы действительно хотите удалить пациента <strong>{patientToDelete?.name}</strong>? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-patient">Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => patientToDelete && deletePatientMutation.mutate(patientToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-patient"
             >
               Удалить
             </AlertDialogAction>
