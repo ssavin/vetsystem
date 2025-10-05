@@ -182,19 +182,21 @@ export default function Registry() {
     return () => clearTimeout(timer)
   }, [searchTerm])
   
-  // Get current user branch
-  const { data: currentBranch } = useQuery<{ id: string, name: string }>({
-    queryKey: ['/api/auth/current-branch'],
+  // Get current user and branch info
+  const { data: authData } = useQuery<{ user: any, currentBranch: { id: string, name: string } | null }>({
+    queryKey: ['/api/auth/me'],
   })
   
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
 
   // Set default branch to current user branch when loaded
   useEffect(() => {
-    if (currentBranch?.id && selectedBranchId === "") {
-      setSelectedBranchId(currentBranch.id)
+    const branchId = authData?.currentBranch?.id
+    if (branchId && !selectedBranchId) {
+      console.log('Setting default branch to:', branchId)
+      setSelectedBranchId(branchId)
     }
-  }, [currentBranch?.id, selectedBranchId])
+  }, [authData?.currentBranch?.id])
 
   // Fetch available branches
   const { data: branchesData = [] } = useQuery({
