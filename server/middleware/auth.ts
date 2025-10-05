@@ -75,29 +75,31 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     return res.status(401).json({ error: 'Недействительный токен' });
   }
 
-  // Multi-tenant validation: Check tenant_id from JWT matches current request tenant
-  // Exception: superadmin portal (admin.vetsystem.ru) bypasses tenant check
-  if (!req.isSuperAdmin) {
-    if (!req.tenantId) {
-      return res.status(403).json({ 
-        error: 'Tenant не определён',
-        message: 'Невозможно определить tenant для текущего запроса'
-      });
-    }
-    
-    if (payload.tenantId !== req.tenantId) {
-      return res.status(403).json({ 
-        error: 'Tenant mismatch',
-        message: 'Доступ запрещён: токен принадлежит другой клинике'
-      });
-    }
-  }
-
-  // Get fresh user data
+  // Get fresh user data first to check if user is superadmin
   try {
     const user = await storage.getUser(payload.userId);
     if (!user || user.status !== 'active') {
       return res.status(401).json({ error: 'Пользователь не найден или неактивен' });
+    }
+
+    const isSuperAdmin = user.isSuperAdmin || false;
+
+    // Multi-tenant validation: Check tenant_id from JWT matches current request tenant
+    // Exception: superadmin portal (admin.vetsystem.ru) bypasses tenant check
+    if (!isSuperAdmin) {
+      if (!req.tenantId) {
+        return res.status(403).json({ 
+          error: 'Tenant не определён',
+          message: 'Невозможно определить tenant для текущего запроса'
+        });
+      }
+      
+      if (payload.tenantId !== req.tenantId) {
+        return res.status(403).json({ 
+          error: 'Tenant mismatch',
+          message: 'Доступ запрещён: токен принадлежит другой клинике'
+        });
+      }
     }
 
     // Additional tenant validation: verify user belongs to correct tenant
@@ -109,7 +111,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       });
     }
 
-    if (!req.isSuperAdmin && user.tenantId !== req.tenantId) {
+    if (!isSuperAdmin && user.tenantId !== req.tenantId) {
       return res.status(403).json({ 
         error: 'Access denied',
         message: 'Пользователь не принадлежит текущей клинике'
@@ -124,7 +126,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       email: user.email || undefined,
       branchId: payload.branchId,
       tenantId: user.tenantId,
-      isSuperAdmin: user.isSuperAdmin || false
+      isSuperAdmin: isSuperAdmin
     };
 
     next();
