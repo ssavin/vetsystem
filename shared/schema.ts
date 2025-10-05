@@ -111,6 +111,7 @@ export const branches = pgTable("branches", {
   status: varchar("status", { length: 20 }).default("active"),
   managerId: varchar("manager_id"),
   description: text("description"),
+  vetaisClinicId: integer("vetais_clinic_id"), // Vetais clinic ID for migration tracking
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -177,6 +178,7 @@ export const owners = pgTable("owners", {
   email: varchar("email", { length: 255 }),
   address: text("address"),
   branchId: varchar("branch_id").references(() => branches.id),
+  vetaisId: varchar("vetais_id", { length: 50 }), // Vetais client ID for migration tracking
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -188,6 +190,7 @@ export const owners = pgTable("owners", {
     branchIdIdx: index("owners_branch_id_idx").on(table.branchId),
     createdAtIdx: index("owners_created_at_idx").on(table.createdAt),
     tenantPhoneIdx: index("owners_tenant_phone_idx").on(table.tenantId, table.phone), // Search within tenant
+    vetaisIdIdx: index("owners_vetais_id_idx").on(table.vetaisId), // Index for migration lookups
   };
 });
 
@@ -210,6 +213,7 @@ export const patients = pgTable("patients", {
   status: varchar("status", { length: 20 }).default("healthy"),
   ownerId: varchar("owner_id").references(() => owners.id), // Nullable for backwards compatibility during migration
   branchId: varchar("branch_id").references(() => branches.id),
+  vetaisId: varchar("vetais_id", { length: 50 }), // Vetais patient ID for migration tracking
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -227,6 +231,8 @@ export const patients = pgTable("patients", {
     breedIdx: index("patients_breed_idx").on(table.breed),
     branchIdIdx: index("patients_branch_id_idx").on(table.branchId),
     tenantMicrochipUnique: index("patients_tenant_microchip_unique_idx").on(table.tenantId, table.microchipNumber),
+    vetaisIdIdx: index("patients_vetais_id_idx").on(table.vetaisId), // Index for migration lookups
+    vetaisIdUnique: uniqueIndex("patients_vetais_id_unique_idx").on(table.vetaisId).where(sql`${table.vetaisId} IS NOT NULL`), // Prevent duplicate migrations
   };
 });
 
