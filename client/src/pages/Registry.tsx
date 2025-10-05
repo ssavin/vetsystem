@@ -270,6 +270,10 @@ export default function Registry() {
       if (!response.ok) {
         throw new Error('Не удалось удалить клиента')
       }
+      // 204 No Content doesn't have a body
+      if (response.status === 204) {
+        return null
+      }
       return response.json()
     },
     onSuccess: () => {
