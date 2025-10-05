@@ -54,6 +54,18 @@ Preferred communication style: Simple, everyday language.
     - Migration script: scripts/migrate-patient-owners.ts for legacy data transfer
     - Backwards compatible: patients.owner_id maintained for legacy support, COALESCE fallback in queries
     - API returns owners[] array with deterministic ordering (primary first, then by creation date)
+    - **API Endpoints (October 2025)**:
+      - POST /api/patients - Create patient with ownerIds[] array (atomic validation before creation)
+      - PATCH /api/patients/:id - Update patient with ownerIds[] array (replaces all owners)
+      - GET /api/patients/:id/owners - Get all owners for a patient
+      - POST /api/patients/:id/owners - Add owner to patient (branch alignment validated)
+      - DELETE /api/patients/:id/owners/:ownerId - Remove owner from patient (auto-promotes new primary if needed)
+      - PATCH /api/patients/:id/owners/:ownerId/primary - Set owner as primary (transaction-safe)
+    - **UI Support (October 2025)**:
+      - Registry table displays primary owner with (+N) indicator for additional owners
+      - Shows primary owner's phone number in table
+      - Backwards compatible with legacy single-owner display
+      - PatientRegistrationForm requires full rewrite for multi-owner creation UI (currently legacy)
   - Doctors with specializations and contact details
   - Appointments with scheduling and status management
   - Medical records with treatment history and file attachments
