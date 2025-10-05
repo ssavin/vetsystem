@@ -103,6 +103,7 @@ export default function AppSidebar() {
     if (item.adminOnly && !isAdmin) return false
     if (item.userOnly && isAdmin) return false
     if (!item.module) return true
+    if (isSuperAdmin) return true
     return hasPermission(item.module)
   })
 
