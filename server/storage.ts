@@ -162,6 +162,7 @@ export interface IStorage {
 
   // Owner methods - 🔒 SECURITY: branchId required for PHI isolation
   getOwners(branchId: string): Promise<Owner[]>;
+  getOwnersPaginated(params: { branchId: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }>;
   getAllOwners(): Promise<Owner[]>; // 🔒 All owners from all branches within tenant
   getOwner(id: string): Promise<Owner | undefined>;
   createOwner(owner: InsertOwner): Promise<Owner>;
@@ -171,6 +172,7 @@ export interface IStorage {
 
   // Patient methods - 🔒 SECURITY: branchId required for PHI isolation
   getPatients(limit: number | undefined, offset: number | undefined, branchId: string): Promise<Patient[]>;
+  getPatientsPaginated(params: { branchId: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }>;
   getAllPatients(limit: number | undefined, offset: number | undefined): Promise<Patient[]>; // 🔒 All patients from all branches within tenant
   getPatient(id: string): Promise<Patient | undefined>;
   getPatientsByOwner(ownerId: string, branchId: string): Promise<Patient[]>;
@@ -738,6 +740,58 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async getOwnersPaginated(params: { branchId: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }> {
+    const { branchId, search, limit = 50, offset = 0 } = params;
+    return withPerformanceLogging('getOwnersPaginated', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Build query with search and branch filter, include lastVisit from medical_records
+        const result = await dbInstance.execute(sql`
+          WITH owner_last_visit AS (
+            SELECT 
+              o.id,
+              o.name,
+              o.phone,
+              o.email,
+              o.address,
+              o.branch_id,
+              o.created_at,
+              o.updated_at,
+              MAX(mr.visit_date) as last_visit,
+              COUNT(*) OVER() as total_count
+            FROM owners o
+            LEFT JOIN patient_owners po ON o.id = po.owner_id
+            LEFT JOIN patients p ON po.patient_id = p.id
+            LEFT JOIN medical_records mr ON p.id = mr.patient_id
+            WHERE (o.branch_id = ${branchId} OR o.branch_id IS NULL)
+              ${search ? sql`AND (o.name ILIKE ${`%${search}%`} OR o.phone ILIKE ${`%${search}%`})` : sql``}
+            GROUP BY o.id, o.name, o.phone, o.email, o.address, o.branch_id, o.created_at, o.updated_at
+            ORDER BY last_visit DESC NULLS LAST, o.name ASC
+            LIMIT ${limit} OFFSET ${offset}
+          )
+          SELECT * FROM owner_last_visit
+        `);
+        
+        const rows = result.rows as any[];
+        const total = rows.length > 0 ? Number(rows[0].total_count) : 0;
+        
+        return {
+          data: rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            phone: row.phone,
+            email: row.email,
+            address: row.address,
+            branchId: row.branch_id,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            lastVisit: row.last_visit
+          })),
+          total
+        };
+      });
+    });
+  }
+
   async getOwner(id: string): Promise<Owner | undefined> {
     return withPerformanceLogging('getOwner', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
@@ -945,6 +999,74 @@ export class DatabaseStorage implements IStorage {
         `);
         
         return result.rows;
+      });
+    });
+  }
+
+  async getPatientsPaginated(params: { branchId: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }> {
+    const { branchId, search, limit = 50, offset = 0 } = params;
+    return withPerformanceLogging('getPatientsPaginated', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const result = await dbInstance.execute(sql`
+          WITH patient_owners_agg AS (
+            SELECT 
+              po.patient_id,
+              json_agg(
+                json_build_object(
+                  'id', o.id,
+                  'name', o.name,
+                  'phone', o.phone,
+                  'email', o.email,
+                  'isPrimary', po.is_primary
+                ) ORDER BY po.is_primary DESC NULLS LAST, po.created_at ASC
+              ) as owners,
+              MAX(CASE WHEN po.is_primary THEN o.name END) as primary_owner_name,
+              MAX(CASE WHEN po.is_primary THEN o.phone END) as primary_owner_phone
+            FROM patient_owners po
+            JOIN owners o ON po.owner_id = o.id
+            JOIN patients p_filter ON po.patient_id = p_filter.id
+            WHERE (p_filter.branch_id = ${branchId} OR p_filter.branch_id IS NULL)
+            GROUP BY po.patient_id
+          )
+          SELECT 
+            p.id,
+            p.name,
+            p.species,
+            p.breed,
+            p.birth_date as "birthDate",
+            p.gender,
+            p.color,
+            p.weight,
+            p.microchip_number as "microchipNumber",
+            p.allergies,
+            p.chronic_conditions as "chronicConditions",
+            p.owner_id as "ownerId",
+            p.tenant_id as "tenantId",
+            p.branch_id as "branchId",
+            p.created_at as "createdAt",
+            p.updated_at as "updatedAt",
+            COALESCE(poa.owners, '[]'::json) as owners,
+            COALESCE(poa.primary_owner_name, legacy_owner.name) as "ownerName",
+            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as "ownerPhone",
+            (SELECT MAX(mr.visit_date) FROM medical_records mr WHERE mr.patient_id = p.id) as "lastVisit",
+            COUNT(*) OVER() as total_count
+          FROM patients p
+          LEFT JOIN patient_owners_agg poa ON p.id = poa.patient_id
+          LEFT JOIN owners legacy_owner ON p.owner_id = legacy_owner.id
+          WHERE (p.branch_id = ${branchId} OR p.branch_id IS NULL)
+            ${search ? sql`AND (p.name ILIKE ${`%${search}%`} OR COALESCE(poa.primary_owner_name, legacy_owner.name) ILIKE ${`%${search}%`} OR COALESCE(poa.primary_owner_phone, legacy_owner.phone) ILIKE ${`%${search}%`})` : sql``}
+          ORDER BY "lastVisit" DESC NULLS LAST, p.name ASC
+          LIMIT ${limit}
+          OFFSET ${offset}
+        `);
+        
+        const rows = result.rows as any[];
+        const total = rows.length > 0 ? Number(rows[0].total_count) : 0;
+        
+        return {
+          data: rows,
+          total
+        };
       });
     });
   }

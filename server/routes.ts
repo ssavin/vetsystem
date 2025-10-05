@@ -200,6 +200,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = (req as any).user;
       const requestedBranchId = req.query.branchId as string;
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string), 100) : 50;
+      const search = req.query.search as string || undefined;
+      const offset = (page - 1) * limit;
       
       if (requestedBranchId) {
         // Validate user has access to requested branch
@@ -207,14 +211,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!hasAccess) {
           return res.status(403).json({ error: "Access denied: Branch not accessible" });
         }
-        const owners = await storage.getOwners(requestedBranchId);
-        res.json(owners);
+        const result = await storage.getOwnersPaginated({ branchId: requestedBranchId, search, limit, offset });
+        res.json({
+          data: result.data,
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit)
+        });
       } else {
         // Default to user's branch
         const userBranchId = requireValidBranchId(req, res);
         if (!userBranchId) return;
-        const owners = await storage.getOwners(userBranchId);
-        res.json(owners);
+        const result = await storage.getOwnersPaginated({ branchId: userBranchId, search, limit, offset });
+        res.json({
+          data: result.data,
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit)
+        });
       }
     } catch (error) {
       console.error("Error fetching owners:", error);
@@ -360,8 +376,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = (req as any).user;
       const requestedBranchId = req.query.branchId as string;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string), 100) : 50;
+      const search = req.query.search as string || undefined;
+      const offset = (page - 1) * limit;
       
       if (requestedBranchId) {
         // Validate user has access to requested branch
@@ -369,14 +387,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!hasAccess) {
           return res.status(403).json({ error: "Access denied: Branch not accessible" });
         }
-        const patients = await storage.getPatients(limit, offset, requestedBranchId);
-        res.json(patients);
+        const result = await storage.getPatientsPaginated({ branchId: requestedBranchId, search, limit, offset });
+        res.json({
+          data: result.data,
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit)
+        });
       } else {
         // Default to user's branch
         const userBranchId = requireValidBranchId(req, res);
         if (!userBranchId) return;
-        const patients = await storage.getPatients(limit, offset, userBranchId);
-        res.json(patients);
+        const result = await storage.getPatientsPaginated({ branchId: userBranchId, search, limit, offset });
+        res.json({
+          data: result.data,
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit)
+        });
       }
     } catch (error) {
       console.error("Error fetching patients:", error);

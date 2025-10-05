@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2 } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import OwnerRegistrationForm from "@/components/OwnerRegistrationForm"
@@ -165,9 +166,21 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
 export default function Registry() {
   const { t } = useTranslation('registry')
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [showPatientForm, setShowPatientForm] = useState(false)
   const [showOwnerForm, setShowOwnerForm] = useState(false)
   const [activeTab, setActiveTab] = useState<"clients" | "patients">("patients")
+  const [patientsPage, setPatientsPage] = useState(1)
+  const [ownersPage, setOwnersPage] = useState(1)
+  const [pageSize] = useState(50)
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
   
   // Get current user branch
   const { data: currentBranch } = useQuery<{ id: string, name: string }>({
@@ -189,36 +202,47 @@ export default function Registry() {
   })
 
   // Fetch patients from API based on selected branch (with owner data joined)
-  const { data: patientsData = [], isLoading: isPatientsLoading } = useQuery({
-    queryKey: ['/api/patients', selectedBranchId],
+  const { data: patientsResponse, isLoading: isPatientsLoading } = useQuery({
+    queryKey: ['/api/patients', selectedBranchId, patientsPage, debouncedSearchTerm, pageSize],
     queryFn: async () => {
-      const endpoint = selectedBranchId === "all" 
-        ? '/api/patients/all' 
-        : `/api/patients?branchId=${selectedBranchId}`
-      const res = await fetch(endpoint, {
+      const params = new URLSearchParams({
+        branchId: selectedBranchId || '',
+        page: patientsPage.toString(),
+        limit: pageSize.toString(),
+        ...(debouncedSearchTerm && { search: debouncedSearchTerm })
+      })
+      const res = await fetch(`/api/patients?${params}`, {
         credentials: 'include',
       })
       if (!res.ok) throw new Error('Failed to fetch patients')
       return res.json()
     },
-    enabled: activeTab === "patients"
+    enabled: activeTab === "patients" && !!selectedBranchId
   })
 
   // Fetch owners from API based on selected branch
-  const { data: ownersData = [], isLoading: isOwnersLoading } = useQuery({
-    queryKey: ['/api/owners', selectedBranchId],
+  const { data: ownersResponse, isLoading: isOwnersLoading } = useQuery({
+    queryKey: ['/api/owners', selectedBranchId, ownersPage, debouncedSearchTerm, pageSize],
     queryFn: async () => {
-      const endpoint = selectedBranchId 
-        ? `/api/owners?branchId=${selectedBranchId}`
-        : '/api/owners'
-      const res = await fetch(endpoint, {
+      const params = new URLSearchParams({
+        branchId: selectedBranchId || '',
+        page: ownersPage.toString(),
+        limit: pageSize.toString(),
+        ...(debouncedSearchTerm && { search: debouncedSearchTerm })
+      })
+      const res = await fetch(`/api/owners?${params}`, {
         credentials: 'include',
       })
       if (!res.ok) throw new Error('Failed to fetch owners')
       return res.json()
     },
-    enabled: activeTab === "clients"
+    enabled: activeTab === "clients" && !!selectedBranchId
   })
+
+  const patientsData = patientsResponse?.data || []
+  const patientsTotalPages = patientsResponse?.totalPages || 1
+  const ownersData = ownersResponse?.data || []
+  const ownersTotalPages = ownersResponse?.totalPages || 1
 
   // Helper function for age word form
   const getYearWord = (years: number) => {
@@ -293,33 +317,18 @@ export default function Registry() {
     }))
   }, [ownersData])
 
-  // Filter patients based on search
-  const filteredPatients = useMemo(() => {
-    if (!searchTerm) return transformedPatients
-    
-    const searchLower = searchTerm.toLowerCase()
-    return transformedPatients.filter((patient: any) =>
-      patient.name?.toLowerCase().includes(searchLower) ||
-      patient.owner?.toLowerCase().includes(searchLower) ||
-      patient.ownerPhone?.includes(searchTerm)
-    )
-  }, [transformedPatients, searchTerm])
-
-  // Filter owners based on search
-  const filteredOwners = useMemo(() => {
-    if (!searchTerm) return transformedOwners
-    
-    const searchLower = searchTerm.toLowerCase()
-    return transformedOwners.filter((owner: any) =>
-      owner.name?.toLowerCase().includes(searchLower) ||
-      owner.phone?.includes(searchTerm) ||
-      owner.email?.toLowerCase().includes(searchLower)
-    )
-  }, [transformedOwners, searchTerm])
-
   const handleSearch = (term: string) => {
     setSearchTerm(term)
+    // Reset to first page when search changes
+    setPatientsPage(1)
+    setOwnersPage(1)
   }
+
+  // Reset page when branch changes
+  useEffect(() => {
+    setPatientsPage(1)
+    setOwnersPage(1)
+  }, [selectedBranchId])
 
   if (showPatientForm) {
     return (
@@ -442,7 +451,7 @@ export default function Registry() {
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : filteredOwners.length === 0 ? (
+              ) : transformedOwners.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">
                     {searchTerm ? t('clients.notFound', 'Клиенты не найдены') : t('clients.empty', 'Нет клиентов')}
@@ -460,7 +469,7 @@ export default function Registry() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredOwners.map((owner: any) => (
+                    {transformedOwners.map((owner: any) => (
                       <TableRow key={owner.id} className="hover-elevate">
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -505,6 +514,50 @@ export default function Registry() {
                 </Table>
               )}
             </CardContent>
+            {ownersTotalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 py-4">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setOwnersPage(Math.max(1, ownersPage - 1))}
+                        className={ownersPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: ownersTotalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        return page === 1 || 
+                               page === ownersTotalPages || 
+                               Math.abs(page - ownersPage) <= 1
+                      })
+                      .map((page, idx, arr) => (
+                        <>
+                          {idx > 0 && arr[idx - 1] !== page - 1 && (
+                            <PaginationItem key={`ellipsis-${page}`}>
+                              <span className="px-2">...</span>
+                            </PaginationItem>
+                          )}
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setOwnersPage(page)}
+                              isActive={page === ownersPage}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        </>
+                      ))}
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setOwnersPage(Math.min(ownersTotalPages, ownersPage + 1))}
+                        className={ownersPage === ownersTotalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </Card>
         </TabsContent>
 
@@ -526,7 +579,7 @@ export default function Registry() {
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : filteredPatients.length === 0 ? (
+              ) : transformedPatients.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">
                     {searchTerm ? t('patients.notFound') : t('patients.empty')}
@@ -545,13 +598,57 @@ export default function Registry() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPatients.map((patient: any) => (
+                    {transformedPatients.map((patient: any) => (
                       <PatientTableRow key={patient.id} patient={patient} />
                     ))}
                   </TableBody>
                 </Table>
               )}
             </CardContent>
+            {patientsTotalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 py-4">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setPatientsPage(Math.max(1, patientsPage - 1))}
+                        className={patientsPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: patientsTotalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        return page === 1 || 
+                               page === patientsTotalPages || 
+                               Math.abs(page - patientsPage) <= 1
+                      })
+                      .map((page, idx, arr) => (
+                        <>
+                          {idx > 0 && arr[idx - 1] !== page - 1 && (
+                            <PaginationItem key={`ellipsis-${page}`}>
+                              <span className="px-2">...</span>
+                            </PaginationItem>
+                          )}
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setPatientsPage(page)}
+                              isActive={page === patientsPage}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        </>
+                      ))}
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setPatientsPage(Math.min(patientsTotalPages, patientsPage + 1))}
+                        className={patientsPage === patientsTotalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </Card>
         </TabsContent>
       </Tabs>
