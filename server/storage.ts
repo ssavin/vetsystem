@@ -801,6 +801,85 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async searchOwnersWithPatients(query: string, limit: number = 30, offset: number = 0): Promise<{ owners: any[], total: number }> {
+    return withPerformanceLogging('searchOwnersWithPatients', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const searchQuery = `%${query}%`;
+        
+        // Search in both owners and patients tables
+        const ownerIds = await dbInstance
+          .selectDistinct({ id: owners.id })
+          .from(owners)
+          .leftJoin(patients, eq(patients.ownerId, owners.id))
+          .where(
+            or(
+              like(owners.name, searchQuery),
+              like(owners.phone, searchQuery),
+              like(owners.email, searchQuery),
+              like(patients.name, searchQuery)
+            )
+          )
+          .orderBy(desc(owners.createdAt));
+
+        const total = ownerIds.length;
+
+        // Get paginated owner IDs
+        const paginatedOwnerIds = ownerIds.slice(offset, offset + limit).map(o => o.id);
+
+        if (paginatedOwnerIds.length === 0) {
+          return { owners: [], total: 0 };
+        }
+
+        // Fetch owners with their patients
+        const ownersWithPatients = await dbInstance
+          .select({
+            id: owners.id,
+            name: owners.name,
+            phone: owners.phone,
+            email: owners.email,
+            address: owners.address,
+            branchId: owners.branchId,
+            patientId: patients.id,
+            patientName: patients.name,
+            species: patients.species,
+            breed: patients.breed,
+          })
+          .from(owners)
+          .leftJoin(patients, eq(patients.ownerId, owners.id))
+          .where(sql`${owners.id} = ANY(${paginatedOwnerIds})`)
+          .orderBy(desc(owners.createdAt));
+
+        // Group by owner
+        const groupedOwners = ownersWithPatients.reduce((acc: any[], row: any) => {
+          let owner = acc.find(o => o.id === row.id);
+          if (!owner) {
+            owner = {
+              id: row.id,
+              name: row.name,
+              phone: row.phone,
+              email: row.email,
+              address: row.address,
+              branchId: row.branchId,
+              patients: []
+            };
+            acc.push(owner);
+          }
+          if (row.patientId) {
+            owner.patients.push({
+              id: row.patientId,
+              name: row.patientName,
+              species: row.species,
+              breed: row.breed
+            });
+          }
+          return acc;
+        }, []);
+
+        return { owners: groupedOwners, total };
+      });
+    });
+  }
+
   // Patient methods - 🔒 SECURITY: branchId mandatory for PHI isolation
   async getPatients(limit: number | undefined = 50, offset: number | undefined = 0, branchId: string): Promise<any[]> {
     return withPerformanceLogging('getPatients', async () => {

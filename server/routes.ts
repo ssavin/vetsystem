@@ -336,6 +336,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Search owners with their patients (for clinical case creation)
+  app.get("/api/owners/search-with-patients", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
+    try {
+      const query = req.query.query as string || '';
+      const limit = parseInt(req.query.limit as string || '30');
+      const offset = parseInt(req.query.offset as string || '0');
+      
+      if (!query || query.length < 2) {
+        return res.json({ owners: [], total: 0 });
+      }
+      
+      const result = await storage.searchOwnersWithPatients(query, limit, offset);
+      res.json(result);
+    } catch (error) {
+      console.error("Error searching owners with patients:", error);
+      res.status(500).json({ error: "Failed to search owners with patients" });
+    }
+  });
+
   // PATIENT ROUTES - Protected PHI data
   app.get("/api/patients", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
