@@ -51,11 +51,13 @@ interface SelectedOwner extends Owner {
 }
 
 interface PatientRegistrationFormProps {
+  patient?: any // Existing patient for edit mode
   onSuccess?: () => void
   onCancel?: () => void
 }
 
-export default function PatientRegistrationForm({ onSuccess, onCancel }: PatientRegistrationFormProps) {
+export default function PatientRegistrationForm({ patient, onSuccess, onCancel }: PatientRegistrationFormProps) {
+  const isEditMode = !!patient
   const { toast } = useToast()
   const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -90,29 +92,51 @@ export default function PatientRegistrationForm({ onSuccess, onCancel }: Patient
   const form = useForm<PatientFormData>({
     resolver: zodResolver(patientFormSchema),
     defaultValues: {
-      name: "",
-      species: "",
-      breed: "",
-      gender: undefined,
-      birthDate: "",
-      color: "",
-      weight: "",
-      microchipNumber: "",
-      isNeutered: false,
-      allergies: "",
-      chronicConditions: "",
-      specialMarks: "",
-      branchId: "",
+      name: patient?.name || "",
+      species: patient?.species || "",
+      breed: patient?.breed || "",
+      gender: patient?.gender || undefined,
+      birthDate: patient?.birthDate ? new Date(patient.birthDate).toISOString().split('T')[0] : "",
+      color: patient?.color || "",
+      weight: patient?.weight || "",
+      microchipNumber: patient?.microchipNumber || "",
+      isNeutered: patient?.isNeutered || false,
+      allergies: patient?.allergies || "",
+      chronicConditions: patient?.chronicConditions || "",
+      specialMarks: patient?.specialMarks || "",
+      branchId: patient?.branchId || "",
       ownerIds: [],
     },
   })
 
-  // Sync branchId when current branch loads
+  // Load patient owners in edit mode
   useEffect(() => {
-    if (currentBranch?.id) {
+    if (isEditMode && patient?.id) {
+      fetch(`/api/patients/${patient.id}/owners`, {
+        credentials: 'include',
+      })
+        .then(res => res.ok ? res.json() : [])
+        .then((owners: any[]) => {
+          const loadedOwners = owners.map(po => ({
+            id: po.owner.id,
+            name: po.owner.name,
+            phone: po.owner.phone,
+            email: po.owner.email,
+            address: po.owner.address,
+            isPrimary: po.isPrimary
+          }))
+          setSelectedOwners(loadedOwners)
+        })
+        .catch(() => {})
+    }
+  }, [isEditMode, patient?.id])
+
+  // Sync branchId when current branch loads (only in create mode)
+  useEffect(() => {
+    if (!isEditMode && currentBranch?.id) {
       form.setValue('branchId', currentBranch.id)
     }
-  }, [currentBranch?.id, form])
+  }, [isEditMode, currentBranch?.id, form])
 
   // Sync ownerIds with selectedOwners (primary owner must be first)
   useEffect(() => {
@@ -152,24 +176,29 @@ export default function PatientRegistrationForm({ onSuccess, onCancel }: Patient
     },
   })
 
-  // Create patient mutation
+  // Create/Update patient mutation
   const createPatientMutation = useMutation({
     mutationFn: async (data: PatientFormData) => {
-      const res = await apiRequest('POST', '/api/patients', data)
-      return await res.json()
+      if (isEditMode && patient?.id) {
+        const res = await apiRequest('PUT', `/api/patients/${patient.id}`, data)
+        return await res.json()
+      } else {
+        const res = await apiRequest('POST', '/api/patients', data)
+        return await res.json()
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/patients'] })
       toast({
-        title: "Пациент зарегистрирован",
-        description: "Пациент успешно добавлен в систему",
+        title: isEditMode ? "Пациент обновлен" : "Пациент зарегистрирован",
+        description: isEditMode ? "Данные пациента успешно обновлены" : "Пациент успешно добавлен в систему",
       })
       if (onSuccess) onSuccess()
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка регистрации",
-        description: error.message || "Не удалось зарегистрировать пациента",
+        title: isEditMode ? "Ошибка обновления" : "Ошибка регистрации",
+        description: error.message || (isEditMode ? "Не удалось обновить пациента" : "Не удалось зарегистрировать пациента"),
         variant: "destructive",
       })
     },
@@ -424,7 +453,7 @@ export default function PatientRegistrationForm({ onSuccess, onCancel }: Patient
         {/* Patient Information Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Информация о пациенте</CardTitle>
+            <CardTitle>{isEditMode ? "Редактирование пациента" : "Информация о пациенте"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -640,7 +669,9 @@ export default function PatientRegistrationForm({ onSuccess, onCancel }: Patient
             data-testid="button-save-patient"
           >
             <Save className="h-4 w-4 mr-2" />
-            {createPatientMutation.isPending ? "Сохранение..." : "Сохранить пациента"}
+            {createPatientMutation.isPending 
+              ? "Сохранение..." 
+              : isEditMode ? "Обновить пациента" : "Сохранить пациента"}
           </Button>
         </div>
       </form>

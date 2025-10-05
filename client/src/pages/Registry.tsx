@@ -274,12 +274,7 @@ export default function Registry() {
   // Handle patient edit attempt
   useEffect(() => {
     if (patientToEdit) {
-      toast({
-        title: "Функция в разработке",
-        description: "Редактирование пациентов будет доступно в следующей версии",
-        variant: "default"
-      })
-      setPatientToEdit(null)
+      setShowPatientForm(true)
     }
   }, [patientToEdit])
 
@@ -499,7 +494,13 @@ export default function Registry() {
             {t('backToRegistry', 'Назад к реестру')}
           </Button>
         </div>
-        <PatientRegistrationForm />
+        <PatientRegistrationForm 
+          patient={patientToEdit}
+          onSuccess={() => {
+            setShowPatientForm(false)
+            setPatientToEdit(null)
+          }}
+        />
       </div>
     )
   }
