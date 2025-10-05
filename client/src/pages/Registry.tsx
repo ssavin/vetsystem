@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2 } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
+import OwnerRegistrationForm from "@/components/OwnerRegistrationForm"
 import CreateCaseDialog from "@/components/CreateCaseDialog"
 import { useLocation } from "wouter"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -164,7 +165,8 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
 export default function Registry() {
   const { t } = useTranslation('registry')
   const [searchTerm, setSearchTerm] = useState("")
-  const [showRegistrationForm, setShowRegistrationForm] = useState(false)
+  const [showPatientForm, setShowPatientForm] = useState(false)
+  const [showOwnerForm, setShowOwnerForm] = useState(false)
   const [activeTab, setActiveTab] = useState<"clients" | "patients">("patients")
   
   // Get current user branch
@@ -319,23 +321,44 @@ export default function Registry() {
     setSearchTerm(term)
   }
 
-  if (showRegistrationForm) {
+  if (showPatientForm) {
     return (
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">{t('registrationTitle')}</h1>
-            <p className="text-muted-foreground">{t('registrationSubtitle')}</p>
+            <h1 className="text-3xl font-bold">{t('registrationTitle', 'Регистрация пациента')}</h1>
+            <p className="text-muted-foreground">{t('registrationSubtitle', 'Заполните данные пациента')}</p>
           </div>
           <Button 
             variant="outline" 
-            onClick={() => setShowRegistrationForm(false)}
+            onClick={() => setShowPatientForm(false)}
             data-testid="button-back-to-registry"
           >
-            {t('backToRegistry')}
+            {t('backToRegistry', 'Назад к реестру')}
           </Button>
         </div>
         <PatientRegistrationForm />
+      </div>
+    )
+  }
+
+  if (showOwnerForm) {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Регистрация клиента</h1>
+            <p className="text-muted-foreground">Заполните данные клиента</p>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowOwnerForm(false)}
+            data-testid="button-back-to-registry"
+          >
+            Назад к реестру
+          </Button>
+        </div>
+        <OwnerRegistrationForm />
       </div>
     )
   }
@@ -347,13 +370,6 @@ export default function Registry() {
           <h1 className="text-3xl font-bold" data-testid="text-registry-title">{t('title')}</h1>
           <p className="text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Button 
-          onClick={() => setShowRegistrationForm(true)}
-          data-testid="button-new-patient"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          {t('patients.add')}
-        </Button>
       </div>
 
       <Card>
@@ -409,6 +425,15 @@ export default function Registry() {
         </TabsList>
 
         <TabsContent value="clients">
+          <div className="flex justify-end mb-4">
+            <Button 
+              onClick={() => setShowOwnerForm(true)}
+              data-testid="button-new-owner"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Добавить клиента
+            </Button>
+          </div>
           <Card>
             <CardContent className="p-0">
               {isOwnersLoading ? (
@@ -484,6 +509,15 @@ export default function Registry() {
         </TabsContent>
 
         <TabsContent value="patients">
+          <div className="flex justify-end mb-4">
+            <Button 
+              onClick={() => setShowPatientForm(true)}
+              data-testid="button-new-patient"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Добавить пациента
+            </Button>
+          </div>
           <Card>
             <CardContent className="p-0">
               {isPatientsLoading ? (
