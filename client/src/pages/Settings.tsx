@@ -1459,7 +1459,7 @@ export default function Settings() {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {users.filter(u => u.role === 'администратор').length}
+                  {users.filter(u => u.role === 'администратор' || u.role === 'admin').length}
                 </div>
                 <div className="text-sm text-muted-foreground">Администраторов</div>
               </div>

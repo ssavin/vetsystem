@@ -442,7 +442,7 @@ export default function UserManagement() {
               <div className="ml-2">
                 <p className="text-sm font-medium text-muted-foreground">Администраторы</p>
                 <div className="text-2xl font-bold text-blue-600" data-testid="text-admin-users">
-                  {users.filter(u => u.role === 'администратор').length}
+                  {users.filter(u => u.role === 'администратор' || u.role === 'admin').length}
                 </div>
               </div>
             </div>
