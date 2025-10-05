@@ -198,16 +198,24 @@ export default function Registry() {
         ? `${years} ${getYearWord(years)}`
         : t('patients.unknown')
 
+      // Multi-owner support: show primary owner or first owner
+      const primaryOwner = patient.owners?.find((o: any) => o.isPrimary) || patient.owners?.[0]
+      const allOwners = patient.owners || []
+      const ownerDisplay = primaryOwner 
+        ? `${primaryOwner.ownerName}${allOwners.length > 1 ? ` (+${allOwners.length - 1})` : ''}`
+        : (patient.ownerName || t('patients.unknownOwner'))
+      
       return {
         id: patient.id,
         name: patient.name,
         species: patient.species,
         breed: patient.breed || t('patients.unknownBreed'),
         age,
-        owner: patient.ownerName || t('patients.unknownOwner'),
-        ownerPhone: patient.ownerPhone || '-',
+        owner: ownerDisplay,
+        ownerPhone: primaryOwner?.ownerPhone || patient.ownerPhone || '-',
         status: 'healthy' as const,
-        lastVisit: undefined
+        lastVisit: undefined,
+        owners: allOwners // Store all owners for potential tooltip/details
       }
     })
   }, [patientsData, t])
