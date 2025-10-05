@@ -68,12 +68,14 @@ const getMenuItems = (t: any) => [
     url: "/reports",
     icon: FileText,
     module: "reports",
+    managerOnly: true,
   },
   {
     titleKey: "menu.settings",
     url: "/settings",
     icon: Settings,
     module: "settings",
+    managerOnly: true,
   },
   {
     titleKey: "menu.adminPanel",
@@ -90,12 +92,14 @@ export default function AppSidebar() {
   const { t } = useTranslation('navigation')
 
   const isAdmin = user?.role === 'администратор' || user?.role === 'руководитель'
+  const isManager = user?.role === 'руководитель'
   const isSuperAdmin = user?.role === 'superadmin'
 
   const menuItems = getMenuItems(t)
 
   const visibleMenuItems = menuItems.filter((item: any) => {
     if (item.superAdminOnly && !isSuperAdmin) return false
+    if (item.managerOnly && !isManager && !isSuperAdmin) return false
     if (item.adminOnly && !isAdmin) return false
     if (item.userOnly && isAdmin) return false
     if (!item.module) return true
