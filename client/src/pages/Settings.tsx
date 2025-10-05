@@ -71,6 +71,7 @@ import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch, SystemSet
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
 import IntegrationsSettings from "@/components/IntegrationsSettings"
+import { useAuth } from "@/contexts/AuthContext"
 
 // Form validation schema for branches
 const branchSchema = z.object({
@@ -89,6 +90,9 @@ type UserFormValues = z.infer<typeof insertUserSchema>
 type UpdateUserFormValues = z.infer<typeof updateUserSchema>
 
 export default function Settings() {
+  const { user } = useAuth()
+  const isSuperAdmin = user?.role === 'superadmin'
+  
   const [clinicName, setClinicName] = useState("")
   const [clinicAddress, setClinicAddress] = useState("")
   const [clinicPhone, setClinicPhone] = useState("")
@@ -169,13 +173,14 @@ export default function Settings() {
     phone: string | null;
     email: string | null;
     settings: any;
+    isSuperAdmin?: boolean;
   }>({
     queryKey: ['/api/tenant/current'],
   })
 
   // Initialize clinic info from tenant data
   useEffect(() => {
-    if (currentTenant) {
+    if (currentTenant && !currentTenant.isSuperAdmin) {
       setClinicName(currentTenant.name || "")
       setClinicAddress(currentTenant.legalAddress || "")
       setClinicPhone(currentTenant.phone || "")
@@ -722,62 +727,64 @@ export default function Settings() {
         <p className="text-muted-foreground">Конфигурация и управление параметрами VetSystem</p>
       </div>
 
-      {/* Clinic Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserIcon className="h-5 w-5" />
-            Информация о клинике
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="clinicName">Название клиники</Label>
-              <Input
-                id="clinicName"
-                value={clinicName}
-                onChange={(e) => setClinicName(e.target.value)}
-                data-testid="input-clinic-name"
-              />
+      {/* Clinic Information - hidden for superadmin */}
+      {!isSuperAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserIcon className="h-5 w-5" />
+              Информация о клинике
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="clinicName">Название клиники</Label>
+                <Input
+                  id="clinicName"
+                  value={clinicName}
+                  onChange={(e) => setClinicName(e.target.value)}
+                  data-testid="input-clinic-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clinicAddress">Адрес</Label>
+                <Input
+                  id="clinicAddress"
+                  value={clinicAddress}
+                  onChange={(e) => setClinicAddress(e.target.value)}
+                  data-testid="input-clinic-address"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clinicPhone">Телефон</Label>
+                <Input
+                  id="clinicPhone"
+                  value={clinicPhone}
+                  onChange={(e) => setClinicPhone(e.target.value)}
+                  data-testid="input-clinic-phone"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clinicEmail">Email</Label>
+                <Input
+                  id="clinicEmail"
+                  type="email"
+                  value={clinicEmail}
+                  onChange={(e) => setClinicEmail(e.target.value)}
+                  data-testid="input-clinic-email"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="clinicAddress">Адрес</Label>
-              <Input
-                id="clinicAddress"
-                value={clinicAddress}
-                onChange={(e) => setClinicAddress(e.target.value)}
-                data-testid="input-clinic-address"
-              />
+            <div className="flex justify-end pt-4">
+              <Button onClick={saveSettings} data-testid="button-save-clinic-info">
+                <Save className="h-4 w-4 mr-2" />
+                Сохранить информацию
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="clinicPhone">Телефон</Label>
-              <Input
-                id="clinicPhone"
-                value={clinicPhone}
-                onChange={(e) => setClinicPhone(e.target.value)}
-                data-testid="input-clinic-phone"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="clinicEmail">Email</Label>
-              <Input
-                id="clinicEmail"
-                type="email"
-                value={clinicEmail}
-                onChange={(e) => setClinicEmail(e.target.value)}
-                data-testid="input-clinic-email"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end pt-4">
-            <Button onClick={saveSettings} data-testid="button-save-clinic-info">
-              <Save className="h-4 w-4 mr-2" />
-              Сохранить информацию
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Branch Management */}
       <Card>
