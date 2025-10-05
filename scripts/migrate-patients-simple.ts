@@ -161,8 +161,8 @@ async function main() {
           // Вставка пациента
           const insertResult = await vetsystemDb.query(`
             INSERT INTO patients (
-              tenant_id, branch_id, name, species, breed, sex,
-              birth_date, microchip, notes, vetais_id
+              tenant_id, branch_id, name, species, breed, gender,
+              birth_date, microchip_number, special_marks, vetais_id
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING id
           `, [
@@ -175,7 +175,7 @@ async function main() {
             birthDate,
             patient.microchip?.trim() || null,
             patient.notes?.trim() || null,
-            patient.id_pacienta
+            patient.id_pacienta.toString()
           ]);
 
           const patientId = insertResult.rows[0].id;
