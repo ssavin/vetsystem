@@ -98,12 +98,18 @@ export default function AppSidebar() {
   const menuItems = getMenuItems(t)
 
   const visibleMenuItems = menuItems.filter((item: any) => {
-    if (item.superAdminOnly && !isSuperAdmin) return false
-    if (item.managerOnly && !isManager && !isSuperAdmin) return false
+    // Superadmin: only show superAdminOnly items and dashboard
+    if (isSuperAdmin) {
+      if (item.superAdminOnly) return true
+      if (item.url === "/") return true // Dashboard
+      return false
+    }
+    
+    if (item.superAdminOnly) return false
+    if (item.managerOnly && !isManager) return false
     if (item.adminOnly && !isAdmin) return false
     if (item.userOnly && isAdmin) return false
     if (!item.module) return true
-    if (isSuperAdmin) return true
     return hasPermission(item.module)
   })
 

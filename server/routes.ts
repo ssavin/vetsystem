@@ -5757,11 +5757,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/tenant/current - Get current tenant info
   app.get("/api/tenant/current", authenticateToken, async (req, res) => {
     try {
-      console.log('[/api/tenant/current] User:', { isSuperAdmin: req.user?.isSuperAdmin, tenantId: req.tenantId });
-      
       // Superadmin doesn't have a tenant
       if (req.user?.isSuperAdmin) {
-        console.log('[/api/tenant/current] Returning superadmin info');
         return res.json({ 
           id: 'superadmin',
           name: 'Суперадминистратор',

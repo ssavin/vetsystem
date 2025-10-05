@@ -134,12 +134,6 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     next();
   } catch (error) {
     console.error('Authentication error:', error);
-    console.error('Error details:', {
-      userId: payload?.userId,
-      tenantId: req.tenantId,
-      isSuperAdmin: (error as any)?.user?.isSuperAdmin,
-      stack: (error as Error)?.stack
-    });
     return res.status(500).json({ error: 'Ошибка аутентификации' });
   }
 };
