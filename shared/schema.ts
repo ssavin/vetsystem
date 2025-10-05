@@ -208,7 +208,7 @@ export const patients = pgTable("patients", {
   chronicConditions: text("chronic_conditions"),
   specialMarks: text("special_marks"),
   status: varchar("status", { length: 20 }).default("healthy"),
-  ownerId: varchar("owner_id").references(() => owners.id).notNull(),
+  ownerId: varchar("owner_id").references(() => owners.id), // Nullable for backwards compatibility during migration
   branchId: varchar("branch_id").references(() => branches.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -227,6 +227,23 @@ export const patients = pgTable("patients", {
     breedIdx: index("patients_breed_idx").on(table.breed),
     branchIdIdx: index("patients_branch_id_idx").on(table.branchId),
     tenantMicrochipUnique: index("patients_tenant_microchip_unique_idx").on(table.tenantId, table.microchipNumber),
+  };
+});
+
+// Patient-Owners junction table for many-to-many relationships
+export const patientOwners = pgTable("patient_owners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  ownerId: varchar("owner_id").references(() => owners.id, { onDelete: 'cascade' }).notNull(),
+  isPrimary: boolean("is_primary").default(false).notNull(), // One primary owner per patient
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    patientIdIdx: index("patient_owners_patient_id_idx").on(table.patientId),
+    ownerIdIdx: index("patient_owners_owner_id_idx").on(table.ownerId),
+    primaryIdx: index("patient_owners_primary_idx").on(table.isPrimary),
+    // Unique constraint: one patient-owner pair only once
+    patientOwnerUnique: index("patient_owners_unique_idx").on(table.patientId, table.ownerId),
   };
 });
 
@@ -1305,6 +1322,13 @@ export const insertPatientSchema = createInsertSchema(patients).omit({
   weight: z.coerce.number().min(0, "Weight must be positive").transform(val => val?.toString()).optional(),
 });
 
+export const insertPatientOwnerSchema = createInsertSchema(patientOwners).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  isPrimary: z.boolean().default(false),
+});
+
 export const insertDoctorSchema = createInsertSchema(doctors).omit({
   id: true,
   createdAt: true,
@@ -1670,6 +1694,9 @@ export type InsertOwner = z.infer<typeof insertOwnerSchema>;
 
 export type Patient = typeof patients.$inferSelect;
 export type InsertPatient = z.infer<typeof insertPatientSchema>;
+
+export type PatientOwner = typeof patientOwners.$inferSelect;
+export type InsertPatientOwner = z.infer<typeof insertPatientOwnerSchema>;
 
 export type Doctor = typeof doctors.$inferSelect;
 export type InsertDoctor = z.infer<typeof insertDoctorSchema>;
