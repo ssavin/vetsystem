@@ -358,7 +358,7 @@ export default function Registry() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('patients.search')}</CardTitle>
+          <CardTitle>{t('patients.search', 'Поиск пациентов и клиентов')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 mb-4">
