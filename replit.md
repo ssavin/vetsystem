@@ -61,13 +61,14 @@ Preferred communication style: Simple, everyday language.
   - Distribution: 27 administrators, 18 doctors, 10 managers, 6 supervisors.
   - Branch distribution: Бутово (29 users), Новопеределкино (21 users), Лобачевского (7 users).
   - Default password: Alisa2024! (users must change on first login).
-- **Medical Data Migration**: Comprehensive migration scripts for medical records, medications, and files from Vetais.
+- **Medical Data Migration**: **READY FOR PRODUCTION** - Comprehensive migration scripts for medical records, medications, and files from Vetais.
   - Extended schema with `vetais_id` tracking field in medical_records, medications, patient_files, clinical_cases, clinical_encounters, attachments.
   - Medical records: 155,817 exams from medical_exams + diagnoses + symptoms → medical_records.
   - Medications: 347,932 prescriptions from medical_plan_item → medications (procedures excluded, go to treatment field).
   - Medical files: 16,766 files from medical_media_data → patient_files (saved to disk in tenant/branch/patient structure).
-  - Batch processing with idempotency (vetais_id tracking), error handling, and progress logging.
-  - Scripts: `migrate-medical-records.ts`, `migrate-medications.ts`, `migrate-medical-files.ts`.
+  - Batch processing with idempotency (vetais_id tracking), error handling, progress logging, duplicate prevention.
+  - File storage uses production-compatible path resolution: `path.join(process.cwd(), 'uploads', tenantId, branchId, patientId)`.
+  - Scripts: `migrate-medical-records.ts`, `migrate-medications.ts`, `migrate-medical-files.ts`, `test-migration.ts`.
   - Migration plan documented in `VETAIS_MEDICAL_MIGRATION_PLAN.md`.
 - Utilizes batch processing scripts for efficient migration and updates.
 - Migration scripts: `migrate-vetais-batch.ts`, `fix-client-branches-fast.ts`, `migrate-users-vetais.ts`.
