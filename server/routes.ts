@@ -1915,13 +1915,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // User data is already validated and attached by authenticateToken middleware
       let currentBranch = null;
+      let currentTenant = null;
+      
       if (req.user?.branchId) {
         const branch = await storage.getBranch(req.user.branchId);
         if (branch) {
           currentBranch = { id: branch.id, name: branch.name };
         }
       }
-      res.json({ user: req.user, currentBranch });
+      
+      if (req.user?.tenantId) {
+        const tenant = await storage.getTenant(req.user.tenantId);
+        if (tenant) {
+          currentTenant = { id: tenant.id, name: tenant.name };
+        }
+      }
+      
+      res.json({ user: req.user, currentBranch, currentTenant });
     } catch (error) {
       console.error("Auth me error:", error);
       res.status(500).json({ error: "Ошибка сервера" });
@@ -2009,6 +2019,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Switch branch error:", error);
       res.status(500).json({ error: "Ошибка при смене филиала" });
+    }
+  });
+
+  // Switch tenant endpoint (superadmin only)
+  app.post("/api/auth/switch-tenant", authenticateToken, requireSuperAdmin, validateBody(z.object({
+    tenantId: z.string().min(1, "ID клиники обязателен")
+  })), async (req, res) => {
+    try {
+      const { tenantId } = req.body;
+      
+      // Verify tenant exists and is active
+      const selectedTenant = await storage.getTenant(tenantId);
+      if (!selectedTenant || selectedTenant.status !== 'active') {
+        return res.status(400).json({ error: "Выбранная клиника недоступна" });
+      }
+      
+      // Ensure user exists and is superadmin (checked by middleware)
+      if (!req.user || !req.isSuperAdmin) {
+        return res.status(403).json({ error: "Доступ запрещён. Только superadmin может переключать клиники." });
+      }
+
+      // Get first active branch for this tenant
+      const tenantBranches = await storage.getTenantBranches(tenantId);
+      const firstActiveBranch = tenantBranches.find(b => b.status === 'active');
+
+      // Generate new JWT tokens with updated tenant and branch info
+      const { accessToken, refreshToken } = generateTokens({
+        id: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
+        tenantId: tenantId,
+        branchId: firstActiveBranch?.id || null
+      });
+      
+      // Set secure cookies with new tokens
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000 // 15 minutes
+      });
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+      
+      res.json({ 
+        currentTenant: { id: selectedTenant.id, name: selectedTenant.name },
+        currentBranch: firstActiveBranch ? { id: firstActiveBranch.id, name: firstActiveBranch.name } : null,
+        message: "Клиника успешно изменена" 
+      });
+    } catch (error) {
+      console.error("Switch tenant error:", error);
+      res.status(500).json({ error: "Ошибка при смене клиники" });
     }
   });
 
@@ -5462,6 +5529,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/admin/tenants/:id/branches - Получить филиалы конкретной клиники
+  app.get("/api/admin/tenants/:id/branches", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Verify tenant exists
+      const tenant = await storage.getTenant(id);
+      if (!tenant) {
+        return res.status(404).json({ 
+          error: "Tenant not found",
+          message: "Клиника не найдена"
+        });
+      }
+      
+      const branches = await storage.getTenantBranches(id);
+      res.json(branches);
+    } catch (error) {
+      console.error("Error fetching tenant branches:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch branches",
+        message: "Не удалось получить список филиалов"
+      });
+    }
+  });
+
   // POST /api/admin/tenants - Создать новый tenant
   app.post("/api/admin/tenants", authenticateToken, requireSuperAdmin, async (req, res) => {
     try {
@@ -5564,6 +5656,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Failed to delete tenant",
         message: "Не удалось удалить клинику"
+      });
+    }
+  });
+
+  // GET /api/tenants - Short alias for getting all tenants (superadmin only)
+  app.get("/api/tenants", authenticateToken, requireSuperAdmin, async (req, res) => {
+    try {
+      const tenants = await storage.getAllTenants();
+      res.json(tenants);
+    } catch (error) {
+      console.error("Error fetching tenants:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch tenants",
+        message: "Не удалось получить список клиник"
       });
     }
   });

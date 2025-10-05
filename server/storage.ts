@@ -152,6 +152,7 @@ export interface IStorage {
   getBranches(): Promise<Branch[]>;
   getActiveBranches(): Promise<Branch[]>;
   getBranch(id: string): Promise<Branch | undefined>;
+  getTenantBranches(tenantId: string): Promise<Branch[]>;
   createBranch(branch: InsertBranch): Promise<Branch>;
   updateBranch(id: string, branch: Partial<InsertBranch>): Promise<Branch>;
   deleteBranch(id: string): Promise<void>;
@@ -2512,6 +2513,15 @@ export class DatabaseStorage implements IStorage {
         const [branch] = await dbInstance.select().from(branches).where(eq(branches.id, id));
         return branch || undefined;
       });
+    });
+  }
+
+  async getTenantBranches(tenantId: string): Promise<Branch[]> {
+    return await withPerformanceLogging('getTenantBranches', async () => {
+      // Use global db to bypass RLS for superadmin tenant switching
+      return await db.select().from(branches)
+        .where(eq(branches.tenantId, tenantId))
+        .orderBy(branches.name);
     });
   }
 

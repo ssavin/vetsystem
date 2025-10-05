@@ -8,9 +8,11 @@ import { ROLE_PERMISSIONS } from '../shared/permissions';
 interface AuthContextType {
   user: User | null
   currentBranch: { id: string; name: string } | null
+  currentTenant: { id: string; name: string } | null
   login: (username: string, password: string, branchId: string) => Promise<void>
   logout: () => void
   switchBranch: (branchId: string) => Promise<void>
+  switchTenant: (tenantId: string) => Promise<void>
   isAuthenticated: boolean
   hasPermission: (module: string) => boolean
   isLoading: boolean
@@ -27,6 +29,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [currentBranch, setCurrentBranch] = useState<{ id: string; name: string } | null>(null)
+  const [currentTenant, setCurrentTenant] = useState<{ id: string; name: string } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const hasPermission = (module: string): boolean => {
@@ -61,6 +64,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const data = await response.json()
       setUser(data.user)
       setCurrentBranch(data.currentBranch || { id: branchId, name: 'Unknown Branch' })
+      setCurrentTenant(data.currentTenant || null)
       
       // Remove localStorage dependency - JWT tokens are now in httpOnly cookies
     } catch (error) {
@@ -82,6 +86,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setUser(null)
       setCurrentBranch(null)
+      setCurrentTenant(null)
     }
   }
 
@@ -112,6 +117,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  const switchTenant = async (tenantId: string): Promise<void> => {
+    try {
+      const response = await fetch('/api/auth/switch-tenant', {
+        method: 'POST',
+        body: JSON.stringify({ tenantId }),
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include' // Important: send cookies
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Ошибка при смене клиники')
+      }
+
+      const data = await response.json()
+      setCurrentTenant(data.currentTenant)
+      setCurrentBranch(data.currentBranch || null)
+      setUser(data.user || user)
+      
+      // 🚀 UX IMPROVEMENT: Invalidate cache instead of page reload for better UX
+      queryClient.invalidateQueries()
+    } catch (error) {
+      console.error('Switch tenant error:', error)
+      throw error
+    }
+  }
+
   // Проверяем аутентификацию через защищенный роут при загрузке
   useEffect(() => {
     const checkAuth = async () => {
@@ -124,6 +158,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const data = await response.json()
           setUser(data.user)
           setCurrentBranch(data.currentBranch || null)
+          setCurrentTenant(data.currentTenant || null)
         }
       } catch (error) {
         console.error('Auth check error:', error)
@@ -147,9 +182,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       value={{
         user,
         currentBranch,
+        currentTenant,
         login,
         logout,
         switchBranch,
+        switchTenant,
         isAuthenticated: !!user,
         hasPermission,
         isLoading
