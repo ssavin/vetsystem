@@ -68,8 +68,10 @@ const ensureEntityBranchAccess = async (entity: any, userBranchId: string, entit
     return false;
   }
   if (!entity.branchId) {
-    console.error(`🚨 SECURITY ALERT: ${entityType} ${entityId} has no branchId - data integrity issue`);
-    return false;
+    // Allow access to entities without branchId (migrated data) for users with valid branchId
+    // They can assign the entity to their branch
+    console.warn(`⚠️ MIGRATION DATA: ${entityType} ${entityId} has no branchId - allowing access for assignment`);
+    return true;
   }
   if (entity.branchId !== userBranchId) {
     console.warn(`🚨 SECURITY ALERT: Cross-branch access attempt to ${entityType} ${entityId}`);
