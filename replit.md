@@ -42,7 +42,18 @@ Preferred communication style: Simple, everyday language.
 - **Schema Management**: Drizzle Kit for migrations and schema management
 - **Data Models**: Comprehensive veterinary domain models including:
   - Owners (clients) with contact information and address
-  - Patients (animals) with medical information and relationship to owners
+  - Patients (animals) with medical information and multi-owner support
+  - **Multi-Owner Patient System (October 2025)**: Many-to-many patient-owner relationships
+    - patient_owners junction table with uniqueIndex on (patient_id, owner_id)
+    - Primary owner designation via is_primary boolean flag
+    - Covering index on (patient_id, is_primary, created_at) for query performance
+    - Storage methods: getPatientOwners, addPatientOwner, removePatientOwner, setPrimaryOwner
+    - Transaction-safe operations: setPrimaryOwner and removePatientOwner run in single transactions
+    - Automatic primary owner promotion when removing current primary
+    - Data integrity: addPatientOwner forces isPrimary=false, requires explicit promotion
+    - Migration script: scripts/migrate-patient-owners.ts for legacy data transfer
+    - Backwards compatible: patients.owner_id maintained for legacy support, COALESCE fallback in queries
+    - API returns owners[] array with deterministic ordering (primary first, then by creation date)
   - Doctors with specializations and contact details
   - Appointments with scheduling and status management
   - Medical records with treatment history and file attachments

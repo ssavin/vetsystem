@@ -891,42 +891,114 @@ export class DatabaseStorage implements IStorage {
   async getPatients(limit: number | undefined = 50, offset: number | undefined = 0, branchId: string): Promise<any[]> {
     return withPerformanceLogging('getPatients', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        return await dbInstance
-          .select({
-            id: patients.id,
-            name: patients.name,
-            species: patients.species,
-            breed: patients.breed,
-            birthDate: patients.birthDate,
-            gender: patients.gender,
-            color: patients.color,
-            weight: patients.weight,
-            microchipNumber: patients.microchipNumber,
-            allergies: patients.allergies,
-            chronicConditions: patients.chronicConditions,
-            ownerId: patients.ownerId,
-            ownerName: owners.name,
-            ownerPhone: owners.phone,
-            tenantId: patients.tenantId,
-            branchId: patients.branchId,
-            createdAt: patients.createdAt,
-            updatedAt: patients.updatedAt,
-          })
-          .from(patients)
-          .leftJoin(owners, eq(patients.ownerId, owners.id))
-          .where(or(eq(patients.branchId, branchId), isNull(patients.branchId)))
-          .orderBy(desc(patients.createdAt))
-          .limit(limit || 50)
-          .offset(offset || 0);
+        // Use raw SQL for JSON aggregation of multiple owners
+        // Note: Preserves ownerName/ownerPhone for backwards compatibility with fallback to legacy owner_id
+        const result = await dbInstance.execute(sql`
+          WITH patient_owners_agg AS (
+            SELECT 
+              po.patient_id,
+              json_agg(
+                json_build_object(
+                  'id', o.id,
+                  'name', o.name,
+                  'phone', o.phone,
+                  'email', o.email,
+                  'isPrimary', po.is_primary
+                ) ORDER BY po.is_primary DESC NULLS LAST, po.created_at ASC
+              ) as owners,
+              MAX(CASE WHEN po.is_primary THEN o.name END) as primary_owner_name,
+              MAX(CASE WHEN po.is_primary THEN o.phone END) as primary_owner_phone
+            FROM patient_owners po
+            JOIN owners o ON po.owner_id = o.id
+            JOIN patients p_filter ON po.patient_id = p_filter.id
+            WHERE (p_filter.branch_id = ${branchId} OR p_filter.branch_id IS NULL)
+            GROUP BY po.patient_id
+          )
+          SELECT 
+            p.id,
+            p.name,
+            p.species,
+            p.breed,
+            p.birth_date as "birthDate",
+            p.gender,
+            p.color,
+            p.weight,
+            p.microchip_number as "microchipNumber",
+            p.allergies,
+            p.chronic_conditions as "chronicConditions",
+            p.owner_id as "ownerId",
+            p.tenant_id as "tenantId",
+            p.branch_id as "branchId",
+            p.created_at as "createdAt",
+            p.updated_at as "updatedAt",
+            COALESCE(poa.owners, '[]'::json) as owners,
+            COALESCE(poa.primary_owner_name, legacy_owner.name) as "ownerName",
+            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as "ownerPhone"
+          FROM patients p
+          LEFT JOIN patient_owners_agg poa ON p.id = poa.patient_id
+          LEFT JOIN owners legacy_owner ON p.owner_id = legacy_owner.id
+          WHERE (p.branch_id = ${branchId} OR p.branch_id IS NULL)
+          ORDER BY p.created_at DESC
+          LIMIT ${limit || 50}
+          OFFSET ${offset || 0}
+        `);
+        
+        return result.rows;
       });
     });
   }
 
-  async getPatient(id: string): Promise<Patient | undefined> {
+  async getPatient(id: string): Promise<any | undefined> {
     return withPerformanceLogging('getPatient', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        const [patient] = await dbInstance.select().from(patients).where(eq(patients.id, id));
-        return patient || undefined;
+        // Use same JSON aggregation logic as getPatients for consistency
+        const result = await dbInstance.execute(sql`
+          WITH patient_owners_agg AS (
+            SELECT 
+              po.patient_id,
+              json_agg(
+                json_build_object(
+                  'id', o.id,
+                  'name', o.name,
+                  'phone', o.phone,
+                  'email', o.email,
+                  'isPrimary', po.is_primary
+                ) ORDER BY po.is_primary DESC NULLS LAST, po.created_at ASC
+              ) as owners,
+              MAX(CASE WHEN po.is_primary THEN o.name END) as primary_owner_name,
+              MAX(CASE WHEN po.is_primary THEN o.phone END) as primary_owner_phone
+            FROM patient_owners po
+            JOIN owners o ON po.owner_id = o.id
+            WHERE po.patient_id = ${id}
+            GROUP BY po.patient_id
+          )
+          SELECT 
+            p.id,
+            p.name,
+            p.species,
+            p.breed,
+            p.birth_date as "birthDate",
+            p.gender,
+            p.color,
+            p.weight,
+            p.microchip_number as "microchipNumber",
+            p.allergies,
+            p.chronic_conditions as "chronicConditions",
+            p.owner_id as "ownerId",
+            p.tenant_id as "tenantId",
+            p.branch_id as "branchId",
+            p.created_at as "createdAt",
+            p.updated_at as "updatedAt",
+            COALESCE(poa.owners, '[]'::json) as owners,
+            COALESCE(poa.primary_owner_name, legacy_owner.name) as "ownerName",
+            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as "ownerPhone"
+          FROM patients p
+          LEFT JOIN patient_owners_agg poa ON p.id = poa.patient_id
+          LEFT JOIN owners legacy_owner ON p.owner_id = legacy_owner.id
+          WHERE p.id = ${id}
+        `);
+        
+        return result.rows[0] || undefined;
       });
     });
   }
@@ -988,32 +1060,56 @@ export class DatabaseStorage implements IStorage {
   async getAllPatients(limit: number | undefined = 50, offset: number | undefined = 0): Promise<any[]> {
     return withPerformanceLogging('getAllPatients', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        return await dbInstance
-          .select({
-            id: patients.id,
-            name: patients.name,
-            species: patients.species,
-            breed: patients.breed,
-            birthDate: patients.birthDate,
-            gender: patients.gender,
-            color: patients.color,
-            weight: patients.weight,
-            microchipNumber: patients.microchipNumber,
-            allergies: patients.allergies,
-            chronicConditions: patients.chronicConditions,
-            ownerId: patients.ownerId,
-            ownerName: owners.name,
-            ownerPhone: owners.phone,
-            tenantId: patients.tenantId,
-            branchId: patients.branchId,
-            createdAt: patients.createdAt,
-            updatedAt: patients.updatedAt,
-          })
-          .from(patients)
-          .leftJoin(owners, eq(patients.ownerId, owners.id))
-          .orderBy(desc(patients.createdAt))
-          .limit(limit || 50)
-          .offset(offset || 0);
+        // Use raw SQL for JSON aggregation of multiple owners across all branches
+        // Note: Preserves ownerName/ownerPhone for backwards compatibility with fallback to legacy owner_id
+        const result = await dbInstance.execute(sql`
+          WITH patient_owners_agg AS (
+            SELECT 
+              po.patient_id,
+              json_agg(
+                json_build_object(
+                  'id', o.id,
+                  'name', o.name,
+                  'phone', o.phone,
+                  'email', o.email,
+                  'isPrimary', po.is_primary
+                ) ORDER BY po.is_primary DESC NULLS LAST, po.created_at ASC
+              ) as owners,
+              MAX(CASE WHEN po.is_primary THEN o.name END) as primary_owner_name,
+              MAX(CASE WHEN po.is_primary THEN o.phone END) as primary_owner_phone
+            FROM patient_owners po
+            JOIN owners o ON po.owner_id = o.id
+            GROUP BY po.patient_id
+          )
+          SELECT 
+            p.id,
+            p.name,
+            p.species,
+            p.breed,
+            p.birth_date as "birthDate",
+            p.gender,
+            p.color,
+            p.weight,
+            p.microchip_number as "microchipNumber",
+            p.allergies,
+            p.chronic_conditions as "chronicConditions",
+            p.owner_id as "ownerId",
+            p.tenant_id as "tenantId",
+            p.branch_id as "branchId",
+            p.created_at as "createdAt",
+            p.updated_at as "updatedAt",
+            COALESCE(poa.owners, '[]'::json) as owners,
+            COALESCE(poa.primary_owner_name, legacy_owner.name) as "ownerName",
+            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as "ownerPhone"
+          FROM patients p
+          LEFT JOIN patient_owners_agg poa ON p.id = poa.patient_id
+          LEFT JOIN owners legacy_owner ON p.owner_id = legacy_owner.id
+          ORDER BY p.created_at DESC
+          LIMIT ${limit || 50}
+          OFFSET ${offset || 0}
+        `);
+        
+        return result.rows;
       });
     });
   }

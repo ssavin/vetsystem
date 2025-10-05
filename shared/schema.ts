@@ -242,6 +242,8 @@ export const patientOwners = pgTable("patient_owners", {
     patientIdIdx: index("patient_owners_patient_id_idx").on(table.patientId),
     ownerIdIdx: index("patient_owners_owner_id_idx").on(table.ownerId),
     primaryIdx: index("patient_owners_primary_idx").on(table.isPrimary),
+    // Covering index for CTE performance: supports ORDER BY is_primary DESC, created_at ASC
+    coveringIdx: index("patient_owners_covering_idx").on(table.patientId, table.isPrimary, table.createdAt),
     // Unique constraint: prevents duplicate patient-owner pairs
     patientOwnerUnique: uniqueIndex("patient_owners_unique_idx").on(table.patientId, table.ownerId),
   };
