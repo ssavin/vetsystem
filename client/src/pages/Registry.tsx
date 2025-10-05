@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
@@ -147,7 +147,20 @@ export default function Registry() {
   const { t } = useTranslation('registry')
   const [searchTerm, setSearchTerm] = useState("")
   const [showRegistrationForm, setShowRegistrationForm] = useState(false)
-  const [selectedBranchId, setSelectedBranchId] = useState<string>("all")
+  
+  // Get current user branch
+  const { data: currentBranch } = useQuery<{ id: string, name: string }>({
+    queryKey: ['/api/auth/current-branch'],
+  })
+  
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("")
+
+  // Set default branch to current user branch when loaded
+  useEffect(() => {
+    if (currentBranch?.id && selectedBranchId === "") {
+      setSelectedBranchId(currentBranch.id)
+    }
+  }, [currentBranch?.id, selectedBranchId])
 
   // Fetch available branches
   const { data: branchesData = [] } = useQuery({
