@@ -126,10 +126,14 @@ export default function PatientRegistrationForm({ patient, onSuccess, onCancel }
             isPrimary: po.isPrimary
           }))
           setSelectedOwners(loadedOwners)
+          // Clear validation errors after loading owners
+          if (loadedOwners.length > 0) {
+            form.clearErrors('ownerIds')
+          }
         })
         .catch(() => {})
     }
-  }, [isEditMode, patient?.id])
+  }, [isEditMode, patient?.id, form])
 
   // Sync branchId when current branch loads (only in create mode)
   useEffect(() => {
