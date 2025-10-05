@@ -733,7 +733,7 @@ export class DatabaseStorage implements IStorage {
       return withTenantContext(undefined, async (dbInstance) => {
         return await dbInstance.select().from(owners)
           .where(or(eq(owners.branchId, branchId), isNull(owners.branchId)))
-          .orderBy(desc(owners.createdAt));
+          .orderBy(owners.name);
       });
     });
   }
@@ -933,12 +933,13 @@ export class DatabaseStorage implements IStorage {
             p.updated_at as "updatedAt",
             COALESCE(poa.owners, '[]'::json) as owners,
             COALESCE(poa.primary_owner_name, legacy_owner.name) as "ownerName",
-            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as "ownerPhone"
+            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as "ownerPhone",
+            (SELECT MAX(mr.visit_date) FROM medical_records mr WHERE mr.patient_id = p.id) as "lastVisit"
           FROM patients p
           LEFT JOIN patient_owners_agg poa ON p.id = poa.patient_id
           LEFT JOIN owners legacy_owner ON p.owner_id = legacy_owner.id
           WHERE (p.branch_id = ${branchId} OR p.branch_id IS NULL)
-          ORDER BY p.created_at DESC
+          ORDER BY "lastVisit" DESC NULLS LAST, p.name ASC
           LIMIT ${limit || 50}
           OFFSET ${offset || 0}
         `);
@@ -1100,11 +1101,12 @@ export class DatabaseStorage implements IStorage {
             p.updated_at as "updatedAt",
             COALESCE(poa.owners, '[]'::json) as owners,
             COALESCE(poa.primary_owner_name, legacy_owner.name) as "ownerName",
-            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as "ownerPhone"
+            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as "ownerPhone",
+            (SELECT MAX(mr.visit_date) FROM medical_records mr WHERE mr.patient_id = p.id) as "lastVisit"
           FROM patients p
           LEFT JOIN patient_owners_agg poa ON p.id = poa.patient_id
           LEFT JOIN owners legacy_owner ON p.owner_id = legacy_owner.id
-          ORDER BY p.created_at DESC
+          ORDER BY "lastVisit" DESC NULLS LAST, p.name ASC
           LIMIT ${limit || 50}
           OFFSET ${offset || 0}
         `);

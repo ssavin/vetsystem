@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2 } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import CreateCaseDialog from "@/components/CreateCaseDialog"
@@ -84,11 +85,6 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
           <Phone className="h-3 w-3" />
           <span data-testid={`text-phone-${patient.id}`}>{patient.ownerPhone}</span>
         </div>
-      </TableCell>
-      <TableCell>
-        <Badge variant={getStatusVariant(patient.status)} data-testid={`status-patient-${patient.id}`}>
-          {getStatusText(patient.status)}
-        </Badge>
       </TableCell>
       <TableCell>
         {patient.lastVisit && (
@@ -169,6 +165,7 @@ export default function Registry() {
   const { t } = useTranslation('registry')
   const [searchTerm, setSearchTerm] = useState("")
   const [showRegistrationForm, setShowRegistrationForm] = useState(false)
+  const [activeTab, setActiveTab] = useState<"clients" | "patients">("patients")
   
   // Get current user branch
   const { data: currentBranch } = useQuery<{ id: string, name: string }>({
@@ -190,7 +187,7 @@ export default function Registry() {
   })
 
   // Fetch patients from API based on selected branch (with owner data joined)
-  const { data: patientsData = [], isLoading } = useQuery({
+  const { data: patientsData = [], isLoading: isPatientsLoading } = useQuery({
     queryKey: ['/api/patients', selectedBranchId],
     queryFn: async () => {
       const endpoint = selectedBranchId === "all" 
@@ -202,6 +199,21 @@ export default function Registry() {
       if (!res.ok) throw new Error('Failed to fetch patients')
       return res.json()
     },
+    enabled: activeTab === "patients"
+  })
+
+  // Fetch owners from API based on selected branch
+  const { data: ownersData = [], isLoading: isOwnersLoading } = useQuery({
+    queryKey: ['/api/owners', selectedBranchId],
+    queryFn: async () => {
+      const endpoint = `/api/owners?branchId=${selectedBranchId}`
+      const res = await fetch(endpoint, {
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error('Failed to fetch owners')
+      return res.json()
+    },
+    enabled: activeTab === "clients" && selectedBranchId !== ""
   })
 
   // Helper function for age word form
@@ -240,6 +252,16 @@ export default function Registry() {
         ? `${primaryOwner.name}${allOwners.length > 1 ? ` (+${allOwners.length - 1})` : ''}`
         : (patient.ownerName || t('patients.unknownOwner'))
       
+      // Format last visit date
+      const lastVisitDate = patient.lastVisit ? new Date(patient.lastVisit) : null
+      const lastVisit = lastVisitDate 
+        ? lastVisitDate.toLocaleDateString('ru-RU', { 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit' 
+          })
+        : undefined
+
       return {
         id: patient.id,
         name: patient.name,
@@ -249,11 +271,23 @@ export default function Registry() {
         owner: ownerDisplay,
         ownerPhone: primaryOwner?.phone || patient.ownerPhone || '-',
         status: 'healthy' as const,
-        lastVisit: undefined,
+        lastVisit,
         owners: allOwners // Store all owners for potential tooltip/details
       }
     })
   }, [patientsData, t])
+
+  // Transform owners data
+  const transformedOwners = useMemo(() => {
+    if (!Array.isArray(ownersData)) return []
+    return ownersData.map((owner: any) => ({
+      id: owner.id,
+      name: owner.name,
+      phone: owner.phone || '-',
+      email: owner.email || '-',
+      address: owner.address || '-',
+    }))
+  }, [ownersData])
 
   // Filter patients based on search
   const filteredPatients = useMemo(() => {
@@ -266,6 +300,18 @@ export default function Registry() {
       patient.ownerPhone?.includes(searchTerm)
     )
   }, [transformedPatients, searchTerm])
+
+  // Filter owners based on search
+  const filteredOwners = useMemo(() => {
+    if (!searchTerm) return transformedOwners
+    
+    const searchLower = searchTerm.toLowerCase()
+    return transformedOwners.filter((owner: any) =>
+      owner.name?.toLowerCase().includes(searchLower) ||
+      owner.phone?.includes(searchTerm) ||
+      owner.email?.toLowerCase().includes(searchLower)
+    )
+  }, [transformedOwners, searchTerm])
 
   const handleSearch = (term: string) => {
     setSearchTerm(term)
@@ -350,42 +396,129 @@ export default function Registry() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="p-8 space-y-4">
-              {[1, 2, 3].map(i => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : filteredPatients.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">
-                {searchTerm ? t('patients.notFound') : t('patients.empty')}
-              </p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('patients.tableHeaders.patient')}</TableHead>
-                  <TableHead>{t('patients.tableHeaders.speciesBreed')}</TableHead>
-                  <TableHead>{t('patients.tableHeaders.owner')}</TableHead>
-                  <TableHead>{t('patients.tableHeaders.phone')}</TableHead>
-                  <TableHead>{t('patients.tableHeaders.status')}</TableHead>
-                  <TableHead>{t('patients.tableHeaders.lastVisit')}</TableHead>
-                  <TableHead className="text-right">{t('patients.tableHeaders.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPatients.map((patient: any) => (
-                  <PatientTableRow key={patient.id} patient={patient} />
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "clients" | "patients")}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="clients" data-testid="tab-clients">
+            {t('tabs.clients', 'Клиенты')}
+          </TabsTrigger>
+          <TabsTrigger value="patients" data-testid="tab-patients">
+            {t('tabs.patients', 'Пациенты')}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="clients">
+          <Card>
+            <CardContent className="p-0">
+              {isOwnersLoading ? (
+                <div className="p-8 space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : filteredOwners.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    {searchTerm ? t('clients.notFound', 'Клиенты не найдены') : t('clients.empty', 'Нет клиентов')}
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('clients.tableHeaders.name', 'Имя клиента')}</TableHead>
+                      <TableHead>{t('clients.tableHeaders.phone', 'Телефон')}</TableHead>
+                      <TableHead>{t('clients.tableHeaders.email', 'Email')}</TableHead>
+                      <TableHead>{t('clients.tableHeaders.address', 'Адрес')}</TableHead>
+                      <TableHead className="text-right">{t('clients.tableHeaders.actions', 'Действия')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredOwners.map((owner: any) => (
+                      <TableRow key={owner.id} className="hover-elevate">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>{owner.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="font-medium" data-testid={`text-owner-name-${owner.id}`}>
+                              {owner.name}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            <span data-testid={`text-owner-phone-${owner.id}`}>{owner.phone}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell data-testid={`text-owner-email-${owner.id}`}>{owner.email}</TableCell>
+                        <TableCell data-testid={`text-owner-address-${owner.id}`}>{owner.address}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-1 justify-end">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {/* TODO: View owner details */}}
+                                  data-testid={`button-view-owner-${owner.id}`}
+                                >
+                                  <User className="h-3 w-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{t('clients.viewDetails', 'Просмотр клиента')}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="patients">
+          <Card>
+            <CardContent className="p-0">
+              {isPatientsLoading ? (
+                <div className="p-8 space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : filteredPatients.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    {searchTerm ? t('patients.notFound') : t('patients.empty')}
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('patients.tableHeaders.patient')}</TableHead>
+                      <TableHead>{t('patients.tableHeaders.speciesBreed')}</TableHead>
+                      <TableHead>{t('patients.tableHeaders.owner')}</TableHead>
+                      <TableHead>{t('patients.tableHeaders.phone')}</TableHead>
+                      <TableHead>{t('patients.tableHeaders.lastVisit')}</TableHead>
+                      <TableHead className="text-right">{t('patients.tableHeaders.actions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPatients.map((patient: any) => (
+                      <PatientTableRow key={patient.id} patient={patient} />
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
