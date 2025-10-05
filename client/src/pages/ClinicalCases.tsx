@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import CreateCaseWithSearchDialog from "@/components/CreateCaseWithSearchDialog"
 
 interface ClinicalCase {
   id: string
@@ -150,6 +151,7 @@ export default function ClinicalCases() {
           <h1 className="text-3xl font-bold" data-testid="text-clinical-cases-title">Клинические случаи</h1>
           <p className="text-muted-foreground">Ведение и отслеживание клинических случаев пациентов</p>
         </div>
+        <CreateCaseWithSearchDialog />
       </div>
 
       {/* Info card */}
