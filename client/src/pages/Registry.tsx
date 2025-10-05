@@ -154,7 +154,7 @@ export default function Registry() {
     queryKey: ['/api/branches/active'],
   })
 
-  // Fetch patients and owners from API based on selected branch
+  // Fetch patients from API based on selected branch (with owner data joined)
   const { data: patientsData = [], isLoading } = useQuery({
     queryKey: ['/api/patients', selectedBranchId],
     queryFn: async () => {
@@ -168,31 +168,6 @@ export default function Registry() {
       return res.json()
     },
   })
-
-  const { data: ownersData = [] } = useQuery({
-    queryKey: ['/api/owners', selectedBranchId],
-    queryFn: async () => {
-      const endpoint = selectedBranchId === "all" 
-        ? '/api/owners/all' 
-        : `/api/owners?branchId=${selectedBranchId}`
-      const res = await fetch(endpoint, {
-        credentials: 'include',
-      })
-      if (!res.ok) throw new Error('Failed to fetch owners')
-      return res.json()
-    },
-  })
-
-  // Create owner map
-  const ownerMap = useMemo(() => {
-    const map: Record<string, any> = {}
-    if (Array.isArray(ownersData)) {
-      ownersData.forEach((owner: any) => {
-        map[owner.id] = owner
-      })
-    }
-    return map
-  }, [ownersData])
 
   // Helper function for age word form
   const getYearWord = (years: number) => {
@@ -215,7 +190,6 @@ export default function Registry() {
   const transformedPatients = useMemo(() => {
     if (!Array.isArray(patientsData)) return []
     return patientsData.map((patient: any) => {
-      const owner = ownerMap[patient.ownerId]
       const birthDate = patient.birthDate ? new Date(patient.birthDate) : null
       const years = birthDate 
         ? Math.floor((Date.now() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 365))
@@ -230,13 +204,13 @@ export default function Registry() {
         species: patient.species,
         breed: patient.breed || t('patients.unknownBreed'),
         age,
-        owner: owner ? owner.name : t('patients.unknownOwner'),
-        ownerPhone: owner ? owner.phone : '-',
+        owner: patient.ownerName || t('patients.unknownOwner'),
+        ownerPhone: patient.ownerPhone || '-',
         status: 'healthy' as const,
         lastVisit: undefined
       }
     })
-  }, [patientsData, ownerMap, t])
+  }, [patientsData, t])
 
   // Filter patients based on search
   const filteredPatients = useMemo(() => {

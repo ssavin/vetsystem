@@ -802,12 +802,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Patient methods - 🔒 SECURITY: branchId mandatory for PHI isolation
-  async getPatients(limit: number | undefined = 50, offset: number | undefined = 0, branchId: string): Promise<Patient[]> {
+  async getPatients(limit: number | undefined = 50, offset: number | undefined = 0, branchId: string): Promise<any[]> {
     return withPerformanceLogging('getPatients', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         return await dbInstance
-          .select()
+          .select({
+            id: patients.id,
+            name: patients.name,
+            species: patients.species,
+            breed: patients.breed,
+            birthDate: patients.birthDate,
+            gender: patients.gender,
+            color: patients.color,
+            weight: patients.weight,
+            microchipNumber: patients.microchipNumber,
+            allergies: patients.allergies,
+            chronicConditions: patients.chronicConditions,
+            ownerId: patients.ownerId,
+            ownerName: owners.name,
+            ownerPhone: owners.phone,
+            tenantId: patients.tenantId,
+            branchId: patients.branchId,
+            createdAt: patients.createdAt,
+            updatedAt: patients.updatedAt,
+          })
           .from(patients)
+          .leftJoin(owners, eq(patients.ownerId, owners.id))
           .where(or(eq(patients.branchId, branchId), isNull(patients.branchId)))
           .orderBy(desc(patients.createdAt))
           .limit(limit || 50)
@@ -879,12 +899,32 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getAllPatients(limit: number | undefined = 50, offset: number | undefined = 0): Promise<Patient[]> {
+  async getAllPatients(limit: number | undefined = 50, offset: number | undefined = 0): Promise<any[]> {
     return withPerformanceLogging('getAllPatients', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         return await dbInstance
-          .select()
+          .select({
+            id: patients.id,
+            name: patients.name,
+            species: patients.species,
+            breed: patients.breed,
+            birthDate: patients.birthDate,
+            gender: patients.gender,
+            color: patients.color,
+            weight: patients.weight,
+            microchipNumber: patients.microchipNumber,
+            allergies: patients.allergies,
+            chronicConditions: patients.chronicConditions,
+            ownerId: patients.ownerId,
+            ownerName: owners.name,
+            ownerPhone: owners.phone,
+            tenantId: patients.tenantId,
+            branchId: patients.branchId,
+            createdAt: patients.createdAt,
+            updatedAt: patients.updatedAt,
+          })
           .from(patients)
+          .leftJoin(owners, eq(patients.ownerId, owners.id))
           .orderBy(desc(patients.createdAt))
           .limit(limit || 50)
           .offset(offset || 0);
