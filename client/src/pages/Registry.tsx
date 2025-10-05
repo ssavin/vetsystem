@@ -504,12 +504,25 @@ export default function Registry() {
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">{t('registrationTitle', 'Регистрация пациента')}</h1>
-            <p className="text-muted-foreground">{t('registrationSubtitle', 'Заполните данные пациента')}</p>
+            <h1 className="text-3xl font-bold">
+              {patientToEdit 
+                ? t('editPatientTitle', 'Редактирование пациента') 
+                : t('registrationTitle', 'Регистрация пациента')
+              }
+            </h1>
+            <p className="text-muted-foreground">
+              {patientToEdit
+                ? t('editPatientSubtitle', 'Обновите информацию о пациенте')
+                : t('registrationSubtitle', 'Заполните данные пациента')
+              }
+            </p>
           </div>
           <Button 
             variant="outline" 
-            onClick={() => setShowPatientForm(false)}
+            onClick={() => {
+              setShowPatientForm(false)
+              setPatientToEdit(null)
+            }}
             data-testid="button-back-to-registry"
           >
             {t('backToRegistry', 'Назад к реестру')}
