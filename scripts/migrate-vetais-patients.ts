@@ -15,7 +15,7 @@
 
 import { Client } from 'pg';
 
-const BATCH_SIZE = parseInt(process.argv[3] || '500');
+const BATCH_SIZE = parseInt(process.argv[3] || '2000'); // Увеличен для faster migration
 
 // Маппинг видов животных Vetais → VetSystem
 const SPECIES_MAP: Record<number, string> = {
@@ -119,22 +119,23 @@ async function main() {
 
     console.log(`✅ Найдено ${clientIdMap.size} сопоставлений владельцев\n`);
 
-    // ШАГ 2: Подсчет пациентов для миграции
-    console.log('📊 Подсчет пациентов для миграции...');
-    
-    const countResult = await vetaisDb.query(`
-      SELECT COUNT(DISTINCT p.id_pacienta) as total
-      FROM file_patients p
-      WHERE p.vymaz = 0
-    `);
+    // ШАГ 1.5: Загрузка уже мигрированных пациентов
+    console.log('📊 Загрузка уже мигрированных пациентов...');
+    const migratedPatientsResult = await vetsystemDb.query(`
+      SELECT vetais_id
+      FROM patients
+      WHERE tenant_id = $1 AND vetais_id IS NOT NULL
+    `, [tenantId]);
 
-    const totalPatients = parseInt(countResult.rows[0].total);
-    console.log(`📦 Всего пациентов для миграции: ${totalPatients}\n`);
+    const migratedPatientIds = new Set<string>();
+    migratedPatientsResult.rows.forEach(row => {
+      migratedPatientIds.add(row.vetais_id);
+    });
 
-    if (totalPatients === 0) {
-      console.log('⚠️  Нет пациентов для миграции');
-      return;
-    }
+    console.log(`✅ Уже мигрировано: ${migratedPatientIds.size} пациентов\n`);
+
+    // ШАГ 2: Пропускаем подсчет (медленно)
+    console.log('📦 Начало миграции (подсчет пропущен для скорости)\n');
 
     // ШАГ 3: Получение маппинга филиалов (если есть)
     console.log('📊 Загрузка маппинга филиалов...');
@@ -159,7 +160,7 @@ async function main() {
 
     console.log('🚀 Начало миграции пациентов...\n');
 
-    while (offset < totalPatients) {
+    while (true) {
       // Получить батч пациентов с информацией о владельцах
       const patientsResult = await vetaisDb.query(`
         SELECT 
@@ -191,14 +192,8 @@ async function main() {
 
       for (const patient of patientsResult.rows) {
         try {
-          // Проверить, не мигрирован ли уже этот пациент
-          const existingPatientResult = await vetsystemDb.query(`
-            SELECT id FROM patients
-            WHERE vetais_id = $1
-            LIMIT 1
-          `, [patient.id_pacienta.toString()]);
-
-          if (existingPatientResult.rows.length > 0) {
+          // Проверить, не мигрирован ли уже этот пациент (через Set)
+          if (migratedPatientIds.has(patient.id_pacienta.toString())) {
             skippedCount++;
             continue;
           }
@@ -206,7 +201,6 @@ async function main() {
           // Проверить наличие владельцев
           const ownersList = patient.owner_ids || [];
           if (ownersList.length === 0) {
-            console.log(`⚠️  Пропуск пациента ID ${patient.id_pacienta} (нет владельцев)`);
             skippedCount++;
             continue;
           }
@@ -222,7 +216,6 @@ async function main() {
           }
 
           if (vetsystemOwnerIds.length === 0) {
-            console.log(`⚠️  Пропуск пациента ID ${patient.id_pacienta} (владельцы не найдены в VetSystem)`);
             skippedCount++;
             continue;
           }
@@ -310,24 +303,22 @@ async function main() {
 
     // Статистика по владельцам
     const ownerStatsResult = await vetsystemDb.query(`
-      SELECT 
-        COUNT(DISTINCT patient_id) as patients_with_owners,
-        COUNT(*) as total_owner_links,
-        COUNT(*) FILTER (WHERE is_primary = true) as primary_links,
-        ROUND(AVG(owner_count), 2) as avg_owners_per_patient
-      FROM (
+      WITH patient_stats AS (
         SELECT 
-          patient_id,
-          COUNT(*) as owner_count
+          po.patient_id,
+          COUNT(*) as owner_count,
+          COUNT(*) FILTER (WHERE po.is_primary = true) as primary_count
         FROM patient_owners po
         JOIN patients p ON p.id = po.patient_id
-        WHERE p.tenant_id = $1
-        GROUP BY patient_id
-      ) stats
-      CROSS JOIN patient_owners
-      WHERE patient_id IN (
-        SELECT id FROM patients WHERE tenant_id = $1
+        WHERE p.tenant_id = $1 AND p.vetais_id IS NOT NULL
+        GROUP BY po.patient_id
       )
+      SELECT 
+        COUNT(DISTINCT patient_id) as patients_with_owners,
+        SUM(owner_count) as total_owner_links,
+        SUM(primary_count) as primary_links,
+        ROUND(AVG(owner_count), 2) as avg_owners_per_patient
+      FROM patient_stats
     `, [tenantId]);
 
     if (ownerStatsResult.rows.length > 0) {
