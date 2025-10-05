@@ -165,7 +165,7 @@ export default function Settings() {
     queryKey: ['/api/system-settings'],
   })
 
-  // Fetch current tenant info
+  // Fetch current tenant info (invalidated on user change via AuthContext)
   const { data: currentTenant, isLoading: tenantLoading } = useQuery<{
     id: string;
     name: string;
@@ -176,6 +176,8 @@ export default function Settings() {
     isSuperAdmin?: boolean;
   }>({
     queryKey: ['/api/tenant/current'],
+    staleTime: 0, // Always refetch
+    gcTime: 0, // Don't cache
   })
 
   // Initialize clinic info from tenant data
