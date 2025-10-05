@@ -256,6 +256,18 @@ export default function Registry() {
     }
   }, [authData?.currentBranch?.id])
 
+  // Handle patient edit attempt
+  useEffect(() => {
+    if (patientToEdit) {
+      toast({
+        title: "Функция в разработке",
+        description: "Редактирование пациентов будет доступно в следующей версии",
+        variant: "default"
+      })
+      setPatientToEdit(null)
+    }
+  }, [patientToEdit])
+
   // Fetch available branches
   const { data: branchesData = [] } = useQuery({
     queryKey: ['/api/branches/active'],
