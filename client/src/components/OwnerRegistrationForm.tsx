@@ -21,35 +21,50 @@ const ownerFormSchema = z.object({
 type OwnerFormData = z.infer<typeof ownerFormSchema>
 
 interface OwnerRegistrationFormProps {
+  owner?: {
+    id: string
+    name: string
+    phone?: string
+    email?: string
+    address?: string
+  }
   onSuccess?: () => void
   onCancel?: () => void
 }
 
-export default function OwnerRegistrationForm({ onSuccess, onCancel }: OwnerRegistrationFormProps) {
+export default function OwnerRegistrationForm({ owner, onSuccess, onCancel }: OwnerRegistrationFormProps) {
   const { toast } = useToast()
+  const isEditing = !!owner
 
   const form = useForm<OwnerFormData>({
     resolver: zodResolver(ownerFormSchema),
     defaultValues: {
-      name: "",
-      phone: "",
-      email: "",
-      address: "",
+      name: owner?.name || "",
+      phone: owner?.phone || "",
+      email: owner?.email || "",
+      address: owner?.address || "",
     },
   })
 
-  const createOwnerMutation = useMutation({
+  const saveOwnerMutation = useMutation({
     mutationFn: async (data: OwnerFormData) => {
-      return await apiRequest('/api/owners', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      })
+      if (isEditing) {
+        return await apiRequest(`/api/owners/${owner.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        })
+      } else {
+        return await apiRequest('/api/owners', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        })
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/owners'] })
       toast({
         title: "Успешно",
-        description: "Клиент добавлен",
+        description: isEditing ? "Клиент обновлен" : "Клиент добавлен",
       })
       form.reset()
       onSuccess?.()
@@ -57,20 +72,20 @@ export default function OwnerRegistrationForm({ onSuccess, onCancel }: OwnerRegi
     onError: (error: Error) => {
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось добавить клиента",
+        description: error.message || (isEditing ? "Не удалось обновить клиента" : "Не удалось добавить клиента"),
         variant: "destructive",
       })
     },
   })
 
   const onSubmit = (data: OwnerFormData) => {
-    createOwnerMutation.mutate(data)
+    saveOwnerMutation.mutate(data)
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Регистрация клиента</CardTitle>
+        <CardTitle>{isEditing ? "Редактирование клиента" : "Регистрация клиента"}</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -164,11 +179,11 @@ export default function OwnerRegistrationForm({ onSuccess, onCancel }: OwnerRegi
               )}
               <Button 
                 type="submit" 
-                disabled={createOwnerMutation.isPending}
+                disabled={saveOwnerMutation.isPending}
                 data-testid="button-save-owner"
               >
                 <Save className="h-4 w-4 mr-2" />
-                {createOwnerMutation.isPending ? "Сохранение..." : "Сохранить"}
+                {saveOwnerMutation.isPending ? "Сохранение..." : "Сохранить"}
               </Button>
             </div>
           </form>

@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2, Trash2 } from "lucide-react"
+import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2, Trash2, Pencil } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import OwnerRegistrationForm from "@/components/OwnerRegistrationForm"
 import CreateCaseDialog from "@/components/CreateCaseDialog"
@@ -187,6 +187,7 @@ export default function Registry() {
   const [ownersPage, setOwnersPage] = useState(1)
   const [pageSize] = useState(50)
   const [ownerToDelete, setOwnerToDelete] = useState<{ id: string, name: string } | null>(null)
+  const [ownerToEdit, setOwnerToEdit] = useState<{ id: string, name: string, phone?: string, email?: string, address?: string } | null>(null)
 
   // Debounce search term
   useEffect(() => {
@@ -395,23 +396,36 @@ export default function Registry() {
     )
   }
 
-  if (showOwnerForm) {
+  if (showOwnerForm || ownerToEdit) {
     return (
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Регистрация клиента</h1>
-            <p className="text-muted-foreground">Заполните данные клиента</p>
+            <h1 className="text-3xl font-bold">{ownerToEdit ? "Редактирование клиента" : "Регистрация клиента"}</h1>
+            <p className="text-muted-foreground">{ownerToEdit ? "Обновите информацию о клиенте" : "Заполните данные клиента"}</p>
           </div>
           <Button 
             variant="outline" 
-            onClick={() => setShowOwnerForm(false)}
+            onClick={() => {
+              setShowOwnerForm(false)
+              setOwnerToEdit(null)
+            }}
             data-testid="button-back-to-registry"
           >
             Назад к реестру
           </Button>
         </div>
-        <OwnerRegistrationForm />
+        <OwnerRegistrationForm 
+          owner={ownerToEdit || undefined}
+          onSuccess={() => {
+            setShowOwnerForm(false)
+            setOwnerToEdit(null)
+          }}
+          onCancel={() => {
+            setShowOwnerForm(false)
+            setOwnerToEdit(null)
+          }}
+        />
       </div>
     )
   }
@@ -540,14 +554,14 @@ export default function Registry() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => {/* TODO: View owner details */}}
-                                  data-testid={`button-view-owner-${owner.id}`}
+                                  onClick={() => setOwnerToEdit(owner)}
+                                  data-testid={`button-edit-owner-${owner.id}`}
                                 >
-                                  <User className="h-3 w-3" />
+                                  <Pencil className="h-3 w-3" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>{t('clients.viewDetails', 'Просмотр клиента')}</p>
+                                <p>{t('clients.editOwner', 'Редактировать клиента')}</p>
                               </TooltipContent>
                             </Tooltip>
                             <Tooltip>
