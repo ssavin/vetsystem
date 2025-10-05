@@ -52,7 +52,9 @@ Preferred communication style: Simple, everyday language.
 
 ## Data Migration
 - Successfully migrated over 60,000 client records from a legacy Vetais PostgreSQL database, including branch distribution.
-- Utilizes batch processing scripts for efficient migration and branch assignment.
+- Migrated full client names (surname + first name + patronymic) from Vetais fields: `nazev_kado` (surname), `poznamka_kado` (first name), `jmeno` (patronymic).
+- Batch update scripts used to correct 64,066 existing client records with complete names.
+- Utilizes batch processing scripts (500 records per batch) for efficient migration and updates.
 - Handles NULL branch IDs in storage methods for visibility until assignment.
 
 ## Design System

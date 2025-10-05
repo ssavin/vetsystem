@@ -43,6 +43,24 @@ function buildAddress(adresar: string | null, mesto: string | null): string | nu
   return parts.length > 0 ? parts.join(', ') : null;
 }
 
+function buildFullName(surname: string | null, firstName: string | null, patronymic: string | null): string | null {
+  const parts: string[] = [];
+  
+  if (surname?.trim()) {
+    parts.push(surname.trim());
+  }
+  
+  if (firstName?.trim()) {
+    parts.push(firstName.trim());
+  }
+  
+  if (patronymic?.trim()) {
+    parts.push(patronymic.trim());
+  }
+  
+  return parts.length > 0 ? parts.join(' ') : null;
+}
+
 async function main() {
   console.log('╔═══════════════════════════════════════════════════════════════╗');
   console.log('║   ОПТИМИЗИРОВАННАЯ МИГРАЦИЯ КЛИЕНТОВ (BATCH MODE)            ║');
@@ -100,6 +118,8 @@ async function main() {
       SELECT 
         kod_kado,
         nazev_kado,
+        poznamka_kado,
+        jmeno,
         telefon,
         mobil,
         email,
@@ -126,7 +146,7 @@ async function main() {
     let skippedDuplicate = 0;
 
     for (const row of vetaisResult.rows) {
-      const name = row.nazev_kado?.trim();
+      const name = buildFullName(row.nazev_kado, row.poznamka_kado, row.jmeno);
       
       if (!name) {
         skippedNoName++;
