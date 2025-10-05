@@ -271,12 +271,33 @@ export default function Registry() {
     }
   }, [authData?.currentBranch?.id])
 
-  // Handle patient edit attempt
+  // Handle patient edit - load full patient data
   useEffect(() => {
-    if (patientToEdit) {
+    if (patientToEdit?.id && !showPatientForm && !patientToEdit.microchipNumber) {
+      // Only load if we don't have full patient data (check for a field that's not in table view)
+      fetch(`/api/patients/${patientToEdit.id}`, {
+        credentials: 'include',
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then((fullPatient) => {
+          if (fullPatient) {
+            setPatientToEdit(fullPatient)
+            setShowPatientForm(true)
+          }
+        })
+        .catch(() => {
+          toast({
+            title: "Ошибка",
+            description: "Не удалось загрузить данные пациента",
+            variant: "destructive"
+          })
+          setPatientToEdit(null)
+        })
+    } else if (patientToEdit && patientToEdit.microchipNumber !== undefined) {
+      // Already have full data, just open form
       setShowPatientForm(true)
     }
-  }, [patientToEdit])
+  }, [patientToEdit?.id, showPatientForm])
 
   // Fetch available branches
   const { data: branchesData = [] } = useQuery({
