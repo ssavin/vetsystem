@@ -2213,16 +2213,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // USER MANAGEMENT ROUTES (for administrators)
   app.get("/api/users", authenticateToken, async (req, res) => {
     try {
-      // Debug: Log user info
-      console.log('GET /api/users - User info:', {
-        isSuperAdmin: req.user?.isSuperAdmin,
-        role: req.user?.role,
-        username: req.user?.username
-      });
-      
       // Check permission: superadmin, руководитель, or администратор
       if (!req.user?.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор') {
-        console.log('GET /api/users - Access denied');
         return res.status(403).json({ error: "Доступ запрещён" });
       }
       

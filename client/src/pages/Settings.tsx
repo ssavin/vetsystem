@@ -1245,7 +1245,11 @@ export default function Settings() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Роль *</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select 
+                              onValueChange={field.onChange} 
+                              value={field.value}
+                              defaultValue={field.value}
+                            >
                               <FormControl>
                                 <SelectTrigger data-testid="select-user-role">
                                   <SelectValue placeholder="Выберите роль" />
