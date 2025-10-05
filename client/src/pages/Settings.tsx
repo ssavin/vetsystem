@@ -161,6 +161,28 @@ export default function Settings() {
     queryKey: ['/api/system-settings'],
   })
 
+  // Fetch current tenant info
+  const { data: currentTenant, isLoading: tenantLoading } = useQuery<{
+    id: string;
+    name: string;
+    legalAddress: string | null;
+    phone: string | null;
+    email: string | null;
+    settings: any;
+  }>({
+    queryKey: ['/api/tenant/current'],
+  })
+
+  // Initialize clinic info from tenant data
+  useEffect(() => {
+    if (currentTenant) {
+      setClinicName(currentTenant.name || "")
+      setClinicAddress(currentTenant.legalAddress || "")
+      setClinicPhone(currentTenant.phone || "")
+      setClinicEmail(currentTenant.email || "")
+    }
+  }, [currentTenant])
+
   // Initialize fiscal receipt system from server data
   useEffect(() => {
     const fiscalSetting = systemSettingsData.find(s => s.key === 'fiscal_receipt_system')
@@ -512,12 +534,37 @@ export default function Settings() {
     }
   })
 
+  const saveTenantSettingsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('PUT', '/api/tenant/settings', {
+        name: clinicName,
+        legalAddress: clinicAddress,
+        phone: clinicPhone,
+        email: clinicEmail,
+        settings: {
+          notifications,
+          system: systemSettings
+        }
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tenant/current'] })
+      toast({
+        title: "Настройки сохранены",
+        description: "Информация о клинике успешно обновлена",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось сохранить настройки",
+        variant: "destructive",
+      })
+    },
+  })
+
   const saveSettings = () => {
-    console.log("Saving settings:", { 
-      clinic: { clinicName, clinicAddress, clinicPhone, clinicEmail },
-      notifications,
-      system: systemSettings
-    })
+    saveTenantSettingsMutation.mutate()
   }
 
   const onSubmit = (data: BranchFormData) => {

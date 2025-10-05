@@ -5754,6 +5754,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/tenant/current - Get current tenant info
+  app.get("/api/tenant/current", authenticateToken, async (req, res) => {
+    try {
+      if (!req.tenantId) {
+        return res.status(403).json({ 
+          error: "Tenant не определён",
+          message: "Не удалось определить клинику"
+        });
+      }
+      
+      const tenant = await storage.getTenant(req.tenantId);
+      if (!tenant) {
+        return res.status(404).json({ 
+          error: "Tenant не найден",
+          message: "Клиника не найдена"
+        });
+      }
+      
+      res.json(tenant);
+    } catch (error) {
+      console.error("Error fetching current tenant:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch tenant",
+        message: "Не удалось получить данные клиники"
+      });
+    }
+  });
+
+  // PUT /api/tenant/settings - Update current tenant settings
+  app.put("/api/tenant/settings", authenticateToken, async (req, res) => {
+    try {
+      // Check permission: superadmin or администратор
+      if (!req.isSuperAdmin && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
+      if (!req.tenantId) {
+        return res.status(403).json({ 
+          error: "Tenant не определён",
+          message: "Не удалось определить клинику"
+        });
+      }
+      
+      // Validate update data
+      const updateSchema = z.object({
+        name: z.string().min(1).max(255).optional(),
+        legalName: z.string().max(255).optional(),
+        legalAddress: z.string().optional(),
+        phone: z.string().max(50).optional(),
+        email: z.string().email().max(255).optional(),
+        settings: z.record(z.any()).optional(),
+      });
+      
+      const updates = updateSchema.parse(req.body);
+      const updatedTenant = await storage.updateTenant(req.tenantId, updates);
+      
+      res.json(updatedTenant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors 
+        });
+      }
+      console.error("Error updating tenant settings:", error);
+      res.status(500).json({ 
+        error: "Failed to update settings",
+        message: "Не удалось сохранить настройки"
+      });
+    }
+  });
+
   // ========================================
   // CLINICAL CASES MODULE ROUTES
   // ========================================
