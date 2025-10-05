@@ -5782,6 +5782,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      console.log('📋 Returning tenant data:', {
+        id: tenant.id,
+        name: tenant.name,
+        legalName: tenant.legalName,
+        legalAddress: tenant.legalAddress,
+        phone: tenant.phone,
+        email: tenant.email
+      });
+      
       res.json(tenant);
     } catch (error) {
       console.error("Error fetching current tenant:", error);
@@ -5817,8 +5826,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         settings: z.record(z.any()).optional(),
       });
       
+      console.log('📝 Tenant settings update request:', {
+        tenantId: req.tenantId,
+        body: req.body
+      });
+      
       const updates = updateSchema.parse(req.body);
       const updatedTenant = await storage.updateTenant(req.tenantId, updates);
+      
+      console.log('✅ Tenant updated successfully:', updatedTenant);
       
       res.json(updatedTenant);
     } catch (error) {
