@@ -206,14 +206,16 @@ export default function Registry() {
   const { data: ownersData = [], isLoading: isOwnersLoading } = useQuery({
     queryKey: ['/api/owners', selectedBranchId],
     queryFn: async () => {
-      const endpoint = `/api/owners?branchId=${selectedBranchId}`
+      const endpoint = selectedBranchId 
+        ? `/api/owners?branchId=${selectedBranchId}`
+        : '/api/owners'
       const res = await fetch(endpoint, {
         credentials: 'include',
       })
       if (!res.ok) throw new Error('Failed to fetch owners')
       return res.json()
     },
-    enabled: activeTab === "clients" && selectedBranchId !== ""
+    enabled: activeTab === "clients"
   })
 
   // Helper function for age word form
