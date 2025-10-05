@@ -205,6 +205,7 @@ export default function Registry() {
   const { data: patientsResponse, isLoading: isPatientsLoading } = useQuery({
     queryKey: ['/api/patients', selectedBranchId, patientsPage, debouncedSearchTerm, pageSize],
     queryFn: async () => {
+      console.log('Fetching patients - branchId:', selectedBranchId, 'page:', patientsPage)
       const params = new URLSearchParams({
         branchId: selectedBranchId || '',
         page: patientsPage.toString(),
@@ -219,6 +220,8 @@ export default function Registry() {
     },
     enabled: activeTab === "patients" && !!selectedBranchId
   })
+  
+  console.log('Registry state - activeTab:', activeTab, 'selectedBranchId:', selectedBranchId, 'patientsEnabled:', activeTab === "patients" && !!selectedBranchId)
 
   // Fetch owners from API based on selected branch
   const { data: ownersResponse, isLoading: isOwnersLoading } = useQuery({
