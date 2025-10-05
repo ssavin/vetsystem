@@ -5762,13 +5762,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       
-      console.log('🔍 GET /api/tenant/current - User info:', {
-        userId: req.user?.id,
-        role: req.user?.role,
-        isSuperAdmin: req.user?.isSuperAdmin,
-        tenantId: req.tenantId
-      });
-      
       // Superadmin doesn't have a tenant
       if (req.user?.isSuperAdmin) {
         return res.json({ 
@@ -5793,15 +5786,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Клиника не найдена"
         });
       }
-      
-      console.log('📋 Returning tenant data:', {
-        id: tenant.id,
-        name: tenant.name,
-        legalName: tenant.legalName,
-        legalAddress: tenant.legalAddress,
-        phone: tenant.phone,
-        email: tenant.email
-      });
       
       res.json(tenant);
     } catch (error) {
@@ -5838,15 +5822,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         settings: z.record(z.any()).optional(),
       });
       
-      console.log('📝 Tenant settings update request:', {
-        tenantId: req.tenantId,
-        body: req.body
-      });
-      
       const updates = updateSchema.parse(req.body);
       const updatedTenant = await storage.updateTenant(req.tenantId, updates);
-      
-      console.log('✅ Tenant updated successfully:', updatedTenant);
       
       res.json(updatedTenant);
     } catch (error) {

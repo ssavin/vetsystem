@@ -183,15 +183,6 @@ export default function Settings() {
 
   // Initialize clinic info from tenant data
   useEffect(() => {
-    console.log('🔄 Tenant data changed:', { 
-      isSuperAdmin, 
-      currentTenant,
-      name: currentTenant?.name,
-      legalAddress: currentTenant?.legalAddress,
-      phone: currentTenant?.phone,
-      email: currentTenant?.email
-    })
-    
     if (isSuperAdmin) {
       // Clear fields for superadmin
       setClinicName("")
@@ -200,12 +191,6 @@ export default function Settings() {
       setClinicEmail("")
     } else if (currentTenant && currentTenant.id !== 'superadmin') {
       // Load tenant data for regular admin
-      console.log('📝 Setting clinic fields:', {
-        name: currentTenant.name,
-        legalAddress: currentTenant.legalAddress,
-        phone: currentTenant.phone,
-        email: currentTenant.email
-      })
       setClinicName(currentTenant.name || "")
       setClinicAddress(currentTenant.legalAddress || "")
       setClinicPhone(currentTenant.phone || "")
