@@ -180,13 +180,14 @@ export default function Settings() {
 
   // Initialize clinic info from tenant data
   useEffect(() => {
-    if (currentTenant && !currentTenant.isSuperAdmin) {
+    // Only load tenant data if user is not superadmin
+    if (currentTenant && !isSuperAdmin) {
       setClinicName(currentTenant.name || "")
       setClinicAddress(currentTenant.legalAddress || "")
       setClinicPhone(currentTenant.phone || "")
       setClinicEmail(currentTenant.email || "")
     }
-  }, [currentTenant])
+  }, [currentTenant, isSuperAdmin])
 
   // Initialize fiscal receipt system from server data
   useEffect(() => {
