@@ -328,6 +328,7 @@ export const medicalRecords = pgTable("medical_records", {
   status: varchar("status", { length: 20 }).default("active"),
   notes: text("notes"),
   branchId: varchar("branch_id").references(() => branches.id), // Temporarily nullable for migration
+  vetaisId: integer("vetais_id"), // ID из Vetais для отслеживания миграции
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -342,6 +343,7 @@ export const medicalRecords = pgTable("medical_records", {
     statusIdx: index("medical_records_status_idx").on(table.status),
     branchIdIdx: index("medical_records_branch_id_idx").on(table.branchId),
     patientDateIdx: index("medical_records_patient_date_idx").on(table.patientId, table.visitDate),
+    vetaisIdIdx: index("medical_records_vetais_id_idx").on(table.vetaisId),
   };
 });
 
@@ -354,11 +356,13 @@ export const medications = pgTable("medications", {
   frequency: varchar("frequency", { length: 255 }).notNull(),
   duration: varchar("duration", { length: 255 }).notNull(),
   instructions: text("instructions"),
+  vetaisId: integer("vetais_id"), // ID из Vetais (medical_plan_item)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => {
   return {
     recordIdIdx: index("medications_record_id_idx").on(table.recordId),
     nameIdx: index("medications_name_idx").on(table.name),
+    vetaisIdIdx: index("medications_vetais_id_idx").on(table.vetaisId),
   };
 });
 
@@ -797,6 +801,7 @@ export const patientFiles = pgTable("patient_files", {
   description: text("description"),
   uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
   medicalRecordId: varchar("medical_record_id").references(() => medicalRecords.id), // optional link to medical record
+  vetaisId: integer("vetais_id"), // ID из Vetais (medical_media_data)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -809,6 +814,7 @@ export const patientFiles = pgTable("patient_files", {
     medicalRecordIdIdx: index("patient_files_medical_record_id_idx").on(table.medicalRecordId),
     createdAtIdx: index("patient_files_created_at_idx").on(table.createdAt),
     patientTypeIdx: index("patient_files_patient_type_idx").on(table.patientId, table.fileType),
+    vetaisIdIdx: index("patient_files_vetais_id_idx").on(table.vetaisId),
   };
 });
 
@@ -2210,6 +2216,7 @@ export const clinicalCases = pgTable('clinical_cases', {
   startDate: timestamp('start_date').defaultNow().notNull(),
   closeDate: timestamp('close_date'),
   createdByUserId: varchar('created_by_user_id').references(() => users.id).notNull(),
+  vetaisId: integer('vetais_id'), // ID из Vetais (medical_hospitalization)
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 }, (table) => ({
@@ -2218,6 +2225,7 @@ export const clinicalCases = pgTable('clinical_cases', {
   patientIdIdx: index('clinical_cases_patient_idx').on(table.patientId),
   statusIdx: index('clinical_cases_status_idx').on(table.status),
   startDateIdx: index('clinical_cases_start_date_idx').on(table.startDate),
+  vetaisIdIdx: index('clinical_cases_vetais_id_idx').on(table.vetaisId),
   statusCheck: check('clinical_cases_status_check', sql`${table.status} IN ('open', 'closed')`)
 }));
 
@@ -2233,6 +2241,7 @@ export const clinicalEncounters = pgTable('clinical_encounters', {
   diagnosis: text('diagnosis'), // Диагноз
   treatmentPlan: text('treatment_plan'), // План лечения и назначения
   notes: text('notes'), // Дополнительные заметки
+  vetaisId: integer('vetais_id'), // ID из Vetais (medical_exams)
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 }, (table) => ({
@@ -2240,7 +2249,8 @@ export const clinicalEncounters = pgTable('clinical_encounters', {
   branchIdIdx: index('clinical_encounters_branch_idx').on(table.branchId),
   caseIdIdx: index('clinical_encounters_case_idx').on(table.clinicalCaseId),
   doctorIdIdx: index('clinical_encounters_doctor_idx').on(table.doctorId),
-  encounterDateIdx: index('clinical_encounters_date_idx').on(table.encounterDate)
+  encounterDateIdx: index('clinical_encounters_date_idx').on(table.encounterDate),
+  vetaisIdIdx: index('clinical_encounters_vetais_id_idx').on(table.vetaisId)
 }));
 
 // Лабораторные анализы (Lab Analyses) - назначенные анализы в рамках обследования
@@ -2278,12 +2288,14 @@ export const attachments = pgTable('attachments', {
   mimeType: varchar('mime_type', { length: 100 }).notNull(),
   fileSize: integer('file_size'), // Размер файла в байтах
   uploadedByUserId: varchar('uploaded_by_user_id').references(() => users.id).notNull(),
+  vetaisId: integer('vetais_id'), // ID из Vetais (medical_media_data)
   createdAt: timestamp('created_at').defaultNow().notNull()
 }, (table) => ({
   tenantIdIdx: index('attachments_tenant_idx').on(table.tenantId),
   branchIdIdx: index('attachments_branch_idx').on(table.branchId),
   entityIdx: index('attachments_entity_idx').on(table.entityId, table.entityType),
   entityTypeIdx: index('attachments_entity_type_idx').on(table.entityType),
+  vetaisIdIdx: index('attachments_vetais_id_idx').on(table.vetaisId),
   entityTypeCheck: check('attachments_entity_type_check', sql`${table.entityType} IN ('lab_analysis', 'clinical_encounter', 'clinical_case')`)
 }));
 
