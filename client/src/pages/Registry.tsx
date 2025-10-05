@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2 } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import CreateCaseDialog from "@/components/CreateCaseDialog"
@@ -114,28 +115,42 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
               </Button>
             }
           />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate(`/medical-records?patientId=${patient.id}`)
-            }}
-            data-testid={`button-view-records-${patient.id}`}
-          >
-            <FileText className="h-3 w-3" />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate('/schedule')
-            }}
-            data-testid={`button-schedule-appointment-${patient.id}`}
-          >
-            <Calendar className="h-3 w-3" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(`/medical-records?patientId=${patient.id}`)
+                }}
+                data-testid={`button-view-records-${patient.id}`}
+              >
+                <FileText className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('patients.viewRecords', 'Медицинские записи')}</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate('/schedule')
+                }}
+                data-testid={`button-schedule-appointment-${patient.id}`}
+              >
+                <Calendar className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('patients.scheduleAppointment', 'Записать на прием')}</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </TableCell>
     </TableRow>
