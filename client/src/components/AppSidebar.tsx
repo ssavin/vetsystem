@@ -92,7 +92,7 @@ export default function AppSidebar() {
   const { t } = useTranslation('navigation')
 
   const isAdmin = user?.role === 'администратор' || user?.role === 'admin' || user?.role === 'руководитель'
-  const isManager = user?.role === 'руководитель'
+  const isManager = user?.role === 'руководитель' || user?.role === 'администратор' || user?.role === 'admin'
   const isSuperAdmin = user?.role === 'superadmin'
 
   const menuItems = getMenuItems(t)
