@@ -179,6 +179,12 @@ export interface IStorage {
   deletePatient(id: string): Promise<void>;
   searchPatients(query: string, branchId: string): Promise<Patient[]>;
 
+  // Patient-Owner relationship methods - 🔒 SECURITY: tenant-scoped
+  getPatientOwners(patientId: string): Promise<PatientOwner[]>;
+  addPatientOwner(patientOwner: InsertPatientOwner): Promise<PatientOwner>;
+  removePatientOwner(patientId: string, ownerId: string): Promise<void>;
+  setPrimaryOwner(patientId: string, ownerId: string): Promise<void>;
+
   // Doctor methods - 🔒 SECURITY: branchId required for PHI isolation
   getDoctors(branchId: string): Promise<Doctor[]>;
   getDoctor(id: string): Promise<Doctor | undefined>;
@@ -1029,6 +1035,145 @@ export class DatabaseStorage implements IStorage {
           .from(patients)
           .where(and(searchConditions, or(eq(patients.branchId, branchId), isNull(patients.branchId))))
           .orderBy(desc(patients.createdAt));
+      });
+    });
+  }
+
+  // Patient-Owner relationship methods - 🔒 SECURITY: tenant-scoped
+  async getPatientOwners(patientId: string): Promise<PatientOwner[]> {
+    return withPerformanceLogging('getPatientOwners', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(patientOwners)
+          .where(eq(patientOwners.patientId, patientId))
+          .orderBy(desc(patientOwners.isPrimary));
+      });
+    });
+  }
+
+  async addPatientOwner(patientOwner: InsertPatientOwner): Promise<PatientOwner> {
+    return withPerformanceLogging('addPatientOwner', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Always insert with isPrimary=false to maintain data integrity
+        // Use setPrimaryOwner to promote an owner to primary
+        const [newPatientOwner] = await dbInstance
+          .insert(patientOwners)
+          .values({ ...patientOwner, isPrimary: false })
+          .returning();
+        return newPatientOwner;
+      });
+    });
+  }
+
+  async removePatientOwner(patientId: string, ownerId: string): Promise<void> {
+    return withPerformanceLogging('removePatientOwner', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Use transaction to ensure atomicity of promotion and deletion
+        await dbInstance.transaction(async (tx) => {
+          // Check if removing the primary owner
+          const [relation] = await tx
+            .select()
+            .from(patientOwners)
+            .where(
+              and(
+                eq(patientOwners.patientId, patientId),
+                eq(patientOwners.ownerId, ownerId)
+              )
+            )
+            .limit(1);
+
+          if (!relation) {
+            throw new Error(`Owner ${ownerId} is not associated with patient ${patientId}`);
+          }
+
+          if (relation.isPrimary) {
+            // Check if there are other owners to promote
+            const otherOwners = await tx
+              .select()
+              .from(patientOwners)
+              .where(
+                and(
+                  eq(patientOwners.patientId, patientId),
+                  sql`${patientOwners.ownerId} != ${ownerId}`
+                )
+              )
+              .limit(1);
+
+            if (otherOwners.length > 0) {
+              // Inline promotion logic to keep everything in one transaction
+              // First, demote all owners for this patient
+              await tx
+                .update(patientOwners)
+                .set({ isPrimary: false })
+                .where(eq(patientOwners.patientId, patientId));
+              
+              // Then promote the first other owner
+              await tx
+                .update(patientOwners)
+                .set({ isPrimary: true })
+                .where(
+                  and(
+                    eq(patientOwners.patientId, patientId),
+                    eq(patientOwners.ownerId, otherOwners[0].ownerId)
+                  )
+                );
+            }
+            // If no other owners, it's ok to remove - patient will have no primary owner
+          }
+
+          // Finally, delete the relationship
+          await tx
+            .delete(patientOwners)
+            .where(
+              and(
+                eq(patientOwners.patientId, patientId),
+                eq(patientOwners.ownerId, ownerId)
+              )
+            );
+        });
+      });
+    });
+  }
+
+  async setPrimaryOwner(patientId: string, ownerId: string): Promise<void> {
+    return withPerformanceLogging('setPrimaryOwner', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Use transaction to ensure atomicity
+        await dbInstance.transaction(async (tx) => {
+          // Verify the patient-owner relationship exists
+          const existingRelation = await tx
+            .select()
+            .from(patientOwners)
+            .where(
+              and(
+                eq(patientOwners.patientId, patientId),
+                eq(patientOwners.ownerId, ownerId)
+              )
+            )
+            .limit(1);
+
+          if (existingRelation.length === 0) {
+            throw new Error(`Owner ${ownerId} is not associated with patient ${patientId}`);
+          }
+
+          // First, set all owners for this patient to non-primary
+          await tx
+            .update(patientOwners)
+            .set({ isPrimary: false })
+            .where(eq(patientOwners.patientId, patientId));
+          
+          // Then, set the specified owner as primary
+          await tx
+            .update(patientOwners)
+            .set({ isPrimary: true })
+            .where(
+              and(
+                eq(patientOwners.patientId, patientId),
+                eq(patientOwners.ownerId, ownerId)
+              )
+            );
+        });
       });
     });
   }
