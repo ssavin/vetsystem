@@ -483,9 +483,10 @@ export default function Settings() {
     },
     onError: (error: any) => {
       console.error("Error deleting branch:", error)
+      const errorMessage = error?.details || error?.error || error?.message || "Не удалось удалить отделение"
       toast({
         title: "Ошибка", 
-        description: "Не удалось удалить отделение",
+        description: errorMessage,
         variant: "destructive",
       })
     },
