@@ -723,6 +723,12 @@ export default function Settings() {
               />
             </div>
           </div>
+          <div className="flex justify-end pt-4">
+            <Button onClick={saveSettings} data-testid="button-save-clinic-info">
+              <Save className="h-4 w-4 mr-2" />
+              Сохранить информацию
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
