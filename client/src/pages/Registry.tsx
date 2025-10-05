@@ -215,7 +215,7 @@ export default function Registry() {
       const primaryOwner = patient.owners?.find((o: any) => o.isPrimary) || patient.owners?.[0]
       const allOwners = patient.owners || []
       const ownerDisplay = primaryOwner 
-        ? `${primaryOwner.ownerName}${allOwners.length > 1 ? ` (+${allOwners.length - 1})` : ''}`
+        ? `${primaryOwner.name}${allOwners.length > 1 ? ` (+${allOwners.length - 1})` : ''}`
         : (patient.ownerName || t('patients.unknownOwner'))
       
       return {
@@ -225,7 +225,7 @@ export default function Registry() {
         breed: patient.breed || t('patients.unknownBreed'),
         age,
         owner: ownerDisplay,
-        ownerPhone: primaryOwner?.ownerPhone || patient.ownerPhone || '-',
+        ownerPhone: primaryOwner?.phone || patient.ownerPhone || '-',
         status: 'healthy' as const,
         lastVisit: undefined,
         owners: allOwners // Store all owners for potential tooltip/details
