@@ -25,7 +25,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const BATCH_SIZE = 100; // Меньше из-за размера файлов
-const TENANT_ID = '0d0e5c59-aae1-4da8-9a5e-83bd12aeee7c';
+const TENANT_ID = 'default-tenant-001';
 const FILES_BASE_PATH = path.join(process.cwd(), 'uploads');
 
 // Маппинг типов Vetais → VetSystem fileType

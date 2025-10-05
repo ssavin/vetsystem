@@ -23,13 +23,13 @@ import * as schema from '../shared/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
 const BATCH_SIZE = 500;
-const TENANT_ID = '0d0e5c59-aae1-4da8-9a5e-83bd12aeee7c';
+const TENANT_ID = 'default-tenant-001';
 
 // Маппинг клиник Vetais → филиалы VetSystem
 const CLINIC_TO_BRANCH: Record<number, string> = {
-  10000: '33efabc8-cc76-4405-858b-1974ba6e42ef', // Бутово
-  10001: '09e4b11d-c6c1-48c8-af73-36a44eab8090', // Лобачевского
-  10002: '8dce55d5-00be-40e0-b3d2-e0a05a71f2c8', // Новопеределкино
+  10000: '280fcff4-2e1c-43d7-8ae5-6a48d288e518', // Бутово
+  10001: '48ef0926-7fc3-4c82-b1b9-d8cb6d787ee8', // Лобачевского
+  10002: 'c59ff876-d0c9-4220-b782-de28bdd0329c', // Новопеределкино
 };
 
 interface VetaisExam {

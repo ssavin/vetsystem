@@ -21,7 +21,7 @@ import * as schema from '../shared/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
 const BATCH_SIZE = 1000;
-const TENANT_ID = '0d0e5c59-aae1-4da8-9a5e-83bd12aeee7c';
+const TENANT_ID = 'default-tenant-001';
 
 interface VetaisPlanItem {
   id: number;
