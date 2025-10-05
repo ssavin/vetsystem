@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -11,12 +11,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
-import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2, Trash2 } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import OwnerRegistrationForm from "@/components/OwnerRegistrationForm"
 import CreateCaseDialog from "@/components/CreateCaseDialog"
 import { useLocation } from "wouter"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useToast } from "@/hooks/use-toast"
+import { apiRequest, queryClient } from "@/lib/queryClient"
 
 // Helper functions for patient status
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -165,6 +177,7 @@ function PatientTableRow({ patient }: PatientTableRowProps) {
 
 export default function Registry() {
   const { t } = useTranslation('registry')
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [showPatientForm, setShowPatientForm] = useState(false)
@@ -173,6 +186,7 @@ export default function Registry() {
   const [patientsPage, setPatientsPage] = useState(1)
   const [ownersPage, setOwnersPage] = useState(1)
   const [pageSize] = useState(50)
+  const [ownerToDelete, setOwnerToDelete] = useState<{ id: string, name: string } | null>(null)
 
   // Debounce search term
   useEffect(() => {
@@ -193,7 +207,6 @@ export default function Registry() {
   useEffect(() => {
     const branchId = authData?.currentBranch?.id
     if (branchId && !selectedBranchId) {
-      console.log('Setting default branch to:', branchId)
       setSelectedBranchId(branchId)
     }
   }, [authData?.currentBranch?.id])
@@ -207,7 +220,6 @@ export default function Registry() {
   const { data: patientsResponse, isLoading: isPatientsLoading } = useQuery({
     queryKey: ['/api/patients', selectedBranchId, patientsPage, debouncedSearchTerm, pageSize],
     queryFn: async () => {
-      console.log('Fetching patients - branchId:', selectedBranchId, 'page:', patientsPage)
       const params = new URLSearchParams({
         branchId: selectedBranchId || '',
         page: patientsPage.toString(),
@@ -222,8 +234,6 @@ export default function Registry() {
     },
     enabled: activeTab === "patients" && !!selectedBranchId
   })
-  
-  console.log('Registry state - activeTab:', activeTab, 'selectedBranchId:', selectedBranchId, 'patientsEnabled:', activeTab === "patients" && !!selectedBranchId)
 
   // Fetch owners from API based on selected branch
   const { data: ownersResponse, isLoading: isOwnersLoading } = useQuery({
@@ -248,6 +258,35 @@ export default function Registry() {
   const patientsTotalPages = patientsResponse?.totalPages || 1
   const ownersData = ownersResponse?.data || []
   const ownersTotalPages = ownersResponse?.totalPages || 1
+
+  // Delete owner mutation
+  const deleteOwnerMutation = useMutation({
+    mutationFn: async (ownerId: string) => {
+      const response = await fetch(`/api/owners/${ownerId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      if (!response.ok) {
+        throw new Error('Не удалось удалить клиента')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owners'] })
+      toast({
+        title: "Клиент удален",
+        description: "Клиент успешно удален из системы",
+      })
+      setOwnerToDelete(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось удалить клиента",
+        variant: "destructive"
+      })
+    }
+  })
 
   // Helper function for age word form
   const getYearWord = (years: number) => {
@@ -511,6 +550,21 @@ export default function Registry() {
                                 <p>{t('clients.viewDetails', 'Просмотр клиента')}</p>
                               </TooltipContent>
                             </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setOwnerToDelete({ id: owner.id, name: owner.name })}
+                                  data-testid={`button-delete-owner-${owner.id}`}
+                                >
+                                  <Trash2 className="h-3 w-3 text-destructive" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{t('clients.deleteOwner', 'Удалить клиента')}</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -536,13 +590,13 @@ export default function Registry() {
                                Math.abs(page - ownersPage) <= 1
                       })
                       .map((page, idx, arr) => (
-                        <>
+                        <div key={page} className="contents">
                           {idx > 0 && arr[idx - 1] !== page - 1 && (
                             <PaginationItem key={`ellipsis-${page}`}>
                               <span className="px-2">...</span>
                             </PaginationItem>
                           )}
-                          <PaginationItem key={page}>
+                          <PaginationItem>
                             <PaginationLink
                               onClick={() => setOwnersPage(page)}
                               isActive={page === ownersPage}
@@ -551,7 +605,7 @@ export default function Registry() {
                               {page}
                             </PaginationLink>
                           </PaginationItem>
-                        </>
+                        </div>
                       ))}
                     <PaginationItem>
                       <PaginationNext 
@@ -627,13 +681,13 @@ export default function Registry() {
                                Math.abs(page - patientsPage) <= 1
                       })
                       .map((page, idx, arr) => (
-                        <>
+                        <div key={page} className="contents">
                           {idx > 0 && arr[idx - 1] !== page - 1 && (
                             <PaginationItem key={`ellipsis-${page}`}>
                               <span className="px-2">...</span>
                             </PaginationItem>
                           )}
-                          <PaginationItem key={page}>
+                          <PaginationItem>
                             <PaginationLink
                               onClick={() => setPatientsPage(page)}
                               isActive={page === patientsPage}
@@ -642,7 +696,7 @@ export default function Registry() {
                               {page}
                             </PaginationLink>
                           </PaginationItem>
-                        </>
+                        </div>
                       ))}
                     <PaginationItem>
                       <PaginationNext 
@@ -657,6 +711,28 @@ export default function Registry() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!ownerToDelete} onOpenChange={(open) => !open && setOwnerToDelete(null)}>
+        <AlertDialogContent data-testid="dialog-delete-owner-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить клиента?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы действительно хотите удалить клиента <strong>{ownerToDelete?.name}</strong>? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => ownerToDelete && deleteOwnerMutation.mutate(ownerToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
