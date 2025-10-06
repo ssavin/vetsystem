@@ -2615,8 +2615,8 @@ export class DatabaseStorage implements IStorage {
         return false;
       }
 
-      // Руководители имеют доступ ко всем активным филиалам
-      if (user.role === 'руководитель') {
+      // Руководители и администраторы имеют доступ ко всем активным филиалам
+      if (user.role === 'руководитель' || user.role === 'администратор') {
         const branch = await this.getBranch(branchId);
         return !!(branch && branch.status === 'active');
       }
@@ -2633,8 +2633,8 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
 
-      // Руководители видят все активные филиалы
-      if (user.role === 'руководитель') {
+      // Руководители и администраторы видят все активные филиалы
+      if (user.role === 'руководитель' || user.role === 'администратор') {
         return await this.getActiveBranches();
       }
 
