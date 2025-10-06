@@ -50,6 +50,24 @@ Preferred communication style: Simple, everyday language.
 - Integration functions accept credentials as parameters; sensitive fields are masked in API responses.
 - UI allows managing, validating, and testing integration connections.
 
+## Document Generation & Printing
+- **Document Templates System**: Multi-tenant template management with system-wide fallback.
+  - Database schema: `document_templates` table with tenant isolation via RLS.
+  - Template types: invoice, encounter_summary, prescription, vaccination_certificate, lab_results_report, informed_consent (surgery/anesthesia).
+  - Handlebars template engine for flexible HTML rendering.
+  - Puppeteer for high-quality PDF generation with A4 formatting.
+- **Security & Isolation**: Tenant and branch ownership validation before document generation.
+  - DocumentService verifies entity ownership before accessing data.
+  - API endpoint enforces branchId requirement and tenant context.
+  - All storage queries respect RLS for complete data isolation.
+- **Integration Points**:
+  - `PrintDocumentButton` React component with dropdown for template selection.
+  - Integrated into MedicalRecordCard for quick access to medical document printing.
+  - API endpoint: POST /api/documents/generate with Zod validation.
+- **System Templates**: Pre-configured templates for invoice and encounter_summary.
+  - Seeded via `server/seed-document-templates.ts` script.
+  - Tenants can override with custom templates or use system defaults.
+
 ## Data Migration
 - **Client Migration**: Successfully migrated over 60,000 client records from legacy Vetais PostgreSQL database.
   - Migrated full client names (surname + first name + patronymic) from Vetais fields.
@@ -105,6 +123,11 @@ Preferred communication style: Simple, everyday language.
 - **zod**: Schema validation.
 - **@hookform/resolvers**: React Hook Form integration.
 - **drizzle-zod**: Drizzle ORM and Zod integration.
+
+## Document Generation
+- **handlebars**: Template engine for HTML document generation.
+- **puppeteer**: Headless browser for PDF generation.
+- **@types/handlebars**: TypeScript definitions for Handlebars.
 
 ## Database & Session Storage
 - **ws**: WebSocket client for Neon.
