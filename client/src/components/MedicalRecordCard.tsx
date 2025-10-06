@@ -200,6 +200,7 @@ export default function MedicalRecordCard({ record }: MedicalRecordProps) {
       </CardContent>
       
       <MedicalRecordForm 
+        trigger={null}
         recordToEdit={record}
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
