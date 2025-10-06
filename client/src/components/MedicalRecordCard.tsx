@@ -6,6 +6,7 @@ import { Calendar, User, Stethoscope, FileText, Pill, Syringe, AlertTriangle } f
 import { useState } from "react"
 import { PatientFileUpload } from "./PatientFileUpload"
 import MedicalRecordForm from "./MedicalRecordForm"
+import { PrintDocumentButton } from "./PrintDocumentButton"
 
 interface MedicalRecordProps {
   record: {
@@ -196,9 +197,13 @@ export default function MedicalRecordCard({ record }: MedicalRecordProps) {
           >
             Редактировать
           </Button>
-          <Button size="sm" data-testid={`button-print-record-${record.id}`}>
-            Печать
-          </Button>
+          <PrintDocumentButton
+            entityId={record.id}
+            entityType="medical_record"
+            variant="default"
+            size="sm"
+            showLabel={true}
+          />
         </div>
       </CardContent>
       
