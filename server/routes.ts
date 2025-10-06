@@ -21,6 +21,7 @@ import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import * as veterinaryAI from './ai/veterinary-ai';
 import * as yookassa from './integrations/yookassa';
+import { documentService } from './services/documentService';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -6163,6 +6164,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching patient full history:", error);
       res.status(500).json({ error: "Failed to fetch patient full history" });
+    }
+  });
+
+  // ========================================
+  // DOCUMENT GENERATION ENDPOINTS
+  // ========================================
+
+  // Validation schema for document generation
+  const generateDocumentSchema = z.object({
+    templateType: z.enum(['invoice', 'encounter_summary', 'informed_consent_surgery', 'informed_consent_anesthesia', 'lab_results_report', 'vaccination_certificate', 'prescription']),
+    entityId: z.string().uuid(),
+    outputFormat: z.enum(['pdf', 'html']).default('pdf')
+  });
+
+  // POST /api/documents/generate - Generate document (PDF or HTML) from template
+  app.post("/api/documents/generate", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user!;
+      const tenantId = user.tenantId;
+
+      // Validate request body
+      const validatedData = generateDocumentSchema.parse(req.body);
+      const { templateType, entityId, outputFormat } = validatedData;
+
+      // Build context based on template type
+      let context: any;
+      
+      switch (templateType) {
+        case 'invoice':
+          context = await documentService.buildInvoiceContext(entityId);
+          break;
+        case 'encounter_summary':
+          context = await documentService.buildEncounterSummaryContext(entityId);
+          break;
+        default:
+          return res.status(400).json({ error: `Context builder not implemented for template type: ${templateType}` });
+      }
+
+      // Render HTML from template
+      const html = await documentService.renderTemplate(templateType, tenantId, context);
+
+      if (outputFormat === 'html') {
+        // Return HTML directly
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html);
+      } else {
+        // Generate and return PDF
+        const pdfBuffer = await documentService.generatePDF(html);
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="document-${entityId}.pdf"`);
+        return res.send(pdfBuffer);
+      }
+    } catch (error: any) {
+      console.error("Error generating document:", error);
+      
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      
+      res.status(500).json({ error: error.message || "Failed to generate document" });
     }
   });
 
