@@ -35,16 +35,38 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
   // Fetch owners, patients and doctors for dropdowns
   const { data: owners = [] } = useQuery({
     queryKey: ['/api/owners'],
+    queryFn: async () => {
+      const res = await fetch('/api/owners?limit=10000', {
+        credentials: 'include'
+      })
+      if (!res.ok) throw new Error('Failed to fetch owners')
+      const data = await res.json()
+      return data.data || data
+    },
     enabled: open
   })
 
   const { data: allPatients = [] } = useQuery({
-    queryKey: ['/api/patients'],
+    queryKey: ['/api/patients/all'],
+    queryFn: async () => {
+      const res = await fetch('/api/patients/all?limit=100000', {
+        credentials: 'include'
+      })
+      if (!res.ok) throw new Error('Failed to fetch patients')
+      return res.json()
+    },
     enabled: open
   })
 
   const { data: doctors = [] } = useQuery({
     queryKey: ['/api/doctors'],
+    queryFn: async () => {
+      const res = await fetch('/api/doctors', {
+        credentials: 'include'
+      })
+      if (!res.ok) throw new Error('Failed to fetch doctors')
+      return res.json()
+    },
     enabled: open
   })
 
