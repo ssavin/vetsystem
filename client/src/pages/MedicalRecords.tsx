@@ -51,7 +51,9 @@ export default function MedicalRecords() {
         offset: (page * pageSize).toString(),
         ...(selectedPatientId && { patientId: selectedPatientId })
       });
-      const response = await fetch(`/api/medical-records?${params}`);
+      const response = await fetch(`/api/medical-records?${params}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Failed to fetch medical records');
       return response.json();
     }
@@ -64,7 +66,9 @@ export default function MedicalRecords() {
   const { data: patients = [] } = useQuery<any[]>({
     queryKey: ['/api/patients/all'],
     queryFn: async () => {
-      const response = await fetch('/api/patients/all?limit=100000');
+      const response = await fetch('/api/patients/all?limit=100000', {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Failed to fetch patients');
       return response.json();
     }
