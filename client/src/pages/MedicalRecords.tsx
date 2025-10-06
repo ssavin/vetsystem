@@ -60,14 +60,24 @@ export default function MedicalRecords() {
   const medicalRecords = data?.records || []
   const pagination = data?.pagination || { total: 0, limit: pageSize, offset: 0, hasMore: false }
 
-  // Fetch patients and doctors for display names
+  // Fetch ALL patients and doctors (from all branches) for display names
   const { data: patients = [] } = useQuery<any[]>({
-    queryKey: ['/api/patients'],
+    queryKey: ['/api/patients/all'],
+    queryFn: async () => {
+      const response = await fetch('/api/patients/all?limit=100000');
+      if (!response.ok) throw new Error('Failed to fetch patients');
+      return response.json();
+    }
   })
 
-  const { data: doctors = [] } = useQuery<any[]>({
-    queryKey: ['/api/doctors'],
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ['/api/users'],
   })
+
+  // Filter only doctors from users
+  const doctors = useMemo(() => {
+    return users.filter((user: any) => user.role === 'врач' || user.role === 'doctor')
+  }, [users])
 
   // Create lookup maps for patient and doctor names
   const patientMap = useMemo(() => {
