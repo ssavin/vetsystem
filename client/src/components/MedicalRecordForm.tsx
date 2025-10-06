@@ -183,14 +183,16 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button data-testid="button-new-record">
-            <Plus className="h-4 w-4 mr-2" />
-            Новая запись
-          </Button>
-        )}
-      </DialogTrigger>
+      {!recordToEdit && (
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button data-testid="button-new-record">
+              <Plus className="h-4 w-4 mr-2" />
+              Новая запись
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Редактирование записи' : 'Создание клинического случая'}</DialogTitle>
