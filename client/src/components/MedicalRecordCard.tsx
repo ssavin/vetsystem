@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Calendar, User, Stethoscope, FileText, Pill, Syringe, AlertTriangle } from "lucide-react"
 import { useState } from "react"
 import { PatientFileUpload } from "./PatientFileUpload"
+import MedicalRecordForm from "./MedicalRecordForm"
 
 interface MedicalRecordProps {
   record: {
@@ -33,6 +34,7 @@ interface MedicalRecordProps {
 
 export default function MedicalRecordCard({ record }: MedicalRecordProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -183,7 +185,12 @@ export default function MedicalRecordCard({ record }: MedicalRecordProps) {
             <FileText className="h-3 w-3 mr-1" />
             {isExpanded ? 'Свернуть' : 'Подробнее'}
           </Button>
-          <Button size="sm" variant="outline" data-testid={`button-edit-record-${record.id}`}>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => setIsEditDialogOpen(true)}
+            data-testid={`button-edit-record-${record.id}`}
+          >
             Редактировать
           </Button>
           <Button size="sm" data-testid={`button-print-record-${record.id}`}>
@@ -191,6 +198,12 @@ export default function MedicalRecordCard({ record }: MedicalRecordProps) {
           </Button>
         </div>
       </CardContent>
+      
+      <MedicalRecordForm 
+        recordToEdit={record}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+      />
     </Card>
   )
 }

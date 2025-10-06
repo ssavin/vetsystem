@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { insertMedicalRecordSchema, type InsertMedicalRecord, MEDICAL_RECORD_STATUS } from "@shared/schema"
 import { apiRequest } from "@/lib/queryClient"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -18,13 +18,19 @@ import { Plus, Save, X, Calendar, User, Stethoscope, Thermometer, Weight } from 
 
 interface MedicalRecordFormProps {
   trigger?: React.ReactNode
+  recordToEdit?: any
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
-  const [open, setOpen] = useState(false)
+export default function MedicalRecordForm({ trigger, recordToEdit, open: controlledOpen, onOpenChange }: MedicalRecordFormProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen
+  const setOpen = onOpenChange || setInternalOpen
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>('')
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const isEditing = !!recordToEdit
 
   // Fetch owners, patients and doctors for dropdowns
   const { data: owners = [] } = useQuery({
@@ -66,6 +72,30 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
     }
   })
 
+  // Load record data when editing
+  useEffect(() => {
+    if (recordToEdit && open) {
+      form.reset({
+        status: recordToEdit.status || "active",
+        visitDate: recordToEdit.visitDate ? new Date(recordToEdit.visitDate) : new Date(),
+        visitType: recordToEdit.visitType || "",
+        patientId: recordToEdit.patientId || "",
+        doctorId: recordToEdit.doctorId || "",
+        appointmentId: recordToEdit.appointmentId || null,
+        complaints: recordToEdit.complaints || "",
+        diagnosis: recordToEdit.diagnosis || "",
+        treatment: recordToEdit.treatment || [],
+        temperature: recordToEdit.temperature || undefined,
+        weight: recordToEdit.weight || undefined,
+        nextVisit: recordToEdit.nextVisit ? new Date(recordToEdit.nextVisit) : undefined,
+        notes: recordToEdit.notes || ""
+      })
+    } else if (!open) {
+      form.reset()
+      setSelectedOwnerId('')
+    }
+  }, [recordToEdit, open, form])
+
   const createMutation = useMutation({
     mutationFn: async (data: InsertMedicalRecord) => {
       const response = await apiRequest('POST', '/api/medical-records', data)
@@ -90,6 +120,30 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
     }
   })
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: InsertMedicalRecord) => {
+      const response = await apiRequest('PUT', `/api/medical-records/${recordToEdit.id}`, data)
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/medical-records'] })
+      toast({
+        title: "Успех",
+        description: "Запись успешно обновлена"
+      })
+      form.reset()
+      setSelectedOwnerId('')
+      setOpen(false)
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive"
+      })
+    }
+  })
+
   const onSubmit = (data: InsertMedicalRecord) => {
     // Convert treatment string to array if it's a string
     const processedData = {
@@ -97,7 +151,12 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
       treatment: data.treatment || [],
       appointmentId: data.appointmentId || null,
     }
-    createMutation.mutate(processedData)
+    
+    if (isEditing) {
+      updateMutation.mutate(processedData)
+    } else {
+      createMutation.mutate(processedData)
+    }
   }
 
   return (
@@ -112,7 +171,7 @@ export default function MedicalRecordForm({ trigger }: MedicalRecordFormProps) {
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Создание клинического случая</DialogTitle>
+          <DialogTitle>{isEditing ? 'Редактирование записи' : 'Создание клинического случая'}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
