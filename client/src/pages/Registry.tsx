@@ -320,7 +320,7 @@ export default function Registry() {
       if (!res.ok) throw new Error('Failed to fetch patients')
       return res.json()
     },
-    enabled: activeTab === "patients" && !!selectedBranchId
+    enabled: activeTab === "patients"
   })
 
   // Fetch owners from API based on selected branch
@@ -339,7 +339,7 @@ export default function Registry() {
       if (!res.ok) throw new Error('Failed to fetch owners')
       return res.json()
     },
-    enabled: activeTab === "clients" && !!selectedBranchId
+    enabled: activeTab === "clients"
   })
 
   const patientsData = patientsResponse?.data || []
