@@ -51,6 +51,9 @@ export const BILLING_PERIOD = ['monthly', 'quarterly', 'yearly'] as const;
 // Tenant status enum
 export const TENANT_STATUS = ['active', 'suspended', 'trial', 'cancelled'] as const;
 
+// Document template types
+export const DOCUMENT_TEMPLATE_TYPE = ['invoice', 'encounter_summary', 'informed_consent_surgery', 'informed_consent_anesthesia', 'lab_results_report', 'vaccination_certificate', 'prescription'] as const;
+
 // ========================================
 // MULTI-TENANT ARCHITECTURE
 // ========================================
@@ -2202,6 +2205,26 @@ export const integrationCredentials = pgTable('integration_credentials', {
 }));
 
 // ========================================
+// DOCUMENT TEMPLATES
+// ========================================
+
+export const documentTemplates = pgTable('document_templates', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id), // NULL = system template, specific ID = tenant override
+  name: varchar('name', { length: 255 }).notNull(), // Human-readable name
+  type: varchar('type', { length: 100 }).notNull(), // invoice, encounter_summary, etc.
+  content: text('content').notNull(), // HTML template with Handlebars placeholders
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('document_templates_tenant_idx').on(table.tenantId),
+  typeIdx: index('document_templates_type_idx').on(table.type),
+  tenantTypeUnique: uniqueIndex('document_templates_tenant_type_unique').on(table.tenantId, table.type), // One template per type per tenant
+  activeIdx: index('document_templates_active_idx').on(table.isActive)
+}));
+
+// ========================================
 // CLINICAL CASES MODULE
 // ========================================
 
@@ -2483,3 +2506,13 @@ export type InsertLabAnalysis = z.infer<typeof insertLabAnalysisSchema>;
 
 export type Attachment = typeof attachments.$inferSelect;
 export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
+
+// Document Templates schemas and types
+export const insertDocumentTemplateSchema = createInsertSchema(documentTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export type DocumentTemplate = typeof documentTemplates.$inferSelect;
+export type InsertDocumentTemplate = z.infer<typeof insertDocumentTemplateSchema>;
