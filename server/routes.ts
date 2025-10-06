@@ -1122,14 +1122,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userBranchId) return; // 403 already sent
       
       const patientId = req.query.patientId as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50; // default 50 записей
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      
       // 🔒 SECURITY: If patientId specified, verify access first
       if (patientId && !await ensurePatientAccess(user, patientId)) {
         return res.status(403).json({ error: 'Access denied: Patient not found' });
       }
       
       // 🔒 SECURITY: Pass branchId to enforce branch isolation
-      const records = await storage.getMedicalRecords(patientId, userBranchId);
-      res.json(records);
+      const records = await storage.getMedicalRecords(patientId, userBranchId, limit, offset);
+      
+      // Получаем общее количество для пагинации
+      const total = await storage.getMedicalRecordsCount(patientId, userBranchId);
+      
+      res.json({
+        records,
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: offset + records.length < total
+        }
+      });
     } catch (error) {
       console.error("Error fetching medical records:", error);
       res.status(500).json({ error: "Failed to fetch medical records" });

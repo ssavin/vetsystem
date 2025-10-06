@@ -207,7 +207,8 @@ export interface IStorage {
   checkAppointmentConflicts(doctorId: string, date: Date, duration: number, excludeId?: string): Promise<boolean>;
 
   // Medical Record methods - 🔒 SECURITY: branchId required for PHI isolation
-  getMedicalRecords(patientId: string | undefined, branchId: string): Promise<MedicalRecord[]>;
+  getMedicalRecords(patientId: string | undefined, branchId: string, limit?: number, offset?: number): Promise<MedicalRecord[]>;
+  getMedicalRecordsCount(patientId: string | undefined, branchId: string): Promise<number>;
   getMedicalRecord(id: string): Promise<MedicalRecord | undefined>;
   createMedicalRecord(record: InsertMedicalRecord): Promise<MedicalRecord>;
   updateMedicalRecord(id: string, record: Partial<InsertMedicalRecord>): Promise<MedicalRecord>;
@@ -1696,7 +1697,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Medical Record methods - 🔒 SECURITY: branchId mandatory for PHI isolation
-  async getMedicalRecords(patientId: string | undefined, branchId: string): Promise<MedicalRecord[]> {
+  async getMedicalRecords(patientId: string | undefined, branchId: string, limit: number = 50, offset: number = 0): Promise<MedicalRecord[]> {
     return withPerformanceLogging('getMedicalRecords', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         if (patientId) {
@@ -1705,7 +1706,9 @@ export class DatabaseStorage implements IStorage {
             .from(medicalRecords)
             .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
             .where(and(eq(medicalRecords.patientId, patientId), eq(patients.branchId, branchId)))
-            .orderBy(desc(medicalRecords.visitDate));
+            .orderBy(desc(medicalRecords.visitDate))
+            .limit(limit)
+            .offset(offset);
           return results.map(r => r.medicalRecord);
         }
         
@@ -1714,8 +1717,30 @@ export class DatabaseStorage implements IStorage {
           .from(medicalRecords)
           .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
           .where(eq(patients.branchId, branchId))
-          .orderBy(desc(medicalRecords.visitDate));
+          .orderBy(desc(medicalRecords.visitDate))
+          .limit(limit)
+          .offset(offset);
         return results.map(r => r.medicalRecord);
+      });
+    });
+  }
+
+  async getMedicalRecordsCount(patientId: string | undefined, branchId: string): Promise<number> {
+    return withPerformanceLogging('getMedicalRecordsCount', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        if (patientId) {
+          const result = await dbInstance.select({ count: sql<number>`count(*)::int` })
+            .from(medicalRecords)
+            .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
+            .where(and(eq(medicalRecords.patientId, patientId), eq(patients.branchId, branchId)));
+          return result[0]?.count || 0;
+        }
+        
+        const result = await dbInstance.select({ count: sql<number>`count(*)::int` })
+          .from(medicalRecords)
+          .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
+          .where(eq(patients.branchId, branchId));
+        return result[0]?.count || 0;
       });
     });
   }

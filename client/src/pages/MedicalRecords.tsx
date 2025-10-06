@@ -20,6 +20,8 @@ export default function MedicalRecords() {
   const [showAIAssistant, setShowAIAssistant] = useState(false)
   const [selectedPatientForAI, setSelectedPatientForAI] = useState<any>(null)
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
+  const pageSize = 50
   const { toast } = useToast()
 
   // Get patientId from URL query parameter
@@ -28,20 +30,42 @@ export default function MedicalRecords() {
     const patientId = params.get('patientId')
     if (patientId) {
       setSelectedPatientId(patientId)
+      setPage(0) // Reset page when patient changes
     }
   }, [])
 
-  // Fetch medical records with patients, doctors, and medications
-  const { data: medicalRecords = [], isLoading, error } = useQuery({
-    queryKey: ['/api/medical-records'],
+  // Reset page when patient filter changes
+  useEffect(() => {
+    setPage(0)
+  }, [selectedPatientId])
+
+  // Fetch medical records with pagination
+  const { data, isLoading, error } = useQuery<{
+    records: MedicalRecord[];
+    pagination: { total: number; limit: number; offset: number; hasMore: boolean };
+  }>({
+    queryKey: ['/api/medical-records', page, selectedPatientId],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        limit: pageSize.toString(),
+        offset: (page * pageSize).toString(),
+        ...(selectedPatientId && { patientId: selectedPatientId })
+      });
+      const response = await fetch(`/api/medical-records?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch medical records');
+      return response.json();
+    }
   })
 
+  const medicalRecords = data?.records || []
+  const pagination = data?.pagination || { total: 0, limit: pageSize, offset: 0, hasMore: false }
+
   // Fetch patients and doctors for display names
-  const { data: patients = [] } = useQuery({
+  const { data: patients = [] } = useQuery<any[]>({
     queryKey: ['/api/patients'],
   })
 
-  const { data: doctors = [] } = useQuery({
+  const { data: doctors = [] } = useQuery<any[]>({
     queryKey: ['/api/doctors'],
   })
 
@@ -315,6 +339,39 @@ export default function MedicalRecords() {
                 <p className="text-muted-foreground">
                   {searchTerm ? 'Медицинские записи не найдены' : 'Медицинские записи отсутствуют'}
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Pagination Controls */}
+          {pagination.total > pageSize && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Показано {page * pageSize + 1}-{Math.min((page + 1) * pageSize, pagination.total)} из {pagination.total}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.max(0, p - 1))}
+                      disabled={page === 0}
+                      data-testid="button-prev-page"
+                    >
+                      Назад
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => p + 1)}
+                      disabled={!pagination.hasMore}
+                      data-testid="button-next-page"
+                    >
+                      Вперёд
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
