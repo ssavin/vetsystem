@@ -38,6 +38,7 @@ import {
   type ClinicalEncounter, type InsertClinicalEncounter,
   type LabAnalysis, type InsertLabAnalysis,
   type Attachment, type InsertAttachment,
+  type DocumentTemplate, type InsertDocumentTemplate,
   users, owners, patients, patientOwners, doctors, appointments, 
   medicalRecords, medications, services, products, 
   invoices, invoiceItems, branches, patientFiles,
@@ -48,7 +49,7 @@ import {
   salesTransactionItems, cashOperations, userRoles, userRoleAssignments,
   integrationLogs, subscriptionPlans, clinicSubscriptions,
   subscriptionPayments, billingNotifications, tenants, integrationCredentials,
-  clinicalCases, clinicalEncounters, labAnalyses, attachments
+  clinicalCases, clinicalEncounters, labAnalyses, attachments, documentTemplates
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -551,6 +552,13 @@ export interface IStorage {
   
   // Full medical history for patient
   getPatientFullHistory(patientId: string, branchId: string): Promise<any>;
+  
+  // Document Templates methods - 🔒 SECURITY: tenantId-aware with fallback to system templates
+  getDocumentTemplate(templateType: string, tenantId: string | null): Promise<DocumentTemplate | undefined>;
+  getDocumentTemplates(tenantId: string | null): Promise<DocumentTemplate[]>;
+  createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate>;
+  updateDocumentTemplate(id: string, template: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate>;
+  deleteDocumentTemplate(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4712,6 +4720,123 @@ export class DatabaseStorage implements IStorage {
           cases: casesWithDetails
         };
       });
+    });
+  }
+
+  // ========================================
+  // Document Templates Methods
+  // ========================================
+  
+  async getDocumentTemplate(templateType: string, tenantId: string | null): Promise<DocumentTemplate | undefined> {
+    return withPerformanceLogging('getDocumentTemplate', async () => {
+      // Strategy: Try tenant-specific template first, fall back to system template (NULL tenant_id)
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      // First, try to get tenant-specific template
+      if (tenantId) {
+        const [tenantTemplate] = await dbInstance
+          .select()
+          .from(documentTemplates)
+          .where(
+            and(
+              eq(documentTemplates.type, templateType),
+              eq(documentTemplates.tenantId, tenantId),
+              eq(documentTemplates.isActive, true)
+            )
+          )
+          .limit(1);
+        
+        if (tenantTemplate) {
+          return tenantTemplate;
+        }
+      }
+      
+      // Fall back to system template (NULL tenant_id)
+      const [systemTemplate] = await dbInstance
+        .select()
+        .from(documentTemplates)
+        .where(
+          and(
+            eq(documentTemplates.type, templateType),
+            isNull(documentTemplates.tenantId),
+            eq(documentTemplates.isActive, true)
+          )
+        )
+        .limit(1);
+      
+      return systemTemplate;
+    });
+  }
+
+  async getDocumentTemplates(tenantId: string | null): Promise<DocumentTemplate[]> {
+    return withPerformanceLogging('getDocumentTemplates', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      if (tenantId) {
+        // Get both tenant-specific and system templates
+        return await dbInstance
+          .select()
+          .from(documentTemplates)
+          .where(
+            and(
+              or(
+                eq(documentTemplates.tenantId, tenantId),
+                isNull(documentTemplates.tenantId)
+              ),
+              eq(documentTemplates.isActive, true)
+            )
+          )
+          .orderBy(documentTemplates.type, documentTemplates.tenantId);
+      } else {
+        // Get only system templates (for superadmin)
+        return await dbInstance
+          .select()
+          .from(documentTemplates)
+          .where(
+            and(
+              isNull(documentTemplates.tenantId),
+              eq(documentTemplates.isActive, true)
+            )
+          )
+          .orderBy(documentTemplates.type);
+      }
+    });
+  }
+
+  async createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate> {
+    return withPerformanceLogging('createDocumentTemplate', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [newTemplate] = await dbInstance
+        .insert(documentTemplates)
+        .values(template)
+        .returning();
+      
+      return newTemplate;
+    });
+  }
+
+  async updateDocumentTemplate(id: string, template: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate> {
+    return withPerformanceLogging('updateDocumentTemplate', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [updatedTemplate] = await dbInstance
+        .update(documentTemplates)
+        .set({ ...template, updatedAt: new Date() })
+        .where(eq(documentTemplates.id, id))
+        .returning();
+      
+      return updatedTemplate;
+    });
+  }
+
+  async deleteDocumentTemplate(id: string): Promise<void> {
+    return withPerformanceLogging('deleteDocumentTemplate', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      await dbInstance
+        .delete(documentTemplates)
+        .where(eq(documentTemplates.id, id));
     });
   }
 }
