@@ -43,7 +43,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
       const data = await res.json()
       return data.data || data
     },
-    enabled: open
+    enabled: open && !isEditing
   })
 
   const { data: allPatients = [] } = useQuery({
@@ -55,7 +55,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
       if (!res.ok) throw new Error('Failed to fetch patients')
       return res.json()
     },
-    enabled: open
+    enabled: open && !isEditing
   })
 
   const { data: doctors = [] } = useQuery({
@@ -210,60 +210,79 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Owner Selection */}
-                  <div className="md:col-span-2">
-                    <Label className="flex items-center gap-2 mb-2">
-                      <User className="h-4 w-4" />
-                      Владелец *
-                    </Label>
-                    <Select 
-                      value={selectedOwnerId} 
-                      onValueChange={(value) => {
-                        setSelectedOwnerId(value)
-                        // Reset patient selection when owner changes
-                        form.setValue('patientId', '')
-                      }}
-                    >
-                      <SelectTrigger data-testid="select-owner">
-                        <SelectValue placeholder="Выберите владельца" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(owners as any[]).map((owner: any) => (
-                          <SelectItem key={owner.id} value={owner.id}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{owner.name}</span>
-                              <span className="text-sm text-muted-foreground">{owner.phone}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="patientId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Пациент *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedOwnerId}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-patient">
-                              <SelectValue placeholder={!selectedOwnerId ? "Сначала выберите владельца" : "Выберите пациента"} />
-                            </SelectTrigger>
-                          </FormControl>
+                  {isEditing ? (
+                    <>
+                      {/* Read-only display when editing */}
+                      <div className="md:col-span-2">
+                        <Label className="flex items-center gap-2 mb-2">
+                          <User className="h-4 w-4" />
+                          Пациент
+                        </Label>
+                        <Input 
+                          value={recordToEdit?.patientName || 'Загрузка...'} 
+                          disabled 
+                          data-testid="input-patient-readonly"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Owner Selection */}
+                      <div className="md:col-span-2">
+                        <Label className="flex items-center gap-2 mb-2">
+                          <User className="h-4 w-4" />
+                          Владелец *
+                        </Label>
+                        <Select 
+                          value={selectedOwnerId} 
+                          onValueChange={(value) => {
+                            setSelectedOwnerId(value)
+                            // Reset patient selection when owner changes
+                            form.setValue('patientId', '')
+                          }}
+                        >
+                          <SelectTrigger data-testid="select-owner">
+                            <SelectValue placeholder="Выберите владельца" />
+                          </SelectTrigger>
                           <SelectContent>
-                            {(patients as any[]).map((patient: any) => (
-                              <SelectItem key={patient.id} value={patient.id}>
-                                {patient.name} ({patient.species})
+                            {(owners as any[]).map((owner: any) => (
+                              <SelectItem key={owner.id} value={owner.id}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{owner.name}</span>
+                                  <span className="text-sm text-muted-foreground">{owner.phone}</span>
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="patientId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Пациент *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!selectedOwnerId}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-patient">
+                                  <SelectValue placeholder={!selectedOwnerId ? "Сначала выберите владельца" : "Выберите пациента"} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {(patients as any[]).map((patient: any) => (
+                                  <SelectItem key={patient.id} value={patient.id}>
+                                    {patient.name} ({patient.species})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
 
                   <FormField
                     control={form.control}
