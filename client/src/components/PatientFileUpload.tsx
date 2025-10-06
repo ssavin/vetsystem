@@ -106,9 +106,12 @@ export function PatientFileUpload({ patientId, medicalRecordId, onFileUploaded }
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: files = [], isLoading } = useQuery<PatientFile[]>({
+  const { data: filesData, isLoading } = useQuery<PatientFile[]>({
     queryKey: ['/api/patients', patientId, 'files'],
   });
+
+  // Ensure files is always an array
+  const files = Array.isArray(filesData) ? filesData : [];
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
