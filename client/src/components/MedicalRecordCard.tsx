@@ -11,12 +11,14 @@ interface MedicalRecordProps {
   record: {
     id: string
     patientId: string
+    doctorId?: string | null
     date: string
     patientName: string
     doctorName: string
     visitType: string
-    complaints: string
-    diagnosis: string
+    visitDate?: string | Date
+    complaints: string | null
+    diagnosis: string | null
     treatment: string[]
     medications: Array<{
       name: string
@@ -24,11 +26,12 @@ interface MedicalRecordProps {
       frequency: string
       duration: string
     }>
-    nextVisit?: string
-    status: 'active' | 'completed' | 'follow-up'
-    notes?: string
-    temperature?: string
-    weight?: string
+    nextVisit?: string | null
+    status: string | null
+    notes?: string | null
+    temperature?: string | number | null
+    weight?: string | number | null
+    appointmentId?: string | null
   }
 }
 
@@ -61,7 +64,7 @@ export default function MedicalRecordCard({ record }: MedicalRecordProps) {
     }
   }
 
-  const statusConfig = getStatusConfig(record.status)
+  const statusConfig = getStatusConfig(record.status || 'active')
 
   return (
     <Card className="hover-elevate">

@@ -290,7 +290,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Врач *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger data-testid="select-doctor">
                               <SelectValue placeholder="Выберите врача" />
@@ -465,7 +465,8 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                       <FormLabel>Жалобы</FormLabel>
                       <FormControl>
                         <Textarea 
-                          {...field} 
+                          {...field}
+                          value={field.value || ""}
                           placeholder="Опишите жалобы и симптомы..."
                           rows={3}
                           data-testid="textarea-complaints"
@@ -484,7 +485,8 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                       <FormLabel>Диагноз</FormLabel>
                       <FormControl>
                         <Textarea 
-                          {...field} 
+                          {...field}
+                          value={field.value || ""}
                           placeholder="Поставленный диагноз..."
                           rows={3}
                           data-testid="textarea-diagnosis"
@@ -503,7 +505,8 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                       <FormLabel>Дополнительные заметки</FormLabel>
                       <FormControl>
                         <Textarea 
-                          {...field} 
+                          {...field}
+                          value={field.value || ""}
                           placeholder="Дополнительная информация, рекомендации..."
                           rows={3}
                           data-testid="textarea-notes"
