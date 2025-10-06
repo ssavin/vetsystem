@@ -6183,20 +6183,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user!;
       const tenantId = user.tenantId;
+      const branchId = user.branchId;
+
+      // Ensure user has valid branchId for tenant isolation
+      if (!branchId) {
+        return res.status(403).json({ error: 'Access denied: Invalid branch authorization' });
+      }
 
       // Validate request body
       const validatedData = generateDocumentSchema.parse(req.body);
       const { templateType, entityId, outputFormat } = validatedData;
 
-      // Build context based on template type
+      // Build context based on template type with tenant/branch validation
       let context: any;
       
       switch (templateType) {
         case 'invoice':
-          context = await documentService.buildInvoiceContext(entityId);
+          context = await documentService.buildInvoiceContext(entityId, tenantId, branchId);
           break;
         case 'encounter_summary':
-          context = await documentService.buildEncounterSummaryContext(entityId);
+          context = await documentService.buildEncounterSummaryContext(entityId, tenantId, branchId);
           break;
         default:
           return res.status(400).json({ error: `Context builder not implemented for template type: ${templateType}` });
