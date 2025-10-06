@@ -315,7 +315,7 @@ export const medicalRecords = pgTable("medical_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   patientId: varchar("patient_id").references(() => patients.id).notNull(),
-  doctorId: varchar("doctor_id").references(() => doctors.id).notNull(),
+  doctorId: varchar("doctor_id").references(() => doctors.id), // nullable для записей без доктора из Vetais
   appointmentId: varchar("appointment_id").references(() => appointments.id),
   visitDate: timestamp("visit_date").notNull(),
   visitType: varchar("visit_type", { length: 255 }).notNull(),

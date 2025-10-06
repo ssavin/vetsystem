@@ -46,9 +46,9 @@ async function main() {
       .from(schema.patients)
       .where(eq(schema.patients.tenantId, TENANT_ID));
     
-    const patientMap = new Map<number, string>(
+    const patientMap = new Map<string, string>(
       patients
-        .filter((p): p is typeof p & { vetaisId: number } => p.vetaisId !== null)
+        .filter((p): p is typeof p & { vetaisId: string } => p.vetaisId !== null)
         .map(p => [p.vetaisId, p.id])
     );
     console.log(`✅ Загружено ${patientMap.size} пациентов\n`);
@@ -60,9 +60,9 @@ async function main() {
       .from(schema.users)
       .where(eq(schema.users.tenantId, TENANT_ID));
     
-    const doctorMap = new Map<number, string>(
+    const doctorMap = new Map<string, string>(
       users
-        .filter((u): u is typeof u & { vetaisId: number } => u.vetaisId !== null)
+        .filter((u): u is typeof u & { vetaisId: string } => u.vetaisId !== null)
         .map(u => [u.vetaisId, u.id])
     );
     console.log(`✅ Загружено ${doctorMap.size} докторов\n`);
@@ -142,19 +142,13 @@ async function main() {
           continue;
         }
 
-        const patientId = patientMap.get(exam.id_patient);
-        const doctorId = doctorMap.get(exam.id_doctor);
+        const patientId = patientMap.get(exam.id_patient?.toString());
+        const doctorId = doctorMap.get(exam.id_doctor?.toString());
         const branchId = CLINIC_TO_BRANCH[exam.id_clinic];
 
         if (!patientId) {
           errors++;
           console.log(`   ⚠️  Пациент ${exam.id_patient} не найден для записи ${exam.id}`);
-          continue;
-        }
-
-        if (!doctorId) {
-          errors++;
-          console.log(`   ⚠️  Доктор ${exam.id_doctor} не найден для записи ${exam.id}`);
           continue;
         }
 
@@ -168,7 +162,7 @@ async function main() {
           tenantId: TENANT_ID,
           branchId,
           patientId,
-          doctorId,
+          doctorId: doctorId || null, // может быть null для старых записей
           visitDate: new Date(exam.date_created),
           visitType: 'Приём',
           complaints: exam.note || '',
