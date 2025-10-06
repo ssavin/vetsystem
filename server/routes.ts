@@ -29,6 +29,7 @@ import { fileTypeFromBuffer } from 'file-type';
 
 // 🔒🔒🔒 CRITICAL HEALTHCARE SECURITY ENFORCED - ARCHITECT VISIBILITY 🔒🔒🔒
 // Helper to check patient access - enforces patient-level authorization
+// REQUIREMENT: ALL users can access ALL patients across ALL branches (including NULL branch_id from migration)
 const ensurePatientAccess = async (user: any, patientId: string): Promise<boolean> => {
   const patient = await storage.getPatient(patientId);
   if (!patient) {
@@ -41,13 +42,8 @@ const ensurePatientAccess = async (user: any, patientId: string): Promise<boolea
     return false;
   }
   
-  // CRITICAL SECURITY: Users can only access patients from their branch
-  // Compare patient's branch with user's branch (not owner!)
-  if (patient.branchId !== user.branchId) {
-    console.warn(`🚨 SECURITY ALERT: User ${user.id} (branch: ${user.branchId}) attempted unauthorized access to patient ${patientId} (branch: ${patient.branchId})`);
-    return false;
-  }
-  
+  // ✅ UNIVERSAL ACCESS: All users can access all patients across all branches
+  // This includes migrated patients with NULL branch_id (54,242 patients from Vetais)
   return true;
 };
 
