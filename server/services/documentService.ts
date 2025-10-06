@@ -1,6 +1,7 @@
 import Handlebars from 'handlebars';
 import puppeteer from 'puppeteer';
 import { storage } from '../storage';
+import { execSync } from 'child_process';
 
 /**
  * Document Service
@@ -26,20 +27,38 @@ export class DocumentService {
   }
 
   /**
+   * Get Chromium executable path
+   */
+  private getChromiumPath(): string {
+    try {
+      const chromiumPath = execSync('which chromium', { encoding: 'utf-8' }).trim();
+      return chromiumPath;
+    } catch (error) {
+      console.error('Failed to find chromium executable:', error);
+      throw new Error('Chromium not found. Please ensure chromium is installed.');
+    }
+  }
+
+  /**
    * Generate PDF from HTML
    */
   async generatePDF(html: string): Promise<Buffer> {
     let browser;
     
     try {
-      // Launch headless browser
+      // Get system Chromium path
+      const chromiumPath = this.getChromiumPath();
+      
+      // Launch headless browser with system Chromium
       browser = await puppeteer.launch({
         headless: true,
+        executablePath: chromiumPath,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-gpu'
+          '--disable-gpu',
+          '--disable-software-rasterizer'
         ]
       });
 
@@ -85,31 +104,24 @@ export class DocumentService {
       throw new Error('Access denied: Invoice belongs to different tenant');
     }
 
-    // Verify branch ownership
-    if (invoice.branchId !== branchId) {
-      throw new Error('Access denied: Invoice belongs to different branch');
-    }
-
     const items = await storage.getInvoiceItems(invoiceId);
     
-    // Fetch client/patient info
+    // Fetch patient and owner info
+    const patient = await storage.getPatient(invoice.patientId);
+    if (!patient) {
+      throw new Error('Patient not found for invoice');
+    }
+
+    // Get primary owner
+    const owners = await storage.getPatientOwners(patient.id);
+    const primaryOwner = owners.find(o => o.isPrimary) || owners[0];
+    
     let clientInfo: any = { name: 'Не указан', phone: '' };
-    if (invoice.customerId) {
-      const customer = await storage.getCustomer(invoice.customerId);
-      if (customer) {
-        clientInfo = {
-          name: customer.name,
-          phone: customer.phone || ''
-        };
-      }
-    } else if (invoice.ownerId) {
-      const owner = await storage.getOwner(invoice.ownerId);
-      if (owner) {
-        clientInfo = {
-          name: owner.fullName,
-          phone: owner.phone || ''
-        };
-      }
+    if (primaryOwner) {
+      clientInfo = {
+        name: primaryOwner.name,
+        phone: primaryOwner.phone || ''
+      };
     }
 
     // Fetch branch/clinic info
@@ -120,8 +132,8 @@ export class DocumentService {
       email: ''
     };
     
-    if (invoice.branchId) {
-      const branch = await storage.getBranch(invoice.branchId);
+    if (branchId) {
+      const branch = await storage.getBranch(branchId);
       if (branch) {
         clinicInfo = {
           name: branch.name,
@@ -142,17 +154,17 @@ export class DocumentService {
 
     // Calculate totals
     const subtotal = parseFloat(invoice.subtotal.toString());
-    const tax = parseFloat(invoice.taxAmount.toString());
+    const discount = parseFloat((invoice.discount || '0').toString());
     const total = parseFloat(invoice.total.toString());
 
     return {
       invoiceNumber: invoice.invoiceNumber,
-      date: new Date(invoice.invoiceDate).toLocaleDateString('ru-RU'),
+      date: new Date(invoice.issueDate).toLocaleDateString('ru-RU'),
       clinic: clinicInfo,
       client: clientInfo,
       items: mappedItems,
       subtotal,
-      tax,
+      discount,
       total
     };
   }
@@ -190,7 +202,7 @@ export class DocumentService {
     let ownerInfo: any = { name: 'Не указан', phone: '' };
     if (primaryOwner) {
       ownerInfo = {
-        name: primaryOwner.fullName,
+        name: primaryOwner.name,
         phone: primaryOwner.phone || ''
       };
     }
@@ -201,7 +213,7 @@ export class DocumentService {
       const doctor = await storage.getDoctor(record.doctorId);
       if (doctor) {
         doctorInfo = {
-          name: doctor.fullName,
+          name: doctor.name,
           specialization: doctor.specialization || ''
         };
       }
@@ -237,7 +249,7 @@ export class DocumentService {
       : (record.treatment ? [record.treatment] : []);
 
     return {
-      date: new Date(record.date).toLocaleDateString('ru-RU'),
+      date: new Date(record.createdAt).toLocaleDateString('ru-RU'),
       patient: patientInfo,
       owner: ownerInfo,
       doctor: doctorInfo,
