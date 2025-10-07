@@ -1,20 +1,7 @@
-import { useState, useEffect } from "react"
-import { Check, ChevronsUpDown, Search } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Check, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
 import { useQuery } from "@tanstack/react-query"
 
 interface Owner {
@@ -48,9 +35,11 @@ export function OwnerPatientAutocomplete({
   placeholder = "Поиск владельца или пациента...",
   disabled = false
 }: OwnerPatientAutocompleteProps) {
-  const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [isOpen, setIsOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const { data: searchResults = [], isLoading } = useQuery<OwnerWithPatients[]>({
     queryKey: ['/api/owners/search-with-patients', searchQuery],
@@ -83,85 +72,91 @@ export function OwnerPatientAutocomplete({
     }
   }, [value, searchResults, selectedPatient])
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const handleSelect = (patient: Patient) => {
     setSelectedPatient(patient)
     onSelect(patient.id, patient)
-    setOpen(false)
+    setSearchQuery("")
+    setIsOpen(false)
   }
 
-  const displayText = selectedPatient
-    ? `${selectedPatient.name} (${selectedPatient.species || 'не указано'})`
-    : placeholder
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value
+    setSearchQuery(query)
+    setIsOpen(query.length >= 2)
+  }
+
+  const showDropdown = isOpen && searchQuery.length >= 2
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          ref={inputRef}
+          type="text"
+          value={searchQuery}
+          onChange={handleInputChange}
+          onFocus={() => searchQuery.length >= 2 && setIsOpen(true)}
+          placeholder={placeholder}
           disabled={disabled}
-          data-testid="button-autocomplete-trigger"
+          className="pl-9"
+          data-testid="input-autocomplete-search"
+        />
+      </div>
+
+      {showDropdown && (
+        <div
+          ref={dropdownRef}
+          className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-[300px] overflow-y-auto"
+          data-testid="dropdown-autocomplete-results"
         >
-          <span className="truncate">{displayText}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput
-            placeholder="Введите имя владельца или кличку питомца..."
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            data-testid="input-autocomplete-search"
-          />
-          <CommandList>
-            {searchQuery.length < 2 ? (
-              <CommandEmpty>
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  <Search className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                  Введите минимум 2 символа для поиска
-                </div>
-              </CommandEmpty>
-            ) : isLoading ? (
-              <CommandEmpty>
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  Поиск...
-                </div>
-              </CommandEmpty>
-            ) : searchResults.length === 0 ? (
-              <CommandEmpty>
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  Ничего не найдено
-                </div>
-              </CommandEmpty>
-            ) : (
-              searchResults.map((owner) => (
-                <CommandGroup
-                  key={owner.id}
-                  heading={
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{owner.name}</span>
-                      {owner.phone && (
-                        <span className="text-xs text-muted-foreground">
-                          {owner.phone}
-                        </span>
-                      )}
-                    </div>
-                  }
-                >
+          {isLoading ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              Поиск...
+            </div>
+          ) : searchResults.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              Ничего не найдено
+            </div>
+          ) : (
+            <div className="py-1">
+              {searchResults.map((owner) => (
+                <div key={owner.id}>
+                  <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50">
+                    {owner.name}
+                    {owner.phone && (
+                      <span className="ml-2 text-muted-foreground/70">
+                        {owner.phone}
+                      </span>
+                    )}
+                  </div>
                   {owner.patients.map((patient) => (
-                    <CommandItem
+                    <div
                       key={patient.id}
-                      value={patient.id}
-                      onSelect={() => handleSelect(patient)}
-                      className="cursor-pointer"
+                      onClick={() => handleSelect(patient)}
+                      className="px-3 py-2 cursor-pointer hover-elevate active-elevate-2 flex items-center gap-2"
                       data-testid={`item-patient-${patient.id}`}
                     >
                       <Check
                         className={cn(
-                          "mr-2 h-4 w-4",
+                          "h-4 w-4",
                           selectedPatient?.id === patient.id
                             ? "opacity-100"
                             : "opacity-0"
@@ -174,14 +169,14 @@ export function OwnerPatientAutocomplete({
                           {patient.breed && ` • ${patient.breed}`}
                         </div>
                       </div>
-                    </CommandItem>
+                    </div>
                   ))}
-                </CommandGroup>
-              ))
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
