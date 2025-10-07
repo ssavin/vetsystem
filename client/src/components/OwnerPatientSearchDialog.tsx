@@ -117,58 +117,44 @@ export default function OwnerPatientSearchDialog({
     return labels[species] || species
   }
 
-  // Autocomplete mode - using Command component
+  // Autocomplete mode - simple input with datalist
   if (showAutocomplete) {
+    const patientOptions: Array<{id: string, name: string, owner: OwnerWithPatients}> = []
+    if (searchData?.owners) {
+      searchData.owners.forEach(owner => {
+        owner.patients?.forEach(patient => {
+          patientOptions.push({
+            id: patient.id,
+            name: `${patient.name} (${owner.name})`,
+            owner
+          })
+        })
+      })
+    }
+    
     return (
-      <Command className="rounded-lg border" shouldFilter={false}>
-        <CommandInput 
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input
+          ref={inputRef}
           placeholder={placeholder}
           value={searchQuery}
-          onValueChange={(value) => {
-            setSearchQuery(value)
-            setIsOpen(value.length >= minSearchLength)
-          }}
+          onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
             }
           }}
+          list="patient-options"
+          className="pl-9"
           data-testid="input-search-owner-patient"
         />
-        {isOpen && (
-          <CommandList>
-            {isLoading ? (
-              <div className="py-4 text-center text-sm text-muted-foreground">Поиск...</div>
-            ) : searchData && searchData.total > 0 ? (
-              searchData.owners.map((owner) => (
-                <CommandGroup key={owner.id} heading={`${owner.name}${owner.phone ? ' • ' + owner.phone : ''}`}>
-                  {owner.patients && owner.patients.map((patient) => (
-                    <CommandItem
-                      key={patient.id}
-                      value={`${patient.name}-${patient.id}`}
-                      onSelect={() => {
-                        console.log('Patient selected via Command:', patient.id, patient.name)
-                        handlePatientSelect(patient, owner)
-                      }}
-                      data-testid={`item-patient-${patient.id}`}
-                    >
-                      <div className="flex flex-col">
-                        <div className="font-medium text-sm">{patient.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {getSpeciesLabel(patient.species)}
-                          {patient.breed && ` • ${patient.breed}`}
-                        </div>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              ))
-            ) : searchQuery.length >= minSearchLength ? (
-              <CommandEmpty>Ничего не найдено</CommandEmpty>
-            ) : null}
-          </CommandList>
-        )}
-      </Command>
+        <datalist id="patient-options">
+          {patientOptions.map(({id, name}) => (
+            <option key={id} value={name} data-id={id} />
+          ))}
+        </datalist>
+      </div>
     )
   }
 

@@ -236,7 +236,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                               form.setValue('patientId', patientId)
                             }}
                             placeholder="Поиск по ФИО владельца или кличке животного..."
-                            showAutocomplete={true}
+                            showAutocomplete={false}
                           />
                         )}
                         {form.formState.errors.patientId && (
