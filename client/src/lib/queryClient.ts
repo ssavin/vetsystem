@@ -75,8 +75,8 @@ export const getQueryFn: <T>(options: {
       return null;
     }
 
-    await throwIfResNotOk(res, makeRequest);
-    return await res.json();
+    const finalRes = await throwIfResNotOk(res, makeRequest);
+    return await finalRes.json();
   };
 
 export const queryClient = new QueryClient({
