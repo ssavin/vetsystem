@@ -260,7 +260,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                               <SelectValue placeholder="Выберите врача" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="z-[100]">
                             {doctors.map((doctor: any) => (
                               <SelectItem key={doctor.id} value={doctor.id}>
                                 {doctor.name} {doctor.specialization && `(${doctor.specialization})`}
