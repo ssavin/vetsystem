@@ -5,14 +5,78 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Plus, Filter, Calendar, Brain, X } from "lucide-react"
+import { Search, Plus, Filter, Calendar, Brain, X, FileText, Edit } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import MedicalRecordCard from "@/components/MedicalRecordCard"
 import MedicalRecordForm from "@/components/MedicalRecordForm"
 import AIAssistant from "@/components/AIAssistant"
 import type { MedicalRecord } from "@shared/schema"
 import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { PrintDocumentButton } from "@/components/PrintDocumentButton"
 
+// Table row component for medical records
+function MedicalRecordTableRow({ record }: { record: any }) {
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'active':
+        return { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300', text: 'Активное лечение' }
+      case 'completed':
+        return { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300', text: 'Завершено' }
+      case 'follow-up':
+      case 'follow_up_required':
+        return { color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300', text: 'Требует наблюдения' }
+      default:
+        return { color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300', text: 'Неизвестно' }
+    }
+  }
+
+  const statusConfig = getStatusConfig(record.status || 'active')
+
+  return (
+    <>
+      <TableRow className="hover-elevate" data-testid={`row-medical-record-${record.id}`}>
+        <TableCell data-testid={`text-record-date-${record.id}`}>{record.date}</TableCell>
+        <TableCell data-testid={`text-patient-name-${record.id}`}>{record.patientName}</TableCell>
+        <TableCell data-testid={`text-owner-name-${record.id}`}>{record.ownerName}</TableCell>
+        <TableCell data-testid={`text-doctor-name-${record.id}`}>{record.doctorName}</TableCell>
+        <TableCell>{record.visitType}</TableCell>
+        <TableCell className="max-w-xs truncate" title={record.diagnosis || ''}>
+          {record.diagnosis || '-'}
+        </TableCell>
+        <TableCell>
+          <Badge className={statusConfig.color} data-testid={`status-record-${record.id}`}>
+            {statusConfig.text}
+          </Badge>
+        </TableCell>
+        <TableCell className="text-right">
+          <div className="flex gap-1 justify-end">
+            <MedicalRecordForm 
+              recordToEdit={record}
+              trigger={
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  data-testid={`button-edit-record-${record.id}`}
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Редактировать
+                </Button>
+              }
+            />
+            <PrintDocumentButton
+              entityId={record.id}
+              entityType="medical_record"
+              variant="outline"
+              size="sm"
+              showLabel={true}
+            />
+          </div>
+        </TableCell>
+      </TableRow>
+    </>
+  )
+}
 
 export default function MedicalRecords() {
   const { t } = useTranslation('medicalRecords')
@@ -83,15 +147,9 @@ export default function MedicalRecords() {
     enabled: patientIds.length > 0
   })
 
-  const { data: users = [] } = useQuery<any[]>({
-    queryKey: ['/api/users'],
+  const { data: doctors = [] } = useQuery<any[]>({
+    queryKey: ['/api/doctors'],
   })
-
-  // Filter only doctors from users
-  const doctors = useMemo(() => {
-    if (!Array.isArray(users)) return []
-    return users.filter((user: any) => user.role === 'врач' || user.role === 'doctor')
-  }, [users])
 
   // Create lookup maps for patient and doctor names
   const patientMap = useMemo(() => {
@@ -122,12 +180,16 @@ export default function MedicalRecords() {
       const nextVisitDate = record.nextVisit ? new Date(record.nextVisit) : null
       const isValidNextVisit = nextVisitDate && !isNaN(nextVisitDate.getTime())
       
+      // Get owner name from patient data (uses primary owner)
+      const ownerName = patient?.primaryOwnerName || patient?.owners?.[0]?.name || t('unknownOwner', 'Владелец неизвестен')
+      
       return {
         ...record,
         patientId: record.patientId,
         date: isValidVisitDate ? visitDate.toLocaleDateString('ru-RU') : t('unknownDate'),
         patientName: patient ? patient.name : t('unknownPatient'),
         doctorName: doctor ? doctor.name : t('unknownDoctor'),
+        ownerName,
         medications: [],
         nextVisit: isValidNextVisit ? nextVisitDate.toLocaleDateString('ru-RU') : undefined,
         treatment: Array.isArray(record.treatment) ? record.treatment : []
@@ -349,23 +411,39 @@ export default function MedicalRecords() {
             </p>
           </CardContent>
         </Card>
+      ) : filteredRecords.length === 0 ? (
+        <Card className="text-center py-8">
+          <CardContent>
+            <p className="text-muted-foreground">
+              {searchTerm ? 'Медицинские записи не найдены' : 'Медицинские записи отсутствуют'}
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <>
-          <div className="space-y-4">
-            {filteredRecords.map((record, index) => (
-              <MedicalRecordCard key={record.id || `record-${index}`} record={record} />
-            ))}
-          </div>
-
-          {filteredRecords.length === 0 && (
-            <Card className="text-center py-8">
-              <CardContent>
-                <p className="text-muted-foreground">
-                  {searchTerm ? 'Медицинские записи не найдены' : 'Медицинские записи отсутствуют'}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Дата</TableHead>
+                    <TableHead>Пациент</TableHead>
+                    <TableHead>Владелец</TableHead>
+                    <TableHead>Врач</TableHead>
+                    <TableHead>Тип визита</TableHead>
+                    <TableHead>Диагноз</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead className="text-right">Действия</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRecords.map((record, index) => (
+                    <MedicalRecordTableRow key={record.id || `record-${index}`} record={record} />
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
           {/* Pagination Controls */}
           {pagination.total > pageSize && (
