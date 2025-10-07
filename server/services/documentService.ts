@@ -179,14 +179,9 @@ export class DocumentService {
       throw new Error(`Medical record not found: ${recordId}`);
     }
 
-    // Verify tenant ownership
+    // Verify tenant ownership (only tenant isolation, allow cross-branch access)
     if (record.tenantId !== tenantId) {
       throw new Error('Access denied: Medical record belongs to different tenant');
-    }
-
-    // Verify branch ownership (medical records can be cross-branch accessible, but verify tenant)
-    if (record.branchId !== branchId) {
-      throw new Error('Access denied: Medical record belongs to different branch');
     }
 
     // Fetch patient info
@@ -275,14 +270,9 @@ export class DocumentService {
       throw new Error(`Medical record not found: ${recordId}`);
     }
 
-    // Verify tenant ownership
+    // Verify tenant ownership (only tenant isolation, allow cross-branch access)
     if (record.tenantId !== tenantId) {
       throw new Error('Access denied: Medical record belongs to different tenant');
-    }
-
-    // Verify branch ownership (medical records can be cross-branch accessible, but verify tenant)
-    if (record.branchId !== branchId) {
-      throw new Error('Access denied: Medical record belongs to different branch');
     }
 
     // Fetch patient info
@@ -389,14 +379,9 @@ export class DocumentService {
       throw new Error(`Medical record not found: ${encounterId}`);
     }
 
-    // Verify tenant ownership
+    // Verify tenant ownership (only tenant isolation, allow cross-branch access)
     if (record.tenantId !== tenantId) {
       throw new Error('Access denied: Medical record belongs to different tenant');
-    }
-
-    // Verify branch ownership (medical records can be cross-branch accessible, but verify tenant)
-    if (record.branchId !== branchId) {
-      throw new Error('Access denied: Medical record belongs to different branch');
     }
 
     // Fetch patient info
