@@ -89,6 +89,7 @@ export default function MedicalRecords() {
 
   // Filter only doctors from users
   const doctors = useMemo(() => {
+    if (!Array.isArray(users)) return []
     return users.filter((user: any) => user.role === 'врач' || user.role === 'doctor')
   }, [users])
 
