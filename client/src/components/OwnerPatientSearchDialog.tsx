@@ -118,7 +118,7 @@ export default function OwnerPatientSearchDialog({
                       <button
                         type="button"
                         key={patient.id}
-                        onClick={(e) => {
+                        onMouseDown={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
                           handlePatientSelect(patient, owner)
