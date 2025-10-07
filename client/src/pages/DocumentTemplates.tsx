@@ -151,7 +151,7 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
                     </FormControl>
                     <SelectContent>
                       {Object.entries(templateTypeNames).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                        <SelectItem key={value} value={value} data-testid={`select-item-template-type-${value}`}>{label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -205,10 +205,10 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
             />
 
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel-template">
                 Отмена
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-template">
                 {template ? 'Сохранить' : 'Создать'}
               </Button>
             </div>
@@ -259,9 +259,9 @@ export default function DocumentTemplates() {
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="p-8 text-center text-muted-foreground">Загрузка...</div>
+            <div className="p-8 text-center text-muted-foreground" data-testid="text-loading-templates">Загрузка...</div>
           ) : templates.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
+            <div className="p-8 text-center text-muted-foreground" data-testid="text-empty-templates">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>Шаблоны не найдены</p>
               <p className="text-sm mt-2">Создайте первый шаблон для печати документов</p>
@@ -281,21 +281,21 @@ export default function DocumentTemplates() {
               <TableBody>
                 {templates.map((template) => (
                   <TableRow key={template.id} data-testid={`row-template-${template.id}`}>
-                    <TableCell className="font-medium">{template.name}</TableCell>
-                    <TableCell>{templateTypeNames[template.type] || template.type}</TableCell>
+                    <TableCell className="font-medium" data-testid={`text-template-name-${template.id}`}>{template.name}</TableCell>
+                    <TableCell data-testid={`text-template-type-${template.id}`}>{templateTypeNames[template.type] || template.type}</TableCell>
                     <TableCell>
-                      <Badge variant={template.isActive ? "default" : "secondary"}>
+                      <Badge variant={template.isActive ? "default" : "secondary"} data-testid={`badge-template-status-${template.id}`}>
                         {template.isActive ? 'Активен' : 'Неактивен'}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={template.tenantId ? "outline" : "secondary"}>
+                      <Badge variant={template.tenantId ? "outline" : "secondary"} data-testid={`badge-template-scope-${template.id}`}>
                         {template.tenantId ? 'Клиника' : 'Система'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{new Date(template.createdAt).toLocaleDateString('ru-RU')}</TableCell>
+                    <TableCell data-testid={`text-template-date-${template.id}`}>{new Date(template.createdAt).toLocaleDateString('ru-RU')}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex gap-1 justify-end">
+                      <div className="flex gap-1 justify-end" data-testid={`actions-template-${template.id}`}>
                         <TemplateDialog template={template} onSuccess={() => {}} />
                         {template.tenantId && (
                           <Button
