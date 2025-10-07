@@ -118,7 +118,7 @@ export default function OwnerPatientSearchDialog({
                       <div
                         key={patient.id}
                         onClick={() => handlePatientSelect(patient, owner)}
-                        className="px-3 py-2 cursor-pointer hover-elevate active-elevate-2"
+                        className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
                         data-testid={`item-patient-${patient.id}`}
                       >
                         <div className="font-medium text-sm">{patient.name}</div>
