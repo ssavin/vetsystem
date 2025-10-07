@@ -878,13 +878,14 @@ export class DatabaseStorage implements IStorage {
         const searchQuery = `%${query}%`;
         
         // Search in both owners and patients tables (case-insensitive)
+        // Use innerJoin to only return owners who HAVE patients
         const ownerIds = await dbInstance
           .selectDistinct({ 
             id: owners.id,
             createdAt: owners.createdAt 
           })
           .from(owners)
-          .leftJoin(patients, eq(patients.ownerId, owners.id))
+          .innerJoin(patients, eq(patients.ownerId, owners.id))
           .where(
             or(
               ilike(owners.name, searchQuery),
