@@ -103,7 +103,7 @@ export default function OwnerPatientSearchDialog({
         />
         
         {isOpen && (
-          <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[300px] overflow-y-auto">
+          <div className="absolute z-[9999] w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[300px] overflow-y-auto">
             {isLoading ? (
               <div className="py-4 text-center text-sm text-muted-foreground">Поиск...</div>
             ) : searchData && searchData.total > 0 ? (
@@ -115,10 +115,15 @@ export default function OwnerPatientSearchDialog({
                       {owner.phone && <span className="ml-2 text-muted-foreground/70">{owner.phone}</span>}
                     </div>
                     {owner.patients && owner.patients.map((patient) => (
-                      <div
+                      <button
+                        type="button"
                         key={patient.id}
-                        onClick={() => handlePatientSelect(patient, owner)}
-                        className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handlePatientSelect(patient, owner)
+                        }}
+                        className="w-full text-left px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
                         data-testid={`item-patient-${patient.id}`}
                       >
                         <div className="font-medium text-sm">{patient.name}</div>
@@ -126,7 +131,7 @@ export default function OwnerPatientSearchDialog({
                           {getSpeciesLabel(patient.species)}
                           {patient.breed && ` • ${patient.breed}`}
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 ))}
