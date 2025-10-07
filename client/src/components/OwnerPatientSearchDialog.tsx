@@ -99,6 +99,11 @@ export default function OwnerPatientSearchDialog({
           placeholder={placeholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+            }
+          }}
           className="pl-9"
           data-testid="input-search-owner-patient"
         />
@@ -161,6 +166,11 @@ export default function OwnerPatientSearchDialog({
           placeholder={placeholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+            }
+          }}
           className="pl-9"
           data-testid="input-search-owner-patient"
         />
