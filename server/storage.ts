@@ -53,7 +53,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
-import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, ilike, type SQL } from "drizzle-orm";
+import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, ilike, inArray, type SQL } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { AsyncLocalStorage } from 'async_hooks';
@@ -920,7 +920,7 @@ export class DatabaseStorage implements IStorage {
           })
           .from(owners)
           .leftJoin(patients, eq(patients.ownerId, owners.id))
-          .where(sql`${owners.id} = ANY(${paginatedOwnerIds})`)
+          .where(inArray(owners.id, paginatedOwnerIds))
           .orderBy(desc(owners.createdAt));
 
         // Group by owner
