@@ -55,19 +55,40 @@ export function PrintDocumentButton({
       return response.blob();
     },
     onSuccess: (blob, variables) => {
-      // Create download link and trigger download
+      // Create blob URL and open in new window for printing
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `document-${entityId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const printWindow = window.open(url, '_blank');
+      
+      if (printWindow) {
+        // Wait for PDF to load, then trigger print dialog
+        printWindow.onload = () => {
+          printWindow.print();
+          // Clean up blob URL after a delay
+          setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+          }, 1000);
+        };
+      } else {
+        // Fallback: if popup blocked, download the file
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `document-${entityId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        toast({
+          variant: 'destructive',
+          title: 'Всплывающее окно заблокировано',
+          description: 'Документ скачан. Разрешите всплывающие окна для автоматической печати.'
+        });
+        return;
+      }
 
       toast({
-        title: 'Документ сгенерирован',
-        description: 'PDF файл успешно загружен'
+        title: 'Документ готов к печати',
+        description: 'Откроется диалог печати'
       });
     },
     onError: (error: Error) => {
