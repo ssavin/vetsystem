@@ -64,18 +64,19 @@ export default function OwnerPatientSearchDialog({
   })
 
   const handlePatientSelect = (patient: Patient, owner: OwnerWithPatients) => {
+    console.log('Patient selected:', patient.id, patient.name)
     onSelectPatient(patient.id, patient.name, owner.id, owner.name)
     setSearchQuery("")
     setIsOpen(false)
   }
 
   useEffect(() => {
-    if (showAutocomplete && debouncedSearch.length >= minSearchLength) {
+    if (showAutocomplete && searchQuery.length >= minSearchLength) {
       setIsOpen(true)
-    } else {
+    } else if (searchQuery.length < minSearchLength) {
       setIsOpen(false)
     }
-  }, [debouncedSearch, minSearchLength, showAutocomplete])
+  }, [searchQuery, minSearchLength, showAutocomplete])
 
   const getSpeciesLabel = (species: string) => {
     const labels: Record<string, string> = {
