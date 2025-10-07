@@ -877,6 +877,8 @@ export class DatabaseStorage implements IStorage {
       return withTenantContext(undefined, async (dbInstance) => {
         const searchQuery = `%${query}%`;
         
+        console.log('🔍 searchOwnersWithPatients - query:', query, 'searchQuery:', searchQuery);
+        
         // Search in both owners and patients tables (case-insensitive)
         // Use patientOwners junction table for many-to-many relationships
         const ownerIds = await dbInstance
@@ -897,12 +899,17 @@ export class DatabaseStorage implements IStorage {
           )
           .orderBy(desc(owners.createdAt));
 
+        console.log('🔍 searchOwnersWithPatients - ownerIds count:', ownerIds.length);
+
         const total = ownerIds.length;
 
         // Get paginated owner IDs
         const paginatedOwnerIds = ownerIds.slice(offset, offset + limit).map(o => o.id);
 
+        console.log('🔍 searchOwnersWithPatients - paginatedOwnerIds:', paginatedOwnerIds.slice(0, 3));
+
         if (paginatedOwnerIds.length === 0) {
+          console.log('🔍 searchOwnersWithPatients - NO RESULTS');
           return { owners: [], total: 0 };
         }
 
@@ -925,6 +932,8 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(patients, eq(patients.id, patientOwners.patientId))
           .where(inArray(owners.id, paginatedOwnerIds))
           .orderBy(desc(owners.createdAt));
+
+        console.log('🔍 searchOwnersWithPatients - ownersWithPatients count:', ownersWithPatients.length);
 
         // Group by owner
         const groupedOwners = ownersWithPatients.reduce((acc: any[], row: any) => {
@@ -951,6 +960,9 @@ export class DatabaseStorage implements IStorage {
           }
           return acc;
         }, []);
+
+        console.log('🔍 searchOwnersWithPatients - groupedOwners count:', groupedOwners.length);
+        console.log('🔍 searchOwnersWithPatients - first owner:', groupedOwners[0]);
 
         return { owners: groupedOwners, total };
       });
