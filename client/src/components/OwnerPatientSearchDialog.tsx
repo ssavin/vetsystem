@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 import { useQuery } from "@tanstack/react-query"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -45,6 +46,8 @@ export default function OwnerPatientSearchDialog({
 }: OwnerPatientSearchDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [isOpen, setIsOpen] = useState(false)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
+  const inputRef = useRef<HTMLInputElement>(null)
   const debouncedSearch = useDebounce(searchQuery, 300)
 
   // Fetch search results
@@ -73,10 +76,33 @@ export default function OwnerPatientSearchDialog({
   useEffect(() => {
     if (showAutocomplete && searchQuery.length >= minSearchLength) {
       setIsOpen(true)
+      // Calculate dropdown position
+      if (inputRef.current) {
+        const rect = inputRef.current.getBoundingClientRect()
+        setDropdownPosition({
+          top: rect.bottom + window.scrollY,
+          left: rect.left + window.scrollX,
+          width: rect.width
+        })
+      }
     } else if (searchQuery.length < minSearchLength) {
       setIsOpen(false)
     }
   }, [searchQuery, minSearchLength, showAutocomplete])
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
 
   const getSpeciesLabel = (species: string) => {
     const labels: Record<string, string> = {
@@ -92,10 +118,63 @@ export default function OwnerPatientSearchDialog({
 
   // Autocomplete mode - compact dropdown
   if (showAutocomplete) {
+    const dropdown = isOpen && createPortal(
+      <div 
+        className="fixed z-[9999] bg-card border rounded-md shadow-lg max-h-[300px] overflow-y-auto"
+        style={{
+          top: `${dropdownPosition.top}px`,
+          left: `${dropdownPosition.left}px`,
+          width: `${dropdownPosition.width}px`
+        }}
+      >
+        <div className="p-2">
+          {isLoading ? (
+            <div className="py-4 text-center text-sm text-muted-foreground">Поиск...</div>
+          ) : searchData && searchData.total > 0 ? (
+            <div className="space-y-1">
+              {searchData.owners.map((owner) => (
+                <div key={owner.id} className="space-y-1">
+                  <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                    {owner.name}
+                    {owner.phone && <span className="ml-2">{owner.phone}</span>}
+                  </div>
+                  {owner.patients && owner.patients.map((patient) => (
+                    <button
+                      key={patient.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 rounded-md hover:bg-accent transition-colors"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        console.log('Patient clicked:', patient.id, patient.name)
+                        handlePatientSelect(patient, owner)
+                      }}
+                      data-testid={`item-patient-${patient.id}`}
+                    >
+                      <div className="flex flex-col items-start">
+                        <div className="font-medium text-sm">{patient.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {getSpeciesLabel(patient.species)}
+                          {patient.breed && ` • ${patient.breed}`}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-4 text-center text-sm text-muted-foreground">Ничего не найдено</div>
+          )}
+        </div>
+      </div>,
+      document.body
+    )
+    
     return (
       <div className="relative">
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input
+          ref={inputRef}
           placeholder={placeholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -107,49 +186,7 @@ export default function OwnerPatientSearchDialog({
           className="pl-9"
           data-testid="input-search-owner-patient"
         />
-        
-        {isOpen && (
-          <div className="absolute z-[100] w-full mt-1 bg-card border rounded-md shadow-lg max-h-[300px] overflow-y-auto">
-            <div className="p-2">
-              {isLoading ? (
-                <div className="py-4 text-center text-sm text-muted-foreground">Поиск...</div>
-              ) : searchData && searchData.total > 0 ? (
-                <div className="space-y-1">
-                  {searchData.owners.map((owner) => (
-                    <div key={owner.id} className="space-y-1">
-                      <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                        {owner.name}
-                        {owner.phone && <span className="ml-2">{owner.phone}</span>}
-                      </div>
-                      {owner.patients && owner.patients.map((patient) => (
-                        <button
-                          key={patient.id}
-                          type="button"
-                          className="w-full text-left px-3 py-2 rounded-md hover:bg-accent transition-colors"
-                          onClick={() => {
-                            console.log('Patient clicked:', patient.id, patient.name)
-                            handlePatientSelect(patient, owner)
-                          }}
-                          data-testid={`item-patient-${patient.id}`}
-                        >
-                          <div className="flex flex-col items-start">
-                            <div className="font-medium text-sm">{patient.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {getSpeciesLabel(patient.species)}
-                              {patient.breed && ` • ${patient.breed}`}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-4 text-center text-sm text-muted-foreground">Ничего не найдено</div>
-              )}
-            </div>
-          </div>
-        )}
+        {dropdown}
       </div>
     )
   }
