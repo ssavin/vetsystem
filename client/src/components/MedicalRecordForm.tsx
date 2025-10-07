@@ -213,7 +213,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                               <User className="h-4 w-4" />
                               Владелец и пациент *
                             </FormLabel>
-                            <FormControl>
+                            <div>
                               {selectedPatient ? (
                                 <div className="flex items-center gap-2">
                                   <Input
@@ -251,7 +251,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                                   placeholder="Начните вводить имя владельца или кличку питомца..."
                                 />
                               )}
-                            </FormControl>
+                            </div>
                             <FormMessage />
                           </FormItem>
                         )}
