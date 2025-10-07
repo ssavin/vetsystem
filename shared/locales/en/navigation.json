@@ -10,6 +10,7 @@
     "finance": "Sales",
     "reports": "Reports",
     "settings": "Settings",
+    "documentTemplates": "Document Templates",
     "adminPanel": "Admin Panel"
   },
   "appTitle": "VetSystem",

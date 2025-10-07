@@ -10,6 +10,7 @@
     "finance": "Продажи",
     "reports": "Отчеты",
     "settings": "Настройки",
+    "documentTemplates": "Шаблоны документов",
     "adminPanel": "Админ-панель"
   },
   "appTitle": "VetSystem",
