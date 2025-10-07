@@ -34,14 +34,17 @@ interface OwnerPatientSearchDialogProps {
   onSelectPatient: (patientId: string, patientName: string, ownerId: string, ownerName: string) => void
   placeholder?: string
   minSearchLength?: number
+  showAutocomplete?: boolean
 }
 
 export default function OwnerPatientSearchDialog({
   onSelectPatient,
   placeholder = "Поиск по ФИО владельца или кличке животного...",
-  minSearchLength = 2
+  minSearchLength = 2,
+  showAutocomplete = false
 }: OwnerPatientSearchDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [isOpen, setIsOpen] = useState(false)
   const debouncedSearch = useDebounce(searchQuery, 300)
 
   // Fetch search results
@@ -63,7 +66,16 @@ export default function OwnerPatientSearchDialog({
   const handlePatientSelect = (patient: Patient, owner: OwnerWithPatients) => {
     onSelectPatient(patient.id, patient.name, owner.id, owner.name)
     setSearchQuery("")
+    setIsOpen(false)
   }
+
+  useEffect(() => {
+    if (showAutocomplete && debouncedSearch.length >= minSearchLength) {
+      setIsOpen(true)
+    } else {
+      setIsOpen(false)
+    }
+  }, [debouncedSearch, minSearchLength, showAutocomplete])
 
   const getSpeciesLabel = (species: string) => {
     const labels: Record<string, string> = {
@@ -77,6 +89,58 @@ export default function OwnerPatientSearchDialog({
     return labels[species] || species
   }
 
+  // Autocomplete mode - compact dropdown
+  if (showAutocomplete) {
+    return (
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={placeholder}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+          data-testid="input-search-owner-patient"
+        />
+        
+        {isOpen && (
+          <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[300px] overflow-y-auto">
+            {isLoading ? (
+              <div className="py-4 text-center text-sm text-muted-foreground">Поиск...</div>
+            ) : searchData && searchData.total > 0 ? (
+              <div className="py-1">
+                {searchData.owners.map((owner) => (
+                  <div key={owner.id}>
+                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50">
+                      {owner.name}
+                      {owner.phone && <span className="ml-2 text-muted-foreground/70">{owner.phone}</span>}
+                    </div>
+                    {owner.patients && owner.patients.map((patient) => (
+                      <div
+                        key={patient.id}
+                        onClick={() => handlePatientSelect(patient, owner)}
+                        className="px-3 py-2 cursor-pointer hover-elevate active-elevate-2"
+                        data-testid={`item-patient-${patient.id}`}
+                      >
+                        <div className="font-medium text-sm">{patient.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {getSpeciesLabel(patient.species)}
+                          {patient.breed && ` • ${patient.breed}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-4 text-center text-sm text-muted-foreground">Ничего не найдено</div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Full dialog mode - original layout
   return (
     <div className="space-y-4">
       <div className="relative">
