@@ -15,6 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus, Save, X, Calendar, User, Stethoscope, Thermometer, Weight } from "lucide-react"
+import OwnerPatientSearchDialog from "./OwnerPatientSearchDialog"
 
 interface MedicalRecordFormProps {
   trigger?: React.ReactNode
@@ -27,36 +28,17 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen
   const setOpen = onOpenChange || setInternalOpen
-  const [selectedOwnerId, setSelectedOwnerId] = useState<string>('')
+  const [selectedPatient, setSelectedPatient] = useState<{
+    id: string
+    name: string
+    ownerId: string
+    ownerName: string
+  } | null>(null)
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const isEditing = !!recordToEdit
 
-  // Fetch owners, patients and doctors for dropdowns - with reasonable limits
-  const { data: owners = [] } = useQuery({
-    queryKey: ['/api/owners'],
-    queryFn: async () => {
-      const res = await fetch('/api/owners?limit=100', {
-        credentials: 'include'
-      })
-      if (!res.ok) throw new Error('Failed to fetch owners')
-      const data = await res.json()
-      return data.data || data
-    },
-    enabled: open && !isEditing
-  })
-
-  const { data: allPatients = [] } = useQuery({
-    queryKey: ['/api/patients/all'],
-    queryFn: async () => {
-      const res = await fetch('/api/patients/all?limit=500', {
-        credentials: 'include'
-      })
-      if (!res.ok) throw new Error('Failed to fetch patients')
-      return res.json()
-    },
-    enabled: open && !isEditing
-  })
+  // Only fetch doctors - no owners or patients needed with search dialog
 
   const { data: doctors = [] } = useQuery({
     queryKey: ['/api/doctors'],
@@ -70,10 +52,11 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
     enabled: open
   })
 
-  // Filter patients by selected owner
-  const patients = selectedOwnerId 
-    ? (allPatients as any[]).filter((patient: any) => patient.ownerId === selectedOwnerId)
-    : allPatients
+  // Handle patient selection from search dialog
+  const handlePatientSelect = (patientId: string, patientName: string, ownerId: string, ownerName: string) => {
+    setSelectedPatient({ id: patientId, name: patientName, ownerId, ownerName })
+    form.setValue('patientId', patientId)
+  }
 
   const form = useForm<InsertMedicalRecord>({
     resolver: zodResolver(insertMedicalRecordSchema),
@@ -114,7 +97,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
       })
     } else if (!open) {
       form.reset()
-      setSelectedOwnerId('')
+      setSelectedPatient(null)
     }
   }, [recordToEdit, open, form])
 
@@ -130,7 +113,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
         description: "Клинический случай успешно создан"
       })
       form.reset()
-      setSelectedOwnerId('')
+      setSelectedPatient(null)
       setOpen(false)
     },
     onError: (error: Error) => {
@@ -154,7 +137,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
         description: "Запись успешно обновлена"
       })
       form.reset()
-      setSelectedOwnerId('')
+      setSelectedPatient(null)
       setOpen(false)
     },
     onError: (error: Error) => {
@@ -227,60 +210,44 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                     </>
                   ) : (
                     <>
-                      {/* Owner Selection */}
+                      {/* Patient Search Dialog */}
                       <div className="md:col-span-2">
                         <Label className="flex items-center gap-2 mb-2">
                           <User className="h-4 w-4" />
-                          Владелец *
+                          Владелец и пациент *
                         </Label>
-                        <Select 
-                          value={selectedOwnerId} 
-                          onValueChange={(value) => {
-                            setSelectedOwnerId(value)
-                            // Reset patient selection when owner changes
-                            form.setValue('patientId', '')
-                          }}
-                        >
-                          <SelectTrigger data-testid="select-owner">
-                            <SelectValue placeholder="Выберите владельца" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(owners as any[]).map((owner: any) => (
-                              <SelectItem key={owner.id} value={owner.id}>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{owner.name}</span>
-                                  <span className="text-sm text-muted-foreground">{owner.phone}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="patientId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Пациент *</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={!selectedOwnerId}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-patient">
-                                  <SelectValue placeholder={!selectedOwnerId ? "Сначала выберите владельца" : "Выберите пациента"} />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {(patients as any[]).map((patient: any) => (
-                                  <SelectItem key={patient.id} value={patient.id}>
-                                    {patient.name} ({patient.species})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
+                        {selectedPatient ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={`${selectedPatient.ownerName} → ${selectedPatient.name}`}
+                              disabled
+                              data-testid="input-selected-patient"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedPatient(null)
+                                form.setValue('patientId', '')
+                              }}
+                              data-testid="button-clear-patient"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <OwnerPatientSearchDialog
+                            onSelectPatient={handlePatientSelect}
+                            placeholder="Поиск по ФИО владельца или кличке животного..."
+                          />
                         )}
-                      />
+                        {form.formState.errors.patientId && (
+                          <p className="text-sm text-destructive mt-1">
+                            {form.formState.errors.patientId.message}
+                          </p>
+                        )}
+                      </div>
                     </>
                   )}
 
@@ -526,7 +493,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                 variant="outline" 
                 onClick={() => {
                   setOpen(false)
-                  setSelectedOwnerId('')
+                  setSelectedPatient(null)
                   form.reset()
                 }}
                 data-testid="button-cancel"
