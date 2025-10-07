@@ -90,14 +90,18 @@ export default function CreateCaseDialog({ patientId, patientName, trigger }: Cr
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
+      {trigger ? (
+        <div onClick={() => setOpen(true)}>
+          {trigger}
+        </div>
+      ) : (
+        <DialogTrigger asChild>
           <Button variant="outline" size="sm" data-testid="button-open-create-case">
             <Plus className="h-4 w-4 mr-2" />
             Клинический случай
           </Button>
-        )}
-      </DialogTrigger>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
