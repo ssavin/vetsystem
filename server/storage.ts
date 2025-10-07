@@ -878,13 +878,15 @@ export class DatabaseStorage implements IStorage {
         const searchQuery = `%${query}%`;
         
         // Search in both owners and patients tables (case-insensitive)
+        // Use patientOwners junction table for many-to-many relationships
         const ownerIds = await dbInstance
           .selectDistinct({ 
             id: owners.id,
             createdAt: owners.createdAt 
           })
           .from(owners)
-          .leftJoin(patients, eq(patients.ownerId, owners.id))
+          .leftJoin(patientOwners, eq(patientOwners.ownerId, owners.id))
+          .leftJoin(patients, eq(patients.id, patientOwners.patientId))
           .where(
             or(
               ilike(owners.name, searchQuery),
@@ -904,7 +906,7 @@ export class DatabaseStorage implements IStorage {
           return { owners: [], total: 0 };
         }
 
-        // Fetch owners with their patients
+        // Fetch owners with their patients using patientOwners junction table
         const ownersWithPatients = await dbInstance
           .select({
             id: owners.id,
@@ -919,7 +921,8 @@ export class DatabaseStorage implements IStorage {
             breed: patients.breed,
           })
           .from(owners)
-          .leftJoin(patients, eq(patients.ownerId, owners.id))
+          .leftJoin(patientOwners, eq(patientOwners.ownerId, owners.id))
+          .leftJoin(patients, eq(patients.id, patientOwners.patientId))
           .where(inArray(owners.id, paginatedOwnerIds))
           .orderBy(desc(owners.createdAt));
 
