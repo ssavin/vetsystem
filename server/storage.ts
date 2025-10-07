@@ -879,7 +879,10 @@ export class DatabaseStorage implements IStorage {
         
         // Search in both owners and patients tables
         const ownerIds = await dbInstance
-          .selectDistinct({ id: owners.id })
+          .selectDistinct({ 
+            id: owners.id,
+            createdAt: owners.createdAt 
+          })
           .from(owners)
           .leftJoin(patients, eq(patients.ownerId, owners.id))
           .where(
