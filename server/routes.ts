@@ -6287,6 +6287,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case 'encounter_summary':
           context = await documentService.buildEncounterSummaryContext(entityId, tenantId, branchId);
           break;
+        case 'prescription':
+          context = await documentService.buildPrescriptionContext(entityId, tenantId, branchId);
+          break;
+        case 'vaccination_certificate':
+          context = await documentService.buildVaccinationCertificateContext(entityId, tenantId, branchId);
+          break;
         default:
           return res.status(400).json({ error: `Context builder not implemented for template type: ${templateType}` });
       }

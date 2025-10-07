@@ -170,6 +170,216 @@ export class DocumentService {
   }
 
   /**
+   * Build context data for prescription
+   */
+  async buildPrescriptionContext(recordId: string, tenantId: string, branchId: string): Promise<any> {
+    // Fetch medical record (storage methods enforce tenant isolation via RLS)
+    const record = await storage.getMedicalRecord(recordId);
+    if (!record) {
+      throw new Error(`Medical record not found: ${recordId}`);
+    }
+
+    // Verify tenant ownership
+    if (record.tenantId !== tenantId) {
+      throw new Error('Access denied: Medical record belongs to different tenant');
+    }
+
+    // Verify branch ownership (medical records can be cross-branch accessible, but verify tenant)
+    if (record.branchId !== branchId) {
+      throw new Error('Access denied: Medical record belongs to different branch');
+    }
+
+    // Fetch patient info
+    const patient = await storage.getPatient(record.patientId);
+    if (!patient) {
+      throw new Error(`Patient not found: ${record.patientId}`);
+    }
+
+    // Fetch owner info (get primary owner)
+    const owners = await storage.getPatientOwners(record.patientId);
+    const primaryOwner = owners.find((o: any) => o.isPrimary) || owners[0];
+    
+    let ownerInfo: any = { name: 'Не указан', phone: '' };
+    if (primaryOwner) {
+      ownerInfo = {
+        name: primaryOwner.name,
+        phone: primaryOwner.phone || ''
+      };
+    }
+
+    // Fetch doctor info
+    let doctorInfo: any = { name: 'Не указан', specialization: '' };
+    if (record.doctorId) {
+      const doctor = await storage.getDoctor(record.doctorId);
+      if (doctor) {
+        doctorInfo = {
+          name: doctor.name,
+          specialization: doctor.specialization || ''
+        };
+      }
+    }
+
+    // Fetch medications
+    const medications = await storage.getMedicationsByRecord(recordId);
+
+    // Calculate patient age
+    const calculateAge = (birthDate: Date | null) => {
+      if (!birthDate) return 'Не указан';
+      const today = new Date();
+      const birth = new Date(birthDate);
+      const years = today.getFullYear() - birth.getFullYear();
+      const months = today.getMonth() - birth.getMonth();
+      
+      if (years === 0) {
+        return `${months} мес.`;
+      } else if (months < 0) {
+        return `${years - 1} ${years - 1 === 1 ? 'год' : 'лет'}`;
+      }
+      return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'}`;
+    };
+
+    // Build patient info
+    const patientInfo = {
+      name: patient.name,
+      species: patient.species,
+      breed: patient.breed || 'Не указана',
+      age: calculateAge(patient.dateOfBirth)
+    };
+
+    // Map medications
+    const mappedMedications = medications.map((med: any) => ({
+      name: med.name,
+      dosage: med.dosage,
+      frequency: med.frequency,
+      duration: med.duration,
+      instructions: med.instructions || ''
+    }));
+
+    return {
+      date: new Date(record.createdAt).toLocaleDateString('ru-RU'),
+      patient: patientInfo,
+      owner: ownerInfo,
+      doctor: doctorInfo,
+      diagnosis: record.diagnosis || 'Не указан',
+      medications: mappedMedications.length > 0 ? mappedMedications : []
+    };
+  }
+
+  /**
+   * Build context data for vaccination certificate
+   */
+  async buildVaccinationCertificateContext(recordId: string, tenantId: string, branchId: string): Promise<any> {
+    // Fetch medical record (storage methods enforce tenant isolation via RLS)
+    const record = await storage.getMedicalRecord(recordId);
+    if (!record) {
+      throw new Error(`Medical record not found: ${recordId}`);
+    }
+
+    // Verify tenant ownership
+    if (record.tenantId !== tenantId) {
+      throw new Error('Access denied: Medical record belongs to different tenant');
+    }
+
+    // Verify branch ownership (medical records can be cross-branch accessible, but verify tenant)
+    if (record.branchId !== branchId) {
+      throw new Error('Access denied: Medical record belongs to different branch');
+    }
+
+    // Fetch patient info
+    const patient = await storage.getPatient(record.patientId);
+    if (!patient) {
+      throw new Error(`Patient not found: ${record.patientId}`);
+    }
+
+    // Fetch owner info (get primary owner)
+    const owners = await storage.getPatientOwners(record.patientId);
+    const primaryOwner = owners.find((o: any) => o.isPrimary) || owners[0];
+    
+    let ownerInfo: any = { name: 'Не указан', phone: '', address: '' };
+    if (primaryOwner) {
+      ownerInfo = {
+        name: primaryOwner.name,
+        phone: primaryOwner.phone || '',
+        address: primaryOwner.address || ''
+      };
+    }
+
+    // Fetch doctor info
+    let doctorInfo: any = { name: 'Не указан', specialization: '' };
+    if (record.doctorId) {
+      const doctor = await storage.getDoctor(record.doctorId);
+      if (doctor) {
+        doctorInfo = {
+          name: doctor.name,
+          specialization: doctor.specialization || ''
+        };
+      }
+    }
+
+    // Fetch clinic/branch info
+    let clinicInfo: any = {
+      name: 'Ветеринарная клиника',
+      address: '',
+      phone: ''
+    };
+    
+    if (branchId) {
+      const branch = await storage.getBranch(branchId);
+      if (branch) {
+        clinicInfo = {
+          name: branch.name,
+          address: branch.address || '',
+          phone: branch.phone || ''
+        };
+      }
+    }
+
+    // Fetch medications (vaccinations should be in medications)
+    const medications = await storage.getMedicationsByRecord(recordId);
+    const vaccinations = medications.map((med: any) => ({
+      name: med.name,
+      date: new Date(med.createdAt).toLocaleDateString('ru-RU'),
+      nextDate: med.duration || ''
+    }));
+
+    // Calculate patient age
+    const calculateAge = (birthDate: Date | null) => {
+      if (!birthDate) return 'Не указан';
+      const today = new Date();
+      const birth = new Date(birthDate);
+      const years = today.getFullYear() - birth.getFullYear();
+      const months = today.getMonth() - birth.getMonth();
+      
+      if (years === 0) {
+        return `${months} мес.`;
+      } else if (months < 0) {
+        return `${years - 1} ${years - 1 === 1 ? 'год' : 'лет'}`;
+      }
+      return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'}`;
+    };
+
+    // Build patient info
+    const patientInfo = {
+      name: patient.name,
+      species: patient.species,
+      breed: patient.breed || 'Не указана',
+      age: calculateAge(patient.dateOfBirth),
+      sex: patient.sex || 'Не указан',
+      color: patient.color || 'Не указан',
+      identificationNumber: patient.identificationNumber || ''
+    };
+
+    return {
+      date: new Date(record.createdAt).toLocaleDateString('ru-RU'),
+      patient: patientInfo,
+      owner: ownerInfo,
+      doctor: doctorInfo,
+      clinic: clinicInfo,
+      vaccinations: vaccinations.length > 0 ? vaccinations : []
+    };
+  }
+
+  /**
    * Build context data for medical encounter summary
    */
   async buildEncounterSummaryContext(encounterId: string, tenantId: string, branchId: string): Promise<any> {
