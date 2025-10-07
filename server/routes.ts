@@ -6190,6 +6190,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========================================
+  // DOCUMENT TEMPLATE MANAGEMENT ENDPOINTS
+  // ========================================
+
+  // GET /api/document-templates - Get all document templates for tenant
+  app.get("/api/document-templates", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user!;
+      const tenantId = user.tenantId;
+      
+      const templates = await storage.getDocumentTemplates(tenantId);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching document templates:", error);
+      res.status(500).json({ error: "Failed to fetch document templates" });
+    }
+  });
+
+  // POST /api/document-templates - Create document template
+  app.post("/api/document-templates", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user!;
+      const tenantId = user.tenantId;
+      
+      const templateData = {
+        ...req.body,
+        tenantId
+      };
+      
+      const template = await storage.createDocumentTemplate(templateData);
+      res.json(template);
+    } catch (error) {
+      console.error("Error creating document template:", error);
+      res.status(500).json({ error: "Failed to create document template" });
+    }
+  });
+
+  // PUT /api/document-templates/:id - Update document template
+  app.put("/api/document-templates/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const template = await storage.updateDocumentTemplate(id, req.body);
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating document template:", error);
+      res.status(500).json({ error: "Failed to update document template" });
+    }
+  });
+
+  // DELETE /api/document-templates/:id - Delete document template
+  app.delete("/api/document-templates/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteDocumentTemplate(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting document template:", error);
+      res.status(500).json({ error: "Failed to delete document template" });
+    }
+  });
+
+  // ========================================
   // DOCUMENT GENERATION ENDPOINTS
   // ========================================
 

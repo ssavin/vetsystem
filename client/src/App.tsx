@@ -30,6 +30,7 @@ import SuperAdminPanel from "@/pages/SuperAdminPanel";
 import AITestPage from "@/pages/AITestPage";
 import MoyskladNomenclature from "@/pages/MoyskladNomenclature";
 import OneCRetail from "@/pages/OneCRetail";
+import DocumentTemplates from "@/pages/DocumentTemplates";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
@@ -92,6 +93,7 @@ function AuthenticatedApp() {
               <Route path="/ai-test" component={AITestPage} />
               <Route path="/moysklad-nomenclature" component={MoyskladNomenclature} />
               <Route path="/onec-retail" component={OneCRetail} />
+              <Route path="/document-templates" component={DocumentTemplates} />
               <Route component={NotFound} />
             </Switch>
           </main>
