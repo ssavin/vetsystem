@@ -355,21 +355,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/owners/search/:query", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
-    try {
-      const user = (req as any).user;
-      const userBranchId = requireValidBranchId(req, res);
-      if (!userBranchId) return; // 403 already sent
-      
-      const owners = await storage.searchOwners(req.params.query, userBranchId);
-      res.json(owners);
-    } catch (error) {
-      console.error("Error searching owners:", error);
-      res.status(500).json({ error: "Failed to search owners" });
-    }
-  });
-
   // Search owners with their patients (for clinical case creation)
+  // IMPORTANT: This route must be BEFORE /api/owners/search/:query to avoid route conflicts
   app.get("/api/owners/search-with-patients", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
       const query = req.query.query as string || '';
@@ -385,6 +372,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error searching owners with patients:", error);
       res.status(500).json({ error: "Failed to search owners with patients" });
+    }
+  });
+
+  app.get("/api/owners/search/:query", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return; // 403 already sent
+      
+      const owners = await storage.searchOwners(req.params.query, userBranchId);
+      res.json(owners);
+    } catch (error) {
+      console.error("Error searching owners:", error);
+      res.status(500).json({ error: "Failed to search owners" });
     }
   });
 
