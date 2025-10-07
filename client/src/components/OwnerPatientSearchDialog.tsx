@@ -192,11 +192,11 @@ export default function OwnerPatientSearchDialog({
       {searchData && searchData.total > 0 && (
         <div className="space-y-2">
           <div className="text-sm text-muted-foreground">
-            Найдено: {searchData.total} {searchData.total === 1 ? 'владелец' : 'владельцев'}
+            Найдено: {searchData.owners.filter(o => o.patients && o.patients.length > 0).length} владельцев с пациентами
           </div>
           <ScrollArea className="h-[400px] rounded-md border">
             <div className="p-4 space-y-3">
-              {searchData.owners.map((owner) => (
+              {searchData.owners.filter(owner => owner.patients && owner.patients.length > 0).map((owner) => (
                 <Card key={owner.id} className="overflow-hidden">
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3 mb-3">
