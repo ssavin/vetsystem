@@ -169,13 +169,13 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
           )}
         </DialogTrigger>
       )}
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-visible">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Редактирование записи' : 'Создание клинического случая'}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 space-y-6 overflow-y-auto">
             {/* Basic Information */}
             <Card>
               <CardHeader>
