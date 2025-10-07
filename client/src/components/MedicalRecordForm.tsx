@@ -38,8 +38,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
   const queryClient = useQueryClient()
   const isEditing = !!recordToEdit
 
-  // Only fetch doctors - no owners or patients needed with search dialog
-
+  // Only fetch doctors - no owners or patients needed with autocomplete
   const { data: doctors = [] } = useQuery({
     queryKey: ['/api/doctors'],
     queryFn: async () => {
@@ -51,19 +50,6 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
     },
     enabled: open
   })
-
-  // Handle patient selection from autocomplete
-  const handlePatientSelect = (patientId: string, patient: any) => {
-    if (patient) {
-      setSelectedPatient({ 
-        id: patient.id, 
-        name: patient.name, 
-        ownerId: patient.ownerId,
-        ownerName: '' // Will be loaded if needed
-      })
-      form.setValue('patientId', patientId)
-    }
-  }
 
   const form = useForm<InsertMedicalRecord>({
     resolver: zodResolver(insertMedicalRecordSchema),
@@ -217,45 +203,59 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                     </>
                   ) : (
                     <>
-                      {/* Patient Autocomplete */}
-                      <div className="md:col-span-2">
-                        <Label className="flex items-center gap-2 mb-2">
-                          <User className="h-4 w-4" />
-                          Владелец и пациент *
-                        </Label>
-                        {selectedPatient ? (
-                          <div className="flex items-center gap-2">
-                            <Input
-                              value={`${selectedPatient.name}`}
-                              disabled
-                              data-testid="input-selected-patient"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedPatient(null)
-                                form.setValue('patientId', '')
-                              }}
-                              data-testid="button-clear-patient"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <OwnerPatientAutocomplete
-                            value={form.watch('patientId')}
-                            onSelect={handlePatientSelect}
-                            placeholder="Начните вводить имя владельца или кличку питомца..."
-                          />
+                      {/* Patient Selection */}
+                      <FormField
+                        control={form.control}
+                        name="patientId"
+                        render={({ field }) => (
+                          <FormItem className="md:col-span-2">
+                            <FormLabel className="flex items-center gap-2">
+                              <User className="h-4 w-4" />
+                              Владелец и пациент *
+                            </FormLabel>
+                            <FormControl>
+                              {selectedPatient ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={`${selectedPatient.name}`}
+                                    disabled
+                                    data-testid="input-selected-patient"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedPatient(null)
+                                      field.onChange('')
+                                    }}
+                                    data-testid="button-clear-patient"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <OwnerPatientAutocomplete
+                                  value={field.value}
+                                  onSelect={(patientId, patient) => {
+                                    if (patient) {
+                                      setSelectedPatient({ 
+                                        id: patient.id, 
+                                        name: patient.name, 
+                                        ownerId: patient.ownerId,
+                                        ownerName: ''
+                                      })
+                                      field.onChange(patientId)
+                                    }
+                                  }}
+                                  placeholder="Начните вводить имя владельца или кличку питомца..."
+                                />
+                              )}
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
                         )}
-                        {form.formState.errors.patientId && (
-                          <p className="text-sm text-destructive mt-1">
-                            {form.formState.errors.patientId.message}
-                          </p>
-                        )}
-                      </div>
+                      />
                     </>
                   )}
 
