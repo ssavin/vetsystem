@@ -858,9 +858,9 @@ export class DatabaseStorage implements IStorage {
       return withTenantContext(undefined, async (dbInstance) => {
         const searchQuery = `%${query}%`;
         const searchConditions = or(
-          like(owners.name, searchQuery),
-          like(owners.phone, searchQuery),
-          like(owners.email, searchQuery)
+          ilike(owners.name, searchQuery),
+          ilike(owners.phone, searchQuery),
+          ilike(owners.email, searchQuery)
         );
         
         return await dbInstance
@@ -877,7 +877,7 @@ export class DatabaseStorage implements IStorage {
       return withTenantContext(undefined, async (dbInstance) => {
         const searchQuery = `%${query}%`;
         
-        // Search in both owners and patients tables
+        // Search in both owners and patients tables (case-insensitive)
         const ownerIds = await dbInstance
           .selectDistinct({ 
             id: owners.id,
@@ -887,10 +887,10 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(patients, eq(patients.ownerId, owners.id))
           .where(
             or(
-              like(owners.name, searchQuery),
-              like(owners.phone, searchQuery),
-              like(owners.email, searchQuery),
-              like(patients.name, searchQuery)
+              ilike(owners.name, searchQuery),
+              ilike(owners.phone, searchQuery),
+              ilike(owners.email, searchQuery),
+              ilike(patients.name, searchQuery)
             )
           )
           .orderBy(desc(owners.createdAt));
