@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus, Save, X, Calendar, User, Stethoscope, Thermometer, Weight } from "lucide-react"
-import OwnerPatientSearchDialog from "./OwnerPatientSearchDialog"
+import { OwnerPatientAutocomplete } from "./OwnerPatientAutocomplete"
 
 interface MedicalRecordFormProps {
   trigger?: React.ReactNode
@@ -52,10 +52,17 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
     enabled: open
   })
 
-  // Handle patient selection from search dialog
-  const handlePatientSelect = (patientId: string, patientName: string, ownerId: string, ownerName: string) => {
-    setSelectedPatient({ id: patientId, name: patientName, ownerId, ownerName })
-    form.setValue('patientId', patientId)
+  // Handle patient selection from autocomplete
+  const handlePatientSelect = (patientId: string, patient: any) => {
+    if (patient) {
+      setSelectedPatient({ 
+        id: patient.id, 
+        name: patient.name, 
+        ownerId: patient.ownerId,
+        ownerName: '' // Will be loaded if needed
+      })
+      form.setValue('patientId', patientId)
+    }
   }
 
   const form = useForm<InsertMedicalRecord>({
@@ -210,7 +217,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                     </>
                   ) : (
                     <>
-                      {/* Patient Search Dialog */}
+                      {/* Patient Autocomplete */}
                       <div className="md:col-span-2">
                         <Label className="flex items-center gap-2 mb-2">
                           <User className="h-4 w-4" />
@@ -219,7 +226,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                         {selectedPatient ? (
                           <div className="flex items-center gap-2">
                             <Input
-                              value={`${selectedPatient.ownerName} → ${selectedPatient.name}`}
+                              value={`${selectedPatient.name}`}
                               disabled
                               data-testid="input-selected-patient"
                             />
@@ -237,9 +244,10 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                             </Button>
                           </div>
                         ) : (
-                          <OwnerPatientSearchDialog
-                            onSelectPatient={handlePatientSelect}
-                            placeholder="Поиск по ФИО владельца или кличке животного..."
+                          <OwnerPatientAutocomplete
+                            value={form.watch('patientId')}
+                            onSelect={handlePatientSelect}
+                            placeholder="Начните вводить имя владельца или кличку питомца..."
                           />
                         )}
                         {form.formState.errors.patientId && (
