@@ -66,14 +66,30 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
   const [open, setOpen] = useState(false)
   const { toast } = useToast()
 
-  // Fetch data for dropdowns
+  // Fetch data for dropdowns with reasonable limits
   const { data: patients = [] } = useQuery({
     queryKey: ['/api/patients'],
+    queryFn: async () => {
+      const res = await fetch('/api/patients?limit=200', {
+        credentials: 'include'
+      })
+      if (!res.ok) throw new Error('Failed to fetch patients')
+      const data = await res.json()
+      return data.data || data
+    },
     enabled: open
   })
 
   const { data: owners = [] } = useQuery({
     queryKey: ['/api/owners'],
+    queryFn: async () => {
+      const res = await fetch('/api/owners?limit=100', {
+        credentials: 'include'
+      })
+      if (!res.ok) throw new Error('Failed to fetch owners')
+      const data = await res.json()
+      return data.data || data
+    },
     enabled: open
   })
 
