@@ -466,6 +466,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🔒 Batch get patients by IDs (for efficient loading)
+  app.post("/api/patients/batch", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.json([]);
+      }
+      
+      // Fetch all patients by IDs
+      const patients = await Promise.all(
+        ids.map(id => storage.getPatient(id))
+      );
+      
+      // Filter out nulls (patients not found) and return
+      res.json(patients.filter(Boolean));
+    } catch (error) {
+      console.error("Error fetching patients batch:", error);
+      res.status(500).json({ error: "Failed to fetch patients batch" });
+    }
+  });
+
   app.get("/api/patients/:id", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
       const user = (req as any).user;

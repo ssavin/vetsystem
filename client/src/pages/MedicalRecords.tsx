@@ -62,16 +62,25 @@ export default function MedicalRecords() {
   const medicalRecords = data?.records || []
   const pagination = data?.pagination || { total: 0, limit: pageSize, offset: 0, hasMore: false }
 
-  // Fetch ALL patients and doctors (from all branches) for display names
+  // Fetch patients for current page of medical records
+  const patientIds = useMemo(() => {
+    return Array.from(new Set(medicalRecords.map((record: MedicalRecord) => record.patientId))).filter(Boolean)
+  }, [medicalRecords])
+
   const { data: patients = [] } = useQuery<any[]>({
-    queryKey: ['/api/patients/all'],
+    queryKey: ['/api/patients/batch', patientIds],
     queryFn: async () => {
-      const response = await fetch('/api/patients/all?limit=100000', {
-        credentials: 'include'
+      if (patientIds.length === 0) return []
+      const response = await fetch('/api/patients/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ids: patientIds })
       });
       if (!response.ok) throw new Error('Failed to fetch patients');
       return response.json();
-    }
+    },
+    enabled: patientIds.length > 0
   })
 
   const { data: users = [] } = useQuery<any[]>({
