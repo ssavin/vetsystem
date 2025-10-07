@@ -112,28 +112,30 @@ function PatientTableRow({ patient, onEdit, onDelete }: PatientTableRowProps) {
       </TableCell>
       <TableCell className="text-right">
         <div className="flex gap-1 justify-end">
-          <CreateCaseDialog 
-            patientId={patient.id} 
-            patientName={patient.name}
-            trigger={
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => e.stopPropagation()}
-                    data-testid={`button-create-case-${patient.id}`}
-                  >
-                    <ClipboardList className="h-3 w-3 mr-1" />
-                    {t('patients.createCase')}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('patients.createCaseTooltip', 'Создать клинический случай')}</p>
-                </TooltipContent>
-              </Tooltip>
-            }
-          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <CreateCaseDialog 
+                  patientId={patient.id} 
+                  patientName={patient.name}
+                  trigger={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => e.stopPropagation()}
+                      data-testid={`button-create-case-${patient.id}`}
+                    >
+                      <ClipboardList className="h-3 w-3 mr-1" />
+                      {t('patients.createCase')}
+                    </Button>
+                  }
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('patients.createCaseTooltip', 'Создать клинический случай')}</p>
+            </TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
