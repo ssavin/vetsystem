@@ -24,6 +24,9 @@ async function throwIfResNotOk(res: Response, originalRequest?: () => Promise<Re
         if (retryRes.ok) {
           return retryRes;
         }
+        // If retry also failed, throw error based on retry response
+        const retryText = (await retryRes.text()) || retryRes.statusText;
+        throw new Error(`${retryRes.status}: ${retryText}`);
       }
     }
     
