@@ -17,6 +17,7 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: TanStack Query for server state and caching.
 - **Routing**: Wouter for lightweight client-side routing.
 - **Forms**: React Hook Form with Zod for type-safe validation.
+- **Search & Autocomplete**: Real-time owner/patient search with dropdown autocomplete in medical record forms (`/api/owners/search-with-patients` endpoint).
 
 ## Backend Architecture
 - **Runtime**: Node.js with Express.
