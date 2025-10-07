@@ -169,13 +169,13 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
           )}
         </DialogTrigger>
       )}
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Редактирование записи' : 'Создание клинического случая'}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 overflow-y-auto space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 space-y-6">
             {/* Basic Information */}
             <Card>
               <CardHeader>
@@ -260,7 +260,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                               <SelectValue placeholder="Выберите врача" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent className="z-[100]">
+                          <SelectContent className="z-[9999]">
                             {doctors.map((doctor: any) => (
                               <SelectItem key={doctor.id} value={doctor.id}>
                                 {doctor.name} {doctor.specialization && `(${doctor.specialization})`}

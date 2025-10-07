@@ -109,49 +109,46 @@ export default function OwnerPatientSearchDialog({
         />
         
         {isOpen && (
-          <Card className="absolute z-50 w-full mt-1">
-            <ScrollArea className="max-h-[300px]">
-              <CardContent className="p-2">
-                {isLoading ? (
-                  <div className="py-4 text-center text-sm text-muted-foreground">Поиск...</div>
-                ) : searchData && searchData.total > 0 ? (
-                  <div className="space-y-1">
-                    {searchData.owners.map((owner) => (
-                      <div key={owner.id} className="space-y-1">
-                        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                          {owner.name}
-                          {owner.phone && <span className="ml-2">{owner.phone}</span>}
-                        </div>
-                        {owner.patients && owner.patients.map((patient) => (
-                          <Button
-                            key={patient.id}
-                            type="button"
-                            variant="ghost"
-                            className="w-full justify-start text-left h-auto py-2"
-                            onClick={() => {
-                              console.log('Patient clicked:', patient.id, patient.name)
-                              handlePatientSelect(patient, owner)
-                            }}
-                            data-testid={`item-patient-${patient.id}`}
-                          >
-                            <div className="flex flex-col items-start">
-                              <div className="font-medium text-sm">{patient.name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {getSpeciesLabel(patient.species)}
-                                {patient.breed && ` • ${patient.breed}`}
-                              </div>
-                            </div>
-                          </Button>
-                        ))}
+          <div className="absolute z-[100] w-full mt-1 bg-card border rounded-md shadow-lg max-h-[300px] overflow-y-auto">
+            <div className="p-2">
+              {isLoading ? (
+                <div className="py-4 text-center text-sm text-muted-foreground">Поиск...</div>
+              ) : searchData && searchData.total > 0 ? (
+                <div className="space-y-1">
+                  {searchData.owners.map((owner) => (
+                    <div key={owner.id} className="space-y-1">
+                      <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                        {owner.name}
+                        {owner.phone && <span className="ml-2">{owner.phone}</span>}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-4 text-center text-sm text-muted-foreground">Ничего не найдено</div>
-                )}
-              </CardContent>
-            </ScrollArea>
-          </Card>
+                      {owner.patients && owner.patients.map((patient) => (
+                        <button
+                          key={patient.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 rounded-md hover:bg-accent transition-colors"
+                          onClick={() => {
+                            console.log('Patient clicked:', patient.id, patient.name)
+                            handlePatientSelect(patient, owner)
+                          }}
+                          data-testid={`item-patient-${patient.id}`}
+                        >
+                          <div className="flex flex-col items-start">
+                            <div className="font-medium text-sm">{patient.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {getSpeciesLabel(patient.species)}
+                              {patient.breed && ` • ${patient.breed}`}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-4 text-center text-sm text-muted-foreground">Ничего не найдено</div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     )
