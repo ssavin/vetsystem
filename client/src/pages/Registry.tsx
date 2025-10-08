@@ -21,10 +21,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2, Trash2, Pencil } from "lucide-react"
+import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2, Trash2, Pencil, Printer } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import OwnerRegistrationForm from "@/components/OwnerRegistrationForm"
 import CreateCaseDialog from "@/components/CreateCaseDialog"
+import { PrintDocumentButton } from "@/components/PrintDocumentButton"
 import { useLocation } from "wouter"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
@@ -689,6 +690,19 @@ export default function Registry() {
                         <TableCell data-testid={`text-owner-address-${owner.id}`}>{owner.address}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-1 justify-end">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <PrintDocumentButton
+                                  entityId={owner.id}
+                                  entityType="owner"
+                                  variant="outline"
+                                  size="sm"
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Печать согласия на обработку ПД</p>
+                              </TooltipContent>
+                            </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button

@@ -13,7 +13,7 @@ import { apiRequest } from '@/lib/queryClient';
 
 interface PrintDocumentButtonProps {
   entityId: string;
-  entityType: 'medical_record' | 'invoice' | 'encounter';
+  entityType: 'medical_record' | 'invoice' | 'encounter' | 'owner';
   variant?: 'default' | 'ghost' | 'outline';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   showLabel?: boolean;
@@ -130,6 +130,10 @@ export function PrintDocumentButton({
         return [
           { label: 'Протокол приема', value: 'encounter_summary' },
           { label: 'Результаты анализов', value: 'lab_results_report' }
+        ];
+      case 'owner':
+        return [
+          { label: 'Согласие на обработку ПД', value: 'personal_data_consent' }
         ];
       default:
         return [];

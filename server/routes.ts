@@ -6535,7 +6535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Validation schema for document generation
   const generateDocumentSchema = z.object({
-    templateType: z.enum(['invoice', 'encounter_summary', 'informed_consent_surgery', 'informed_consent_anesthesia', 'lab_results_report', 'vaccination_certificate', 'prescription']),
+    templateType: z.enum(['invoice', 'encounter_summary', 'informed_consent_surgery', 'informed_consent_anesthesia', 'lab_results_report', 'vaccination_certificate', 'prescription', 'personal_data_consent']),
     entityId: z.string().uuid(),
     outputFormat: z.enum(['pdf', 'html']).default('pdf')
   });
@@ -6561,16 +6561,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       switch (templateType) {
         case 'invoice':
-          context = await documentService.buildInvoiceContext(entityId, tenantId, branchId);
+          context = await documentService.buildInvoiceContext(entityId, tenantId, branchId!);
           break;
         case 'encounter_summary':
-          context = await documentService.buildEncounterSummaryContext(entityId, tenantId, branchId);
+          context = await documentService.buildEncounterSummaryContext(entityId, tenantId, branchId!);
           break;
         case 'prescription':
-          context = await documentService.buildPrescriptionContext(entityId, tenantId, branchId);
+          context = await documentService.buildPrescriptionContext(entityId, tenantId, branchId!);
           break;
         case 'vaccination_certificate':
-          context = await documentService.buildVaccinationCertificateContext(entityId, tenantId, branchId);
+          context = await documentService.buildVaccinationCertificateContext(entityId, tenantId, branchId!);
+          break;
+        case 'personal_data_consent':
+          context = await documentService.buildPersonalDataConsentContext(entityId, tenantId, branchId!);
           break;
         default:
           return res.status(400).json({ error: `Context builder not implemented for template type: ${templateType}` });

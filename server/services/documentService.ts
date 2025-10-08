@@ -454,6 +454,77 @@ export class DocumentService {
       recommendations: record.notes || 'Нет дополнительных рекомендаций'
     };
   }
+
+  /**
+   * Build context data for personal data consent template
+   */
+  async buildPersonalDataConsentContext(ownerId: string, tenantId: string, branchId: string): Promise<any> {
+    // Fetch owner (storage methods enforce tenant isolation via RLS)
+    const owner = await storage.getOwner(ownerId);
+    if (!owner) {
+      throw new Error(`Owner not found: ${ownerId}`);
+    }
+
+    // Verify tenant ownership
+    if (owner.tenantId !== tenantId) {
+      throw new Error('Access denied: Owner belongs to different tenant');
+    }
+
+    // Verify branch ownership - owners with NULL branchId are accessible to all branches within tenant
+    // Otherwise, branchId must match
+    if (owner.branchId && owner.branchId !== branchId) {
+      throw new Error('Access denied: Owner belongs to different branch');
+    }
+
+    // Build owner info with all personal data
+    const ownerInfo = {
+      name: owner.name,
+      phone: owner.phone || '',
+      email: owner.email || '',
+      passportSeries: owner.passportSeries || '',
+      passportNumber: owner.passportNumber || '',
+      passportIssuedBy: owner.passportIssuedBy || '',
+      passportIssueDate: owner.passportIssueDate 
+        ? new Date(owner.passportIssueDate).toLocaleDateString('ru-RU') 
+        : '',
+      registrationAddress: owner.registrationAddress || '',
+      residenceAddress: owner.residenceAddress || ''
+    };
+
+    // Fetch clinic/branch info
+    let clinicInfo: any = {
+      name: 'Ветеринарная клиника',
+      address: '',
+      phone: '',
+      email: '',
+      ogrn: '',
+      inn: ''
+    };
+    
+    if (branchId) {
+      const branch = await storage.getBranch(branchId);
+      if (branch) {
+        clinicInfo.name = branch.name;
+        clinicInfo.address = branch.address || '';
+        clinicInfo.phone = branch.phone || '';
+        clinicInfo.email = branch.email || '';
+      }
+    }
+
+    // Fetch tenant info for legal identifiers (OGRN, INN)
+    const tenant = await storage.getTenant(tenantId);
+    if (tenant) {
+      clinicInfo.ogrn = tenant.ogrn || '';
+      clinicInfo.inn = tenant.inn || '';
+    }
+
+    return {
+      owner: ownerInfo,
+      clinic: clinicInfo,
+      date: new Date().toLocaleDateString('ru-RU'),
+      currentDate: new Date().toLocaleDateString('ru-RU')
+    };
+  }
 }
 
 export const documentService = new DocumentService();
