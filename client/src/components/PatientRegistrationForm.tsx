@@ -656,6 +656,58 @@ export default function PatientRegistrationForm({ patient, onSuccess, onCancel }
           </CardContent>
         </Card>
 
+        {/* Galen Integration Status - only in edit mode */}
+        {isEditMode && (patient?.galenUuid || patient?.galenSyncStatus) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Интеграция с ГИС ВетИС Гален</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {patient?.galenUuid && (
+                  <div className="space-y-2">
+                    <Label>UUID Гален</Label>
+                    <Input 
+                      value={patient.galenUuid} 
+                      readOnly 
+                      className="bg-muted"
+                      data-testid="input-galen-uuid"
+                    />
+                  </div>
+                )}
+                {patient?.galenSyncStatus && (
+                  <div className="space-y-2">
+                    <Label>Статус синхронизации</Label>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={
+                        patient.galenSyncStatus === 'synced' ? 'default' : 
+                        patient.galenSyncStatus === 'error' ? 'destructive' :
+                        patient.galenSyncStatus === 'sync_in_progress' ? 'secondary' : 
+                        'outline'
+                      }>
+                        {patient.galenSyncStatus === 'synced' && 'Синхронизировано'}
+                        {patient.galenSyncStatus === 'error' && 'Ошибка'}
+                        {patient.galenSyncStatus === 'sync_in_progress' && 'В процессе'}
+                        {patient.galenSyncStatus === 'not_synced' && 'Не синхронизировано'}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {patient?.galenLastSyncAt && (
+                <div className="text-sm text-muted-foreground">
+                  Последняя синхронизация: {new Date(patient.galenLastSyncAt).toLocaleString('ru-RU')}
+                </div>
+              )}
+              {patient?.galenLastSyncError && (
+                <div className="text-sm text-destructive">
+                  Ошибка синхронизации: {patient.galenLastSyncError}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <div className="flex gap-4 justify-end">
           <Button 
             type="button" 

@@ -5851,10 +5851,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate update data
       const updateSchema = z.object({
         name: z.string().min(1).max(255).optional(),
-        legalName: z.string().max(255).optional(),
-        legalAddress: z.string().optional(),
-        phone: z.string().max(50).optional(),
-        email: z.string().email().max(255).optional(),
+        legalName: z.string().max(255).nullable().optional(),
+        legalAddress: z.string().nullable().optional(),
+        phone: z.string().max(50).nullable().optional(),
+        email: z.string().email().max(255).nullable().optional(),
+        inn: z.string().max(12).nullable().optional(),
+        kpp: z.string().max(9).nullable().optional(),
+        ogrn: z.string().max(15).nullable().optional(),
+        veterinaryLicenseNumber: z.string().max(100).nullable().optional(),
+        veterinaryLicenseIssueDate: z.string().nullable().optional(),
         settings: z.record(z.any()).optional(),
       });
       

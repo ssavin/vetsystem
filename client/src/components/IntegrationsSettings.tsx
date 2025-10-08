@@ -53,8 +53,16 @@ const yookassaSchema = z.object({
   secretKey: z.string().min(1, "Secret Key обязателен"),
 })
 
+const galenSchema = z.object({
+  galenApiUser: z.string().min(1, "API пользователь обязателен"),
+  galenApiKey: z.string().min(1, "API ключ обязателен"),
+  galenIssuerId: z.string().min(1, "ID хозяйствующего субъекта обязателен"),
+  galenServiceId: z.string().min(1, "ID сервиса обязателен"),
+})
+
 type MoySkladFormData = z.infer<typeof moyskladSchema>
 type YooKassaFormData = z.infer<typeof yookassaSchema>
+type GalenFormData = z.infer<typeof galenSchema>
 
 function MoySkladIntegrationCard() {
   const [isOpen, setIsOpen] = useState(false)
@@ -301,6 +309,275 @@ function MoySkladIntegrationCard() {
   )
 }
 
+function GalenIntegrationCard() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [showIssuerId, setShowIssuerId] = useState(false)
+  const [showServiceId, setShowServiceId] = useState(false)
+  const { toast } = useToast()
+
+  const { data: galenConfig, isLoading } = useQuery<{
+    galenApiUser?: string;
+    galenApiKey?: string;
+    galenIssuerId?: string;
+    galenServiceId?: string;
+    configured: boolean;
+  }>({
+    queryKey: ['/api/galen/credentials'],
+    retry: false,
+  })
+
+  const form = useForm<GalenFormData>({
+    resolver: zodResolver(galenSchema),
+    defaultValues: {
+      galenApiUser: '',
+      galenApiKey: '',
+      galenIssuerId: '',
+      galenServiceId: '',
+    },
+  })
+
+  // Update form when config data loads
+  useEffect(() => {
+    if (galenConfig?.configured) {
+      form.reset({
+        galenApiUser: galenConfig.galenApiUser || '',
+        galenApiKey: galenConfig.galenApiKey || '',
+        galenIssuerId: galenConfig.galenIssuerId || '',
+        galenServiceId: galenConfig.galenServiceId || '',
+      })
+    }
+  }, [galenConfig, form])
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: GalenFormData) => {
+      const response = await apiRequest('PUT', '/api/tenant/settings/galen', data)
+      return await response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/galen/credentials'] })
+      toast({
+        title: "Настройки сохранены",
+        description: "Интеграция с ГИС ВетИС Гален настроена успешно",
+      })
+      setIsOpen(false)
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось сохранить настройки",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const testMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/galen/test-connection')
+      return await response.json()
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: data.success ? "Подключение успешно" : "Ошибка подключения",
+        description: data.message,
+        variant: data.success ? "default" : "destructive",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось проверить подключение",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const handleTest = () => {
+    testMutation.mutate()
+  }
+
+  const onSubmit = (data: GalenFormData) => {
+    saveMutation.mutate(data)
+  }
+
+  return (
+    <Card data-testid="card-integration-galen">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              ГИС ВетИС Гален
+              {galenConfig?.configured ? (
+                <Badge variant="default" className="bg-green-600">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Активна
+                </Badge>
+              ) : (
+                <Badge variant="secondary">
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Не настроена
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>Интеграция с Государственной информационной системой ВетИС Гален для регистрации животных и учета вакцинации</CardDescription>
+          </div>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" data-testid="button-configure-galen">
+                <Settings className="h-4 w-4 mr-2" />
+                Настроить
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Настройка интеграции ГИС ВетИС Гален</DialogTitle>
+                <DialogDescription>
+                  Введите учетные данные для подключения к API Гален
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="galenApiUser"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API Пользователь</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Введите API пользователя" data-testid="input-galen-apiuser" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="galenApiKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API Ключ</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              type={showApiKey ? "text" : "password"}
+                              placeholder="Введите API ключ"
+                              data-testid="input-galen-apikey"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowApiKey(!showApiKey)}
+                            >
+                              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="galenIssuerId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ID Хозяйствующего Субъекта</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              type={showIssuerId ? "text" : "password"}
+                              placeholder="Введите ID хозяйствующего субъекта"
+                              data-testid="input-galen-issuerid"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowIssuerId(!showIssuerId)}
+                            >
+                              {showIssuerId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="galenServiceId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ID Сервиса</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              type={showServiceId ? "text" : "password"}
+                              placeholder="Введите ID сервиса"
+                              data-testid="input-galen-serviceid"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowServiceId(!showServiceId)}
+                            >
+                              {showServiceId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleTest}
+                      disabled={testMutation.isPending || !galenConfig?.configured}
+                      data-testid="button-test-galen"
+                    >
+                      {testMutation.isPending ? "Проверка..." : "Тест соединения"}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={saveMutation.isPending}
+                      className="flex-1"
+                      data-testid="button-save-galen"
+                    >
+                      {saveMutation.isPending ? "Сохранение..." : "Сохранить"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      {galenConfig?.configured && (
+        <CardContent>
+          <div className="text-sm text-muted-foreground">
+            <p>API Пользователь: {galenConfig.galenApiUser}</p>
+            <p className="text-xs mt-1">Интеграция настроена</p>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
 function YooKassaIntegrationCard() {
   const [isOpen, setIsOpen] = useState(false)
   const [showSecretKey, setShowSecretKey] = useState(false)
@@ -478,6 +755,7 @@ export default function IntegrationsSettings() {
       <div className="grid gap-6 md:grid-cols-2">
         <MoySkladIntegrationCard />
         <YooKassaIntegrationCard />
+        <GalenIntegrationCard />
       </div>
 
       <Card>
@@ -491,6 +769,7 @@ export default function IntegrationsSettings() {
           <p>• Данные интеграций хранятся в защищенном виде для каждой клиники</p>
           <p>• Используйте тест соединения для проверки корректности настроек</p>
           <p>• При изменении credentials может потребоваться повторная синхронизация данных</p>
+          <p>• ГИС ВетИС Гален требует регистрацию в системе и получение учетных данных</p>
         </CardContent>
       </Card>
     </div>

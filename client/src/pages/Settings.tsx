@@ -98,6 +98,14 @@ export default function Settings() {
   const [clinicPhone, setClinicPhone] = useState("")
   const [clinicEmail, setClinicEmail] = useState("")
   
+  // Legal and license information
+  const [legalName, setLegalName] = useState("")
+  const [inn, setInn] = useState("")
+  const [kpp, setKpp] = useState("")
+  const [ogrn, setOgrn] = useState("")
+  const [veterinaryLicenseNumber, setVeterinaryLicenseNumber] = useState("")
+  const [veterinaryLicenseIssueDate, setVeterinaryLicenseIssueDate] = useState("")
+  
   // Branch management state
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -172,6 +180,12 @@ export default function Settings() {
     legalAddress: string | null;
     phone: string | null;
     email: string | null;
+    legalName: string | null;
+    inn: string | null;
+    kpp: string | null;
+    ogrn: string | null;
+    veterinaryLicenseNumber: string | null;
+    veterinaryLicenseIssueDate: string | null;
     settings: any;
     isSuperAdmin?: boolean;
   }>({
@@ -189,12 +203,24 @@ export default function Settings() {
       setClinicAddress("")
       setClinicPhone("")
       setClinicEmail("")
+      setLegalName("")
+      setInn("")
+      setKpp("")
+      setOgrn("")
+      setVeterinaryLicenseNumber("")
+      setVeterinaryLicenseIssueDate("")
     } else if (currentTenant && currentTenant.id !== 'superadmin') {
       // Load tenant data for regular admin
       setClinicName(currentTenant.name || "")
       setClinicAddress(currentTenant.legalAddress || "")
       setClinicPhone(currentTenant.phone || "")
       setClinicEmail(currentTenant.email || "")
+      setLegalName(currentTenant.legalName || "")
+      setInn(currentTenant.inn || "")
+      setKpp(currentTenant.kpp || "")
+      setOgrn(currentTenant.ogrn || "")
+      setVeterinaryLicenseNumber(currentTenant.veterinaryLicenseNumber || "")
+      setVeterinaryLicenseIssueDate(currentTenant.veterinaryLicenseIssueDate || "")
     }
   }, [currentTenant, isSuperAdmin])
 
@@ -557,6 +583,12 @@ export default function Settings() {
         legalAddress: clinicAddress,
         phone: clinicPhone,
         email: clinicEmail,
+        legalName: legalName || null,
+        inn: inn || null,
+        kpp: kpp || null,
+        ogrn: ogrn || null,
+        veterinaryLicenseNumber: veterinaryLicenseNumber || null,
+        veterinaryLicenseIssueDate: veterinaryLicenseIssueDate || null,
         settings: {
           notifications,
           system: systemSettings
@@ -748,46 +780,129 @@ export default function Settings() {
               Информация о клинике
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="clinicName">Название клиники</Label>
-                <Input
-                  id="clinicName"
-                  value={clinicName}
-                  onChange={(e) => setClinicName(e.target.value)}
-                  data-testid="input-clinic-name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="clinicAddress">Адрес</Label>
-                <Input
-                  id="clinicAddress"
-                  value={clinicAddress}
-                  onChange={(e) => setClinicAddress(e.target.value)}
-                  data-testid="input-clinic-address"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="clinicPhone">Телефон</Label>
-                <Input
-                  id="clinicPhone"
-                  value={clinicPhone}
-                  onChange={(e) => setClinicPhone(e.target.value)}
-                  data-testid="input-clinic-phone"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="clinicEmail">Email</Label>
-                <Input
-                  id="clinicEmail"
-                  type="email"
-                  value={clinicEmail}
-                  onChange={(e) => setClinicEmail(e.target.value)}
-                  data-testid="input-clinic-email"
-                />
+          <CardContent className="space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold mb-3">Основная информация</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="clinicName">Название клиники</Label>
+                  <Input
+                    id="clinicName"
+                    value={clinicName}
+                    onChange={(e) => setClinicName(e.target.value)}
+                    data-testid="input-clinic-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clinicAddress">Адрес</Label>
+                  <Input
+                    id="clinicAddress"
+                    value={clinicAddress}
+                    onChange={(e) => setClinicAddress(e.target.value)}
+                    data-testid="input-clinic-address"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clinicPhone">Телефон</Label>
+                  <Input
+                    id="clinicPhone"
+                    value={clinicPhone}
+                    onChange={(e) => setClinicPhone(e.target.value)}
+                    data-testid="input-clinic-phone"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clinicEmail">Email</Label>
+                  <Input
+                    id="clinicEmail"
+                    type="email"
+                    value={clinicEmail}
+                    onChange={(e) => setClinicEmail(e.target.value)}
+                    data-testid="input-clinic-email"
+                  />
+                </div>
               </div>
             </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="text-sm font-semibold mb-3">Юридические данные</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="legalName">Юридическое название</Label>
+                  <Input
+                    id="legalName"
+                    value={legalName}
+                    onChange={(e) => setLegalName(e.target.value)}
+                    placeholder="ООО &quot;Ветеринарная клиника&quot;"
+                    data-testid="input-legal-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="inn">ИНН</Label>
+                  <Input
+                    id="inn"
+                    value={inn}
+                    onChange={(e) => setInn(e.target.value)}
+                    placeholder="1234567890"
+                    maxLength={12}
+                    data-testid="input-inn"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="kpp">КПП</Label>
+                  <Input
+                    id="kpp"
+                    value={kpp}
+                    onChange={(e) => setKpp(e.target.value)}
+                    placeholder="123456789"
+                    maxLength={9}
+                    data-testid="input-kpp"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ogrn">ОГРН/ОГРНИП</Label>
+                  <Input
+                    id="ogrn"
+                    value={ogrn}
+                    onChange={(e) => setOgrn(e.target.value)}
+                    placeholder="1234567890123"
+                    maxLength={15}
+                    data-testid="input-ogrn"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="text-sm font-semibold mb-3">Ветеринарная лицензия</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="veterinaryLicenseNumber">Номер лицензии</Label>
+                  <Input
+                    id="veterinaryLicenseNumber"
+                    value={veterinaryLicenseNumber}
+                    onChange={(e) => setVeterinaryLicenseNumber(e.target.value)}
+                    placeholder="Введите номер лицензии"
+                    data-testid="input-vet-license-number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="veterinaryLicenseIssueDate">Дата выдачи лицензии</Label>
+                  <Input
+                    id="veterinaryLicenseIssueDate"
+                    type="date"
+                    value={veterinaryLicenseIssueDate}
+                    onChange={(e) => setVeterinaryLicenseIssueDate(e.target.value)}
+                    data-testid="input-vet-license-date"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-end pt-4">
               <Button onClick={saveSettings} data-testid="button-save-clinic-info">
                 <Save className="h-4 w-4 mr-2" />
