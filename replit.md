@@ -58,19 +58,21 @@ Preferred communication style: Simple, everyday language.
 ## Document Generation & Printing
 - **Document Templates System**: Multi-tenant template management with system-wide fallback.
   - Database schema: `document_templates` table with tenant isolation via RLS.
-  - Template types: invoice, encounter_summary, prescription, vaccination_certificate, lab_results_report, informed_consent (surgery/anesthesia).
+  - Template types: invoice, encounter_summary, prescription, vaccination_certificate, lab_results_report, informed_consent (surgery/anesthesia), personal_data_consent.
   - Handlebars template engine for flexible HTML rendering.
   - Puppeteer for high-quality PDF generation with A4 formatting.
 - **Security & Isolation**: Tenant and branch ownership validation before document generation.
   - DocumentService verifies entity ownership before accessing data.
   - API endpoint enforces branchId requirement and tenant context.
+  - Branch-level access control: owners with NULL branchId accessible to all branches, otherwise branchId must match.
   - All storage queries respect RLS for complete data isolation.
 - **Integration Points**:
   - `PrintDocumentButton` React component with dropdown for template selection.
-  - Integrated into MedicalRecordCard for quick access to medical document printing.
+  - Integrated into MedicalRecordCard for medical documents and Registry for owner documents.
   - API endpoint: POST /api/documents/generate with Zod validation.
-- **System Templates**: Pre-configured templates for invoice and encounter_summary.
-  - Seeded via `server/seed-document-templates.ts` script.
+- **System Templates**: Pre-configured templates seeded via `server/seed-document-templates.ts`:
+  - Invoice, Encounter Summary, Prescription, Vaccination Certificate
+  - Personal Data Consent (ФЗ-152 compliance) - includes passport data, addresses, consent terms
   - Tenants can override with custom templates or use system defaults.
 
 ## Data Migration
