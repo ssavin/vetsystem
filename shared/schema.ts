@@ -54,6 +54,9 @@ export const TENANT_STATUS = ['active', 'suspended', 'trial', 'cancelled'] as co
 // Document template types
 export const DOCUMENT_TEMPLATE_TYPE = ['invoice', 'encounter_summary', 'informed_consent_surgery', 'informed_consent_anesthesia', 'lab_results_report', 'vaccination_certificate', 'prescription'] as const;
 
+// Galen sync status enum
+export const GALEN_SYNC_STATUS = ['not_synced', 'sync_in_progress', 'synced', 'error'] as const;
+
 // ========================================
 // MULTI-TENANT ARCHITECTURE
 // ========================================
@@ -87,6 +90,12 @@ export const tenants = pgTable("tenants", {
   
   // Настройки
   settings: jsonb("settings"), // Дополнительные настройки tenant'а
+  
+  // Учетные данные для интеграции с ГИС "ВетИС Гален" (зашифрованные)
+  galenApiUser: text("galen_api_user"), // Encrypted
+  galenApiKey: text("galen_api_key"), // Encrypted
+  galenIssuerId: text("galen_issuer_id"), // Encrypted - ID хозяйствующего субъекта
+  galenServiceId: text("galen_service_id"), // Encrypted - ID сервиса
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -221,12 +230,20 @@ export const patients = pgTable("patients", {
   ownerId: varchar("owner_id").references(() => owners.id), // Nullable for backwards compatibility during migration
   branchId: varchar("branch_id").references(() => branches.id),
   vetaisId: varchar("vetais_id", { length: 50 }), // Vetais patient ID for migration tracking
+  
+  // Интеграция с ГИС "ВетИС Гален"
+  galenUuid: varchar("galen_uuid", { length: 36 }), // UUID животного в системе "Гален"
+  galenSyncStatus: varchar("galen_sync_status", { length: 20 }).default("not_synced"),
+  galenLastSyncError: text("galen_last_sync_error"),
+  galenLastSyncAt: timestamp("galen_last_sync_at"),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
   return {
     statusCheck: check("patients_status_check", sql`${table.status} IN ('healthy', 'sick', 'recovering', 'deceased')`),
     genderCheck: check("patients_gender_check", sql`${table.gender} IN ('male', 'female', 'unknown')`),
+    galenSyncStatusCheck: check("patients_galen_sync_status_check", sql`${table.galenSyncStatus} IN ('not_synced', 'sync_in_progress', 'synced', 'error')`),
     weightCheck: check("patients_weight_check", sql`${table.weight} >= 0`),
     tenantIdIdx: index("patients_tenant_id_idx").on(table.tenantId),
     ownerIdIdx: index("patients_owner_id_idx").on(table.ownerId),

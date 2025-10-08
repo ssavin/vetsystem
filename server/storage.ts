@@ -137,6 +137,26 @@ export interface IStorage {
   createTenant(tenant: InsertTenant): Promise<Tenant>;
   updateTenant(id: string, tenant: Partial<InsertTenant>): Promise<Tenant>;
   deleteTenant(id: string): Promise<void>;
+  
+  // Galen integration methods
+  updateGalenCredentials(tenantId: string, credentials: {
+    galenApiUser?: string | null;
+    galenApiKey?: string | null;
+    galenIssuerId?: string | null;
+    galenServiceId?: string | null;
+  }): Promise<Tenant>;
+  getGalenCredentials(tenantId: string): Promise<{
+    galenApiUser: string | null;
+    galenApiKey: string | null;
+    galenIssuerId: string | null;
+    galenServiceId: string | null;
+  } | null>;
+  updatePatientGalenStatus(patientId: string, status: {
+    galenUuid?: string | null;
+    galenSyncStatus?: string;
+    galenLastSyncError?: string | null;
+    galenLastSyncAt?: Date | null;
+  }): Promise<Patient>;
 
   // User methods (keep existing for authentication)
   getUser(id: string): Promise<User | undefined>;
@@ -633,6 +653,81 @@ export class DatabaseStorage implements IStorage {
         .update(tenants)
         .set({ status: 'cancelled', updatedAt: new Date() })
         .where(eq(tenants.id, id));
+    });
+  }
+
+  // ========================================
+  // Galen Integration Methods
+  // ========================================
+
+  async updateGalenCredentials(
+    tenantId: string,
+    credentials: {
+      galenApiUser?: string | null;
+      galenApiKey?: string | null;
+      galenIssuerId?: string | null;
+      galenServiceId?: string | null;
+    }
+  ): Promise<Tenant> {
+    return withPerformanceLogging('updateGalenCredentials', async () => {
+      const [tenant] = await db
+        .update(tenants)
+        .set({
+          galenApiUser: credentials.galenApiUser,
+          galenApiKey: credentials.galenApiKey,
+          galenIssuerId: credentials.galenIssuerId,
+          galenServiceId: credentials.galenServiceId,
+          updatedAt: new Date()
+        })
+        .where(eq(tenants.id, tenantId))
+        .returning();
+      return tenant;
+    });
+  }
+
+  async getGalenCredentials(tenantId: string): Promise<{
+    galenApiUser: string | null;
+    galenApiKey: string | null;
+    galenIssuerId: string | null;
+    galenServiceId: string | null;
+  } | null> {
+    return withPerformanceLogging('getGalenCredentials', async () => {
+      const [tenant] = await db
+        .select({
+          galenApiUser: tenants.galenApiUser,
+          galenApiKey: tenants.galenApiKey,
+          galenIssuerId: tenants.galenIssuerId,
+          galenServiceId: tenants.galenServiceId,
+        })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId));
+      
+      return tenant || null;
+    });
+  }
+
+  async updatePatientGalenStatus(
+    patientId: string,
+    status: {
+      galenUuid?: string | null;
+      galenSyncStatus?: string;
+      galenLastSyncError?: string | null;
+      galenLastSyncAt?: Date | null;
+    }
+  ): Promise<Patient> {
+    return withPerformanceLogging('updatePatientGalenStatus', async () => {
+      const [patient] = await db
+        .update(patients)
+        .set({
+          galenUuid: status.galenUuid,
+          galenSyncStatus: status.galenSyncStatus,
+          galenLastSyncError: status.galenLastSyncError,
+          galenLastSyncAt: status.galenLastSyncAt,
+          updatedAt: new Date()
+        })
+        .where(eq(patients.id, patientId))
+        .returning();
+      return patient;
     });
   }
 

@@ -27,6 +27,8 @@ import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { fileTypeFromBuffer } from 'file-type';
+import { encryptGalenCredentials, decryptGalenCredentials } from './services/encryption';
+import { galenAPIService } from './services/galenAPIService';
 
 // 🔒🔒🔒 CRITICAL HEALTHCARE SECURITY ENFORCED - ARCHITECT VISIBILITY 🔒🔒🔒
 // Helper to check patient access - enforces patient-level authorization
@@ -5871,6 +5873,283 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Failed to update settings",
         message: "Не удалось сохранить настройки"
+      });
+    }
+  });
+
+  // ========================================
+  // GALEN INTEGRATION ROUTES
+  // ========================================
+
+  // PUT /api/tenant/settings/galen - Update Galen credentials for current tenant
+  app.put("/api/tenant/settings/galen", authenticateToken, async (req, res) => {
+    try {
+      // Check permission: superadmin or администратор
+      if (!req.user?.isSuperAdmin && req.user?.role !== 'администратор') {
+        return res.status(403).json({ error: "Доступ запрещён. Требуется роль администратора" });
+      }
+      
+      if (!req.tenantId) {
+        return res.status(403).json({ 
+          error: "Tenant не определён",
+          message: "Не удалось определить клинику"
+        });
+      }
+      
+      // Validate Galen credentials
+      const galenCredentialsSchema = z.object({
+        galenApiUser: z.string().min(1, "API пользователь обязателен"),
+        galenApiKey: z.string().min(1, "API ключ обязателен"),
+        galenIssuerId: z.string().min(1, "ID хозяйствующего субъекта обязателен"),
+        galenServiceId: z.string().min(1, "ID сервиса обязателен"),
+      });
+      
+      const credentials = galenCredentialsSchema.parse(req.body);
+      
+      // Encrypt credentials before storing
+      const encryptedCredentials = encryptGalenCredentials(credentials);
+      
+      // Update tenant with encrypted credentials
+      const updatedTenant = await storage.updateGalenCredentials(req.tenantId, encryptedCredentials);
+      
+      res.json({ 
+        success: true, 
+        message: "Учетные данные Гален успешно сохранены" 
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors 
+        });
+      }
+      console.error("Error updating Galen credentials:", error);
+      res.status(500).json({ 
+        error: "Failed to update Galen credentials",
+        message: "Не удалось сохранить учетные данные Гален"
+      });
+    }
+  });
+
+  // POST /api/patients/:patientId/galen/register - Register patient in Galen system
+  app.post("/api/patients/:patientId/galen/register", authenticateToken, async (req, res) => {
+    try {
+      const { patientId } = req.params;
+      
+      if (!req.tenantId) {
+        return res.status(403).json({ 
+          error: "Tenant не определён",
+          message: "Не удалось определить клинику"
+        });
+      }
+      
+      // Get patient data
+      const patient = await storage.getPatient(patientId);
+      if (!patient) {
+        return res.status(404).json({ error: "Пациент не найден" });
+      }
+      
+      // Check tenant ownership
+      if (patient.tenantId !== req.tenantId) {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
+      // Get Galen credentials
+      const encryptedCredentials = await storage.getGalenCredentials(req.tenantId);
+      if (!encryptedCredentials || !encryptedCredentials.galenApiUser || !encryptedCredentials.galenApiKey) {
+        return res.status(400).json({ 
+          error: "Galen credentials not configured",
+          message: "Учетные данные Гален не настроены. Настройте их в разделе настроек клиники."
+        });
+      }
+      
+      // Decrypt credentials
+      const credentials = decryptGalenCredentials(encryptedCredentials);
+      
+      // Get primary owner (if exists)
+      const patientOwners = await storage.getPatientOwners(patientId);
+      const primaryOwner = patientOwners.find(po => po.isPrimary);
+      let ownerData;
+      if (primaryOwner) {
+        ownerData = await storage.getOwner(primaryOwner.ownerId);
+      }
+      
+      // Update patient status to sync_in_progress
+      await storage.updatePatientGalenStatus(patientId, {
+        galenSyncStatus: 'sync_in_progress',
+        galenLastSyncError: null
+      });
+      
+      // Call Galen API service
+      const result = await galenAPIService.registerAnimal(
+        {
+          name: patient.name,
+          species: patient.species,
+          breed: patient.breed || undefined,
+          gender: patient.gender || undefined,
+          birthDate: patient.birthDate || undefined,
+          microchipNumber: patient.microchipNumber || undefined,
+          ownerName: ownerData?.name,
+          ownerPhone: ownerData?.phone
+        },
+        {
+          apiUser: credentials.galenApiUser || '',
+          apiKey: credentials.galenApiKey || '',
+          issuerId: credentials.galenIssuerId || '',
+          serviceId: credentials.galenServiceId || ''
+        }
+      );
+      
+      if (result.success && result.galenUuid) {
+        // Update patient with Galen UUID
+        const updatedPatient = await storage.updatePatientGalenStatus(patientId, {
+          galenUuid: result.galenUuid,
+          galenSyncStatus: 'synced',
+          galenLastSyncError: null,
+          galenLastSyncAt: new Date()
+        });
+        
+        return res.json({ 
+          success: true, 
+          galenUuid: result.galenUuid,
+          message: "Пациент успешно зарегистрирован в системе Гален",
+          patient: updatedPatient
+        });
+      } else {
+        // Update patient with error
+        await storage.updatePatientGalenStatus(patientId, {
+          galenSyncStatus: 'error',
+          galenLastSyncError: result.error || 'Неизвестная ошибка',
+          galenLastSyncAt: new Date()
+        });
+        
+        return res.status(400).json({ 
+          success: false,
+          error: result.error,
+          errorCode: result.errorCode
+        });
+      }
+    } catch (error) {
+      console.error("Error registering patient in Galen:", error);
+      
+      // Try to update patient status with error
+      try {
+        if (req.params.patientId) {
+          await storage.updatePatientGalenStatus(req.params.patientId, {
+            galenSyncStatus: 'error',
+            galenLastSyncError: error instanceof Error ? error.message : 'Неизвестная ошибка',
+            galenLastSyncAt: new Date()
+          });
+        }
+      } catch (updateError) {
+        console.error("Failed to update patient error status:", updateError);
+      }
+      
+      res.status(500).json({ 
+        error: "Failed to register patient in Galen",
+        message: error instanceof Error ? error.message : "Не удалось зарегистрировать пациента в системе Гален"
+      });
+    }
+  });
+
+  // POST /api/patients/:patientId/galen/vaccinations - Record vaccination in Galen system
+  app.post("/api/patients/:patientId/galen/vaccinations", authenticateToken, async (req, res) => {
+    try {
+      const { patientId } = req.params;
+      
+      if (!req.tenantId) {
+        return res.status(403).json({ 
+          error: "Tenant не определён",
+          message: "Не удалось определить клинику"
+        });
+      }
+      
+      // Validate vaccination data
+      const vaccinationSchema = z.object({
+        vaccineName: z.string().min(1, "Название вакцины обязательно"),
+        series: z.string().min(1, "Серия обязательна"),
+        date: z.string().datetime().or(z.date()),
+        doctorId: z.string().min(1, "ID врача обязателен"),
+      });
+      
+      const vaccinationData = vaccinationSchema.parse(req.body);
+      
+      // Get patient data
+      const patient = await storage.getPatient(patientId);
+      if (!patient) {
+        return res.status(404).json({ error: "Пациент не найден" });
+      }
+      
+      // Check tenant ownership
+      if (patient.tenantId !== req.tenantId) {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
+      // Check if patient is registered in Galen
+      if (!patient.galenUuid) {
+        return res.status(400).json({ 
+          error: "Patient not registered in Galen",
+          message: "Сначала зарегистрируйте пациента в системе Гален"
+        });
+      }
+      
+      // Get Galen credentials
+      const encryptedCredentials = await storage.getGalenCredentials(req.tenantId);
+      if (!encryptedCredentials || !encryptedCredentials.galenApiUser || !encryptedCredentials.galenApiKey) {
+        return res.status(400).json({ 
+          error: "Galen credentials not configured",
+          message: "Учетные данные Гален не настроены"
+        });
+      }
+      
+      // Decrypt credentials
+      const credentials = decryptGalenCredentials(encryptedCredentials);
+      
+      // Get doctor info
+      const doctor = await storage.getDoctor(vaccinationData.doctorId);
+      
+      // Call Galen API service
+      const result = await galenAPIService.recordVaccination(
+        patient.galenUuid,
+        {
+          vaccineName: vaccinationData.vaccineName,
+          series: vaccinationData.series,
+          date: new Date(vaccinationData.date),
+          doctorId: vaccinationData.doctorId,
+          doctorName: doctor?.fullName
+        },
+        {
+          apiUser: credentials.galenApiUser || '',
+          apiKey: credentials.galenApiKey || '',
+          issuerId: credentials.galenIssuerId || '',
+          serviceId: credentials.galenServiceId || ''
+        }
+      );
+      
+      if (result.success) {
+        return res.json({ 
+          success: true,
+          vaccinationId: result.vaccinationId,
+          message: "Вакцинация успешно зарегистрирована в системе Гален"
+        });
+      } else {
+        return res.status(400).json({ 
+          success: false,
+          error: result.error,
+          errorCode: result.errorCode
+        });
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors 
+        });
+      }
+      console.error("Error recording vaccination in Galen:", error);
+      res.status(500).json({ 
+        error: "Failed to record vaccination in Galen",
+        message: error instanceof Error ? error.message : "Не удалось зарегистрировать вакцинацию в системе Гален"
       });
     }
   });
