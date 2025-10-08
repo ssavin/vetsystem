@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import { Save, X } from "lucide-react"
@@ -16,6 +17,14 @@ const ownerFormSchema = z.object({
   phone: z.string().min(1, "Введите телефон"),
   email: z.string().email("Неверный формат email").optional().or(z.literal("")),
   address: z.string().optional(),
+  passportSeries: z.string().regex(/^\d{4}$/, "Серия паспорта должна состоять из 4 цифр").or(z.literal("")).optional(),
+  passportNumber: z.string().regex(/^\d{6}$/, "Номер паспорта должен состоять из 6 цифр").or(z.literal("")).optional(),
+  passportIssuedBy: z.string().optional(),
+  passportIssueDate: z.string().optional(),
+  registrationAddress: z.string().optional(),
+  residenceAddress: z.string().optional(),
+  personalDataConsentGiven: z.boolean().default(false),
+  personalDataConsentDate: z.string().optional(),
 })
 
 type OwnerFormData = z.infer<typeof ownerFormSchema>
@@ -27,6 +36,14 @@ interface OwnerRegistrationFormProps {
     phone?: string
     email?: string
     address?: string
+    passportSeries?: string
+    passportNumber?: string
+    passportIssuedBy?: string
+    passportIssueDate?: Date
+    registrationAddress?: string
+    residenceAddress?: string
+    personalDataConsentGiven?: boolean
+    personalDataConsentDate?: Date
   }
   onSuccess?: () => void
   onCancel?: () => void
@@ -43,21 +60,23 @@ export default function OwnerRegistrationForm({ owner, onSuccess, onCancel }: Ow
       phone: owner?.phone || "",
       email: owner?.email || "",
       address: owner?.address || "",
+      passportSeries: owner?.passportSeries || "",
+      passportNumber: owner?.passportNumber || "",
+      passportIssuedBy: owner?.passportIssuedBy || "",
+      passportIssueDate: owner?.passportIssueDate ? new Date(owner.passportIssueDate).toISOString().split('T')[0] : undefined,
+      registrationAddress: owner?.registrationAddress || "",
+      residenceAddress: owner?.residenceAddress || "",
+      personalDataConsentGiven: owner?.personalDataConsentGiven || false,
+      personalDataConsentDate: owner?.personalDataConsentDate ? new Date(owner.personalDataConsentDate).toISOString().split('T')[0] : undefined,
     },
   })
 
   const saveOwnerMutation = useMutation({
     mutationFn: async (data: OwnerFormData) => {
       if (isEditing) {
-        return await apiRequest(`/api/owners/${owner.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(data),
-        })
+        return await apiRequest('PUT', `/api/owners/${owner.id}`, data)
       } else {
-        return await apiRequest('/api/owners', {
-          method: 'POST',
-          body: JSON.stringify(data),
-        })
+        return await apiRequest('POST', '/api/owners', data)
       }
     },
     onSuccess: () => {
@@ -163,6 +182,178 @@ export default function OwnerRegistrationForm({ owner, onSuccess, onCancel }: Ow
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Паспортные данные */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Паспортные данные</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="passportSeries"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Серия паспорта</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="1234" 
+                          maxLength={4}
+                          {...field} 
+                          data-testid="input-passport-series"
+                        />
+                      </FormControl>
+                      <FormDescription>4 цифры</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="passportNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Номер паспорта</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="123456" 
+                          maxLength={6}
+                          {...field} 
+                          data-testid="input-passport-number"
+                        />
+                      </FormControl>
+                      <FormDescription>6 цифр</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="passportIssuedBy"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Кем выдан</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Отделение УФМС России" 
+                          {...field} 
+                          data-testid="input-passport-issued-by"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="passportIssueDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Дата выдачи</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date" 
+                          {...field} 
+                          data-testid="input-passport-issue-date"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Адреса */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Адреса</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <FormField
+                  control={form.control}
+                  name="registrationAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Адрес регистрации (прописка)</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Город, улица, дом, квартира" 
+                          {...field} 
+                          data-testid="input-registration-address"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="residenceAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Адрес проживания (фактический)</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Город, улица, дом, квартира" 
+                          {...field} 
+                          data-testid="input-residence-address"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Согласие на обработку ПД */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Согласие на обработку персональных данных (ФЗ-152)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="personalDataConsentGiven"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-consent"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>
+                          Согласие получено
+                        </FormLabel>
+                        <FormDescription>
+                          Клиент подтвердил согласие на обработку персональных данных
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="personalDataConsentDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Дата подписания согласия</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date" 
+                          {...field} 
+                          data-testid="input-consent-date"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <div className="flex gap-2 justify-end pt-4">
