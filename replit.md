@@ -31,6 +31,10 @@ Preferred communication style: Simple, everyday language.
 - **Schema Management**: Drizzle Kit for migrations.
 - **Data Models**: Comprehensive veterinary domain models including Owners, Patients (with multi-owner support), Doctors, Appointments, Medical Records, Clinical Cases (tracking long-term cases, encounters, and lab analyses), Services, Products, and Invoicing.
 - **Indexing**: Strategic indexes for query performance.
+- **RF Legal Compliance Fields**: Extended schema with fields required for Russian Federation document flow:
+  - **Owners table**: Passport data (series, number, issued by, issue date), registration/residence addresses, personal data consent (ФЗ-152 compliance).
+  - **Patients table**: Tattoo number (клеймо) for animal identification alongside microchip.
+  - **Tenants table**: OGRN/OGRNIP (13/15 digits), veterinary license number and issue date, logo URL for document branding.
 
 ## Authentication & Security
 - **Multi-Tenant Authentication**: JWT-based authentication with `tenant_id` embedding and validation.

@@ -74,9 +74,15 @@ export const tenants = pgTable("tenants", {
   legalName: varchar("legal_name", { length: 255 }), // Юридическое название
   inn: varchar("inn", { length: 12 }), // ИНН организации
   kpp: varchar("kpp", { length: 9 }), // КПП организации
+  ogrn: varchar("ogrn", { length: 15 }), // ОГРН/ОГРНИП
   legalAddress: text("legal_address"),
   phone: varchar("phone", { length: 50 }),
   email: varchar("email", { length: 255 }),
+  
+  // Ветеринарная лицензия
+  veterinaryLicenseNumber: varchar("veterinary_license_number", { length: 100 }),
+  veterinaryLicenseIssueDate: date("veterinary_license_issue_date"),
+  logoUrl: text("logo_url"), // Путь к файлу логотипа
   
   // Биллинг
   subscriptionId: varchar("subscription_id"), // Связь с clinicSubscriptions
@@ -193,6 +199,19 @@ export const owners = pgTable("owners", {
   phone: varchar("phone", { length: 50 }).notNull(),
   email: varchar("email", { length: 255 }),
   address: text("address"),
+  
+  // Паспортные данные (для договора и ВСД)
+  passportSeries: varchar("passport_series", { length: 10 }),
+  passportNumber: varchar("passport_number", { length: 10 }),
+  passportIssuedBy: text("passport_issued_by"),
+  passportIssueDate: date("passport_issue_date"),
+  registrationAddress: text("registration_address"), // Адрес регистрации (прописка)
+  residenceAddress: text("residence_address"), // Адрес фактического проживания
+  
+  // Согласие на обработку персональных данных (ФЗ-152)
+  personalDataConsentGiven: boolean("personal_data_consent_given").default(false),
+  personalDataConsentDate: timestamp("personal_data_consent_date"),
+  
   branchId: varchar("branch_id").references(() => branches.id),
   vetaisId: varchar("vetais_id", { length: 50 }), // Vetais client ID for migration tracking
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -222,6 +241,7 @@ export const patients = pgTable("patients", {
   color: varchar("color", { length: 255 }),
   weight: decimal("weight", { precision: 5, scale: 2 }),
   microchipNumber: varchar("microchip_number", { length: 255 }),
+  tattooNumber: varchar("tattoo_number", { length: 50 }), // Номер клейма
   isNeutered: boolean("is_neutered").default(false),
   allergies: text("allergies"),
   chronicConditions: text("chronic_conditions"),
@@ -1322,8 +1342,12 @@ export const insertTenantSchema = createInsertSchema(tenants).omit({
   email: z.string().email("Неверный формат email").optional().or(z.literal("")),
   billingEmail: z.string().email("Неверный формат email").optional().or(z.literal("")),
   phone: z.string().optional(),
-  inn: z.string().length(10).or(z.string().length(12)).optional(), // ИНН может быть 10 или 12 символов
-  kpp: z.string().length(9).optional(),
+  inn: z.string().regex(/^\d{10}$/).or(z.string().regex(/^\d{12}$/)).or(z.literal("")).optional(), // ИНН может быть 10 или 12 цифр
+  kpp: z.string().regex(/^\d{9}$/).or(z.literal("")).optional(), // КПП должен состоять из 9 цифр
+  ogrn: z.string().regex(/^\d{13}$/).or(z.string().regex(/^\d{15}$/)).or(z.literal("")).optional(), // ОГРН 13 цифр, ОГРНИП 15 цифр
+  veterinaryLicenseNumber: z.string().optional(),
+  veterinaryLicenseIssueDate: z.coerce.date().optional(),
+  logoUrl: z.string().url("Неверный формат URL").optional().or(z.literal("")),
 });
 
 export type Tenant = typeof tenants.$inferSelect;
@@ -1347,6 +1371,14 @@ export const insertOwnerSchema = createInsertSchema(owners).omit({
   updatedAt: true,
 }).extend({
   email: z.string().email().optional().or(z.literal("")),
+  passportSeries: z.string().regex(/^\d{4}$/, "Серия паспорта должна состоять из 4 цифр").or(z.literal("")).optional(),
+  passportNumber: z.string().regex(/^\d{6}$/, "Номер паспорта должен состоять из 6 цифр").or(z.literal("")).optional(),
+  passportIssuedBy: z.string().optional(),
+  passportIssueDate: z.coerce.date().optional(),
+  registrationAddress: z.string().optional(),
+  residenceAddress: z.string().optional(),
+  personalDataConsentGiven: z.boolean().default(false),
+  personalDataConsentDate: z.coerce.date().optional(),
 });
 
 export const insertPatientSchema = createInsertSchema(patients).omit({
