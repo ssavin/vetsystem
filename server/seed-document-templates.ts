@@ -607,6 +607,208 @@ export async function seedDocumentTemplates() {
 </html>
     `.trim();
 
+    // Personal Data Consent template
+    const personalDataConsentTemplate = `
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Согласие на обработку персональных данных</title>
+  <style>
+    body {
+      font-family: 'DejaVu Sans', Arial, sans-serif;
+      margin: 0;
+      padding: 40px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #2563eb;
+      padding-bottom: 20px;
+    }
+    .clinic-name {
+      font-size: 22px;
+      font-weight: bold;
+      color: #2563eb;
+      margin-bottom: 10px;
+    }
+    .document-title {
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      margin: 30px 0 20px 0;
+      text-transform: uppercase;
+    }
+    .info-section {
+      background-color: #f9fafb;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .label {
+      font-weight: bold;
+      color: #2563eb;
+      margin-bottom: 5px;
+    }
+    .content {
+      margin: 15px 0;
+      text-align: justify;
+    }
+    .consent-text {
+      background-color: #f0f7ff;
+      border: 1px solid #2563eb;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+    .signature-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-top: 40px;
+      padding-top: 30px;
+      border-top: 2px solid #e5e7eb;
+    }
+    .signature-box {
+      text-align: center;
+    }
+    .signature-line {
+      border-bottom: 1px solid #333;
+      width: 250px;
+      display: inline-block;
+      margin: 20px 0 5px 0;
+    }
+    .footer {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+      color: #6b7280;
+      font-size: 12px;
+    }
+    ul {
+      margin: 10px 0;
+      padding-left: 30px;
+    }
+    li {
+      margin: 8px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="clinic-name">{{clinic.name}}</div>
+    {{#if clinic.ogrn}}
+    <div style="font-size: 12px; color: #6b7280;">ОГРН: {{clinic.ogrn}}</div>
+    {{/if}}
+    {{#if clinic.inn}}
+    <div style="font-size: 12px; color: #6b7280;">ИНН: {{clinic.inn}}</div>
+    {{/if}}
+    <div style="font-size: 14px; margin-top: 10px;">{{clinic.address}}</div>
+    <div style="font-size: 14px;">Тел: {{clinic.phone}} | Email: {{clinic.email}}</div>
+  </div>
+
+  <div class="document-title">
+    СОГЛАСИЕ<br>
+    на обработку персональных данных
+  </div>
+
+  <div class="info-section">
+    <div class="label">СУБЪЕКТ ПЕРСОНАЛЬНЫХ ДАННЫХ:</div>
+    <div>{{owner.name}}</div>
+    {{#if owner.passportSeries}}
+    <div>Паспорт: серия {{owner.passportSeries}} № {{owner.passportNumber}}</div>
+    {{/if}}
+    {{#if owner.passportIssuedBy}}
+    <div>Выдан: {{owner.passportIssuedBy}}</div>
+    {{/if}}
+    {{#if owner.passportIssueDate}}
+    <div>Дата выдачи: {{owner.passportIssueDate}}</div>
+    {{/if}}
+    {{#if owner.registrationAddress}}
+    <div>Адрес регистрации: {{owner.registrationAddress}}</div>
+    {{/if}}
+    {{#if owner.residenceAddress}}
+    <div>Адрес проживания: {{owner.residenceAddress}}</div>
+    {{/if}}
+    <div>Телефон: {{owner.phone}}</div>
+    {{#if owner.email}}
+    <div>Email: {{owner.email}}</div>
+    {{/if}}
+  </div>
+
+  <div class="content">
+    <p>В соответствии с требованиями Федерального закона от 27.07.2006 № 152-ФЗ «О персональных данных»,</p>
+    
+    <p style="text-align: center; font-weight: bold;">Я, {{owner.name}}, даю свое согласие:</p>
+  </div>
+
+  <div class="consent-text">
+    <p><strong>{{clinic.name}}</strong> (далее – Оператор) на обработку моих персональных данных на следующих условиях:</p>
+    
+    <p><strong>1. Цели обработки персональных данных:</strong></p>
+    <ul>
+      <li>Оказание ветеринарных услуг</li>
+      <li>Ведение медицинской документации пациентов</li>
+      <li>Информирование о состоянии здоровья животных</li>
+      <li>Напоминание о предстоящих визитах и вакцинациях</li>
+      <li>Выставление счетов и проведение расчетов</li>
+      <li>Направление информационных сообщений о работе клиники</li>
+    </ul>
+
+    <p><strong>2. Перечень персональных данных, на обработку которых дается согласие:</strong></p>
+    <ul>
+      <li>Фамилия, имя, отчество</li>
+      <li>Паспортные данные (серия, номер, кем и когда выдан)</li>
+      <li>Адрес регистрации и фактического проживания</li>
+      <li>Контактные данные (телефон, email)</li>
+      <li>Сведения о домашних животных</li>
+    </ul>
+
+    <p><strong>3. Перечень действий с персональными данными:</strong></p>
+    <p>Сбор, запись, систематизация, накопление, хранение, уточнение (обновление, изменение), извлечение, использование, передача (распространение, предоставление, доступ), обезличивание, блокирование, удаление, уничтожение персональных данных.</p>
+
+    <p><strong>4. Общее описание используемых способов обработки персональных данных:</strong></p>
+    <p>Обработка персональных данных осуществляется с использованием средств автоматизации и без использования таких средств.</p>
+
+    <p><strong>5. Срок действия согласия:</strong></p>
+    <p>Настоящее согласие действует с момента его подписания до момента отзыва в письменной форме.</p>
+
+    <p><strong>6. Порядок отзыва согласия:</strong></p>
+    <p>Субъект персональных данных вправе отозвать настоящее согласие путем направления письменного заявления Оператору.</p>
+  </div>
+
+  <div class="content">
+    <p>Я подтверждаю, что ознакомлен(а) с положениями Федерального закона от 27.07.2006 № 152-ФЗ «О персональных данных», права и обязанности в области защиты персональных данных мне разъяснены.</p>
+  </div>
+
+  <div class="signature-section">
+    <div class="signature-box">
+      <div class="label">СУБЪЕКТ ПЕРСОНАЛЬНЫХ ДАННЫХ</div>
+      <div style="margin: 10px 0;">{{owner.name}}</div>
+      <div class="signature-line"></div>
+      <div style="font-size: 12px; color: #6b7280;">(подпись)</div>
+    </div>
+    <div class="signature-box">
+      <div class="label">ДАТА</div>
+      <div style="font-size: 18px; margin: 20px 0;">{{date}}</div>
+      <div style="font-size: 12px; color: #6b7280; margin-top: 20px;">
+        «___» _____________ 20___ г.
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Согласие на обработку персональных данных в соответствии с Федеральным законом № 152-ФЗ</p>
+    <p>Документ создан: {{currentDate}}</p>
+  </div>
+</body>
+</html>
+    `.trim();
+
     // Create system templates (tenant_id = null for system-wide)
     await storage.createDocumentTemplate({
       tenantId: null,
@@ -637,6 +839,14 @@ export async function seedDocumentTemplates() {
       type: 'vaccination_certificate',
       name: 'Системный шаблон: Сертификат вакцинации',
       content: vaccinationTemplate,
+      isActive: true
+    });
+
+    await storage.createDocumentTemplate({
+      tenantId: null,
+      type: 'personal_data_consent',
+      name: 'Системный шаблон: Согласие на обработку ПД',
+      content: personalDataConsentTemplate,
       isActive: true
     });
 
