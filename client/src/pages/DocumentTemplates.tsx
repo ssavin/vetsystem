@@ -217,7 +217,7 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
                     <TabsContent value="wysiwyg" className="mt-4">
                       <FormControl>
                         <Editor
-                          apiKey="no-api-key"
+                          apiKey="fmzyoswbh5cxifg57pq59pw9ahfy5uzq4lt5014ctfsg5gmh"
                           value={field.value}
                           onEditorChange={field.onChange}
                           init={tinyMCEInit}
