@@ -17,8 +17,7 @@ import { z } from "zod"
 import { Plus, Edit, Trash2, FileText, Eye, Code } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
-import ReactQuill from 'react-quill'
-import 'react-quill/dist/quill.snow.css'
+import { Editor } from '@tinymce/tinymce-react'
 
 // Validation schema
 const templateSchema = z.object({
@@ -65,17 +64,24 @@ const templateTypeNames: Record<string, string> = {
   hospitalization_agreement: 'Договор на стационарное лечение'
 }
 
-// WYSIWYG Editor modules configuration
-const quillModules = {
-  toolbar: [
-    [{ 'header': [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-    [{ 'color': [] }, { 'background': [] }],
-    [{ 'align': [] }],
-    ['link', 'image'],
-    ['clean']
+// TinyMCE Editor configuration
+const tinyMCEInit = {
+  height: 400,
+  menubar: true,
+  plugins: [
+    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+    'insertdatetime', 'media', 'table', 'help', 'wordcount'
   ],
+  toolbar: 'undo redo | blocks | ' +
+    'bold italic forecolor backcolor | fontfamily fontsize | ' +
+    'alignleft aligncenter alignright alignjustify | ' +
+    'bullist numlist outdent indent | table | ' +
+    'removeformat | help',
+  font_family_formats: 'Arial=arial,helvetica,sans-serif; Times New Roman=times new roman,times,serif; Courier New=courier new,courier,monospace; Georgia=georgia,palatino; Verdana=verdana,geneva; Tahoma=tahoma,arial,helvetica,sans-serif',
+  font_size_formats: '8pt 10pt 12pt 14pt 16pt 18pt 24pt 36pt 48pt',
+  content_style: 'body { font-family:Arial,sans-serif; font-size:14px }',
+  branding: false,
 }
 
 function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; onSuccess: () => void }) {
@@ -210,16 +216,13 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
                     </TabsList>
                     <TabsContent value="wysiwyg" className="mt-4">
                       <FormControl>
-                        <div className="border rounded-md">
-                          <ReactQuill
-                            theme="snow"
-                            value={field.value}
-                            onChange={field.onChange}
-                            modules={quillModules}
-                            className="min-h-[300px]"
-                            data-testid="wysiwyg-editor"
-                          />
-                        </div>
+                        <Editor
+                          apiKey="no-api-key"
+                          value={field.value}
+                          onEditorChange={field.onChange}
+                          init={tinyMCEInit}
+                          data-testid="wysiwyg-editor"
+                        />
                       </FormControl>
                     </TabsContent>
                     <TabsContent value="code" className="mt-4">
