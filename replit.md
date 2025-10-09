@@ -83,11 +83,14 @@ Preferred communication style: Simple, everyday language.
     - Note: Vetais date_birth and no_pass fields contain technical/placeholder values, not actual personal data
   - All clients assigned to Бутово branch initially (can be redistributed manually).
   - Vetais clinic ID mapping: 10000=Бутово, 10001=Лобачевского, 10002=Новопеределкino.
-- **User Migration**: ✅ **COMPLETE** - Successfully migrated 57 active users from Vetais system_users table.
-  - User schema enhanced with `department` (отделение) and `vetais_id` fields for migration tracking.
-  - Role mapping: Vetais funkce codes mapped to system roles (врач, администратор, менеджер, руководитель).
-  - Distribution: 27 administrators, 18 doctors, 10 managers, 6 supervisors.
-  - Branch distribution: Бутово (29 users), Новопеределкино (21 users), Лобачевского (7 users).
+- **User Migration**: ✅ **COMPLETE** - Successfully migrated 164 users total (57 active + 107 missing doctors).
+  - **Initial migration**: 57 active users from Vetais system_users (aktivni=1 filter).
+  - **Doctor completion**: Added 107 missing doctors (including inactive) based on medical_exams linkage analysis.
+    - medical_exams.id_doctor → system_users.kod_uzivatele (not id_pracovnika).
+    - 160 unique doctors in Vetais medical_exams; 164 users with vetais_id (some non-doctors have records).
+  - User schema enhanced with `department` (отделение) and `vetais_id` (integer) fields for migration tracking.
+  - Role mapping: Vetais funkce codes + is_doctor flag → system roles (врач, администратор, менеджер, руководитель).
+  - Branch distribution: Based on id_kliniky (10000→Бутово, 10001→Лобачевского, 10002→Новопеределкино).
   - Default password: Alisa2024! (users must change on first login).
 - **Patient Migration**: ✅ **COMPLETE** - Successfully migrated 82,371 patients (92% of Vetais 89,611 total).
   - 7,240 patients excluded (8%) due to missing owners in Vetais (id_majitele IS NULL).
@@ -98,12 +101,16 @@ Preferred communication style: Simple, everyday language.
 - **Medical Records Migration**: ✅ **COMPLETE** - Successfully migrated 364,151 medical records (95% of Vetais 383,503 total).
   - 65,307 patients (79%) have complete medical history.
   - 19,353 records excluded (5%) - linked to patients without owners in Vetais.
-  - All `doctorId` fields set to NULL - doctors exist in `users` table with role "врач", not in `doctors` table.
-  - Extended schema with `vetais_id` tracking field in medical_records for idempotency.
-  - Script: `migrate-medical-records.ts` (handles TEXT vetais_id, NULL doctorId, Vetais column mapping).
+  - **Doctor Linking**: ✅ **COMPLETE** - 308,406 records (85%) successfully linked to doctors.
+    - Initial state: all doctorId fields NULL (doctors in `users` table, not unused `doctors` table).
+    - Fixed schema: medical_records.doctorId → users.id foreign key.
+    - vetais_id type mismatch resolved: users.vetais_id (integer) converted to string in scripts.
+    - Remaining 55,745 records (15%) have id_doctor=0 or NULL in Vetais - legitimately without doctors.
+  - Extended schema with `vetais_id` (text) tracking field in medical_records for idempotency.
+  - Scripts: `migrate-medical-records.ts`, `migrate-missing-doctors.ts`, `link-doctors-sql.ts` (batched CASE WHEN updates).
 - **Known Limitations**:
-  - ⚠️ Medical records `doctorId` references unused `doctors` table - real doctors are in `users` table. Requires schema fix.
   - ⚠️ Medications and medical files migration pending (347,932 prescriptions, 16,766 files available in Vetais).
+  - ⚠️ Migrated doctor accounts use default password (Alisa2024!) - schedule forced password reset before production.
 - **Migration Infrastructure**: Batch processing scripts with idempotency, error handling, progress logging, duplicate prevention.
   - Scripts: `migrate-vetais-batch.ts`, `migrate-patients-fast.ts`, `migrate-medical-records.ts`, `fix-client-branches-fast.ts`, `migrate-users-vetais.ts`.
 
