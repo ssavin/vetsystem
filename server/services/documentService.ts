@@ -237,6 +237,7 @@ export class DocumentService {
     return {
       invoiceNumber: invoice.invoiceNumber,
       date: new Date(invoice.issueDate).toLocaleDateString('ru-RU'),
+      docCreateDate: new Date().toLocaleDateString('ru-RU'),
       clinic: clinicInfo,
       client: clientInfo,
       items: mappedItems,
@@ -329,6 +330,7 @@ export class DocumentService {
 
     return {
       date: new Date(record.createdAt).toLocaleDateString('ru-RU'),
+      docCreateDate: new Date().toLocaleDateString('ru-RU'),
       patient: patientInfo,
       owner: ownerInfo,
       doctor: doctorInfo,
@@ -423,6 +425,7 @@ export class DocumentService {
 
     return {
       date: new Date(record.createdAt).toLocaleDateString('ru-RU'),
+      docCreateDate: new Date().toLocaleDateString('ru-RU'),
       patient: patientInfo,
       owner: ownerInfo,
       doctor: doctorInfo,
@@ -507,6 +510,7 @@ export class DocumentService {
 
     return {
       date: new Date(record.createdAt).toLocaleDateString('ru-RU'),
+      docCreateDate: new Date().toLocaleDateString('ru-RU'),
       patient: patientInfo,
       owner: ownerInfo,
       doctor: doctorInfo,
@@ -560,7 +564,8 @@ export class DocumentService {
       owner: ownerInfo,
       clinic: clinicInfo,
       date: new Date().toLocaleDateString('ru-RU'),
-      currentDate: new Date().toLocaleDateString('ru-RU')
+      currentDate: new Date().toLocaleDateString('ru-RU'),
+      docCreateDate: new Date().toLocaleDateString('ru-RU')
     };
   }
 
@@ -648,7 +653,8 @@ export class DocumentService {
       clinic: clinicInfo,
       contractNumber,
       date: new Date().toLocaleDateString('ru-RU'),
-      currentDate: new Date().toLocaleDateString('ru-RU')
+      currentDate: new Date().toLocaleDateString('ru-RU'),
+      docCreateDate: new Date().toLocaleDateString('ru-RU')
     };
   }
 
@@ -736,7 +742,8 @@ export class DocumentService {
       clinic: clinicInfo,
       contractNumber,
       date: new Date().toLocaleDateString('ru-RU'),
-      currentDate: new Date().toLocaleDateString('ru-RU')
+      currentDate: new Date().toLocaleDateString('ru-RU'),
+      docCreateDate: new Date().toLocaleDateString('ru-RU')
     };
   }
 
@@ -820,7 +827,8 @@ export class DocumentService {
       patient: patientInfo,
       clinic: clinicInfo,
       date: new Date().toLocaleDateString('ru-RU'),
-      currentDate: new Date().toLocaleDateString('ru-RU')
+      currentDate: new Date().toLocaleDateString('ru-RU'),
+      docCreateDate: new Date().toLocaleDateString('ru-RU')
     };
   }
 }

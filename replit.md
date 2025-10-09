@@ -75,7 +75,9 @@ Preferred communication style: Simple, everyday language.
     - patient: name, species, breed, age, sex, color, identificationNumber, tattooNumber
     - clinic: all legal entity requisites
     - contractNumber: auto-generated for service_agreement and hospitalization_agreement templates
-    - date, currentDate
+    - date: historical date (invoice date, record date) or current date depending on context
+    - currentDate: always current date
+    - docCreateDate: always current date (document creation/generation date)
 - **Security & Isolation**: Tenant and branch ownership validation before document generation.
   - DocumentService verifies entity ownership before accessing data.
   - API endpoint enforces branchId requirement and tenant context.
