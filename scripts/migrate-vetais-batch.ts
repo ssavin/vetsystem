@@ -128,7 +128,7 @@ async function main() {
         poznamka,
         no_pass,
         date_birth,
-        gender
+        gender_id
       FROM file_clients
       WHERE vymaz = 0
       ORDER BY kod_kado
@@ -173,11 +173,12 @@ async function main() {
       const email = cleanEmail(row.email);
       const address = buildAddress(row.adresar, row.mesto_k);
       
-      // Паспорт и личные данные
+      // Паспорт и личные данные из Vetais
       const passportNumber = row.no_pass?.trim() || null;
       const dateOfBirth = row.date_birth ? new Date(row.date_birth) : null;
-      const gender = row.gender?.trim().toLowerCase() === 'm' ? 'male' : 
-                     row.gender?.trim().toLowerCase() === 'f' ? 'female' : null;
+      // gender_id: 1 = мужской, 2 = женский
+      const gender = row.gender_id === 1 ? 'male' : 
+                     row.gender_id === 2 ? 'female' : null;
 
       toInsert.push({ name, phone, email, address, passportNumber, dateOfBirth, gender });
       existingPhones.add(phone);

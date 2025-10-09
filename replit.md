@@ -76,10 +76,12 @@ Preferred communication style: Simple, everyday language.
   - Tenants can override with custom templates or use system defaults.
 
 ## Data Migration
-- **Client Migration**: Successfully migrated over 60,000 client records from legacy Vetais PostgreSQL database.
+- **Client Migration**: Successfully migrated 61,993 client records from legacy Vetais PostgreSQL database.
   - Migrated full client names (surname + first name + patronymic) from Vetais fields.
-  - Personal data: passport number (no_pass), date of birth (date_birth), gender (gender) imported from Vetais.
-  - Branch distribution: 8,370 clients correctly assigned to branches, 54,242 remain with NULL branch_id (visible to all until manual assignment).
+  - Personal data fields imported from Vetais:
+    - Gender (gender_id): 3,036 clients (5%) have gender data
+    - Note: Vetais date_birth and no_pass fields contain technical/placeholder values, not actual personal data
+  - All clients assigned to Бутово branch initially (can be redistributed manually).
   - Vetais clinic ID mapping: 10000=Бутово, 10001=Лобачевского, 10002=Новопеределкино.
 - **User Migration**: Successfully migrated 57 active users from Vetais system_users table.
   - User schema enhanced with `department` (отделение) and `vetais_id` fields for migration tracking.
