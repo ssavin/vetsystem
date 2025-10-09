@@ -40,7 +40,7 @@ function MedicalRecordTableRow({ record }: { record: any }) {
         <TableCell data-testid={`text-patient-name-${record.id}`}>{record.patientName}</TableCell>
         <TableCell data-testid={`text-owner-name-${record.id}`}>{record.ownerName}</TableCell>
         <TableCell data-testid={`text-doctor-name-${record.id}`}>{record.doctorName}</TableCell>
-        <TableCell>{record.visitType}</TableCell>
+        <TableCell>{record.visitTypeLabel || record.visitType}</TableCell>
         <TableCell className="max-w-xs truncate" title={record.diagnosis || ''}>
           {record.diagnosis || '-'}
         </TableCell>
@@ -168,34 +168,16 @@ export default function MedicalRecords() {
     return map
   }, [doctors])
 
-  // Transform medical records to include display data
+  // Use enriched records from backend (no transformation needed)
+  // Backend now returns doctorName, patientName, ownerName, visitTypeLabel, etc.
   const transformedRecords = useMemo(() => {
-    return medicalRecords.map((record: MedicalRecord) => {
-      const patient = patientMap[record.patientId]
-      const doctor = record.doctorId ? doctorMap[record.doctorId] : null
-      
-      const visitDate = new Date(record.visitDate)
-      const isValidVisitDate = !isNaN(visitDate.getTime())
-      
-      const nextVisitDate = record.nextVisit ? new Date(record.nextVisit) : null
-      const isValidNextVisit = nextVisitDate && !isNaN(nextVisitDate.getTime())
-      
-      // Get owner name from patient data (uses primary owner)
-      const ownerName = patient?.primaryOwnerName || patient?.owners?.[0]?.name || t('unknownOwner', 'Владелец неизвестен')
-      
-      return {
-        ...record,
-        patientId: record.patientId,
-        date: isValidVisitDate ? visitDate.toLocaleDateString('ru-RU') : t('unknownDate'),
-        patientName: patient ? patient.name : t('unknownPatient'),
-        doctorName: doctor ? doctor.name : t('unknownDoctor'),
-        ownerName,
-        medications: [],
-        nextVisit: isValidNextVisit ? nextVisitDate.toLocaleDateString('ru-RU') : undefined,
-        treatment: Array.isArray(record.treatment) ? record.treatment : []
-      }
-    })
-  }, [medicalRecords, patientMap, doctorMap, t])
+    return medicalRecords.map((record: any) => ({
+      ...record,
+      // Ensure medications and treatment are arrays
+      medications: record.medications || [],
+      treatment: Array.isArray(record.treatment) ? record.treatment : []
+    }))
+  }, [medicalRecords])
 
   // Filter records based on search term and selected patient
   const filteredRecords = useMemo(() => {

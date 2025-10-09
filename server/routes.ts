@@ -1155,11 +1155,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 🔒 SECURITY: Pass branchId to enforce branch isolation
       const records = await storage.getMedicalRecords(patientId, userBranchId, limit, offset);
       
+      // Enrich records with patient and doctor names
+      const { translateVisitType } = await import('../shared/visitTypes.js');
+      const enrichedRecords = await Promise.all(records.map(async (record) => {
+        const patient = record.patientId ? await storage.getPatient(record.patientId) : null;
+        const doctor = record.doctorId ? await storage.getUser(record.doctorId) : null;
+        
+        // Get owner info for the patient
+        let ownerName = 'Не указан';
+        if (patient) {
+          const owners = await storage.getPatientOwners(patient.id);
+          const primaryOwner = owners.find(po => po.isPrimary) || owners[0];
+          if (primaryOwner) {
+            const owner = await storage.getOwner(primaryOwner.ownerId);
+            if (owner) {
+              ownerName = owner.name;
+            }
+          }
+        }
+        
+        return {
+          ...record,
+          id: record.id,
+          date: record.visitDate ? new Date(record.visitDate).toLocaleDateString('ru-RU') : '',
+          visitDate: record.visitDate, // Keep original ISO for forms
+          patientId: record.patientId,
+          patientName: patient?.name || 'Неизвестный пациент',
+          ownerName,
+          doctorId: record.doctorId,
+          doctorName: doctor?.fullName || doctor?.name || 'Неизвестный врач',
+          visitType: record.visitType, // Keep raw value for form
+          visitTypeLabel: translateVisitType(record.visitType), // Translated for display
+          complaints: record.complaints,
+          diagnosis: record.diagnosis,
+          treatment: record.treatment || [],
+          medications: [], // Will be loaded separately if needed
+          nextVisit: record.nextVisit, // Keep original ISO for forms
+          nextVisitLabel: record.nextVisit ? new Date(record.nextVisit).toLocaleDateString('ru-RU') : null,
+          status: record.status,
+          notes: record.notes,
+          temperature: record.temperature,
+          weight: record.weight,
+          appointmentId: record.appointmentId
+        };
+      }));
+      
       // Получаем общее количество для пагинации
       const total = await storage.getMedicalRecordsCount(patientId, userBranchId);
       
       res.json({
-        records,
+        records: enrichedRecords,
         pagination: {
           total,
           limit,

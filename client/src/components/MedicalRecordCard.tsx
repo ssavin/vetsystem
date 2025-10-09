@@ -17,6 +17,7 @@ interface MedicalRecordProps {
     patientName: string
     doctorName: string
     visitType: string
+    visitTypeLabel?: string
     visitDate?: string | Date
     complaints: string | null
     diagnosis: string | null
@@ -27,7 +28,8 @@ interface MedicalRecordProps {
       frequency: string
       duration: string
     }>
-    nextVisit?: string | null
+    nextVisit?: string | Date | null
+    nextVisitLabel?: string | null
     status: string | null
     notes?: string | null
     temperature?: string | number | null
@@ -78,7 +80,7 @@ export default function MedicalRecordCard({ record }: MedicalRecordProps) {
                 {record.date}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                {record.visitType} • {record.patientName}
+                {record.visitTypeLabel || record.visitType} • {record.patientName}
               </p>
             </div>
           </div>
@@ -154,11 +156,11 @@ export default function MedicalRecordCard({ record }: MedicalRecordProps) {
           </div>
         )}
 
-        {record.nextVisit && (
+        {(record.nextVisitLabel || record.nextVisit) && (
           <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded-md">
             <p className="text-sm flex items-center gap-2">
               <Calendar className="h-3 w-3" />
-              Следующий визит: {record.nextVisit}
+              Следующий визит: {record.nextVisitLabel || (record.nextVisit ? new Date(record.nextVisit).toLocaleDateString('ru-RU') : '')}
             </p>
           </div>
         )}

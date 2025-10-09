@@ -299,13 +299,22 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Тип визита *</FormLabel>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder="Плановый осмотр, консультация, операция..."
-                            data-testid="input-visit-type"
-                          />
-                        </FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-visit-type">
+                              <SelectValue placeholder="Выберите тип визита" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="consultation">Консультация</SelectItem>
+                            <SelectItem value="emergency">Экстренный прием</SelectItem>
+                            <SelectItem value="follow-up">Повторный прием</SelectItem>
+                            <SelectItem value="vaccination">Вакцинация</SelectItem>
+                            <SelectItem value="surgery">Операция</SelectItem>
+                            <SelectItem value="checkup">Осмотр</SelectItem>
+                            <SelectItem value="planned_examination">Плановый осмотр</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
