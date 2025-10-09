@@ -24,6 +24,7 @@ import Settings from "@/pages/Settings";
 import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
 import Branches from "@/pages/Branches";
+import LegalEntities from "@/pages/LegalEntities";
 import SubscriptionManagement from "@/pages/SubscriptionManagement";
 import MySubscription from "@/pages/MySubscription";
 import SuperAdminPanel from "@/pages/SuperAdminPanel";
@@ -87,6 +88,7 @@ function AuthenticatedApp() {
               <Route path="/settings" component={Settings} />
               <Route path="/users" component={UserManagement} />
               <Route path="/branches" component={Branches} />
+              <Route path="/legal-entities" component={LegalEntities} />
               <Route path="/subscriptions" component={SubscriptionManagement} />
               <Route path="/my-subscription" component={MySubscription} />
               <Route path="/superadmin" component={SuperAdminPanel} />

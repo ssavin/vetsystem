@@ -1,4 +1,4 @@
-import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, ClipboardList, FileType } from "lucide-react"
+import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, ClipboardList, FileType, Building2 } from "lucide-react"
 import { Link, useLocation } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTranslation } from "react-i18next"
@@ -75,6 +75,13 @@ const getMenuItems = (t: any) => [
     url: "/settings",
     icon: Settings,
     module: "settings",
+    managerOnly: true,
+  },
+  {
+    titleKey: "menu.legalEntities",
+    url: "/legal-entities",
+    icon: Building2,
+    module: null,
     managerOnly: true,
   },
   {
