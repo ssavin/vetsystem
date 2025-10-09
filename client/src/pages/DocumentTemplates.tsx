@@ -20,7 +20,18 @@ import { queryClient, apiRequest } from "@/lib/queryClient"
 // Validation schema
 const templateSchema = z.object({
   name: z.string().min(1, "Название обязательно"),
-  type: z.enum(['invoice', 'encounter_summary', 'prescription', 'vaccination_certificate', 'lab_results_report', 'informed_consent_surgery', 'informed_consent_anesthesia']),
+  type: z.enum([
+    'invoice', 
+    'encounter_summary', 
+    'prescription', 
+    'vaccination_certificate', 
+    'lab_results_report', 
+    'informed_consent_surgery', 
+    'informed_consent_anesthesia',
+    'informed_consent_general',
+    'service_agreement',
+    'hospitalization_agreement'
+  ]),
   content: z.string().min(1, "Содержимое шаблона обязательно"),
   isActive: z.boolean().default(true)
 })
@@ -45,7 +56,10 @@ const templateTypeNames: Record<string, string> = {
   vaccination_certificate: 'Сертификат вакцинации',
   lab_results_report: 'Результаты анализов',
   informed_consent_surgery: 'Согласие на операцию',
-  informed_consent_anesthesia: 'Согласие на анестезию'
+  informed_consent_anesthesia: 'Согласие на анестезию',
+  informed_consent_general: 'Информированное согласие',
+  service_agreement: 'Договор на ветеринарное обслуживание',
+  hospitalization_agreement: 'Договор на стационарное лечение'
 }
 
 function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; onSuccess: () => void }) {

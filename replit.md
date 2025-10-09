@@ -58,7 +58,11 @@ Preferred communication style: Simple, everyday language.
 ## Document Generation & Printing
 - **Document Templates System**: Multi-tenant template management with system-wide fallback.
   - Database schema: `document_templates` table with tenant isolation via RLS.
-  - Template types: invoice, encounter_summary, prescription, vaccination_certificate, lab_results_report, informed_consent (surgery/anesthesia), personal_data_consent.
+  - Template types: 
+    - Medical: invoice, encounter_summary, prescription, vaccination_certificate, lab_results_report
+    - Consent: informed_consent_surgery, informed_consent_anesthesia, informed_consent_general
+    - Agreements: service_agreement (vet services contract), hospitalization_agreement (inpatient care contract)
+    - Legal: personal_data_consent (ФЗ-152 compliance)
   - Handlebars template engine for flexible HTML rendering.
   - Puppeteer for high-quality PDF generation with A4 formatting.
 - **Security & Isolation**: Tenant and branch ownership validation before document generation.

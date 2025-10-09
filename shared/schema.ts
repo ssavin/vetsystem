@@ -52,7 +52,18 @@ export const BILLING_PERIOD = ['monthly', 'quarterly', 'yearly'] as const;
 export const TENANT_STATUS = ['active', 'suspended', 'trial', 'cancelled'] as const;
 
 // Document template types
-export const DOCUMENT_TEMPLATE_TYPE = ['invoice', 'encounter_summary', 'informed_consent_surgery', 'informed_consent_anesthesia', 'lab_results_report', 'vaccination_certificate', 'prescription'] as const;
+export const DOCUMENT_TEMPLATE_TYPE = [
+  'invoice', 
+  'encounter_summary', 
+  'informed_consent_surgery', 
+  'informed_consent_anesthesia', 
+  'informed_consent_general',
+  'lab_results_report', 
+  'vaccination_certificate', 
+  'prescription',
+  'service_agreement',
+  'hospitalization_agreement'
+] as const;
 
 // Galen sync status enum
 export const GALEN_SYNC_STATUS = ['not_synced', 'sync_in_progress', 'synced', 'error'] as const;
