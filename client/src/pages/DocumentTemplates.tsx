@@ -236,23 +236,26 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
 export default function DocumentTemplates() {
   const { toast } = useToast()
 
-  const { data: templates = [], isLoading } = useQuery<DocumentTemplate[]>({
+  const { data: allTemplates = [], isLoading } = useQuery<DocumentTemplate[]>({
     queryKey: ['/api/document-templates']
   })
+
+  // Фильтруем только шаблоны клиники (скрываем системные)
+  const templates = allTemplates.filter(t => t.tenantId !== null)
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest('DELETE', `/api/document-templates/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/document-templates'] })
-      toast({ title: "Шаблон удален успешно" })
+      toast({ title: "Шаблон сброшен к системному" })
     },
     onError: () => {
-      toast({ title: "Ошибка удаления шаблона", variant: "destructive" })
+      toast({ title: "Ошибка сброса шаблона", variant: "destructive" })
     }
   })
 
   const handleDelete = (id: string) => {
-    if (confirm('Вы уверены, что хотите удалить этот шаблон?')) {
+    if (confirm('Вы уверены, что хотите сбросить этот шаблон к системному? Все изменения будут потеряны.')) {
       deleteMutation.mutate(id)
     }
   }
@@ -287,7 +290,6 @@ export default function DocumentTemplates() {
                   <TableHead>Название</TableHead>
                   <TableHead>Тип документа</TableHead>
                   <TableHead>Статус</TableHead>
-                  <TableHead>Область</TableHead>
                   <TableHead>Дата создания</TableHead>
                   <TableHead className="text-right">Действия</TableHead>
                 </TableRow>
@@ -302,27 +304,20 @@ export default function DocumentTemplates() {
                         {template.isActive ? 'Активен' : 'Неактивен'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={template.tenantId ? "outline" : "secondary"} data-testid={`badge-template-scope-${template.id}`}>
-                        {template.tenantId ? 'Клиника' : 'Система'}
-                      </Badge>
-                    </TableCell>
                     <TableCell data-testid={`text-template-date-${template.id}`}>{new Date(template.createdAt).toLocaleDateString('ru-RU')}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end" data-testid={`actions-template-${template.id}`}>
                         <TemplateDialog template={template} onSuccess={() => {}} />
-                        {template.tenantId && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDelete(template.id)}
-                            disabled={deleteMutation.isPending}
-                            data-testid={`button-delete-template-${template.id}`}
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Удалить
-                          </Button>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDelete(template.id)}
+                          disabled={deleteMutation.isPending}
+                          data-testid={`button-reset-template-${template.id}`}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Сбросить
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
