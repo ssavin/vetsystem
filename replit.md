@@ -86,7 +86,15 @@ Preferred communication style: Simple, everyday language.
 - **Integration Points**:
   - `PrintDocumentButton` React component with dropdown for template selection.
   - Integrated into MedicalRecordCard for medical documents and Registry for owner documents.
+  - Medical record view includes six templates: invoice, prescription, vaccination_certificate, service_agreement, hospitalization_agreement, informed_consent_general.
+  - Registry view includes personal_data_consent template.
   - API endpoint: POST /api/documents/generate with Zod validation.
+  - **EntityId Conversion**: Backend automatically converts medical_record IDs to patient IDs for patient-based templates (service_agreement, hospitalization_agreement, informed_consent_general) with proper null/error handling and 404 responses.
+- **Template Management UI**:
+  - DocumentTemplates page with CRUD operations for custom templates.
+  - **Preview Dialog**: Live template preview with HTML source view and sandboxed iframe rendering.
+  - Template creation/editing with real-time preview before saving.
+  - System templates marked and protected from deletion.
 - **System Templates**: Pre-configured templates seeded via `server/seed-document-templates.ts`:
   - Invoice, Encounter Summary, Prescription, Vaccination Certificate
   - Personal Data Consent (ФЗ-152 compliance) - includes passport data, addresses, consent terms
