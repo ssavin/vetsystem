@@ -65,11 +65,16 @@ Preferred communication style: Simple, everyday language.
     - Legal: personal_data_consent (ФЗ-152 compliance)
   - Handlebars template engine for flexible HTML rendering.
   - Puppeteer for high-quality PDF generation with A4 formatting.
+- **Template Context Data**: Owner data retrieval pattern for templates requiring full personal/passport data:
+  - First uses `getPatientOwners()` to identify primary owner link
+  - Then fetches complete owner record via `storage.getOwner(ownerId)` to access passport/address fields
+  - Templates with full owner data: personal_data_consent, service_agreement, hospitalization_agreement, informed_consent_general
+  - Available variables include: owner (name, phone, email, passportSeries, passportNumber, passportIssuedBy, passportIssueDate, registrationAddress, residenceAddress), patient (name, species, breed, age, sex, color, identificationNumber, tattooNumber), clinic (all legal entity requisites), date, currentDate
 - **Security & Isolation**: Tenant and branch ownership validation before document generation.
   - DocumentService verifies entity ownership before accessing data.
   - API endpoint enforces branchId requirement and tenant context.
   - Branch-level access control: owners with NULL branchId accessible to all branches, otherwise branchId must match.
-  - All storage queries respect RLS for complete data isolation.
+  - All storage queries use `withTenantContext` ensuring RLS enforcement for tenant isolation.
 - **Integration Points**:
   - `PrintDocumentButton` React component with dropdown for template selection.
   - Integrated into MedicalRecordCard for medical documents and Registry for owner documents.
@@ -77,6 +82,7 @@ Preferred communication style: Simple, everyday language.
 - **System Templates**: Pre-configured templates seeded via `server/seed-document-templates.ts`:
   - Invoice, Encounter Summary, Prescription, Vaccination Certificate
   - Personal Data Consent (ФЗ-152 compliance) - includes passport data, addresses, consent terms
+  - Service Agreement, Hospitalization Agreement, Informed Consent (General) - all with full owner personal data
   - Tenants can override with custom templates or use system defaults.
 
 ## Data Migration
