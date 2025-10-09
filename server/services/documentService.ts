@@ -40,6 +40,22 @@ export class DocumentService {
   }
 
   /**
+   * Generate contract number in format ДОГ-YYYYMMDD-XXXX
+   */
+  private generateContractNumber(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const dateStr = `${year}${month}${day}`;
+    
+    // Use timestamp-based sequential number (last 4 digits of timestamp)
+    const sequentialNumber = String(now.getTime()).slice(-4);
+    
+    return `ДОГ-${dateStr}-${sequentialNumber}`;
+  }
+
+  /**
    * Get clinic information with legal entity requisites
    */
   private async getClinicInfoWithLegalEntity(branchId: string): Promise<any> {
