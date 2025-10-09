@@ -6786,30 +6786,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Build context based on template type with tenant/branch validation
       let context: any;
       
+      // For patient-based templates, convert medical_record ID to patientId if needed
+      let effectiveEntityId = entityId;
+      if (['service_agreement', 'hospitalization_agreement', 'informed_consent_general'].includes(templateType)) {
+        // Try to interpret entityId as a medical record ID first
+        try {
+          const record = await storage.getMedicalRecord(entityId);
+          if (record && record.patientId) {
+            // EntityId is a medical record - use its patientId
+            effectiveEntityId = record.patientId;
+          } else {
+            // getMedicalRecord returned null - try as patientId
+            const patient = await storage.getPatient(entityId);
+            if (!patient) {
+              return res.status(404).json({ error: 'Patient or medical record not found' });
+            }
+            // EntityId is a valid patientId
+            effectiveEntityId = entityId;
+          }
+        } catch (recordErr: any) {
+          // getMedicalRecord threw error - try as patientId
+          try {
+            const patient = await storage.getPatient(entityId);
+            if (!patient) {
+              return res.status(404).json({ error: 'Patient or medical record not found' });
+            }
+            effectiveEntityId = entityId;
+          } catch (patientErr) {
+            // Both failed - return error
+            return res.status(404).json({ error: 'Invalid entityId: not a medical record or patient' });
+          }
+        }
+      }
+      
+      // branchId is guaranteed to be non-null after the check above
+      const validBranchId = branchId as string;
+      
       switch (templateType) {
         case 'invoice':
-          context = await documentService.buildInvoiceContext(entityId, tenantId, branchId!);
+          context = await documentService.buildInvoiceContext(entityId, tenantId, validBranchId);
           break;
         case 'encounter_summary':
-          context = await documentService.buildEncounterSummaryContext(entityId, tenantId, branchId!);
+          context = await documentService.buildEncounterSummaryContext(entityId, tenantId, validBranchId);
           break;
         case 'prescription':
-          context = await documentService.buildPrescriptionContext(entityId, tenantId, branchId!);
+          context = await documentService.buildPrescriptionContext(entityId, tenantId, validBranchId);
           break;
         case 'vaccination_certificate':
-          context = await documentService.buildVaccinationCertificateContext(entityId, tenantId, branchId!);
+          context = await documentService.buildVaccinationCertificateContext(entityId, tenantId, validBranchId);
           break;
         case 'personal_data_consent':
-          context = await documentService.buildPersonalDataConsentContext(entityId, tenantId, branchId!);
+          context = await documentService.buildPersonalDataConsentContext(entityId, tenantId, validBranchId);
           break;
         case 'service_agreement':
-          context = await documentService.buildServiceAgreementContext(entityId, tenantId, branchId!);
+          context = await documentService.buildServiceAgreementContext(effectiveEntityId, tenantId, validBranchId);
           break;
         case 'hospitalization_agreement':
-          context = await documentService.buildHospitalizationAgreementContext(entityId, tenantId, branchId!);
+          context = await documentService.buildHospitalizationAgreementContext(effectiveEntityId, tenantId, validBranchId);
           break;
         case 'informed_consent_general':
-          context = await documentService.buildInformedConsentGeneralContext(entityId, tenantId, branchId!);
+          context = await documentService.buildInformedConsentGeneralContext(effectiveEntityId, tenantId, validBranchId);
           break;
         default:
           return res.status(400).json({ error: `Context builder not implemented for template type: ${templateType}` });

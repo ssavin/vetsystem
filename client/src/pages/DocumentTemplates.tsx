@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Plus, Edit, Trash2, FileText } from "lucide-react"
+import { Plus, Edit, Trash2, FileText, Eye, Code } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 
@@ -233,6 +234,60 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
   )
 }
 
+function PreviewDialog({ template }: { template: DocumentTemplate }) {
+  const [open, setOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'html' | 'rendered'>('rendered')
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" data-testid={`button-preview-template-${template.id}`}>
+          <Eye className="h-3 w-3 mr-1" />
+          Просмотр
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-6xl max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle>Просмотр шаблона: {template.name}</DialogTitle>
+        </DialogHeader>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'html' | 'rendered')} className="flex-1">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="html" data-testid="tab-html-preview">
+              <Code className="h-4 w-4 mr-2" />
+              HTML код
+            </TabsTrigger>
+            <TabsTrigger value="rendered" data-testid="tab-rendered-preview">
+              <Eye className="h-4 w-4 mr-2" />
+              Предпросмотр
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="html" className="h-[60vh] overflow-auto">
+            <div className="bg-muted rounded-lg p-4">
+              <pre className="text-sm font-mono whitespace-pre-wrap" data-testid="preview-html-content">
+                {template.content}
+              </pre>
+            </div>
+          </TabsContent>
+          <TabsContent value="rendered" className="h-[60vh] overflow-auto border rounded-lg bg-white">
+            <iframe
+              srcDoc={template.content}
+              className="w-full h-full"
+              title="Template Preview"
+              sandbox="allow-same-origin"
+              data-testid="preview-iframe"
+            />
+          </TabsContent>
+        </Tabs>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setOpen(false)} data-testid="button-close-preview">
+            Закрыть
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function DocumentTemplates() {
   const { toast } = useToast()
 
@@ -307,6 +362,7 @@ export default function DocumentTemplates() {
                     <TableCell data-testid={`text-template-date-${template.id}`}>{new Date(template.createdAt).toLocaleDateString('ru-RU')}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end" data-testid={`actions-template-${template.id}`}>
+                        <PreviewDialog template={template} />
                         <TemplateDialog template={template} onSuccess={() => {}} />
                         <Button
                           size="sm"

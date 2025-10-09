@@ -120,7 +120,10 @@ export function PrintDocumentButton({
         return [
           { label: 'Медицинская карта', value: 'encounter_summary' },
           { label: 'Рецепт', value: 'prescription' },
-          { label: 'Сертификат вакцинации', value: 'vaccination_certificate' }
+          { label: 'Сертификат вакцинации', value: 'vaccination_certificate' },
+          { label: 'Договор на вет. обслуживание', value: 'service_agreement' },
+          { label: 'Договор на стационар', value: 'hospitalization_agreement' },
+          { label: 'Информированное согласие', value: 'informed_consent_general' }
         ];
       case 'invoice':
         return [
