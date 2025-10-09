@@ -32,9 +32,9 @@ Preferred communication style: Simple, everyday language.
 - **Data Models**: Comprehensive veterinary domain models including Owners, Patients (with multi-owner support), Doctors, Appointments, Medical Records, Clinical Cases (tracking long-term cases, encounters, and lab analyses), Services, Products, and Invoicing.
 - **Indexing**: Strategic indexes for query performance.
 - **RF Legal Compliance Fields**: Extended schema with fields required for Russian Federation document flow:
-  - **Owners table**: Passport data (series, number, issued by, issue date), registration/residence addresses, personal data consent (ФЗ-152 compliance).
+  - **Owners table**: Personal data (date of birth, gender), passport data (series, number, issued by, issue date), registration/residence addresses, personal data consent (ФЗ-152 compliance).
   - **Patients table**: Tattoo number (клеймо) for animal identification alongside microchip.
-  - **Tenants table**: OGRN/OGRNIP (13/15 digits), veterinary license number and issue date, logo URL for document branding.
+  - **Tenants table**: OGRN/OGRNIP (13/15 digits), veterinary license number and issue date, logo URL for document branding, Galen integration credentials (encrypted).
 
 ## Authentication & Security
 - **Multi-Tenant Authentication**: JWT-based authentication with `tenant_id` embedding and validation.
@@ -78,6 +78,7 @@ Preferred communication style: Simple, everyday language.
 ## Data Migration
 - **Client Migration**: Successfully migrated over 60,000 client records from legacy Vetais PostgreSQL database.
   - Migrated full client names (surname + first name + patronymic) from Vetais fields.
+  - Personal data: passport number (no_pass), date of birth (date_birth), gender (gender) imported from Vetais.
   - Branch distribution: 8,370 clients correctly assigned to branches, 54,242 remain with NULL branch_id (visible to all until manual assignment).
   - Vetais clinic ID mapping: 10000=Бутово, 10001=Лобачевского, 10002=Новопеределкино.
 - **User Migration**: Successfully migrated 57 active users from Vetais system_users table.
