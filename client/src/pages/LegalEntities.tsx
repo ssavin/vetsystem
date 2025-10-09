@@ -47,7 +47,9 @@ import {
   Award,
 } from "lucide-react"
 
-type LegalEntityFormData = z.infer<typeof insertLegalEntitySchema>
+// Schema for form validation (exclude tenantId as it's set by backend)
+const legalEntityFormSchema = insertLegalEntitySchema.omit({ tenantId: true })
+type LegalEntityFormData = z.infer<typeof legalEntityFormSchema>
 
 export default function LegalEntities() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -61,7 +63,7 @@ export default function LegalEntities() {
   })
 
   const form = useForm<LegalEntityFormData>({
-    resolver: zodResolver(insertLegalEntitySchema),
+    resolver: zodResolver(legalEntityFormSchema),
     defaultValues: {
       legalName: "",
       shortName: "",
