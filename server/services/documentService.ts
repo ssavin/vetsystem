@@ -547,6 +547,258 @@ export class DocumentService {
       currentDate: new Date().toLocaleDateString('ru-RU')
     };
   }
+
+  /**
+   * Build context data for service agreement template
+   */
+  async buildServiceAgreementContext(patientId: string, tenantId: string, branchId: string): Promise<any> {
+    // Fetch patient (storage methods enforce tenant isolation via RLS)
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      throw new Error(`Patient not found: ${patientId}`);
+    }
+
+    // Verify tenant ownership
+    if (patient.tenantId !== tenantId) {
+      throw new Error('Access denied: Patient belongs to different tenant');
+    }
+
+    // Fetch owner info (get primary owner)
+    const ownerLinks = await storage.getPatientOwners(patientId);
+    const primaryOwnerLink = ownerLinks.find((o: any) => o.isPrimary) || ownerLinks[0];
+    
+    if (!primaryOwnerLink) {
+      throw new Error('Owner not found for patient');
+    }
+
+    // Fetch full owner data with passport information
+    const owner = await storage.getOwner(primaryOwnerLink.ownerId);
+    if (!owner) {
+      throw new Error('Owner data not found');
+    }
+
+    // Build owner info with all personal data
+    const ownerInfo = {
+      name: owner.name,
+      phone: owner.phone || '',
+      email: owner.email || '',
+      passportSeries: owner.passportSeries || '',
+      passportNumber: owner.passportNumber || '',
+      passportIssuedBy: owner.passportIssuedBy || '',
+      passportIssueDate: owner.passportIssueDate 
+        ? new Date(owner.passportIssueDate).toLocaleDateString('ru-RU') 
+        : '',
+      registrationAddress: owner.registrationAddress || '',
+      residenceAddress: owner.residenceAddress || ''
+    };
+
+    // Calculate patient age
+    const calculateAge = (birthDate: Date | null) => {
+      if (!birthDate) return 'Не указан';
+      const today = new Date();
+      const birth = new Date(birthDate);
+      const years = today.getFullYear() - birth.getFullYear();
+      const months = today.getMonth() - birth.getMonth();
+      
+      if (years === 0) {
+        return `${months} мес.`;
+      } else if (months < 0) {
+        return `${years - 1} ${years - 1 === 1 ? 'год' : 'лет'}`;
+      }
+      return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'}`;
+    };
+
+    // Build patient info
+    const patientInfo = {
+      name: patient.name,
+      species: patient.species,
+      breed: patient.breed || 'Не указана',
+      age: calculateAge(patient.dateOfBirth),
+      sex: patient.sex || 'Не указан',
+      color: patient.color || 'Не указан',
+      identificationNumber: patient.identificationNumber || '',
+      tattooNumber: patient.tattooNumber || ''
+    };
+
+    // Fetch clinic/branch info with legal entity requisites
+    const clinicInfo = await this.getClinicInfoWithLegalEntity(branchId);
+
+    return {
+      owner: ownerInfo,
+      patient: patientInfo,
+      clinic: clinicInfo,
+      date: new Date().toLocaleDateString('ru-RU'),
+      currentDate: new Date().toLocaleDateString('ru-RU')
+    };
+  }
+
+  /**
+   * Build context data for hospitalization agreement template
+   */
+  async buildHospitalizationAgreementContext(patientId: string, tenantId: string, branchId: string): Promise<any> {
+    // Fetch patient (storage methods enforce tenant isolation via RLS)
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      throw new Error(`Patient not found: ${patientId}`);
+    }
+
+    // Verify tenant ownership
+    if (patient.tenantId !== tenantId) {
+      throw new Error('Access denied: Patient belongs to different tenant');
+    }
+
+    // Fetch owner info (get primary owner)
+    const ownerLinks = await storage.getPatientOwners(patientId);
+    const primaryOwnerLink = ownerLinks.find((o: any) => o.isPrimary) || ownerLinks[0];
+    
+    if (!primaryOwnerLink) {
+      throw new Error('Owner not found for patient');
+    }
+
+    // Fetch full owner data with passport information
+    const owner = await storage.getOwner(primaryOwnerLink.ownerId);
+    if (!owner) {
+      throw new Error('Owner data not found');
+    }
+
+    // Build owner info with all personal data
+    const ownerInfo = {
+      name: owner.name,
+      phone: owner.phone || '',
+      email: owner.email || '',
+      passportSeries: owner.passportSeries || '',
+      passportNumber: owner.passportNumber || '',
+      passportIssuedBy: owner.passportIssuedBy || '',
+      passportIssueDate: owner.passportIssueDate 
+        ? new Date(owner.passportIssueDate).toLocaleDateString('ru-RU') 
+        : '',
+      registrationAddress: owner.registrationAddress || '',
+      residenceAddress: owner.residenceAddress || ''
+    };
+
+    // Calculate patient age
+    const calculateAge = (birthDate: Date | null) => {
+      if (!birthDate) return 'Не указан';
+      const today = new Date();
+      const birth = new Date(birthDate);
+      const years = today.getFullYear() - birth.getFullYear();
+      const months = today.getMonth() - birth.getMonth();
+      
+      if (years === 0) {
+        return `${months} мес.`;
+      } else if (months < 0) {
+        return `${years - 1} ${years - 1 === 1 ? 'год' : 'лет'}`;
+      }
+      return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'}`;
+    };
+
+    // Build patient info
+    const patientInfo = {
+      name: patient.name,
+      species: patient.species,
+      breed: patient.breed || 'Не указана',
+      age: calculateAge(patient.dateOfBirth),
+      sex: patient.sex || 'Не указан',
+      color: patient.color || 'Не указан',
+      identificationNumber: patient.identificationNumber || '',
+      tattooNumber: patient.tattooNumber || ''
+    };
+
+    // Fetch clinic/branch info with legal entity requisites
+    const clinicInfo = await this.getClinicInfoWithLegalEntity(branchId);
+
+    return {
+      owner: ownerInfo,
+      patient: patientInfo,
+      clinic: clinicInfo,
+      date: new Date().toLocaleDateString('ru-RU'),
+      currentDate: new Date().toLocaleDateString('ru-RU')
+    };
+  }
+
+  /**
+   * Build context data for informed consent (general) template
+   */
+  async buildInformedConsentGeneralContext(patientId: string, tenantId: string, branchId: string): Promise<any> {
+    // Fetch patient (storage methods enforce tenant isolation via RLS)
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      throw new Error(`Patient not found: ${patientId}`);
+    }
+
+    // Verify tenant ownership
+    if (patient.tenantId !== tenantId) {
+      throw new Error('Access denied: Patient belongs to different tenant');
+    }
+
+    // Fetch owner info (get primary owner)
+    const ownerLinks = await storage.getPatientOwners(patientId);
+    const primaryOwnerLink = ownerLinks.find((o: any) => o.isPrimary) || ownerLinks[0];
+    
+    if (!primaryOwnerLink) {
+      throw new Error('Owner not found for patient');
+    }
+
+    // Fetch full owner data with passport information
+    const owner = await storage.getOwner(primaryOwnerLink.ownerId);
+    if (!owner) {
+      throw new Error('Owner data not found');
+    }
+
+    // Build owner info with all personal data
+    const ownerInfo = {
+      name: owner.name,
+      phone: owner.phone || '',
+      email: owner.email || '',
+      passportSeries: owner.passportSeries || '',
+      passportNumber: owner.passportNumber || '',
+      passportIssuedBy: owner.passportIssuedBy || '',
+      passportIssueDate: owner.passportIssueDate 
+        ? new Date(owner.passportIssueDate).toLocaleDateString('ru-RU') 
+        : '',
+      registrationAddress: owner.registrationAddress || '',
+      residenceAddress: owner.residenceAddress || ''
+    };
+
+    // Calculate patient age
+    const calculateAge = (birthDate: Date | null) => {
+      if (!birthDate) return 'Не указан';
+      const today = new Date();
+      const birth = new Date(birthDate);
+      const years = today.getFullYear() - birth.getFullYear();
+      const months = today.getMonth() - birth.getMonth();
+      
+      if (years === 0) {
+        return `${months} мес.`;
+      } else if (months < 0) {
+        return `${years - 1} ${years - 1 === 1 ? 'год' : 'лет'}`;
+      }
+      return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'}`;
+    };
+
+    // Build patient info
+    const patientInfo = {
+      name: patient.name,
+      species: patient.species,
+      breed: patient.breed || 'Не указана',
+      age: calculateAge(patient.dateOfBirth),
+      sex: patient.sex || 'Не указан',
+      color: patient.color || 'Не указан',
+      identificationNumber: patient.identificationNumber || '',
+      tattooNumber: patient.tattooNumber || ''
+    };
+
+    // Fetch clinic/branch info with legal entity requisites
+    const clinicInfo = await this.getClinicInfoWithLegalEntity(branchId);
+
+    return {
+      owner: ownerInfo,
+      patient: patientInfo,
+      clinic: clinicInfo,
+      date: new Date().toLocaleDateString('ru-RU'),
+      currentDate: new Date().toLocaleDateString('ru-RU')
+    };
+  }
 }
 
 export const documentService = new DocumentService();

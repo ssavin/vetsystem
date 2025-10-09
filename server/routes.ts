@@ -6750,7 +6750,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Validation schema for document generation
   const generateDocumentSchema = z.object({
-    templateType: z.enum(['invoice', 'encounter_summary', 'informed_consent_surgery', 'informed_consent_anesthesia', 'lab_results_report', 'vaccination_certificate', 'prescription', 'personal_data_consent']),
+    templateType: z.enum([
+      'invoice', 
+      'encounter_summary', 
+      'informed_consent_surgery', 
+      'informed_consent_anesthesia', 
+      'informed_consent_general',
+      'lab_results_report', 
+      'vaccination_certificate', 
+      'prescription', 
+      'personal_data_consent',
+      'service_agreement',
+      'hospitalization_agreement'
+    ]),
     entityId: z.string().uuid(),
     outputFormat: z.enum(['pdf', 'html']).default('pdf')
   });
@@ -6789,6 +6801,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
         case 'personal_data_consent':
           context = await documentService.buildPersonalDataConsentContext(entityId, tenantId, branchId!);
+          break;
+        case 'service_agreement':
+          context = await documentService.buildServiceAgreementContext(entityId, tenantId, branchId!);
+          break;
+        case 'hospitalization_agreement':
+          context = await documentService.buildHospitalizationAgreementContext(entityId, tenantId, branchId!);
+          break;
+        case 'informed_consent_general':
+          context = await documentService.buildInformedConsentGeneralContext(entityId, tenantId, branchId!);
           break;
         default:
           return res.status(400).json({ error: `Context builder not implemented for template type: ${templateType}` });
