@@ -217,6 +217,7 @@ export default function LegalEntities() {
       form.setValue('shortName', data.shortName || '')
       form.setValue('kpp', data.kpp || '')
       form.setValue('ogrn', data.ogrn || '')
+      form.setValue('legalAddress', data.actualAddress || '')
       form.setValue('actualAddress', data.actualAddress || '')
       form.setValue('directorName', data.directorName || '')
 
