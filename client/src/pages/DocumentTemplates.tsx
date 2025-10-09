@@ -17,7 +17,17 @@ import { z } from "zod"
 import { Plus, Edit, Trash2, FileText, Eye, Code } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
-import { Editor } from '@tinymce/tinymce-react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { Table as TiptapTable } from '@tiptap/extension-table'
+import { TableRow as TiptapTableRow } from '@tiptap/extension-table-row'
+import { TableCell as TiptapTableCell } from '@tiptap/extension-table-cell'
+import { TableHeader as TiptapTableHeader } from '@tiptap/extension-table-header'
+import { TextStyle } from '@tiptap/extension-text-style'
+import { FontFamily } from '@tiptap/extension-font-family'
+import { Color } from '@tiptap/extension-color'
+import { TextAlign } from '@tiptap/extension-text-align'
+import { Underline } from '@tiptap/extension-underline'
 
 // Validation schema
 const templateSchema = z.object({
@@ -64,24 +74,172 @@ const templateTypeNames: Record<string, string> = {
   hospitalization_agreement: 'Договор на стационарное лечение'
 }
 
-// TinyMCE Editor configuration
-const tinyMCEInit = {
-  height: 400,
-  menubar: true,
-  plugins: [
-    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-    'insertdatetime', 'media', 'table', 'help', 'wordcount'
-  ],
-  toolbar: 'undo redo | blocks | ' +
-    'bold italic forecolor backcolor | fontfamily fontsize | ' +
-    'alignleft aligncenter alignright alignjustify | ' +
-    'bullist numlist outdent indent | table | ' +
-    'removeformat | help',
-  font_family_formats: 'Arial=arial,helvetica,sans-serif; Times New Roman=times new roman,times,serif; Courier New=courier new,courier,monospace; Georgia=georgia,palatino; Verdana=verdana,geneva; Tahoma=tahoma,arial,helvetica,sans-serif',
-  font_size_formats: '8pt 10pt 12pt 14pt 16pt 18pt 24pt 36pt 48pt',
-  content_style: 'body { font-family:Arial,sans-serif; font-size:14px }',
-  branding: false,
+// Tiptap Toolbar Component
+function TiptapToolbar({ editor }: { editor: any }) {
+  if (!editor) return null
+
+  return (
+    <div className="border border-input rounded-t-md bg-background p-2 flex flex-wrap gap-1">
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive('bold') ? 'default' : 'outline'}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        data-testid="button-bold"
+      >
+        <strong>B</strong>
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive('italic') ? 'default' : 'outline'}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        data-testid="button-italic"
+      >
+        <em>I</em>
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive('underline') ? 'default' : 'outline'}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        data-testid="button-underline"
+      >
+        <u>U</u>
+      </Button>
+      
+      <div className="w-px h-8 bg-border mx-1" />
+      
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive({ textAlign: 'left' }) ? 'default' : 'outline'}
+        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+        data-testid="button-align-left"
+      >
+        ←
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive({ textAlign: 'center' }) ? 'default' : 'outline'}
+        onClick={() => editor.chain().focus().setTextAlign('center').run()}
+        data-testid="button-align-center"
+      >
+        ↔
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive({ textAlign: 'right' }) ? 'default' : 'outline'}
+        onClick={() => editor.chain().focus().setTextAlign('right').run()}
+        data-testid="button-align-right"
+      >
+        →
+      </Button>
+      
+      <div className="w-px h-8 bg-border mx-1" />
+      
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive('bulletList') ? 'default' : 'outline'}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        data-testid="button-bullet-list"
+      >
+        • Список
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive('orderedList') ? 'default' : 'outline'}
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        data-testid="button-ordered-list"
+      >
+        1. Нумерация
+      </Button>
+      
+      <div className="w-px h-8 bg-border mx-1" />
+      
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+        data-testid="button-insert-table"
+      >
+        📊 Таблица
+      </Button>
+      {editor.isActive('table') && (
+        <>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => editor.chain().focus().addColumnAfter().run()}
+            data-testid="button-add-column"
+          >
+            + Колонка
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+            data-testid="button-add-row"
+          >
+            + Строка
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => editor.chain().focus().deleteTable().run()}
+            data-testid="button-delete-table"
+          >
+            🗑 Удалить
+          </Button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// Tiptap Editor Component
+function TiptapEditor({ content, onChange }: { content: string; onChange: (html: string) => void }) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      TextStyle,
+      FontFamily,
+      Color,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      TiptapTable.configure({
+        resizable: true,
+      }),
+      TiptapTableRow,
+      TiptapTableHeader,
+      TiptapTableCell,
+    ],
+    content,
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML())
+    },
+  })
+
+  return (
+    <div className="border border-input rounded-md">
+      <TiptapToolbar editor={editor} />
+      <EditorContent 
+        editor={editor} 
+        className="prose prose-sm max-w-none p-4 min-h-[400px] focus:outline-none"
+        data-testid="wysiwyg-editor"
+      />
+    </div>
+  )
 }
 
 function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; onSuccess: () => void }) {
@@ -216,12 +374,9 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
                     </TabsList>
                     <TabsContent value="wysiwyg" className="mt-4">
                       <FormControl>
-                        <Editor
-                          apiKey="fmzyoswbh5cxifg57pq59pw9ahfy5uzq4lt5014ctfsg5gmh"
-                          value={field.value}
-                          onEditorChange={field.onChange}
-                          init={tinyMCEInit}
-                          data-testid="wysiwyg-editor"
+                        <TiptapEditor 
+                          content={field.value}
+                          onChange={field.onChange}
                         />
                       </FormControl>
                     </TabsContent>
