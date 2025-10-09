@@ -727,10 +727,14 @@ export class DocumentService {
     // Fetch clinic/branch info with legal entity requisites
     const clinicInfo = await this.getClinicInfoWithLegalEntity(branchId);
 
+    // Generate contract number
+    const contractNumber = this.generateContractNumber();
+
     return {
       owner: ownerInfo,
       patient: patientInfo,
       clinic: clinicInfo,
+      contractNumber,
       date: new Date().toLocaleDateString('ru-RU'),
       currentDate: new Date().toLocaleDateString('ru-RU')
     };
