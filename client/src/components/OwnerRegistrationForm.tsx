@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast"
 import { apiRequest, queryClient } from "@/lib/queryClient"
@@ -17,6 +18,8 @@ const ownerFormSchema = z.object({
   phone: z.string().min(1, "Введите телефон"),
   email: z.string().email("Неверный формат email").optional().or(z.literal("")),
   address: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  gender: z.string().optional(),
   passportSeries: z.string().regex(/^\d{4}$/, "Серия паспорта должна состоять из 4 цифр").or(z.literal("")).optional(),
   passportNumber: z.string().regex(/^\d{6}$/, "Номер паспорта должен состоять из 6 цифр").or(z.literal("")).optional(),
   passportIssuedBy: z.string().optional(),
@@ -36,6 +39,8 @@ interface OwnerRegistrationFormProps {
     phone?: string
     email?: string
     address?: string
+    dateOfBirth?: Date
+    gender?: string
     passportSeries?: string
     passportNumber?: string
     passportIssuedBy?: string
@@ -60,6 +65,8 @@ export default function OwnerRegistrationForm({ owner, onSuccess, onCancel }: Ow
       phone: owner?.phone || "",
       email: owner?.email || "",
       address: owner?.address || "",
+      dateOfBirth: owner?.dateOfBirth ? new Date(owner.dateOfBirth).toISOString().split('T')[0] : undefined,
+      gender: owner?.gender || "",
       passportSeries: owner?.passportSeries || "",
       passportNumber: owner?.passportNumber || "",
       passportIssuedBy: owner?.passportIssuedBy || "",
@@ -182,6 +189,52 @@ export default function OwnerRegistrationForm({ owner, onSuccess, onCancel }: Ow
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Личные данные */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Личные данные</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="dateOfBirth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Дата рождения</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date" 
+                          {...field} 
+                          data-testid="input-date-of-birth"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Пол</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-gender">
+                            <SelectValue placeholder="Выберите пол" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="male">Мужской</SelectItem>
+                          <SelectItem value="female">Женский</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             {/* Паспортные данные */}

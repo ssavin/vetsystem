@@ -1375,14 +1375,16 @@ export const insertOwnerSchema = createInsertSchema(owners).omit({
   updatedAt: true,
 }).extend({
   email: z.string().email().optional().or(z.literal("")),
+  dateOfBirth: z.union([z.coerce.date(), z.literal("")]).transform(val => val === "" ? undefined : val).optional(),
+  gender: z.string().optional().or(z.literal("")),
   passportSeries: z.string().regex(/^\d{4}$/, "Серия паспорта должна состоять из 4 цифр").or(z.literal("")).optional(),
   passportNumber: z.string().regex(/^\d{6}$/, "Номер паспорта должен состоять из 6 цифр").or(z.literal("")).optional(),
   passportIssuedBy: z.string().optional(),
-  passportIssueDate: z.coerce.date().optional(),
+  passportIssueDate: z.union([z.coerce.date(), z.literal("")]).transform(val => val === "" ? undefined : val).optional(),
   registrationAddress: z.string().optional(),
   residenceAddress: z.string().optional(),
   personalDataConsentGiven: z.boolean().default(false),
-  personalDataConsentDate: z.coerce.date().optional(),
+  personalDataConsentDate: z.union([z.coerce.date(), z.literal("")]).transform(val => val === "" ? undefined : val).optional(),
 });
 
 export const insertPatientSchema = createInsertSchema(patients).omit({

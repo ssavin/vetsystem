@@ -125,7 +125,10 @@ async function main() {
         email,
         adresar,
         mesto_k,
-        poznamka
+        poznamka,
+        no_pass,
+        date_birth,
+        gender
       FROM file_clients
       WHERE vymaz = 0
       ORDER BY kod_kado
@@ -139,6 +142,9 @@ async function main() {
       phone: string;
       email: string | null;
       address: string | null;
+      passportNumber: string | null;
+      dateOfBirth: Date | null;
+      gender: string | null;
     }> = [];
 
     let skippedNoName = 0;
@@ -166,8 +172,14 @@ async function main() {
 
       const email = cleanEmail(row.email);
       const address = buildAddress(row.adresar, row.mesto_k);
+      
+      // Паспорт и личные данные
+      const passportNumber = row.no_pass?.trim() || null;
+      const dateOfBirth = row.date_birth ? new Date(row.date_birth) : null;
+      const gender = row.gender?.trim().toLowerCase() === 'm' ? 'male' : 
+                     row.gender?.trim().toLowerCase() === 'f' ? 'female' : null;
 
-      toInsert.push({ name, phone, email, address });
+      toInsert.push({ name, phone, email, address, passportNumber, dateOfBirth, gender });
       existingPhones.add(phone);
     }
 
@@ -193,12 +205,22 @@ async function main() {
       let paramIndex = 1;
 
       batch.forEach(item => {
-        values.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, NOW(), NOW())`);
-        params.push(tenantId, item.name, item.phone, item.email, item.address, branchId);
+        values.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, NOW(), NOW())`);
+        params.push(
+          tenantId, 
+          item.name, 
+          item.phone, 
+          item.email, 
+          item.address, 
+          item.passportNumber, 
+          item.dateOfBirth, 
+          item.gender, 
+          branchId
+        );
       });
 
       const query = `
-        INSERT INTO owners (tenant_id, name, phone, email, address, branch_id, created_at, updated_at)
+        INSERT INTO owners (tenant_id, name, phone, email, address, passport_number, date_of_birth, gender, branch_id, created_at, updated_at)
         VALUES ${values.join(', ')}
       `;
 
