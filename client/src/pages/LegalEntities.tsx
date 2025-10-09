@@ -196,6 +196,43 @@ export default function LegalEntities() {
     setIsCreateDialogOpen(false)
   }
 
+  // DaData autofill by INN
+  const handleFillByInn = async () => {
+    const inn = form.getValues('inn')
+    if (!inn || inn.length < 10) {
+      toast({
+        title: "Ошибка",
+        description: "Введите корректный ИНН (10 или 12 цифр)",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const res = await apiRequest('POST', '/api/dadata/party', { inn })
+      const data = await res.json()
+      
+      // Fill form with DaData response
+      form.setValue('legalName', data.legalName || '')
+      form.setValue('shortName', data.shortName || '')
+      form.setValue('kpp', data.kpp || '')
+      form.setValue('ogrn', data.ogrn || '')
+      form.setValue('actualAddress', data.actualAddress || '')
+      form.setValue('directorName', data.directorName || '')
+
+      toast({
+        title: "Успешно!",
+        description: "Реквизиты заполнены автоматически"
+      })
+    } catch (error: any) {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось получить данные из DaData",
+        variant: "destructive"
+      })
+    }
+  }
+
   // Filter entities
   const filteredEntities = entities.filter(entity =>
     entity.legalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -315,14 +352,25 @@ export default function LegalEntities() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>ИНН *</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="1234567890" 
-                              {...field}
-                              data-testid="input-inn"
-                              maxLength={12}
-                            />
-                          </FormControl>
+                          <div className="flex gap-2">
+                            <FormControl>
+                              <Input 
+                                placeholder="1234567890" 
+                                {...field}
+                                data-testid="input-inn"
+                                maxLength={12}
+                              />
+                            </FormControl>
+                            <Button 
+                              type="button"
+                              variant="outline" 
+                              onClick={() => handleFillByInn()}
+                              disabled={!form.watch('inn') || form.watch('inn').length < 10}
+                              data-testid="button-fill-by-inn"
+                            >
+                              Заполнить
+                            </Button>
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}

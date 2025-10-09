@@ -2360,6 +2360,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DaData integration endpoint - fetch organization details by INN
+  app.post("/api/dadata/party", authenticateToken, async (req, res) => {
+    try {
+      // Validate INN format (10 digits for legal entities, 12 for individual entrepreneurs)
+      const innSchema = z.object({
+        inn: z.string()
+          .trim()
+          .regex(/^\d{10}$|^\d{12}$/, "ИНН должен содержать 10 цифр (юр. лицо) или 12 цифр (ИП)")
+      });
+
+      const validationResult = innSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: validationResult.error.errors[0]?.message || "Неверный формат ИНН" 
+        });
+      }
+
+      const { inn } = validationResult.data;
+
+      const DADATA_API_KEY = process.env.DADATA_API_KEY;
+      if (!DADATA_API_KEY) {
+        return res.status(500).json({ error: "DaData API key not configured" });
+      }
+
+      // Call DaData API
+      const response = await fetch("https://suggestions.dadata.ru/suggestions/api/4_1/rs/findById/party", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": `Token ${DADATA_API_KEY}`
+        },
+        body: JSON.stringify({ query: inn })
+      });
+
+      if (!response.ok) {
+        throw new Error(`DaData API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.suggestions || data.suggestions.length === 0) {
+        return res.status(404).json({ error: "Организация с указанным ИНН не найдена" });
+      }
+
+      const suggestion = data.suggestions[0];
+      const partyData = suggestion.data;
+
+      // Map DaData response to our legal entity structure
+      const result = {
+        inn: partyData.inn || '',
+        kpp: partyData.kpp || '',
+        ogrn: partyData.ogrn || '',
+        legalName: partyData.name?.full_with_opf || partyData.name?.full || '',
+        shortName: partyData.name?.short_with_opf || partyData.name?.short || '',
+        actualAddress: partyData.address?.value || '',
+        directorName: partyData.management?.name || '',
+        directorPosition: partyData.management?.post || '',
+        okpo: partyData.okpo || '',
+        oktmo: partyData.oktmo || '',
+        okved: partyData.okved || '',
+        type: partyData.type === 'INDIVIDUAL' ? 'ИП' : 'ООО'
+      };
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching DaData:", error);
+      res.status(500).json({ error: "Не удалось получить данные из DaData" });
+    }
+  });
+
   // USER MANAGEMENT ROUTES (for administrators)
   app.get("/api/users", authenticateToken, async (req, res) => {
     try {
