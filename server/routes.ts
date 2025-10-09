@@ -2415,6 +2415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ogrn: partyData.ogrn || '',
         legalName: partyData.name?.full_with_opf || partyData.name?.full || '',
         shortName: partyData.name?.short_with_opf || partyData.name?.short || '',
+        legalAddress: partyData.address?.value || '',
         actualAddress: partyData.address?.value || '',
         directorName: partyData.management?.name || '',
         directorPosition: partyData.management?.post || '',

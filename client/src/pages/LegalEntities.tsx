@@ -154,11 +154,27 @@ export default function LegalEntities() {
   })
 
   const onSubmit = (data: LegalEntityFormData) => {
+    console.log('Form submitted with data:', data)
+    console.log('Form errors:', form.formState.errors)
+    
     if (editingEntity) {
       updateMutation.mutate({ id: editingEntity.id, data })
     } else {
       createMutation.mutate(data)
     }
+  }
+
+  const onError = (errors: any) => {
+    console.log('Form validation errors:', errors)
+    const errorMessages = Object.entries(errors)
+      .map(([field, error]: [string, any]) => `${field}: ${error.message}`)
+      .join('\n')
+    
+    toast({
+      title: "Ошибка валидации формы",
+      description: errorMessages || "Проверьте правильность заполнения всех полей",
+      variant: "destructive"
+    })
   }
 
   const handleEdit = (entity: LegalEntity) => {
@@ -217,7 +233,7 @@ export default function LegalEntities() {
       form.setValue('shortName', data.shortName || '')
       form.setValue('kpp', data.kpp || '')
       form.setValue('ogrn', data.ogrn || '')
-      form.setValue('legalAddress', data.actualAddress || '')
+      form.setValue('legalAddress', data.legalAddress || '')
       form.setValue('actualAddress', data.actualAddress || '')
       form.setValue('directorName', data.directorName || '')
 
@@ -276,7 +292,7 @@ export default function LegalEntities() {
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-6">
                 {/* Основная информация */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold flex items-center gap-2">
