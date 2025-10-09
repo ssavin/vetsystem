@@ -34,14 +34,11 @@ const CLINIC_TO_BRANCH: Record<number, string> = {
 
 interface VetaisExam {
   id: number;
-  pacient_id: number;
-  uzivatel_id: number;
-  klinika_id: number;
-  datum_a_cas: Date;
-  anamneza: string | null;
-  popis_vysetreni: string | null;
-  teplota: number | null;
-  vaha: number | null;
+  id_patient: number;
+  id_doctor: number;
+  id_clinic: number;
+  date_created: Date;
+  note: string | null;
   diagnoses: string[];
   symptoms: string[];
 }
@@ -72,32 +69,22 @@ async function main() {
     
     const patientMap = new Map<number, string>(
       patients
-        .filter((p): p is typeof p & { vetaisId: number } => p.vetaisId !== null)
-        .map(p => [p.vetaisId, p.id])
+        .filter((p): p is typeof p & { vetaisId: string } => p.vetaisId !== null)
+        .map(p => [parseInt(p.vetaisId), p.id])
     );
     console.log(`✅ Загружено ${patientMap.size} пациентов с vetais_id\n`);
 
-    // 2. Получить маппинг докторов (vetais_id → vetsystem_id)
-    console.log('👨‍⚕️ Загрузка маппинга докторов...');
-    const users = await vetsystemDb
-      .select({ id: schema.users.id, vetaisId: schema.users.vetaisId })
-      .from(schema.users)
-      .where(eq(schema.users.tenantId, TENANT_ID));
-    
-    const doctorMap = new Map<number, string>(
-      users
-        .filter((u): u is typeof u & { vetaisId: number } => u.vetaisId !== null)
-        .map(u => [u.vetaisId, u.id])
-    );
-    console.log(`✅ Загружено ${doctorMap.size} докторов с vetais_id\n`);
+    // 2. Докторов пропускаем (нет связи vetais_id → doctors)
+    console.log('ℹ️  Доктора будут установлены как NULL (требуется связать doctors с users)\n');
 
     // 3. Подсчитать общее количество записей
     const totalCountResult = await vetaisClient`
       SELECT COUNT(*) as count 
       FROM medical_exams 
-      WHERE pacient_id IS NOT NULL 
-        AND uzivatel_id IS NOT NULL
-        AND datum_a_cas IS NOT NULL
+      WHERE id_patient IS NOT NULL 
+        AND id_doctor IS NOT NULL
+        AND date_created IS NOT NULL
+        AND deleted = 0
     `;
     const totalCount = parseInt(totalCountResult[0].count);
     console.log(`📊 Всего медицинских записей в Vetais: ${totalCount}\n`);
@@ -111,34 +98,22 @@ async function main() {
     for (let offset = 0; offset < totalCount; offset += BATCH_SIZE) {
       console.log(`\n🔄 Обработка батча ${Math.floor(offset / BATCH_SIZE) + 1}/${Math.ceil(totalCount / BATCH_SIZE)}...`);
       
-      // Получить батч из Vetais с диагнозами и симптомами
+      // Получить батч из Vetais
       const examsData = await vetaisClient`
         SELECT 
           me.id,
-          me.pacient_id,
-          me.uzivatel_id,
-          me.klinika_id,
-          me.datum_a_cas,
-          me.anamneza,
-          me.popis_vysetreni,
-          me.teplota,
-          me.vaha,
-          COALESCE(
-            array_agg(DISTINCT md.diagnoza) FILTER (WHERE md.diagnoza IS NOT NULL),
-            ARRAY[]::text[]
-          ) as diagnoses,
-          COALESCE(
-            array_agg(DISTINCT mps.symptom) FILTER (WHERE mps.symptom IS NOT NULL),
-            ARRAY[]::text[]
-          ) as symptoms
+          me.id_patient,
+          me.id_doctor,
+          me.id_clinic,
+          me.date_created,
+          me.note,
+          ARRAY[]::text[] as diagnoses,
+          ARRAY[]::text[] as symptoms
         FROM medical_exams me
-        LEFT JOIN medical_diagnoses md ON me.id = md.medical_exam_id
-        LEFT JOIN medical_patient_symptoms mps ON me.id = mps.medical_exam_id
-        WHERE me.pacient_id IS NOT NULL 
-          AND me.uzivatel_id IS NOT NULL
-          AND me.datum_a_cas IS NOT NULL
-        GROUP BY me.id, me.pacient_id, me.uzivatel_id, me.klinika_id, 
-                 me.datum_a_cas, me.anamneza, me.popis_vysetreni, me.teplota, me.vaha
+        WHERE me.id_patient IS NOT NULL 
+          AND me.id_doctor IS NOT NULL
+          AND me.date_created IS NOT NULL
+          AND me.deleted = 0
         ORDER BY me.id
         LIMIT ${BATCH_SIZE} OFFSET ${offset}
       `;
@@ -151,7 +126,7 @@ async function main() {
       }
 
       // Проверить, какие записи уже мигрированы
-      const vetaisIds = exams.map(e => e.id);
+      const vetaisIds = exams.map(e => e.id.toString());
       const existingRecords = vetaisIds.length > 0
         ? await vetsystemDb
             .select({ vetaisId: schema.medicalRecords.vetaisId })
@@ -159,14 +134,14 @@ async function main() {
             .where(
               and(
                 eq(schema.medicalRecords.tenantId, TENANT_ID),
-                inArray(schema.medicalRecords.vetaisId, vetaisIds as any) // Cast для integer array
+                inArray(schema.medicalRecords.vetaisId, vetaisIds)
               )
             )
         : [];
       
       const existingVetaisIds = new Set<number>(
         existingRecords
-          .map(r => r.vetaisId)
+          .map(r => r.vetaisId ? parseInt(r.vetaisId) : null)
           .filter((id): id is number => id !== null)
       );
 
@@ -183,61 +158,36 @@ async function main() {
         }
 
         // Получить ID пациента
-        const patientId = patientMap.get(exam.pacient_id);
+        const patientId = patientMap.get(exam.id_patient);
         if (!patientId) {
-          console.warn(`   ⚠️ Пациент не найден: vetais_id=${exam.pacient_id}, exam_id=${exam.id}`);
+          console.warn(`   ⚠️ Пациент не найден: vetais_id=${exam.id_patient}, exam_id=${exam.id}`);
           errors++;
           continue;
         }
 
-        // Получить ID доктора
-        const doctorId = doctorMap.get(exam.uzivatel_id);
-        if (!doctorId) {
-          console.warn(`   ⚠️ Доктор не найден: vetais_id=${exam.uzivatel_id}, exam_id=${exam.id}`);
-          errors++;
-          continue;
-        }
+        // Doct orId всегда NULL т.к. doctors в отдельной таблице без vetais_id
+        // TODO: связать doctors с users и использовать правильный doctorId
+        const doctorId = null;
 
         // Получить ID филиала
-        const branchId = CLINIC_TO_BRANCH[exam.klinika_id];
-        if (!branchId) {
-          console.warn(`   ⚠️ Филиал не найден: klinika_id=${exam.klinika_id}, exam_id=${exam.id}`);
-          errors++;
-          continue;
-        }
+        const branchId = CLINIC_TO_BRANCH[exam.id_clinic] || null;
 
-        // Собрать жалобы из симптомов
-        const complaints = exam.symptoms.length > 0 
-          ? exam.symptoms.join('; ') 
-          : null;
-
-        // Собрать диагноз из диагнозов
-        const diagnosis = exam.diagnoses.length > 0 
-          ? exam.diagnoses.join('; ') 
-          : null;
-
-        // Собрать заметки из анамнеза и описания осмотра
-        const notes = [
-          exam.anamneza ? `Анамнез: ${exam.anamneza}` : null,
-          exam.popis_vysetreni ? `Описание осмотра: ${exam.popis_vysetreni}` : null,
-        ].filter(Boolean).join('\n\n') || null;
-
-        // Определить тип визита
-        const visitType = exam.diagnoses.length > 0 ? 'checkup' : 'consultation';
+        // Использовать note как основную информацию
+        const notes = exam.note?.trim() || null;
 
         recordsToInsert.push({
           tenantId: TENANT_ID,
           branchId,
           patientId,
           doctorId,
-          visitDate: exam.datum_a_cas,
-          visitType,
-          complaints,
-          diagnosis,
+          visitDate: new Date(exam.date_created),
+          visitType: 'consultation',
+          complaints: null,
+          diagnosis: null,
           notes,
-          temperature: exam.teplota ? exam.teplota.toString() : null,
-          weight: exam.vaha ? exam.vaha.toString() : null,
-          vetaisId: exam.id,
+          temperature: null,
+          weight: null,
+          vetaisId: exam.id.toString(),
         });
       }
 
