@@ -206,7 +206,7 @@ export const owners = pgTable("owners", {
   
   // Паспортные данные (для договора и ВСД)
   passportSeries: varchar("passport_series", { length: 10 }),
-  passportNumber: varchar("passport_number", { length: 10 }),
+  passportNumber: varchar("passport_number", { length: 100 }), // Увеличено для импорта из Vetais
   passportIssuedBy: text("passport_issued_by"),
   passportIssueDate: date("passport_issue_date"),
   registrationAddress: text("registration_address"), // Адрес регистрации (прописка)
