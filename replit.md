@@ -76,30 +76,36 @@ Preferred communication style: Simple, everyday language.
   - Tenants can override with custom templates or use system defaults.
 
 ## Data Migration
-- **Client Migration**: Successfully migrated 61,993 client records from legacy Vetais PostgreSQL database.
+- **Client Migration**: ✅ **COMPLETE** - Successfully migrated 61,993 client records from legacy Vetais PostgreSQL database.
   - Migrated full client names (surname + first name + patronymic) from Vetais fields.
   - Personal data fields imported from Vetais:
     - Gender (gender_id): 3,036 clients (5%) have gender data
     - Note: Vetais date_birth and no_pass fields contain technical/placeholder values, not actual personal data
   - All clients assigned to Бутово branch initially (can be redistributed manually).
-  - Vetais clinic ID mapping: 10000=Бутово, 10001=Лобачевского, 10002=Новопеределкино.
-- **User Migration**: Successfully migrated 57 active users from Vetais system_users table.
+  - Vetais clinic ID mapping: 10000=Бутово, 10001=Лобачевского, 10002=Новопеределкino.
+- **User Migration**: ✅ **COMPLETE** - Successfully migrated 57 active users from Vetais system_users table.
   - User schema enhanced with `department` (отделение) and `vetais_id` fields for migration tracking.
   - Role mapping: Vetais funkce codes mapped to system roles (врач, администратор, менеджер, руководитель).
   - Distribution: 27 administrators, 18 doctors, 10 managers, 6 supervisors.
   - Branch distribution: Бутово (29 users), Новопеределкино (21 users), Лобачевского (7 users).
   - Default password: Alisa2024! (users must change on first login).
-- **Medical Data Migration**: **READY FOR PRODUCTION** - Comprehensive migration scripts for medical records, medications, and files from Vetais.
-  - Extended schema with `vetais_id` tracking field in medical_records, medications, patient_files, clinical_cases, clinical_encounters, attachments.
-  - Medical records: 155,817 exams from medical_exams + diagnoses + symptoms → medical_records.
-  - Medications: 347,932 prescriptions from medical_plan_item → medications (procedures excluded, go to treatment field).
-  - Medical files: 16,766 files from medical_media_data → patient_files (saved to disk in tenant/branch/patient structure).
-  - Batch processing with idempotency (vetais_id tracking), error handling, progress logging, duplicate prevention.
-  - File storage uses production-compatible path resolution: `path.join(process.cwd(), 'uploads', tenantId, branchId, patientId)`.
-  - Scripts: `migrate-medical-records.ts`, `migrate-medications.ts`, `migrate-medical-files.ts`, `test-migration.ts`.
-  - Migration plan documented in `VETAIS_MEDICAL_MIGRATION_PLAN.md`.
-- Utilizes batch processing scripts for efficient migration and updates.
-- Migration scripts: `migrate-vetais-batch.ts`, `fix-client-branches-fast.ts`, `migrate-users-vetais.ts`.
+- **Patient Migration**: ✅ **COMPLETE** - Successfully migrated 82,371 patients (92% of Vetais 89,611 total).
+  - 7,240 patients excluded (8%) due to missing owners in Vetais (id_majitele IS NULL).
+  - Patient-owner relationships: 82,366 links created (99.9% coverage).
+  - Species mapping: dog, cat, horse, bird, rodent, rabbit, reptile, exotic.
+  - Microchip numbers, breed names, birth dates, gender preserved from Vetais.
+  - Script: `migrate-patients-fast.ts` (optimized batch processing with 1000 batch size).
+- **Medical Records Migration**: ✅ **COMPLETE** - Successfully migrated 364,151 medical records (95% of Vetais 383,503 total).
+  - 65,307 patients (79%) have complete medical history.
+  - 19,353 records excluded (5%) - linked to patients without owners in Vetais.
+  - All `doctorId` fields set to NULL - doctors exist in `users` table with role "врач", not in `doctors` table.
+  - Extended schema with `vetais_id` tracking field in medical_records for idempotency.
+  - Script: `migrate-medical-records.ts` (handles TEXT vetais_id, NULL doctorId, Vetais column mapping).
+- **Known Limitations**:
+  - ⚠️ Medical records `doctorId` references unused `doctors` table - real doctors are in `users` table. Requires schema fix.
+  - ⚠️ Medications and medical files migration pending (347,932 prescriptions, 16,766 files available in Vetais).
+- **Migration Infrastructure**: Batch processing scripts with idempotency, error handling, progress logging, duplicate prevention.
+  - Scripts: `migrate-vetais-batch.ts`, `migrate-patients-fast.ts`, `migrate-medical-records.ts`, `fix-client-branches-fast.ts`, `migrate-users-vetais.ts`.
 
 ## Design System
 - **Color Palette**: Medical-focused scheme with primary blue, success green, warning orange, and error red.
