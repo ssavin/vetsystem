@@ -227,8 +227,8 @@ export default function LegalEntities() {
     }
 
     try {
-      const res = await apiRequest('POST', '/api/dadata/party', { inn })
-      const data = await res.json()
+      // apiRequest already returns parsed JSON, no need for .json()
+      const data = await apiRequest('POST', '/api/dadata/party', { inn })
       
       // Fill form with DaData response
       form.setValue('legalName', data.legalName || '')

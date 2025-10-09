@@ -2303,14 +2303,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new legal entity
-  app.post("/api/legal-entities", authenticateToken, validateBody(insertLegalEntitySchema), async (req, res) => {
+  app.post("/api/legal-entities", authenticateToken, async (req, res) => {
     try {
       // Check permission: superadmin, руководитель, or администратор/admin
       if (!req.user?.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор' && req.user?.role !== 'admin') {
         return res.status(403).json({ error: "Доступ запрещён" });
       }
       
-      const legalEntity = await storage.createLegalEntity(req.body);
+      // Add tenantId from authenticated user
+      const dataWithTenantId = {
+        ...req.body,
+        tenantId: req.user.tenantId
+      };
+      
+      // Validate with full schema including tenantId
+      const validationResult = insertLegalEntitySchema.safeParse(dataWithTenantId);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: validationResult.error.errors[0]?.message || "Validation error" 
+        });
+      }
+      
+      const legalEntity = await storage.createLegalEntity(validationResult.data);
       res.status(201).json(legalEntity);
     } catch (error) {
       console.error("Error creating legal entity:", error);
@@ -2319,7 +2333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update legal entity
-  app.put("/api/legal-entities/:id", authenticateToken, validateBody(insertLegalEntitySchema.partial()), async (req, res) => {
+  app.put("/api/legal-entities/:id", authenticateToken, async (req, res) => {
     try {
       // Check permission: superadmin, руководитель, or администратор/admin
       if (!req.user?.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор' && req.user?.role !== 'admin') {
@@ -2331,7 +2345,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Legal entity not found" });
       }
       
-      const updatedLegalEntity = await storage.updateLegalEntity(req.params.id, req.body);
+      // Validate without tenantId (it shouldn't be updated)
+      const updateSchema = insertLegalEntitySchema.omit({ tenantId: true }).partial();
+      const validationResult = updateSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: validationResult.error.errors[0]?.message || "Validation error" 
+        });
+      }
+      
+      const updatedLegalEntity = await storage.updateLegalEntity(req.params.id, validationResult.data);
       res.json(updatedLegalEntity);
     } catch (error) {
       console.error("Error updating legal entity:", error);
