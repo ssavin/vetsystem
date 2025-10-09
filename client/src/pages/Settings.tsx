@@ -76,6 +76,7 @@ import { useAuth } from "@/contexts/AuthContext"
 // Form validation schema for branches
 const branchSchema = z.object({
   name: z.string().min(1, "Название обязательно").max(255, "Название слишком длинное"),
+  legalEntityId: z.string().uuid().nullable().optional(),
   address: z.string().min(1, "Адрес обязателен"),
   city: z.string().min(1, "Город обязателен").max(100, "Название города слишком длинное"),
   region: z.string().optional(),
@@ -639,6 +640,7 @@ export default function Settings() {
     setEditingBranch(branch)
     form.reset({
       name: branch.name,
+      legalEntityId: branch.legalEntityId || undefined,
       address: branch.address,
       city: branch.city,
       region: branch.region || "",
@@ -1020,6 +1022,38 @@ export default function Settings() {
                         )}
                       />
                     </div>
+
+                    <FormField
+                      control={form.control}
+                      name="legalEntityId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Юридическое лицо</FormLabel>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value || ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger data-testid="select-branch-legal-entity">
+                                <SelectValue placeholder="Выберите юридическое лицо" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="">Не выбрано</SelectItem>
+                              {legalEntities.map((entity) => (
+                                <SelectItem key={entity.id} value={entity.id}>
+                                  {entity.legalName} (ИНН: {entity.inn})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Юридическое лицо, к которому относится данное отделение
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
                     <FormField
                       control={form.control}
