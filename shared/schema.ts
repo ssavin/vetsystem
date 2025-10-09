@@ -115,6 +115,62 @@ export const tenants = pgTable("tenants", {
   };
 });
 
+// Legal Entities table - юридические лица для разных филиалов и клиник
+export const legalEntities = pgTable("legal_entities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Multi-tenant: каждое юр.лицо принадлежит tenant'у
+  
+  // Основные реквизиты
+  legalName: varchar("legal_name", { length: 500 }).notNull(), // Полное юридическое наименование
+  shortName: varchar("short_name", { length: 255 }), // Сокращенное наименование
+  inn: varchar("inn", { length: 12 }).notNull(), // ИНН организации (10 или 12 цифр)
+  kpp: varchar("kpp", { length: 9 }), // КПП организации (9 цифр, для юр.лиц)
+  ogrn: varchar("ogrn", { length: 15 }).notNull(), // ОГРН (13 цифр) или ОГРНИП (15 цифр)
+  
+  // Адреса
+  legalAddress: text("legal_address").notNull(), // Юридический адрес
+  actualAddress: text("actual_address"), // Фактический адрес (если отличается)
+  
+  // Контактная информация
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  website: varchar("website", { length: 255 }),
+  
+  // Банковские реквизиты
+  bankName: varchar("bank_name", { length: 255 }), // Наименование банка
+  bik: varchar("bik", { length: 9 }), // БИК банка (9 цифр)
+  correspondentAccount: varchar("correspondent_account", { length: 20 }), // Корр. счет (20 цифр)
+  paymentAccount: varchar("payment_account", { length: 20 }), // Расчетный счет (20 цифр)
+  
+  // Руководство и бухгалтерия
+  directorName: varchar("director_name", { length: 255 }), // ФИО руководителя
+  directorPosition: varchar("director_position", { length: 255 }).default("Генеральный директор"), // Должность
+  accountantName: varchar("accountant_name", { length: 255 }), // ФИО главного бухгалтера
+  
+  // Ветеринарная лицензия
+  veterinaryLicenseNumber: varchar("veterinary_license_number", { length: 100 }),
+  veterinaryLicenseIssueDate: date("veterinary_license_issue_date"),
+  veterinaryLicenseIssuedBy: text("veterinary_license_issued_by"), // Кем выдана лицензия
+  
+  // Логотип и печать
+  logoUrl: text("logo_url"), // Путь к файлу логотипа
+  stampUrl: text("stamp_url"), // Путь к файлу печати
+  
+  // Дополнительно
+  notes: text("notes"), // Примечания
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("legal_entities_tenant_id_idx").on(table.tenantId),
+    innIdx: index("legal_entities_inn_idx").on(table.inn),
+    isActiveIdx: index("legal_entities_is_active_idx").on(table.isActive),
+    tenantInnUnique: uniqueIndex("legal_entities_tenant_inn_unique_idx").on(table.tenantId, table.inn), // Unique INN per tenant
+  };
+});
+
 // Branches table for multi-location clinic support - MUST be defined before users table
 export const branches = pgTable("branches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1367,6 +1423,41 @@ export const insertBranchSchema = createInsertSchema(branches).omit({
   phone: z.string().regex(/^\+?[1-9]\d{10,14}$/, "Неверный формат номера телефона"),
   email: z.string().email().optional().or(z.literal("")),
 });
+
+// Legal Entity schema for validation
+export const insertLegalEntitySchema = createInsertSchema(legalEntities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  legalName: z.string().min(3, "Полное наименование должно содержать минимум 3 символа"),
+  shortName: z.string().optional(),
+  inn: z.string().regex(/^\d{10}$/, "ИНН юр.лица должен состоять из 10 цифр").or(z.string().regex(/^\d{12}$/, "ИНН ИП должен состоять из 12 цифр")),
+  kpp: z.string().regex(/^\d{9}$/, "КПП должен состоять из 9 цифр").optional().or(z.literal("")),
+  ogrn: z.string().regex(/^\d{13}$/, "ОГРН должен состоять из 13 цифр").or(z.string().regex(/^\d{15}$/, "ОГРНИП должен состоять из 15 цифр")),
+  legalAddress: z.string().min(10, "Юридический адрес должен содержать минимум 10 символов"),
+  actualAddress: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email("Неверный формат email").optional().or(z.literal("")),
+  website: z.string().url("Неверный формат URL").optional().or(z.literal("")),
+  bankName: z.string().optional(),
+  bik: z.string().regex(/^\d{9}$/, "БИК должен состоять из 9 цифр").optional().or(z.literal("")),
+  correspondentAccount: z.string().regex(/^\d{20}$/, "Корр. счет должен состоять из 20 цифр").optional().or(z.literal("")),
+  paymentAccount: z.string().regex(/^\d{20}$/, "Расчетный счет должен состоять из 20 цифр").optional().or(z.literal("")),
+  directorName: z.string().optional(),
+  directorPosition: z.string().optional(),
+  accountantName: z.string().optional(),
+  veterinaryLicenseNumber: z.string().optional(),
+  veterinaryLicenseIssueDate: z.union([z.coerce.date(), z.literal("")]).transform(val => val === "" ? undefined : val).optional(),
+  veterinaryLicenseIssuedBy: z.string().optional(),
+  logoUrl: z.string().url("Неверный формат URL").optional().or(z.literal("")),
+  stampUrl: z.string().url("Неверный формат URL").optional().or(z.literal("")),
+  notes: z.string().optional(),
+  isActive: z.boolean().default(true),
+});
+
+export type LegalEntity = typeof legalEntities.$inferSelect;
+export type InsertLegalEntity = z.infer<typeof insertLegalEntitySchema>;
 
 // Zod schemas for validation
 export const insertOwnerSchema = createInsertSchema(owners).omit({
