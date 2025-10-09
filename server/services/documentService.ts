@@ -40,6 +40,84 @@ export class DocumentService {
   }
 
   /**
+   * Get clinic information with legal entity requisites
+   */
+  private async getClinicInfoWithLegalEntity(branchId: string): Promise<any> {
+    const defaultInfo = {
+      name: 'Ветеринарная клиника',
+      address: '',
+      phone: '',
+      email: '',
+      // Legal entity requisites
+      legalName: null,
+      inn: null,
+      kpp: null,
+      ogrn: null,
+      legalAddress: null,
+      actualAddress: null,
+      bankName: null,
+      bik: null,
+      correspondentAccount: null,
+      paymentAccount: null,
+      directorName: null,
+      veterinaryLicenseNumber: null,
+      veterinaryLicenseIssueDate: null
+    };
+
+    if (!branchId) {
+      return defaultInfo;
+    }
+
+    const branch = await storage.getBranch(branchId);
+    if (!branch) {
+      return defaultInfo;
+    }
+
+    // Start with branch info
+    const clinicInfo: any = {
+      name: branch.name,
+      address: branch.address || '',
+      phone: branch.phone || '',
+      email: branch.email || '',
+      legalName: null,
+      inn: null,
+      kpp: null,
+      ogrn: null,
+      legalAddress: null,
+      actualAddress: null,
+      bankName: null,
+      bik: null,
+      correspondentAccount: null,
+      paymentAccount: null,
+      directorName: null,
+      veterinaryLicenseNumber: null,
+      veterinaryLicenseIssueDate: null
+    };
+
+    // If branch has legal entity, load full requisites
+    if (branch.legalEntityId) {
+      const legalEntity = await storage.getLegalEntity(branch.legalEntityId);
+      if (legalEntity && legalEntity.isActive) {
+        clinicInfo.legalName = legalEntity.legalName;
+        clinicInfo.inn = legalEntity.inn;
+        clinicInfo.kpp = legalEntity.kpp;
+        clinicInfo.ogrn = legalEntity.ogrn;
+        clinicInfo.legalAddress = legalEntity.legalAddress;
+        clinicInfo.actualAddress = legalEntity.actualAddress;
+        clinicInfo.bankName = legalEntity.bankName;
+        clinicInfo.bik = legalEntity.bik;
+        clinicInfo.correspondentAccount = legalEntity.correspondentAccount;
+        clinicInfo.paymentAccount = legalEntity.paymentAccount;
+        clinicInfo.directorName = legalEntity.directorName;
+        clinicInfo.veterinaryLicenseNumber = legalEntity.veterinaryLicenseNumber;
+        clinicInfo.veterinaryLicenseIssueDate = legalEntity.veterinaryLicenseIssueDate;
+      }
+    }
+
+    return clinicInfo;
+  }
+
+  /**
    * Generate PDF from HTML
    */
   async generatePDF(html: string): Promise<Buffer> {
@@ -124,25 +202,8 @@ export class DocumentService {
       };
     }
 
-    // Fetch branch/clinic info
-    let clinicInfo: any = {
-      name: 'Ветеринарная клиника',
-      address: '',
-      phone: '',
-      email: ''
-    };
-    
-    if (branchId) {
-      const branch = await storage.getBranch(branchId);
-      if (branch) {
-        clinicInfo = {
-          name: branch.name,
-          address: branch.address || '',
-          phone: branch.phone || '',
-          email: branch.email || ''
-        };
-      }
-    }
+    // Fetch branch/clinic info with legal entity requisites
+    const clinicInfo = await this.getClinicInfoWithLegalEntity(branchId);
 
     // Map items
     const mappedItems = items.map((item: any) => ({
@@ -306,23 +367,8 @@ export class DocumentService {
       }
     }
 
-    // Fetch clinic/branch info
-    let clinicInfo: any = {
-      name: 'Ветеринарная клиника',
-      address: '',
-      phone: ''
-    };
-    
-    if (branchId) {
-      const branch = await storage.getBranch(branchId);
-      if (branch) {
-        clinicInfo = {
-          name: branch.name,
-          address: branch.address || '',
-          phone: branch.phone || ''
-        };
-      }
-    }
+    // Fetch clinic/branch info with legal entity requisites
+    const clinicInfo = await this.getClinicInfoWithLegalEntity(branchId);
 
     // Fetch medications (vaccinations should be in medications)
     const medications = await storage.getMedicationsByRecord(recordId);
@@ -491,32 +537,8 @@ export class DocumentService {
       residenceAddress: owner.residenceAddress || ''
     };
 
-    // Fetch clinic/branch info
-    let clinicInfo: any = {
-      name: 'Ветеринарная клиника',
-      address: '',
-      phone: '',
-      email: '',
-      ogrn: '',
-      inn: ''
-    };
-    
-    if (branchId) {
-      const branch = await storage.getBranch(branchId);
-      if (branch) {
-        clinicInfo.name = branch.name;
-        clinicInfo.address = branch.address || '';
-        clinicInfo.phone = branch.phone || '';
-        clinicInfo.email = branch.email || '';
-      }
-    }
-
-    // Fetch tenant info for legal identifiers (OGRN, INN)
-    const tenant = await storage.getTenant(tenantId);
-    if (tenant) {
-      clinicInfo.ogrn = tenant.ogrn || '';
-      clinicInfo.inn = tenant.inn || '';
-    }
+    // Fetch clinic/branch info with legal entity requisites
+    const clinicInfo = await this.getClinicInfoWithLegalEntity(branchId);
 
     return {
       owner: ownerInfo,
