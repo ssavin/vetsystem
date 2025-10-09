@@ -324,52 +324,6 @@ export default function MedicalRecords() {
         </Card>
       )}
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-{isLoading ? (
-                <Skeleton className="h-8 w-8 mx-auto" />
-              ) : (
-                <p className="text-2xl font-bold text-blue-600" data-testid="text-active-treatments">
-                  {transformedRecords.filter(r => r.status === 'active').length}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">Активное лечение</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              {isLoading ? (
-                <Skeleton className="h-8 w-8 mx-auto" />
-              ) : (
-                <p className="text-2xl font-bold text-yellow-600" data-testid="text-follow-up">
-                  {transformedRecords.filter(r => r.status === 'follow_up_required').length}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">Требует наблюдения</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              {isLoading ? (
-                <Skeleton className="h-8 w-8 mx-auto" />
-              ) : (
-                <p className="text-2xl font-bold text-green-600" data-testid="text-completed-treatments">
-                  {transformedRecords.filter(r => r.status === 'completed').length}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">Завершенных случаев</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Medical Records List */}
       {isLoading ? (
         <div className="space-y-4">
