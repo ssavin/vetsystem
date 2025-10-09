@@ -33,6 +33,7 @@ import {
   type SubscriptionPayment, type InsertSubscriptionPayment,
   type BillingNotification, type InsertBillingNotification,
   type Tenant, type InsertTenant,
+  type LegalEntity, type InsertLegalEntity,
   type IntegrationCredentials, type InsertIntegrationCredentials,
   type ClinicalCase, type InsertClinicalCase,
   type ClinicalEncounter, type InsertClinicalEncounter,
@@ -48,7 +49,7 @@ import {
   customers, discountRules, paymentMethods, salesTransactions, 
   salesTransactionItems, cashOperations, userRoles, userRoleAssignments,
   integrationLogs, subscriptionPlans, clinicSubscriptions,
-  subscriptionPayments, billingNotifications, tenants, integrationCredentials,
+  subscriptionPayments, billingNotifications, tenants, legalEntities, integrationCredentials,
   clinicalCases, clinicalEncounters, labAnalyses, attachments, documentTemplates
 } from "@shared/schema";
 import { db } from "./db-local";
@@ -157,6 +158,14 @@ export interface IStorage {
     galenLastSyncError?: string | null;
     galenLastSyncAt?: Date | null;
   }): Promise<Patient>;
+
+  // Legal Entity methods
+  getLegalEntities(): Promise<LegalEntity[]>;
+  getActiveLegalEntities(): Promise<LegalEntity[]>;
+  getLegalEntity(id: string): Promise<LegalEntity | undefined>;
+  createLegalEntity(legalEntity: InsertLegalEntity): Promise<LegalEntity>;
+  updateLegalEntity(id: string, legalEntity: Partial<InsertLegalEntity>): Promise<LegalEntity>;
+  deleteLegalEntity(id: string): Promise<void>;
 
   // User methods (keep existing for authentication)
   getUser(id: string): Promise<User | undefined>;
@@ -728,6 +737,82 @@ export class DatabaseStorage implements IStorage {
         .where(eq(patients.id, patientId))
         .returning();
       return patient;
+    });
+  }
+
+  // ========================================
+  // Legal Entity Methods
+  // ========================================
+
+  async getLegalEntities(): Promise<LegalEntity[]> {
+    return withPerformanceLogging('getLegalEntities', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(legalEntities)
+          .orderBy(desc(legalEntities.createdAt));
+      });
+    });
+  }
+
+  async getActiveLegalEntities(): Promise<LegalEntity[]> {
+    return withPerformanceLogging('getActiveLegalEntities', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(legalEntities)
+          .where(eq(legalEntities.isActive, true))
+          .orderBy(legalEntities.shortName);
+      });
+    });
+  }
+
+  async getLegalEntity(id: string): Promise<LegalEntity | undefined> {
+    return withPerformanceLogging('getLegalEntity', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [legalEntity] = await dbInstance
+          .select()
+          .from(legalEntities)
+          .where(eq(legalEntities.id, id));
+        return legalEntity || undefined;
+      });
+    });
+  }
+
+  async createLegalEntity(insertLegalEntity: InsertLegalEntity): Promise<LegalEntity> {
+    return withPerformanceLogging('createLegalEntity', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [legalEntity] = await dbInstance
+          .insert(legalEntities)
+          .values(insertLegalEntity)
+          .returning();
+        return legalEntity;
+      });
+    });
+  }
+
+  async updateLegalEntity(id: string, updateData: Partial<InsertLegalEntity>): Promise<LegalEntity> {
+    return withPerformanceLogging('updateLegalEntity', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [legalEntity] = await dbInstance
+          .update(legalEntities)
+          .set({ ...updateData, updatedAt: new Date() })
+          .where(eq(legalEntities.id, id))
+          .returning();
+        return legalEntity;
+      });
+    });
+  }
+
+  async deleteLegalEntity(id: string): Promise<void> {
+    return withPerformanceLogging('deleteLegalEntity', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Soft delete: set isActive to false
+        await dbInstance
+          .update(legalEntities)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(eq(legalEntities.id, id));
+      });
     });
   }
 

@@ -12,7 +12,8 @@ import {
   insertCashRegisterSchema, insertCashShiftSchema, insertCustomerSchema, insertDiscountRuleSchema,
   insertPaymentMethodSchema, insertSalesTransactionSchema, insertSalesTransactionItemSchema,
   insertCashOperationSchema, insertUserRoleSchema, insertUserRoleAssignmentSchema,
-  insertSubscriptionPlanSchema, insertClinicSubscriptionSchema, insertTenantSchema
+  insertSubscriptionPlanSchema, insertClinicSubscriptionSchema, insertTenantSchema,
+  insertLegalEntitySchema
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
@@ -2243,6 +2244,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting branch:", error);
       res.status(500).json({ error: "Failed to delete branch" });
+    }
+  });
+
+  // ====================================
+  // LEGAL ENTITY MANAGEMENT API ENDPOINTS
+  // ====================================
+
+  // Get all legal entities
+  app.get("/api/legal-entities", authenticateToken, async (req, res) => {
+    try {
+      // Check permission: superadmin, руководитель, or администратор/admin
+      if (!req.user?.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор' && req.user?.role !== 'admin') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
+      const legalEntities = await storage.getLegalEntities();
+      res.json(legalEntities);
+    } catch (error) {
+      console.error("Error fetching legal entities:", error);
+      res.status(500).json({ error: "Failed to fetch legal entities" });
+    }
+  });
+
+  // Get active legal entities (for dropdowns)
+  app.get("/api/legal-entities/active", authenticateToken, async (req, res) => {
+    try {
+      // Check permission: superadmin, руководитель, or администратор/admin
+      if (!req.user?.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор' && req.user?.role !== 'admin') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
+      const legalEntities = await storage.getActiveLegalEntities();
+      res.json(legalEntities);
+    } catch (error) {
+      console.error("Error fetching active legal entities:", error);
+      res.status(500).json({ error: "Failed to fetch active legal entities" });
+    }
+  });
+
+  // Get legal entity by ID
+  app.get("/api/legal-entities/:id", authenticateToken, async (req, res) => {
+    try {
+      // Check permission: superadmin, руководитель, or администратор/admin
+      if (!req.user?.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор' && req.user?.role !== 'admin') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
+      const legalEntity = await storage.getLegalEntity(req.params.id);
+      if (!legalEntity) {
+        return res.status(404).json({ error: "Legal entity not found" });
+      }
+      res.json(legalEntity);
+    } catch (error) {
+      console.error("Error fetching legal entity:", error);
+      res.status(500).json({ error: "Failed to fetch legal entity" });
+    }
+  });
+
+  // Create new legal entity
+  app.post("/api/legal-entities", authenticateToken, validateBody(insertLegalEntitySchema), async (req, res) => {
+    try {
+      // Check permission: superadmin, руководитель, or администратор/admin
+      if (!req.user?.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор' && req.user?.role !== 'admin') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
+      const legalEntity = await storage.createLegalEntity(req.body);
+      res.status(201).json(legalEntity);
+    } catch (error) {
+      console.error("Error creating legal entity:", error);
+      res.status(500).json({ error: "Failed to create legal entity" });
+    }
+  });
+
+  // Update legal entity
+  app.put("/api/legal-entities/:id", authenticateToken, validateBody(insertLegalEntitySchema.partial()), async (req, res) => {
+    try {
+      // Check permission: superadmin, руководитель, or администратор/admin
+      if (!req.user?.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор' && req.user?.role !== 'admin') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
+      const existingLegalEntity = await storage.getLegalEntity(req.params.id);
+      if (!existingLegalEntity) {
+        return res.status(404).json({ error: "Legal entity not found" });
+      }
+      
+      const updatedLegalEntity = await storage.updateLegalEntity(req.params.id, req.body);
+      res.json(updatedLegalEntity);
+    } catch (error) {
+      console.error("Error updating legal entity:", error);
+      res.status(500).json({ error: "Failed to update legal entity" });
+    }
+  });
+
+  // Delete (deactivate) legal entity
+  app.delete("/api/legal-entities/:id", authenticateToken, async (req, res) => {
+    try {
+      // Check permission: superadmin, руководитель, or администратор/admin
+      if (!req.user?.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор' && req.user?.role !== 'admin') {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      
+      const existingLegalEntity = await storage.getLegalEntity(req.params.id);
+      if (!existingLegalEntity) {
+        return res.status(404).json({ error: "Legal entity not found" });
+      }
+      
+      await storage.deleteLegalEntity(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting legal entity:", error);
+      res.status(500).json({ error: "Failed to delete legal entity" });
     }
   });
 
