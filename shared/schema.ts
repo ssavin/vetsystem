@@ -70,7 +70,10 @@ export const tenants = pgTable("tenants", {
   customDomain: varchar("custom_domain", { length: 255 }), // Кастомный домен (optional)
   status: varchar("status", { length: 20 }).default("trial"),
   
-  // Контактная информация
+  // Привязка к юридическому лицу
+  legalEntityId: varchar("legal_entity_id"), // Опциональная привязка к юр.лицу (FK через relations)
+  
+  // Контактная информация (устаревшие поля, использовать legalEntityId)
   legalName: varchar("legal_name", { length: 255 }), // Юридическое название
   inn: varchar("inn", { length: 12 }), // ИНН организации
   kpp: varchar("kpp", { length: 9 }), // КПП организации
@@ -110,6 +113,7 @@ export const tenants = pgTable("tenants", {
     statusCheck: check("tenants_status_check", sql`${table.status} IN ('active', 'suspended', 'trial', 'cancelled')`),
     slugIdx: index("tenants_slug_idx").on(table.slug),
     statusIdx: index("tenants_status_idx").on(table.status),
+    legalEntityIdIdx: index("tenants_legal_entity_id_idx").on(table.legalEntityId),
     canonicalDomainIdx: index("tenants_canonical_domain_idx").on(table.canonicalDomain),
     createdAtIdx: index("tenants_created_at_idx").on(table.createdAt),
   };
@@ -175,6 +179,7 @@ export const legalEntities = pgTable("legal_entities", {
 export const branches = pgTable("branches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Multi-tenant: каждый филиал принадлежит tenant'у
+  legalEntityId: varchar("legal_entity_id"), // Опциональная привязка к юр.лицу (FK через relations)
   name: varchar("name", { length: 255 }).notNull(),
   address: text("address").notNull(),
   city: varchar("city", { length: 100 }).notNull(),
@@ -191,6 +196,7 @@ export const branches = pgTable("branches", {
 }, (table) => {
   return {
     tenantIdIdx: index("branches_tenant_id_idx").on(table.tenantId),
+    legalEntityIdIdx: index("branches_legal_entity_id_idx").on(table.legalEntityId),
     tenantNameUnique: uniqueIndex("branches_tenant_name_unique_idx").on(table.tenantId, table.name), // Unique branch name per tenant
   };
 });
@@ -1398,6 +1404,7 @@ export const insertTenantSchema = createInsertSchema(tenants).omit({
   updatedAt: true,
 }).extend({
   status: z.enum(TENANT_STATUS).default("trial"),
+  legalEntityId: z.string().uuid("Неверный формат ID юр.лица").optional().or(z.literal("")),
   slug: z.string().min(3, "Slug должен содержать минимум 3 символа").regex(/^[a-z0-9-]+$/, "Slug может содержать только строчные буквы, цифры и дефисы"),
   email: z.string().email("Неверный формат email").optional().or(z.literal("")),
   billingEmail: z.string().email("Неверный формат email").optional().or(z.literal("")),
@@ -1419,6 +1426,7 @@ export const insertBranchSchema = createInsertSchema(branches).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
+  legalEntityId: z.string().uuid("Неверный формат ID юр.лица").optional().or(z.literal("")),
   status: z.enum(["active", "inactive", "maintenance"] as const).default("active"),
   phone: z.string().regex(/^\+?[1-9]\d{10,14}$/, "Неверный формат номера телефона"),
   email: z.string().email().optional().or(z.literal("")),
