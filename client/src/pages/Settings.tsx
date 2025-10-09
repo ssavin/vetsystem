@@ -67,7 +67,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
-import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch, SystemSetting, insertSystemSettingSchema, updateSystemSettingSchema } from "@shared/schema"
+import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch, SystemSetting, insertSystemSettingSchema, updateSystemSettingSchema, LegalEntity } from "@shared/schema"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
 import IntegrationsSettings from "@/components/IntegrationsSettings"
@@ -105,6 +105,7 @@ export default function Settings() {
   const [ogrn, setOgrn] = useState("")
   const [veterinaryLicenseNumber, setVeterinaryLicenseNumber] = useState("")
   const [veterinaryLicenseIssueDate, setVeterinaryLicenseIssueDate] = useState("")
+  const [legalEntityId, setLegalEntityId] = useState<string | null>(null)
   
   // Branch management state
   const [searchTerm, setSearchTerm] = useState("")
@@ -186,6 +187,7 @@ export default function Settings() {
     ogrn: string | null;
     veterinaryLicenseNumber: string | null;
     veterinaryLicenseIssueDate: string | null;
+    legalEntityId: string | null;
     settings: any;
     isSuperAdmin?: boolean;
   }>({
@@ -193,6 +195,12 @@ export default function Settings() {
     staleTime: 0, // Always refetch
     gcTime: 0, // Don't cache
     refetchOnMount: 'always', // Always refetch when component mounts
+  })
+
+  // Fetch legal entities
+  const { data: legalEntities = [], isLoading: legalEntitiesLoading } = useQuery<LegalEntity[]>({
+    queryKey: ['/api/legal-entities/active'],
+    enabled: !isSuperAdmin,
   })
 
   // Initialize clinic info from tenant data
@@ -209,6 +217,7 @@ export default function Settings() {
       setOgrn("")
       setVeterinaryLicenseNumber("")
       setVeterinaryLicenseIssueDate("")
+      setLegalEntityId(null)
     } else if (currentTenant && currentTenant.id !== 'superadmin') {
       // Load tenant data for regular admin
       setClinicName(currentTenant.name || "")
@@ -221,6 +230,7 @@ export default function Settings() {
       setOgrn(currentTenant.ogrn || "")
       setVeterinaryLicenseNumber(currentTenant.veterinaryLicenseNumber || "")
       setVeterinaryLicenseIssueDate(currentTenant.veterinaryLicenseIssueDate || "")
+      setLegalEntityId(currentTenant.legalEntityId || null)
     }
   }, [currentTenant, isSuperAdmin])
 
@@ -580,6 +590,7 @@ export default function Settings() {
     mutationFn: async () => {
       return apiRequest('PUT', '/api/tenant/settings', {
         name: clinicName,
+        legalEntityId: legalEntityId || null,
         legalAddress: clinicAddress,
         phone: clinicPhone,
         email: clinicEmail,
@@ -829,6 +840,28 @@ export default function Settings() {
             <div>
               <h3 className="text-sm font-semibold mb-3">Юридические данные</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="legalEntity">Юридическое лицо</Label>
+                  <Select 
+                    value={legalEntityId || ""} 
+                    onValueChange={(value) => setLegalEntityId(value || null)}
+                  >
+                    <SelectTrigger id="legalEntity" data-testid="select-legal-entity">
+                      <SelectValue placeholder="Выберите юридическое лицо" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Не выбрано</SelectItem>
+                      {legalEntities.map((entity) => (
+                        <SelectItem key={entity.id} value={entity.id}>
+                          {entity.legalName} (ИНН: {entity.inn})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Выберите юр.лицо из списка или заполните данные вручную ниже
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="legalName">Юридическое название</Label>
                   <Input

@@ -5965,6 +5965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate update data
       const updateSchema = z.object({
         name: z.string().min(1).max(255).optional(),
+        legalEntityId: z.string().uuid().nullable().optional(),
         legalName: z.string().max(255).nullable().optional(),
         legalAddress: z.string().nullable().optional(),
         phone: z.string().max(50).nullable().optional(),
