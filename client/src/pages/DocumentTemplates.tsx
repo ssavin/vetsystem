@@ -17,6 +17,8 @@ import { z } from "zod"
 import { Plus, Edit, Trash2, FileText, Eye, Code } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
+import ReactQuill from 'react-quill'
+import 'react-quill/dist/quill.snow.css'
 
 // Validation schema
 const templateSchema = z.object({
@@ -63,8 +65,22 @@ const templateTypeNames: Record<string, string> = {
   hospitalization_agreement: 'Договор на стационарное лечение'
 }
 
+// WYSIWYG Editor modules configuration
+const quillModules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+    [{ 'color': [] }, { 'background': [] }],
+    [{ 'align': [] }],
+    ['link', 'image'],
+    ['clean']
+  ],
+}
+
 function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; onSuccess: () => void }) {
   const [open, setOpen] = useState(false)
+  const [editorMode, setEditorMode] = useState<'wysiwyg' | 'code'>('wysiwyg')
   const { toast } = useToast()
 
   const form = useForm<TemplateFormData>({
@@ -180,17 +196,45 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
               name="content"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>HTML Шаблон (Handlebars)</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="<!DOCTYPE html>..." 
-                      className="font-mono text-sm min-h-[300px]"
-                      {...field} 
-                      data-testid="textarea-template-content"
-                    />
-                  </FormControl>
+                  <FormLabel>Содержимое шаблона</FormLabel>
+                  <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as 'wysiwyg' | 'code')}>
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="wysiwyg" data-testid="tab-wysiwyg-editor">
+                        <Eye className="h-4 w-4 mr-2" />
+                        Визуальный редактор
+                      </TabsTrigger>
+                      <TabsTrigger value="code" data-testid="tab-code-editor">
+                        <Code className="h-4 w-4 mr-2" />
+                        HTML код
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="wysiwyg" className="mt-4">
+                      <FormControl>
+                        <div className="border rounded-md">
+                          <ReactQuill
+                            theme="snow"
+                            value={field.value}
+                            onChange={field.onChange}
+                            modules={quillModules}
+                            className="min-h-[300px]"
+                            data-testid="wysiwyg-editor"
+                          />
+                        </div>
+                      </FormControl>
+                    </TabsContent>
+                    <TabsContent value="code" className="mt-4">
+                      <FormControl>
+                        <Textarea 
+                          placeholder="<!DOCTYPE html>..." 
+                          className="text-sm min-h-[400px] font-sans"
+                          {...field} 
+                          data-testid="textarea-template-content"
+                        />
+                      </FormControl>
+                    </TabsContent>
+                  </Tabs>
                   <FormMessage />
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mt-2">
                     Используйте синтаксис Handlebars: {`{{variable}}`}, {`{{#each items}}`}...{`{{/each}}`}
                   </p>
                 </FormItem>
@@ -263,7 +307,7 @@ function PreviewDialog({ template }: { template: DocumentTemplate }) {
           </TabsList>
           <TabsContent value="html" className="h-[60vh] overflow-auto">
             <div className="bg-muted rounded-lg p-4">
-              <pre className="text-sm font-mono whitespace-pre-wrap" data-testid="preview-html-content">
+              <pre className="text-sm whitespace-pre-wrap font-sans" data-testid="preview-html-content">
                 {template.content}
               </pre>
             </div>
