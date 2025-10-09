@@ -145,6 +145,7 @@ async function main() {
       passportNumber: string | null;
       dateOfBirth: Date | null;
       gender: string | null;
+      vetaisId: string;
     }> = [];
 
     let skippedNoName = 0;
@@ -179,8 +180,9 @@ async function main() {
       // gender_id: 1 = мужской, 2 = женский
       const gender = row.gender_id === 1 ? 'male' : 
                      row.gender_id === 2 ? 'female' : null;
+      const vetaisId = row.kod_kado.toString();
 
-      toInsert.push({ name, phone, email, address, passportNumber, dateOfBirth, gender });
+      toInsert.push({ name, phone, email, address, passportNumber, dateOfBirth, gender, vetaisId });
       existingPhones.add(phone);
     }
 
@@ -206,7 +208,7 @@ async function main() {
       let paramIndex = 1;
 
       batch.forEach(item => {
-        values.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, NOW(), NOW())`);
+        values.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, NOW(), NOW())`);
         params.push(
           tenantId, 
           item.name, 
@@ -216,12 +218,13 @@ async function main() {
           item.passportNumber, 
           item.dateOfBirth, 
           item.gender, 
-          branchId
+          branchId,
+          item.vetaisId
         );
       });
 
       const query = `
-        INSERT INTO owners (tenant_id, name, phone, email, address, passport_number, date_of_birth, gender, branch_id, created_at, updated_at)
+        INSERT INTO owners (tenant_id, name, phone, email, address, passport_number, date_of_birth, gender, branch_id, vetais_id, created_at, updated_at)
         VALUES ${values.join(', ')}
       `;
 
