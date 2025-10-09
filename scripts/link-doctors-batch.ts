@@ -22,38 +22,44 @@ async function linkDoctorsBatch() {
   const vetsystemDb = drizzle(neon(process.env.DATABASE_URL!), { schema });
 
   try {
-    // 1. Загрузить маппинг докторов (vetais_id → user_id)
-    console.log('👨‍⚕️ Загрузка докторов из users...');
+    // 1. Загрузить маппинг всех пользователей с vetais_id (не только врачей)
+    // В Vetais могут быть записи от пользователей, которые сейчас не врачи
+    console.log('👨‍⚕️ Загрузка пользователей из users...');
     const doctors = await vetsystemDb
       .select({ 
         id: schema.users.id, 
         vetaisId: schema.users.vetaisId,
       })
       .from(schema.users)
-      .where(and(
-        eq(schema.users.tenantId, TENANT_ID),
-        eq(schema.users.role, 'врач')
-      ));
+      .where(eq(schema.users.tenantId, TENANT_ID));
     
     const doctorMap = new Map<string, string>(
       doctors
-        .filter((d): d is typeof d & { vetaisId: string } => d.vetaisId !== null)
-        .map(d => [d.vetaisId, d.id])
+        .filter(d => d.vetaisId !== null)
+        .map(d => [String(d.vetaisId), d.id])
     );
     
-    console.log(`✅ Найдено ${doctorMap.size} врачей с vetais_id\n`);
+    console.log(`✅ Найдено ${doctorMap.size} пользователей с vetais_id\n`);
+    
+    // Проверка: есть ли ключи 10021, 10105, 10058?
+    const testKeys = ['10021', '10105', '10058', '10046', '10118'];
+    console.log('🔍 Проверка ключей в doctorMap:');
+    for (const key of testKeys) {
+      console.log(`  ${key}: ${doctorMap.has(key) ? '✅ есть' : '❌ нет'}`);
+    }
+    console.log('');
 
     // 2. Загрузить ВСЕ exams из Vetais с id_doctor
     console.log('📊 Загрузка всех exam из Vetais...');
     const vetaisExams = await vetaisClient`
       SELECT id, id_doctor
       FROM medical_exams
-      WHERE id_doctor IS NOT NULL
+      WHERE id_doctor IS NOT NULL AND id_doctor != 0
     `;
     
     const examDoctorMap = new Map<string, string>(
       vetaisExams
-        .filter(e => e.id_doctor !== null)
+        .filter(e => e.id_doctor !== null && e.id_doctor !== 0)
         .map(e => [e.id.toString(), e.id_doctor.toString()])
     );
     
@@ -79,15 +85,27 @@ async function linkDoctorsBatch() {
     
     let matched = 0;
     let updated = 0;
+    let noVetaisId = 0;
+    let noExamMatch = 0;
+    let noDoctorMatch = 0;
     
     for (const record of recordsToUpdate) {
-      if (!record.vetaisId) continue;
+      if (!record.vetaisId) {
+        noVetaisId++;
+        continue;
+      }
 
       const vetaisDoctorId = examDoctorMap.get(record.vetaisId);
-      if (!vetaisDoctorId) continue;
+      if (!vetaisDoctorId) {
+        noExamMatch++;
+        continue;
+      }
 
       const doctorId = doctorMap.get(vetaisDoctorId);
-      if (!doctorId) continue;
+      if (!doctorId) {
+        noDoctorMatch++;
+        continue;
+      }
 
       matched++;
 
@@ -102,6 +120,11 @@ async function linkDoctorsBatch() {
         console.log(`   ✅ Обновлено: ${updated}`);
       }
     }
+    
+    console.log(`\n📊 Причины пропуска:`);
+    console.log(`   Нет vetaisId: ${noVetaisId}`);
+    console.log(`   Нет соответствия в exam: ${noExamMatch}`);
+    console.log(`   Нет доктора в users: ${noDoctorMatch}`);
 
     console.log(`\n✅ ГОТОВО: ${updated} записей связаны с докторами\n`);
 
