@@ -109,7 +109,8 @@ Preferred communication style: Simple, everyday language.
   - Extended schema with `vetais_id` (text) tracking field in medical_records for idempotency.
   - Scripts: `migrate-medical-records.ts`, `migrate-missing-doctors.ts`, `link-doctors-sql.ts` (batched CASE WHEN updates).
 - **Known Limitations**:
-  - ⚠️ Medications and medical files migration pending (347,932 prescriptions, 16,766 files available in Vetais).
+  - ⚠️ Medications migration skipped - Vetais lacks structured medication data (only HTML text in plan_header.doc_data, no dosage/frequency fields).
+  - ⚠️ Medical files migration pending (16,766 files available in Vetais medical_media_data).
   - ⚠️ Migrated doctor accounts use default password (Alisa2024!) - schedule forced password reset before production.
 - **Migration Infrastructure**: Batch processing scripts with idempotency, error handling, progress logging, duplicate prevention.
   - Scripts: `migrate-vetais-batch.ts`, `migrate-patients-fast.ts`, `migrate-medical-records.ts`, `fix-client-branches-fast.ts`, `migrate-users-vetais.ts`.
