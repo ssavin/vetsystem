@@ -200,6 +200,10 @@ export const owners = pgTable("owners", {
   email: varchar("email", { length: 255 }),
   address: text("address"),
   
+  // Личные данные
+  dateOfBirth: date("date_of_birth"), // Дата рождения владельца
+  gender: varchar("gender", { length: 20 }), // Пол владельца (male/female/other)
+  
   // Паспортные данные (для договора и ВСД)
   passportSeries: varchar("passport_series", { length: 10 }),
   passportNumber: varchar("passport_number", { length: 10 }),
