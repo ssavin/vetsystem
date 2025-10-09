@@ -69,7 +69,13 @@ Preferred communication style: Simple, everyday language.
   - First uses `getPatientOwners()` to identify primary owner link
   - Then fetches complete owner record via `storage.getOwner(ownerId)` to access passport/address fields
   - Templates with full owner data: personal_data_consent, service_agreement, hospitalization_agreement, informed_consent_general
-  - Available variables include: owner (name, phone, email, passportSeries, passportNumber, passportIssuedBy, passportIssueDate, registrationAddress, residenceAddress), patient (name, species, breed, age, sex, color, identificationNumber, tattooNumber), clinic (all legal entity requisites), date, currentDate
+  - **Contract Number Generation**: Automatic contract number generation in format `ДОГ-YYYYMMDD-XXXX` (timestamp-based, unique per request)
+  - Available variables include: 
+    - owner: name, phone, email, passportSeries, passportNumber, passportIssuedBy, passportIssueDate, registrationAddress, residenceAddress
+    - patient: name, species, breed, age, sex, color, identificationNumber, tattooNumber
+    - clinic: all legal entity requisites
+    - contractNumber: auto-generated for service_agreement and hospitalization_agreement templates
+    - date, currentDate
 - **Security & Isolation**: Tenant and branch ownership validation before document generation.
   - DocumentService verifies entity ownership before accessing data.
   - API endpoint enforces branchId requirement and tenant context.
