@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Plus, Edit, Trash2, FileText, Eye, Code } from "lucide-react"
+import { Plus, Edit, Trash2, FileText, Eye, Code, Table2, Columns, Rows, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -168,7 +168,8 @@ function TiptapToolbar({ editor }: { editor: any }) {
         onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
         data-testid="button-insert-table"
       >
-        📊 Таблица
+        <Table2 className="h-4 w-4 mr-1" />
+        Таблица
       </Button>
       {editor.isActive('table') && (
         <>
@@ -179,7 +180,8 @@ function TiptapToolbar({ editor }: { editor: any }) {
             onClick={() => editor.chain().focus().addColumnAfter().run()}
             data-testid="button-add-column"
           >
-            + Колонка
+            <Columns className="h-4 w-4 mr-1" />
+            Колонка
           </Button>
           <Button
             type="button"
@@ -188,7 +190,8 @@ function TiptapToolbar({ editor }: { editor: any }) {
             onClick={() => editor.chain().focus().addRowAfter().run()}
             data-testid="button-add-row"
           >
-            + Строка
+            <Rows className="h-4 w-4 mr-1" />
+            Строка
           </Button>
           <Button
             type="button"
@@ -197,7 +200,8 @@ function TiptapToolbar({ editor }: { editor: any }) {
             onClick={() => editor.chain().focus().deleteTable().run()}
             data-testid="button-delete-table"
           >
-            🗑 Удалить
+            <X className="h-4 w-4 mr-1" />
+            Удалить
           </Button>
         </>
       )}
@@ -205,8 +209,11 @@ function TiptapToolbar({ editor }: { editor: any }) {
   )
 }
 
-// Tiptap Editor Component
-function TiptapEditor({ content, onChange }: { content: string; onChange: (html: string) => void }) {
+// Tiptap Editor Component  
+function TiptapEditor({ content, onChange, editorMode }: { content: string; onChange: (html: string) => void; editorMode: 'wysiwyg' | 'code' }) {
+  const prevModeRef = useRef<'wysiwyg' | 'code'>(editorMode)
+  const isInternalUpdate = useRef(false)
+  
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -226,9 +233,22 @@ function TiptapEditor({ content, onChange }: { content: string; onChange: (html:
     ],
     content,
     onUpdate: ({ editor }) => {
+      isInternalUpdate.current = true
       onChange(editor.getHTML())
+      setTimeout(() => {
+        isInternalUpdate.current = false
+      }, 0)
     },
   })
+
+  // Sync HTML tab changes to WYSIWYG when switching from code to wysiwyg
+  useEffect(() => {
+    if (editor && editorMode === 'wysiwyg' && prevModeRef.current === 'code' && !isInternalUpdate.current) {
+      // User switched from code to wysiwyg - update editor with HTML changes
+      editor.commands.setContent(content)
+    }
+    prevModeRef.current = editorMode
+  }, [editorMode, content, editor])
 
   return (
     <div className="border border-input rounded-md">
@@ -377,6 +397,7 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
                         <TiptapEditor 
                           content={field.value}
                           onChange={field.onChange}
+                          editorMode={editorMode}
                         />
                       </FormControl>
                     </TabsContent>

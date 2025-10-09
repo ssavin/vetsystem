@@ -254,4 +254,62 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+
+  /* Tiptap Editor Styles */
+  .ProseMirror {
+    outline: none;
+  }
+
+  .ProseMirror table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+    margin: 1rem 0;
+    overflow: hidden;
+  }
+
+  .ProseMirror td,
+  .ProseMirror th {
+    min-width: 1em;
+    border: 1px solid hsl(var(--border));
+    padding: 0.5rem;
+    vertical-align: top;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  .ProseMirror th {
+    font-weight: bold;
+    text-align: left;
+    background-color: hsl(var(--muted));
+  }
+
+  .ProseMirror .selectedCell:after {
+    z-index: 2;
+    position: absolute;
+    content: "";
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background: hsl(var(--primary) / 0.1);
+    pointer-events: none;
+  }
+
+  .ProseMirror p {
+    margin: 0.5rem 0;
+  }
+
+  .ProseMirror ul,
+  .ProseMirror ol {
+    padding-left: 1.5rem;
+    margin: 0.5rem 0;
+  }
+
+  .ProseMirror h1,
+  .ProseMirror h2,
+  .ProseMirror h3 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
 }
