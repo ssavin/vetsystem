@@ -331,7 +331,7 @@ export const appointments = pgTable("appointments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   patientId: varchar("patient_id").references(() => patients.id).notNull(),
-  doctorId: varchar("doctor_id").references(() => doctors.id).notNull(),
+  doctorId: varchar("doctor_id").references(() => users.id).notNull(), // Врачи хранятся в users с ролью "врач"
   appointmentDate: timestamp("appointment_date").notNull(),
   duration: integer("duration").notNull(), // in minutes
   appointmentType: varchar("appointment_type", { length: 255 }).notNull(),
@@ -359,7 +359,7 @@ export const medicalRecords = pgTable("medical_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   patientId: varchar("patient_id").references(() => patients.id).notNull(),
-  doctorId: varchar("doctor_id").references(() => doctors.id), // nullable для записей без доктора из Vetais
+  doctorId: varchar("doctor_id").references(() => users.id), // Врачи хранятся в users с ролью "врач"
   appointmentId: varchar("appointment_id").references(() => appointments.id),
   visitDate: timestamp("visit_date").notNull(),
   visitType: varchar("visit_type", { length: 255 }).notNull(),
@@ -372,7 +372,7 @@ export const medicalRecords = pgTable("medical_records", {
   status: varchar("status", { length: 20 }).default("active"),
   notes: text("notes"),
   branchId: varchar("branch_id").references(() => branches.id), // Temporarily nullable for migration
-  vetaisId: integer("vetais_id"), // ID из Vetais для отслеживания миграции
+  vetaisId: text("vetais_id"), // ID из Vetais (TEXT для совместимости с любыми ID)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {

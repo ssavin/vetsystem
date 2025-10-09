@@ -1,0 +1,136 @@
+#!/usr/bin/env tsx
+
+import postgres from 'postgres';
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import * as schema from '../shared/schema';
+import { eq, and, isNull } from 'drizzle-orm';
+
+const TENANT_ID = 'default-tenant-001';
+
+async function linkDoctorsBatch() {
+  console.log('🔗 Связывание медицинских записей с докторами (BATCH)...\n');
+
+  const vetaisClient = postgres({
+    host: process.env.VETAIS_DB_HOST!,
+    port: parseInt(process.env.VETAIS_DB_PORT!),
+    database: process.env.VETAIS_DB_NAME!,
+    username: process.env.VETAIS_DB_USER!,
+    password: process.env.VETAIS_DB_PASSWORD!,
+  });
+
+  const vetsystemDb = drizzle(neon(process.env.DATABASE_URL!), { schema });
+
+  try {
+    // 1. Загрузить маппинг докторов (vetais_id → user_id)
+    console.log('👨‍⚕️ Загрузка докторов из users...');
+    const doctors = await vetsystemDb
+      .select({ 
+        id: schema.users.id, 
+        vetaisId: schema.users.vetaisId,
+      })
+      .from(schema.users)
+      .where(and(
+        eq(schema.users.tenantId, TENANT_ID),
+        eq(schema.users.role, 'врач')
+      ));
+    
+    const doctorMap = new Map<string, string>(
+      doctors
+        .filter((d): d is typeof d & { vetaisId: string } => d.vetaisId !== null)
+        .map(d => [d.vetaisId, d.id])
+    );
+    
+    console.log(`✅ Найдено ${doctorMap.size} врачей с vetais_id\n`);
+
+    // 2. Загрузить ВСЕ exams из Vetais с id_doctor
+    console.log('📊 Загрузка всех exam из Vetais...');
+    const vetaisExams = await vetaisClient`
+      SELECT id, id_doctor
+      FROM medical_exams
+      WHERE id_doctor IS NOT NULL
+    `;
+    
+    const examDoctorMap = new Map<string, string>(
+      vetaisExams
+        .filter(e => e.id_doctor !== null)
+        .map(e => [e.id.toString(), e.id_doctor.toString()])
+    );
+    
+    console.log(`✅ Загружено ${examDoctorMap.size} exam с докторами\n`);
+
+    // 3. Загрузить medical_records без doctorId
+    console.log('🔍 Загрузка записей без доктора...');
+    const recordsToUpdate = await vetsystemDb
+      .select({
+        id: schema.medicalRecords.id,
+        vetaisId: schema.medicalRecords.vetaisId,
+      })
+      .from(schema.medicalRecords)
+      .where(and(
+        eq(schema.medicalRecords.tenantId, TENANT_ID),
+        isNull(schema.medicalRecords.doctorId)
+      ));
+
+    console.log(`📊 Найдено ${recordsToUpdate.length} записей без доктора\n`);
+
+    // 4. Связать записи с докторами
+    console.log('🔗 Связывание записей...\n');
+    
+    let matched = 0;
+    let updated = 0;
+    
+    for (const record of recordsToUpdate) {
+      if (!record.vetaisId) continue;
+
+      const vetaisDoctorId = examDoctorMap.get(record.vetaisId);
+      if (!vetaisDoctorId) continue;
+
+      const doctorId = doctorMap.get(vetaisDoctorId);
+      if (!doctorId) continue;
+
+      matched++;
+
+      await vetsystemDb
+        .update(schema.medicalRecords)
+        .set({ doctorId })
+        .where(eq(schema.medicalRecords.id, record.id));
+
+      updated++;
+
+      if (updated % 1000 === 0) {
+        console.log(`   ✅ Обновлено: ${updated}`);
+      }
+    }
+
+    console.log(`\n✅ ГОТОВО: ${updated} записей связаны с докторами\n`);
+
+    // 5. Статистика
+    const allRecords = await vetsystemDb
+      .select({
+        id: schema.medicalRecords.id,
+        doctorId: schema.medicalRecords.doctorId,
+      })
+      .from(schema.medicalRecords)
+      .where(eq(schema.medicalRecords.tenantId, TENANT_ID));
+
+    const totalRecords = allRecords.length;
+    const withDoctor = allRecords.filter(r => r.doctorId !== null).length;
+    const withoutDoctor = totalRecords - withDoctor;
+
+    console.log('📊 Финальная статистика:');
+    console.log(`   Всего записей: ${totalRecords}`);
+    console.log(`   С доктором: ${withDoctor} (${Math.round((withDoctor/totalRecords)*100)}%)`);
+    console.log(`   Без доктора: ${withoutDoctor} (${Math.round((withoutDoctor/totalRecords)*100)}%)`);
+
+  } catch (error) {
+    console.error('\n❌ Ошибка:', error);
+    process.exit(1);
+  } finally {
+    await vetaisClient.end();
+  }
+
+  process.exit(0);
+}
+
+linkDoctorsBatch();
