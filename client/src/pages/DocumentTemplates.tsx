@@ -45,7 +45,8 @@ const templateSchema = z.object({
     'informed_consent_anesthesia',
     'informed_consent_general',
     'service_agreement',
-    'hospitalization_agreement'
+    'hospitalization_agreement',
+    'personal_data_consent'
   ]),
   content: z.string().min(1, "Содержимое шаблона обязательно"),
   isActive: z.boolean().default(true)
@@ -74,7 +75,8 @@ const templateTypeNames: Record<string, string> = {
   informed_consent_anesthesia: 'Согласие на анестезию',
   informed_consent_general: 'Информированное согласие',
   service_agreement: 'Договор на ветеринарное обслуживание',
-  hospitalization_agreement: 'Договор на стационарное лечение'
+  hospitalization_agreement: 'Договор на стационарное лечение',
+  personal_data_consent: 'Согласие на обработку персональных данных (ФЗ-152)'
 }
 
 // Custom Line Height Extension
@@ -541,8 +543,20 @@ function TiptapEditor({ content, onChange, editorMode }: { content: string; onCh
   )
 }
 
-function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; onSuccess: () => void }) {
-  const [open, setOpen] = useState(false)
+function TemplateDialog({ 
+  template, 
+  onSuccess, 
+  open: externalOpen, 
+  onOpenChange: externalOnOpenChange 
+}: { 
+  template?: DocumentTemplate; 
+  onSuccess: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = externalOpen !== undefined ? externalOpen : internalOpen
+  const setOpen = externalOnOpenChange || setInternalOpen
   const [editorMode, setEditorMode] = useState<'wysiwyg' | 'code'>('wysiwyg')
   const { toast } = useToast()
 
@@ -560,6 +574,25 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
       isActive: true
     }
   })
+
+  // Reset form when template changes or dialog opens
+  useEffect(() => {
+    if (open && template) {
+      form.reset({
+        name: template.name,
+        type: template.type as any,
+        content: template.content,
+        isActive: template.isActive
+      })
+    } else if (open && !template) {
+      form.reset({
+        name: '',
+        type: 'encounter_summary',
+        content: '',
+        isActive: true
+      })
+    }
+  }, [template, open, form])
 
   const createMutation = useMutation({
     mutationFn: (data: TemplateFormData) => apiRequest('POST', '/api/document-templates', data),
@@ -589,7 +622,7 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
   })
 
   const onSubmit = (data: TemplateFormData) => {
-    if (template) {
+    if (template?.id) {
       updateMutation.mutate(data)
     } else {
       createMutation.mutate(data)
@@ -598,23 +631,21 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {template ? (
-          <Button size="sm" variant="outline" data-testid={`button-edit-template-${template.id}`}>
-            <Edit className="h-3 w-3 mr-1" />
-            Редактировать
-          </Button>
-        ) : (
-          <Button data-testid="button-create-template">
-            <Plus className="h-4 w-4 mr-2" />
-            Создать шаблон
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{template ? 'Редактировать шаблон' : 'Создать новый шаблон'}</DialogTitle>
-        </DialogHeader>
+      {!externalOpen && (
+        <DialogTrigger asChild>
+          {template?.id ? (
+            <Button size="sm" variant="outline" data-testid={`button-edit-template-${template.id}`}>
+              <Edit className="h-3 w-3 mr-1" />
+              Редактировать
+            </Button>
+          ) : (
+            <Button data-testid="button-create-template">
+              <Plus className="h-4 w-4 mr-2" />
+              Создать шаблон
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -726,7 +757,7 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
                 Отмена
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-template">
-                {template ? 'Сохранить' : 'Создать'}
+                {template?.id ? 'Сохранить' : 'Создать'}
               </Button>
             </div>
           </form>
@@ -797,8 +828,9 @@ export default function DocumentTemplates() {
     queryKey: ['/api/document-templates']
   })
 
-  // Фильтруем только шаблоны клиники (скрываем системные)
+  // Разделяем системные и пользовательские шаблоны
   const templates = allTemplates.filter(t => t.tenantId !== null)
+  const systemTemplates = allTemplates.filter(t => t.tenantId === null)
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest('DELETE', `/api/document-templates/${id}`),
@@ -815,6 +847,14 @@ export default function DocumentTemplates() {
     if (confirm('Вы уверены, что хотите сбросить этот шаблон к системному? Все изменения будут потеряны.')) {
       deleteMutation.mutate(id)
     }
+  }
+
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false)
+  const [templateToCopy, setTemplateToCopy] = useState<DocumentTemplate | null>(null)
+
+  const handleCopySystemTemplate = (template: DocumentTemplate) => {
+    setTemplateToCopy(template)
+    setCopyDialogOpen(true)
   }
 
   return (
@@ -885,6 +925,75 @@ export default function DocumentTemplates() {
           )}
         </CardContent>
       </Card>
+
+      {/* Системные шаблоны */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Системные шаблоны</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Базовые шаблоны, которые вы можете скопировать и настроить под свои нужды
+          </p>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-8 text-center text-muted-foreground">Загрузка...</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Название</TableHead>
+                  <TableHead>Тип документа</TableHead>
+                  <TableHead className="text-right">Действия</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {systemTemplates.map((template) => (
+                  <TableRow key={template.id} data-testid={`row-system-template-${template.id}`}>
+                    <TableCell className="font-medium" data-testid={`text-system-template-name-${template.id}`}>
+                      {template.name}
+                    </TableCell>
+                    <TableCell data-testid={`text-system-template-type-${template.id}`}>
+                      {templateTypeNames[template.type] || template.type}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-1 justify-end" data-testid={`actions-system-template-${template.id}`}>
+                        <PreviewDialog template={template} />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCopySystemTemplate(template)}
+                          data-testid={`button-copy-system-template-${template.id}`}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Скопировать для редактирования
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Диалог копирования системного шаблона */}
+      {templateToCopy && (
+        <TemplateDialog
+          template={{
+            ...templateToCopy,
+            id: '', // Убираем ID чтобы создать новый шаблон
+            name: templateToCopy.name.replace('Системный шаблон: ', ''),
+            tenantId: 'current' // Будет заменен на актуальный tenantId на бэкенде
+          } as any}
+          open={copyDialogOpen}
+          onOpenChange={setCopyDialogOpen}
+          onSuccess={() => {
+            setCopyDialogOpen(false)
+            setTemplateToCopy(null)
+          }}
+        />
+      )}
     </div>
   )
 }
