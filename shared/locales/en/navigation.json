@@ -3,6 +3,7 @@
     "dashboard": "Dashboard",
     "registry": "Registry",
     "schedule": "Schedule",
+    "queue": "Electronic Queue",
     "medicalRecords": "Medical Records",
     "clinicalCases": "Clinical Cases",
     "laboratory": "Laboratory",
