@@ -51,6 +51,22 @@ interface Owner {
   phone?: string
 }
 
+// Translate species from English to Russian
+function translateSpecies(species: string): string {
+  const speciesMap: Record<string, string> = {
+    'cat': 'Кошка',
+    'dog': 'Собака',
+    'exotic': 'Экзотическое',
+    'reptile': 'Рептилия',
+    'bird': 'Птица',
+    'other': 'Другое',
+    'rodent': 'Грызун',
+    'rabbit': 'Кролик',
+    'horse': 'Лошадь'
+  }
+  return speciesMap[species.toLowerCase()] || species
+}
+
 export default function ClinicalCases() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -328,7 +344,7 @@ export default function ClinicalCases() {
                             {clinicalCase.patientName}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            {clinicalCase.species} {clinicalCase.breed && `• ${clinicalCase.breed}`}
+                            {clinicalCase.species ? translateSpecies(clinicalCase.species) : ''} {clinicalCase.breed && `• ${clinicalCase.breed}`}
                           </p>
                         </div>
                       </div>

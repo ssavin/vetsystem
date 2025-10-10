@@ -4533,48 +4533,85 @@ export class DatabaseStorage implements IStorage {
   async getClinicalCases(filters?: { search?: string; startDate?: Date; endDate?: Date; limit?: number; offset?: number }, branchId?: string): Promise<any[]> {
     return withPerformanceLogging('getClinicalCases', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        let query = dbInstance
-          .select({
-            clinicalCase: clinicalCases,
-            patient: patients,
-            owner: owners
-          })
-          .from(clinicalCases)
-          .leftJoin(patients, eq(clinicalCases.patientId, patients.id))
-          .leftJoin(owners, eq(patients.ownerId, owners.id))
-          .orderBy(desc(clinicalCases.startDate));
+        // Build SQL conditions
+        let branchCondition = branchId ? sql`AND cc.branch_id = ${branchId}` : sql``;
+        let searchCondition = filters?.search 
+          ? sql`AND (p.name ILIKE ${`%${filters.search}%`} OR COALESCE(poa.primary_owner_name, legacy_owner.name) ILIKE ${`%${filters.search}%`})`
+          : sql``;
+        let startDateCondition = filters?.startDate 
+          ? sql`AND cc.start_date >= ${filters.startDate}`
+          : sql``;
+        let endDateCondition = filters?.endDate 
+          ? sql`AND cc.start_date <= ${filters.endDate}`
+          : sql``;
+        let limitClause = filters?.limit ? sql`LIMIT ${filters.limit}` : sql``;
+        let offsetClause = filters?.offset ? sql`OFFSET ${filters.offset}` : sql``;
 
-        const conditions: SQL[] = [];
-        if (branchId) {
-          conditions.push(eq(clinicalCases.branchId, branchId));
-        }
-        if (filters?.search) {
-          conditions.push(
-            or(
-              ilike(owners.fullName, `%${filters.search}%`),
-              ilike(patients.name, `%${filters.search}%`)
-            )!
-          );
-        }
-        if (filters?.startDate) {
-          conditions.push(gte(clinicalCases.startDate, filters.startDate));
-        }
-        if (filters?.endDate) {
-          conditions.push(lte(clinicalCases.startDate, filters.endDate));
-        }
+        // Use raw SQL with CTE for multi-owner support
+        const result = await dbInstance.execute(sql`
+          WITH patient_owners_agg AS (
+            SELECT 
+              po.patient_id,
+              COALESCE(
+                MAX(CASE WHEN po.is_primary THEN o.name END),
+                MIN(o.name)
+              ) as primary_owner_name,
+              COALESCE(
+                MAX(CASE WHEN po.is_primary THEN o.phone END),
+                MIN(o.phone)
+              ) as primary_owner_phone
+            FROM patient_owners po
+            JOIN owners o ON po.owner_id = o.id
+            GROUP BY po.patient_id
+          )
+          SELECT 
+            cc.*,
+            p.id as patient_id,
+            p.name as patient_name,
+            p.species,
+            p.breed,
+            COALESCE(poa.primary_owner_name, legacy_owner.name) as owner_name,
+            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as owner_phone
+          FROM clinical_cases cc
+          LEFT JOIN patients p ON cc.patient_id = p.id
+          LEFT JOIN patient_owners_agg poa ON p.id = poa.patient_id
+          LEFT JOIN owners legacy_owner ON p.owner_id = legacy_owner.id
+          WHERE 1=1 
+            ${branchCondition}
+            ${searchCondition}
+            ${startDateCondition}
+            ${endDateCondition}
+          ORDER BY cc.start_date DESC
+          ${limitClause}
+          ${offsetClause}
+        `);
 
-        if (conditions.length > 0) {
-          query = query.where(and(...conditions)) as any;
-        }
-
-        if (filters?.limit) {
-          query = query.limit(filters.limit) as any;
-        }
-        if (filters?.offset) {
-          query = query.offset(filters.offset) as any;
-        }
-
-        return await query;
+        // Transform snake_case to camelCase for consistency
+        return result.rows.map((row: any) => ({
+          clinicalCase: {
+            id: row.id,
+            patientId: row.patient_id,
+            reasonForVisit: row.reason_for_visit,
+            status: row.status,
+            startDate: row.start_date,
+            closeDate: row.close_date,
+            createdByUserId: row.created_by_user_id,
+            tenantId: row.tenant_id,
+            branchId: row.branch_id,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+          },
+          patient: {
+            id: row.patient_id,
+            name: row.patient_name,
+            species: row.species,
+            breed: row.breed
+          },
+          owner: {
+            name: row.owner_name,
+            phone: row.owner_phone
+          }
+        }));
       });
     });
   }
@@ -4582,20 +4619,75 @@ export class DatabaseStorage implements IStorage {
   async getClinicalCase(id: string): Promise<any | undefined> {
     return withPerformanceLogging('getClinicalCase', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        const results = await dbInstance
-          .select({
-            clinicalCase: clinicalCases,
-            patient: patients,
-            owner: owners,
-            createdBy: users
-          })
-          .from(clinicalCases)
-          .leftJoin(patients, eq(clinicalCases.patientId, patients.id))
-          .leftJoin(owners, eq(patients.ownerId, owners.id))
-          .leftJoin(users, eq(clinicalCases.createdByUserId, users.id))
-          .where(eq(clinicalCases.id, id));
+        // Use raw SQL with CTE for multi-owner support
+        const result = await dbInstance.execute(sql`
+          WITH patient_owners_agg AS (
+            SELECT 
+              po.patient_id,
+              COALESCE(
+                MAX(CASE WHEN po.is_primary THEN o.name END),
+                MIN(o.name)
+              ) as primary_owner_name,
+              COALESCE(
+                MAX(CASE WHEN po.is_primary THEN o.phone END),
+                MIN(o.phone)
+              ) as primary_owner_phone
+            FROM patient_owners po
+            JOIN owners o ON po.owner_id = o.id
+            GROUP BY po.patient_id
+          )
+          SELECT 
+            cc.*,
+            p.id as patient_id,
+            p.name as patient_name,
+            p.species,
+            p.breed,
+            COALESCE(poa.primary_owner_name, legacy_owner.name) as owner_name,
+            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as owner_phone,
+            u.id as created_by_id,
+            u.username as created_by_username,
+            u.full_name as created_by_full_name
+          FROM clinical_cases cc
+          LEFT JOIN patients p ON cc.patient_id = p.id
+          LEFT JOIN patient_owners_agg poa ON p.id = poa.patient_id
+          LEFT JOIN owners legacy_owner ON p.owner_id = legacy_owner.id
+          LEFT JOIN users u ON cc.created_by_user_id = u.id
+          WHERE cc.id = ${id}
+        `);
         
-        return results[0];
+        if (!result.rows[0]) return undefined;
+
+        const row = result.rows[0];
+        return {
+          clinicalCase: {
+            id: row.id,
+            patientId: row.patient_id,
+            reasonForVisit: row.reason_for_visit,
+            status: row.status,
+            startDate: row.start_date,
+            closeDate: row.close_date,
+            createdByUserId: row.created_by_user_id,
+            tenantId: row.tenant_id,
+            branchId: row.branch_id,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+          },
+          patient: {
+            id: row.patient_id,
+            name: row.patient_name,
+            species: row.species,
+            breed: row.breed
+          },
+          owner: {
+            name: row.owner_name,
+            phone: row.owner_phone
+          },
+          createdBy: row.created_by_id ? {
+            id: row.created_by_id,
+            username: row.created_by_username,
+            fullName: row.created_by_full_name
+          } : null
+        };
       });
     });
   }
