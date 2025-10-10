@@ -111,15 +111,25 @@ const LineHeight = Extension.create({
 
   addCommands() {
     return {
-      setLineHeight: (lineHeight: string) => ({ commands }) => {
-        return this.options.types.every((type: string) =>
-          commands.updateAttributes(type, { lineHeight })
-        )
+      setLineHeight: (lineHeight: string) => ({ commands, state }) => {
+        const { $from } = state.selection
+        const nodeType = $from.parent.type.name
+        
+        if (this.options.types.includes(nodeType)) {
+          return commands.updateAttributes(nodeType, { lineHeight })
+        }
+        
+        return false
       },
-      unsetLineHeight: () => ({ commands }) => {
-        return this.options.types.every((type: string) =>
-          commands.resetAttributes(type, 'lineHeight')
-        )
+      unsetLineHeight: () => ({ commands, state }) => {
+        const { $from } = state.selection
+        const nodeType = $from.parent.type.name
+        
+        if (this.options.types.includes(nodeType)) {
+          return commands.resetAttributes(nodeType, 'lineHeight')
+        }
+        
+        return false
       },
     }
   },
@@ -204,7 +214,11 @@ function TiptapToolbar({ editor }: { editor: any }) {
       
       {/* Line Height */}
       <Select
-        value={editor.getAttributes('paragraph').lineHeight || ''}
+        value={
+          editor.getAttributes('heading').lineHeight || 
+          editor.getAttributes('paragraph').lineHeight || 
+          ''
+        }
         onValueChange={(value) => {
           if (value === 'default') {
             editor.chain().focus().unsetLineHeight().run()
