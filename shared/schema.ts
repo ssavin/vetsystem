@@ -2423,7 +2423,7 @@ export const clinicalEncounters = pgTable('clinical_encounters', {
   tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
   branchId: varchar('branch_id').references(() => branches.id).notNull(),
   clinicalCaseId: varchar('clinical_case_id').references(() => clinicalCases.id).notNull(),
-  doctorId: varchar('doctor_id').references(() => doctors.id).notNull(),
+  doctorId: varchar('doctor_id').references(() => users.id).notNull(), // Changed to reference users table
   encounterDate: timestamp('encounter_date').defaultNow().notNull(),
   anamnesis: text('anamnesis'), // Анамнез и данные осмотра
   diagnosis: text('diagnosis'), // Диагноз
