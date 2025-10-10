@@ -17,7 +17,8 @@ import {
   User,
   Stethoscope,
   FlaskConical,
-  Paperclip
+  Paperclip,
+  Edit
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { format, isValid } from "date-fns"
@@ -77,15 +78,24 @@ export default function ClinicalCaseDetail() {
     enabled: !!clinicalCase?.patientId,
   })
 
-  // Fetch owner info
-  const { data: owner } = useQuery({
-    queryKey: patient ? [`/api/owners/${patient.ownerId}`] : [],
-    enabled: !!patient?.ownerId,
+  // Fetch patient owners (many-to-many relationship)
+  const { data: patientOwners = [] } = useQuery({
+    queryKey: patient ? [`/api/patients/${patient.id}/owners`] : [],
+    enabled: !!patient?.id,
   })
 
-  // Fetch doctors for display
+  // Get primary owner or first owner
+  const primaryOwnerLink = patientOwners.find((po: any) => po.isPrimary) || patientOwners[0]
+
+  // Fetch primary owner details
+  const { data: owner } = useQuery({
+    queryKey: primaryOwnerLink ? [`/api/owners/${primaryOwnerLink.ownerId}`] : [],
+    enabled: !!primaryOwnerLink?.ownerId,
+  })
+
+  // Fetch doctors for display (from users table with role 'врач')
   const { data: doctors = [], isLoading: isLoadingDoctors } = useQuery({
-    queryKey: ['/api/doctors'],
+    queryKey: ['/api/users/doctors'],
   })
 
   // Close case mutation
@@ -339,7 +349,28 @@ export default function ClinicalCaseDetail() {
                               : 'Не указано'}
                           </p>
                         </div>
-                        {getEncounterStatusBadge(encounter.status)}
+                        <div className="flex items-center gap-2">
+                          {getEncounterStatusBadge(encounter.status)}
+                          {clinicalCase.status === 'open' && (
+                            <EncounterDialog
+                              caseId={id!}
+                              patientName={patient?.name || 'Пациент'}
+                              encounter={{
+                                id: encounter.id,
+                                doctorId: encounter.doctorId,
+                                anamnesis: encounter.anamnesis,
+                                diagnosis: encounter.diagnosis,
+                                treatmentPlan: encounter.treatmentPlan,
+                                notes: encounter.notes
+                              }}
+                              trigger={
+                                <Button variant="ghost" size="icon" data-testid={`button-edit-encounter-${encounter.id}`}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              }
+                            />
+                          )}
+                        </div>
                       </div>
 
                       {encounter.anamnesis && (

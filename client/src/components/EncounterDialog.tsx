@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -48,11 +48,20 @@ interface EncounterDialogProps {
   caseId: string
   patientName: string
   trigger?: React.ReactNode
+  encounter?: {
+    id: string
+    doctorId: string
+    anamnesis?: string | null
+    diagnosis?: string | null
+    treatmentPlan?: string | null
+    notes?: string | null
+  }
 }
 
-export default function EncounterDialog({ caseId, patientName, trigger }: EncounterDialogProps) {
+export default function EncounterDialog({ caseId, patientName, trigger, encounter }: EncounterDialogProps) {
   const [open, setOpen] = useState(false)
   const { toast } = useToast()
+  const isEditMode = !!encounter
 
   // Fetch doctors list (from users with role 'врач')
   const { data: doctors = [] } = useQuery<Array<{
@@ -66,23 +75,42 @@ export default function EncounterDialog({ caseId, patientName, trigger }: Encoun
   const form = useForm<EncounterFormValues>({
     resolver: zodResolver(encounterSchema),
     defaultValues: {
-      doctorId: "",
-      anamnesis: "",
-      diagnosis: "",
-      treatmentPlan: "",
-      notes: "",
+      doctorId: encounter?.doctorId || "",
+      anamnesis: encounter?.anamnesis || "",
+      diagnosis: encounter?.diagnosis || "",
+      treatmentPlan: encounter?.treatmentPlan || "",
+      notes: encounter?.notes || "",
     },
   })
 
-  const createEncounterMutation = useMutation({
+  // Sync form with encounter data when it changes or dialog opens
+  useEffect(() => {
+    if (encounter && open) {
+      form.reset({
+        doctorId: encounter.doctorId || "",
+        anamnesis: encounter.anamnesis || "",
+        diagnosis: encounter.diagnosis || "",
+        treatmentPlan: encounter.treatmentPlan || "",
+        notes: encounter.notes || "",
+      })
+    }
+  }, [encounter, open, form])
+
+  const encounterMutation = useMutation({
     mutationFn: async (values: EncounterFormValues) => {
-      return await apiRequest('POST', `/api/clinical-cases/${caseId}/encounters`, values)
+      if (isEditMode) {
+        return await apiRequest('PATCH', `/api/encounters/${encounter.id}`, values)
+      } else {
+        return await apiRequest('POST', `/api/clinical-cases/${caseId}/encounters`, values)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinical-cases', caseId] })
       toast({
-        title: "Обследование создано",
-        description: `Новое обследование для пациента ${patientName} успешно создано`,
+        title: isEditMode ? "Обследование обновлено" : "Обследование создано",
+        description: isEditMode 
+          ? "Обследование успешно обновлено"
+          : `Новое обследование для пациента ${patientName} успешно создано`,
       })
       setOpen(false)
       form.reset()
@@ -90,14 +118,14 @@ export default function EncounterDialog({ caseId, patientName, trigger }: Encoun
     onError: (error: Error) => {
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось создать обследование",
+        description: error.message || (isEditMode ? "Не удалось обновить обследование" : "Не удалось создать обследование"),
         variant: "destructive",
       })
     },
   })
 
   const onSubmit = (values: EncounterFormValues) => {
-    createEncounterMutation.mutate(values)
+    encounterMutation.mutate(values)
   }
 
   return (
@@ -114,10 +142,13 @@ export default function EncounterDialog({ caseId, patientName, trigger }: Encoun
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Stethoscope className="h-5 w-5" />
-            Новое обследование
+            {isEditMode ? "Редактировать обследование" : "Новое обследование"}
           </DialogTitle>
           <DialogDescription>
-            Создайте новое обследование для пациента <strong>{patientName}</strong>
+            {isEditMode 
+              ? `Редактируйте данные обследования для пациента ${patientName}`
+              : `Создайте новое обследование для пациента ${patientName}`
+            }
           </DialogDescription>
         </DialogHeader>
         
@@ -242,10 +273,13 @@ export default function EncounterDialog({ caseId, patientName, trigger }: Encoun
               </Button>
               <Button
                 type="submit"
-                disabled={createEncounterMutation.isPending}
+                disabled={encounterMutation.isPending}
                 data-testid="button-submit-encounter"
               >
-                {createEncounterMutation.isPending ? "Создание..." : "Создать обследование"}
+                {encounterMutation.isPending 
+                  ? (isEditMode ? "Сохранение..." : "Создание...") 
+                  : (isEditMode ? "Сохранить изменения" : "Создать обследование")
+                }
               </Button>
             </DialogFooter>
           </form>
