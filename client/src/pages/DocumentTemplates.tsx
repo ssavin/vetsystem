@@ -646,6 +646,10 @@ function TemplateDialog({
           )}
         </DialogTrigger>
       )}
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{template?.id ? 'Редактировать шаблон' : 'Создать новый шаблон'}</DialogTitle>
+        </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
