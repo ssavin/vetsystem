@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Plus, Edit, Trash2, FileText, Eye, Code, Table2, Columns, Rows, X } from "lucide-react"
+import { Plus, Edit, Trash2, FileText, Eye, Code, Table2, Columns, Rows, X, Undo, Redo, Image as ImageIcon, Link as LinkIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -28,6 +28,9 @@ import { FontFamily } from '@tiptap/extension-font-family'
 import { Color } from '@tiptap/extension-color'
 import { TextAlign } from '@tiptap/extension-text-align'
 import { Underline } from '@tiptap/extension-underline'
+import { Image as TiptapImage } from '@tiptap/extension-image'
+import { Link as TiptapLink } from '@tiptap/extension-link'
+import { Extension } from '@tiptap/core'
 
 // Validation schema
 const templateSchema = z.object({
@@ -74,12 +77,157 @@ const templateTypeNames: Record<string, string> = {
   hospitalization_agreement: 'Договор на стационарное лечение'
 }
 
+// Custom Line Height Extension
+const LineHeight = Extension.create({
+  name: 'lineHeight',
+  
+  addOptions() {
+    return {
+      types: ['paragraph', 'heading'],
+    }
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          lineHeight: {
+            default: null,
+            parseHTML: element => element.style.lineHeight || null,
+            renderHTML: attributes => {
+              if (!attributes.lineHeight) {
+                return {}
+              }
+              return {
+                style: `line-height: ${attributes.lineHeight}`,
+              }
+            },
+          },
+        },
+      },
+    ]
+  },
+
+  addCommands() {
+    return {
+      setLineHeight: (lineHeight: string) => ({ commands }) => {
+        return this.options.types.every((type: string) =>
+          commands.updateAttributes(type, { lineHeight })
+        )
+      },
+      unsetLineHeight: () => ({ commands }) => {
+        return this.options.types.every((type: string) =>
+          commands.resetAttributes(type, 'lineHeight')
+        )
+      },
+    }
+  },
+})
+
 // Tiptap Toolbar Component
 function TiptapToolbar({ editor }: { editor: any }) {
   if (!editor) return null
 
+  const addImage = () => {
+    const url = window.prompt('URL изображения:')
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run()
+    }
+  }
+
+  const setLink = () => {
+    const previousUrl = editor.getAttributes('link').href
+    const url = window.prompt('URL ссылки:', previousUrl)
+    
+    if (url === null) {
+      return
+    }
+    
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run()
+      return
+    }
+    
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+  }
+
   return (
     <div className="border border-input rounded-t-md bg-background p-2 flex flex-wrap gap-1">
+      {/* Undo/Redo */}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().undo()}
+        data-testid="button-undo"
+      >
+        <Undo className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().redo()}
+        data-testid="button-redo"
+      >
+        <Redo className="h-4 w-4" />
+      </Button>
+      
+      <div className="w-px h-8 bg-border mx-1" />
+      
+      {/* Font Family */}
+      <Select
+        value={editor.getAttributes('textStyle').fontFamily || ''}
+        onValueChange={(value) => {
+          if (value === 'default') {
+            editor.chain().focus().unsetFontFamily().run()
+          } else {
+            editor.chain().focus().setFontFamily(value).run()
+          }
+        }}
+      >
+        <SelectTrigger className="h-8 w-[150px]" data-testid="select-font-family">
+          <SelectValue placeholder="Шрифт" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="default">По умолчанию</SelectItem>
+          <SelectItem value="Arial">Arial</SelectItem>
+          <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+          <SelectItem value="Courier New">Courier New</SelectItem>
+          <SelectItem value="Georgia">Georgia</SelectItem>
+          <SelectItem value="Verdana">Verdana</SelectItem>
+        </SelectContent>
+      </Select>
+      
+      {/* Line Height */}
+      <Select
+        value={editor.getAttributes('paragraph').lineHeight || ''}
+        onValueChange={(value) => {
+          if (value === 'default') {
+            editor.chain().focus().unsetLineHeight().run()
+          } else {
+            editor.chain().focus().setLineHeight(value).run()
+          }
+        }}
+      >
+        <SelectTrigger className="h-8 w-[120px]" data-testid="select-line-height">
+          <SelectValue placeholder="Интервал" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="default">По умолчанию</SelectItem>
+          <SelectItem value="1">1.0</SelectItem>
+          <SelectItem value="1.15">1.15</SelectItem>
+          <SelectItem value="1.5">1.5</SelectItem>
+          <SelectItem value="2">2.0</SelectItem>
+        </SelectContent>
+      </Select>
+      
+      <div className="w-px h-8 bg-border mx-1" />
+      
+      {/* Text formatting */}
       <Button
         type="button"
         size="sm"
@@ -110,6 +258,7 @@ function TiptapToolbar({ editor }: { editor: any }) {
       
       <div className="w-px h-8 bg-border mx-1" />
       
+      {/* Text alignment */}
       <Button
         type="button"
         size="sm"
@@ -137,9 +286,19 @@ function TiptapToolbar({ editor }: { editor: any }) {
       >
         →
       </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive({ textAlign: 'justify' }) ? 'default' : 'outline'}
+        onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+        data-testid="button-align-justify"
+      >
+        ≡
+      </Button>
       
       <div className="w-px h-8 bg-border mx-1" />
       
+      {/* Lists */}
       <Button
         type="button"
         size="sm"
@@ -161,6 +320,31 @@ function TiptapToolbar({ editor }: { editor: any }) {
       
       <div className="w-px h-8 bg-border mx-1" />
       
+      {/* Image and Link */}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={addImage}
+        data-testid="button-add-image"
+      >
+        <ImageIcon className="h-4 w-4 mr-1" />
+        Изображение
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive('link') ? 'default' : 'outline'}
+        onClick={setLink}
+        data-testid="button-add-link"
+      >
+        <LinkIcon className="h-4 w-4 mr-1" />
+        Ссылка
+      </Button>
+      
+      <div className="w-px h-8 bg-border mx-1" />
+      
+      {/* Table */}
       <Button
         type="button"
         size="sm"
@@ -223,6 +407,15 @@ function TiptapEditor({ content, onChange, editorMode }: { content: string; onCh
       Color,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right', 'justify'],
+      }),
+      LineHeight,
+      TiptapImage,
+      TiptapLink.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-primary underline',
+        },
       }),
       TiptapTable.configure({
         resizable: true,
