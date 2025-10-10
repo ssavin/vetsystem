@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startNotificationScheduler } from "./jobs/notification-scheduler";
+import { startQueueCleanupScheduler } from "./jobs/queue-cleanup-scheduler";
 import { tenantResolver } from "./middleware/tenant-resolver";
 import { tenantDbMiddleware } from "./middleware/tenant-db";
 
@@ -74,5 +75,8 @@ app.use((req, res, next) => {
     
     // Запускаем scheduler для уведомлений о подписках
     startNotificationScheduler();
+    
+    // Запускаем scheduler для очистки истекших вызовов очереди
+    startQueueCleanupScheduler();
   });
 })();

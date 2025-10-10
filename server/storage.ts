@@ -5,6 +5,8 @@ import {
   type PatientOwner, type InsertPatientOwner,
   type Doctor, type InsertDoctor,
   type Appointment, type InsertAppointment,
+  type QueueEntry, type InsertQueueEntry,
+  type QueueCall, type InsertQueueCall,
   type MedicalRecord, type InsertMedicalRecord,
   type Medication, type InsertMedication,
   type Service, type InsertService,
@@ -41,6 +43,7 @@ import {
   type Attachment, type InsertAttachment,
   type DocumentTemplate, type InsertDocumentTemplate,
   users, owners, patients, patientOwners, doctors, appointments, 
+  queueEntries, queueCalls,
   medicalRecords, medications, services, products, 
   invoices, invoiceItems, branches, patientFiles,
   labStudies, labParameters, referenceRanges, 
@@ -235,6 +238,23 @@ export interface IStorage {
   updateAppointment(id: string, appointment: Partial<InsertAppointment>): Promise<Appointment>;
   deleteAppointment(id: string): Promise<void>;
   checkAppointmentConflicts(doctorId: string, date: Date, duration: number, excludeId?: string): Promise<boolean>;
+
+  // Queue methods - 🔒 SECURITY: branchId required for PHI isolation
+  getQueueEntries(branchId: string, status?: string): Promise<QueueEntry[]>;
+  getQueueEntry(id: string): Promise<QueueEntry | undefined>;
+  getNextQueueNumber(branchId: string): Promise<number>;
+  createQueueEntry(entry: InsertQueueEntry): Promise<QueueEntry>;
+  updateQueueEntry(id: string, entry: Partial<InsertQueueEntry>): Promise<QueueEntry>;
+  deleteQueueEntry(id: string): Promise<void>;
+  
+  // Queue Call methods
+  getQueueCalls(branchId: string, activeOnly?: boolean): Promise<QueueCall[]>;
+  getQueueCall(id: string): Promise<QueueCall | undefined>;
+  getQueueCallsByEntry(queueEntryId: string): Promise<QueueCall[]>;
+  createQueueCall(call: InsertQueueCall): Promise<QueueCall>;
+  updateQueueCall(id: string, call: Partial<InsertQueueCall>): Promise<QueueCall>;
+  deleteQueueCall(id: string): Promise<void>;
+  expireOldQueueCalls(): Promise<number>;
 
   // Medical Record methods - 🔒 SECURITY: branchId required for PHI isolation
   getMedicalRecords(patientId: string | undefined, branchId: string, limit?: number, offset?: number): Promise<MedicalRecord[]>;
@@ -1886,6 +1906,190 @@ export class DatabaseStorage implements IStorage {
           .where(and(...baseConditions));
           
         return conflicts.length > 0;
+      });
+    });
+  }
+
+  // Queue methods - 🔒 SECURITY: branchId required for PHI isolation
+  async getQueueEntries(branchId: string, status?: string): Promise<QueueEntry[]> {
+    return withPerformanceLogging('getQueueEntries', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = [eq(queueEntries.branchId, branchId)];
+        if (status) {
+          conditions.push(eq(queueEntries.status, status));
+        }
+        
+        return await dbInstance
+          .select()
+          .from(queueEntries)
+          .where(and(...conditions))
+          .orderBy(asc(queueEntries.queueNumber));
+      });
+    });
+  }
+
+  async getQueueEntry(id: string): Promise<QueueEntry | undefined> {
+    return withPerformanceLogging('getQueueEntry', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [entry] = await dbInstance
+          .select()
+          .from(queueEntries)
+          .where(eq(queueEntries.id, id));
+        return entry;
+      });
+    });
+  }
+
+  async getNextQueueNumber(branchId: string): Promise<number> {
+    return withPerformanceLogging('getNextQueueNumber', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 TRANSACTION-SAFE: Use advisory lock to prevent race conditions
+        return await dbInstance.transaction(async (tx) => {
+          // Use PostgreSQL advisory lock for atomic queue number generation
+          // Use hashtextextended to get collision-resistant 64-bit lock ID from branch UUID
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${branchId}, 0))`);
+          
+          // Now safely get max queue number with branch-specific lock held
+          const result = await tx
+            .select({ maxNumber: sql<number>`COALESCE(MAX(${queueEntries.queueNumber}), 0)` })
+            .from(queueEntries)
+            .where(and(
+              eq(queueEntries.branchId, branchId),
+              gte(queueEntries.arrivalTime, sql`CURRENT_DATE`)
+            ));
+          
+          return (result[0]?.maxNumber || 0) + 1;
+          // Advisory lock automatically released at transaction end
+        });
+      });
+    });
+  }
+
+  async createQueueEntry(entry: InsertQueueEntry): Promise<QueueEntry> {
+    return withPerformanceLogging('createQueueEntry', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newEntry] = await dbInstance
+          .insert(queueEntries)
+          .values(entry)
+          .returning();
+        return newEntry;
+      });
+    });
+  }
+
+  async updateQueueEntry(id: string, entry: Partial<InsertQueueEntry>): Promise<QueueEntry> {
+    return withPerformanceLogging('updateQueueEntry', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(queueEntries)
+          .set({ ...entry, updatedAt: new Date() })
+          .where(eq(queueEntries.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async deleteQueueEntry(id: string): Promise<void> {
+    return withPerformanceLogging('deleteQueueEntry', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(queueEntries).where(eq(queueEntries.id, id));
+      });
+    });
+  }
+
+  // Queue Call methods
+  async getQueueCalls(branchId: string, activeOnly: boolean = false): Promise<QueueCall[]> {
+    return withPerformanceLogging('getQueueCalls', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = [eq(queueCalls.branchId, branchId)];
+        
+        if (activeOnly) {
+          conditions.push(
+            or(
+              isNull(queueCalls.displayedUntil),
+              gte(queueCalls.displayedUntil, new Date())
+            )
+          );
+        }
+        
+        return await dbInstance
+          .select()
+          .from(queueCalls)
+          .where(and(...conditions))
+          .orderBy(desc(queueCalls.calledAt));
+      });
+    });
+  }
+
+  async getQueueCall(id: string): Promise<QueueCall | undefined> {
+    return withPerformanceLogging('getQueueCall', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [call] = await dbInstance
+          .select()
+          .from(queueCalls)
+          .where(eq(queueCalls.id, id));
+        return call;
+      });
+    });
+  }
+
+  async getQueueCallsByEntry(queueEntryId: string): Promise<QueueCall[]> {
+    return withPerformanceLogging('getQueueCallsByEntry', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(queueCalls)
+          .where(eq(queueCalls.queueEntryId, queueEntryId))
+          .orderBy(desc(queueCalls.calledAt));
+      });
+    });
+  }
+
+  async createQueueCall(call: InsertQueueCall): Promise<QueueCall> {
+    return withPerformanceLogging('createQueueCall', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newCall] = await dbInstance
+          .insert(queueCalls)
+          .values(call)
+          .returning();
+        return newCall;
+      });
+    });
+  }
+
+  async updateQueueCall(id: string, call: Partial<InsertQueueCall>): Promise<QueueCall> {
+    return withPerformanceLogging('updateQueueCall', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(queueCalls)
+          .set(call)
+          .where(eq(queueCalls.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async deleteQueueCall(id: string): Promise<void> {
+    return withPerformanceLogging('deleteQueueCall', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(queueCalls).where(eq(queueCalls.id, id));
+      });
+    });
+  }
+
+  async expireOldQueueCalls(): Promise<number> {
+    return withPerformanceLogging('expireOldQueueCalls', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 AUTO-CLEANUP: Delete expired queue calls (older than displayedUntil)
+        const result = await dbInstance
+          .delete(queueCalls)
+          .where(and(
+            isNotNull(queueCalls.displayedUntil),
+            lt(queueCalls.displayedUntil, new Date())
+          ));
+        return result.rowCount || 0;
       });
     });
   }

@@ -1137,6 +1137,268 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // QUEUE ROUTES - Electronic Queue Management
+  app.get("/api/queue/entries", authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      const status = req.query.status as string | undefined;
+      const entries = await storage.getQueueEntries(userBranchId, status);
+      
+      // Enrich with patient and owner names
+      const enrichedEntries = await Promise.all(entries.map(async (entry) => {
+        const patient = await storage.getPatient(entry.patientId);
+        const owner = await storage.getOwner(entry.ownerId);
+        
+        return {
+          ...entry,
+          patientName: patient?.name || 'Неизвестно',
+          patientSpecies: patient?.species || 'Неизвестно',
+          ownerName: owner?.name || 'Неизвестно',
+          ownerPhone: owner?.phone || '',
+        };
+      }));
+      
+      res.json(enrichedEntries);
+    } catch (error) {
+      console.error("Error fetching queue entries:", error);
+      res.status(500).json({ error: "Failed to fetch queue entries" });
+    }
+  });
+
+  app.get("/api/queue/entries/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      const entry = await storage.getQueueEntry(req.params.id);
+      if (!entry) {
+        return res.status(404).json({ error: "Queue entry not found" });
+      }
+      
+      // 🔒 SECURITY: Verify entry belongs to user's branch
+      if (entry.branchId !== userBranchId) {
+        return res.status(403).json({ error: 'Access denied: Queue entry not found' });
+      }
+      
+      res.json(entry);
+    } catch (error) {
+      console.error("Error fetching queue entry:", error);
+      res.status(500).json({ error: "Failed to fetch queue entry" });
+    }
+  });
+
+  app.post("/api/queue/entries", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      // 🔒 SECURITY: Validate request body with Zod schema
+      const { insertQueueEntrySchema } = await import('../shared/schema.js');
+      const validatedData = insertQueueEntrySchema.omit({ 
+        id: true, 
+        tenantId: true, 
+        branchId: true, 
+        queueNumber: true,
+        createdAt: true,
+        updatedAt: true 
+      }).parse(req.body);
+      
+      // 🔒 SECURITY: Verify patient belongs to user's branch
+      const patient = await storage.getPatient(validatedData.patientId);
+      if (!patient || patient.branchId !== userBranchId) {
+        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      }
+      
+      // Get next queue number (transaction-safe)
+      const queueNumber = await storage.getNextQueueNumber(userBranchId);
+      
+      const entry = await storage.createQueueEntry({
+        ...validatedData,
+        tenantId: user.tenantId,
+        branchId: userBranchId,
+        queueNumber,
+      });
+      
+      res.status(201).json(entry);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      console.error("Error creating queue entry:", error);
+      res.status(500).json({ error: "Failed to create queue entry" });
+    }
+  });
+
+  app.put("/api/queue/entries/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      // 🔒 SECURITY: Check existing entry access
+      const existingEntry = await storage.getQueueEntry(req.params.id);
+      if (!existingEntry) {
+        return res.status(404).json({ error: "Queue entry not found" });
+      }
+      if (existingEntry.branchId !== userBranchId) {
+        return res.status(403).json({ error: 'Access denied: Queue entry not found' });
+      }
+      
+      // 🔒 SECURITY: Prevent privilege escalation - strip sensitive fields
+      const { tenantId, branchId, queueNumber, ...updates } = req.body;
+      
+      const entry = await storage.updateQueueEntry(req.params.id, updates);
+      res.json(entry);
+    } catch (error) {
+      console.error("Error updating queue entry:", error);
+      res.status(500).json({ error: "Failed to update queue entry" });
+    }
+  });
+
+  app.delete("/api/queue/entries/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      // 🔒 SECURITY: Check entry access before deletion
+      const existingEntry = await storage.getQueueEntry(req.params.id);
+      if (!existingEntry) {
+        return res.status(404).json({ error: "Queue entry not found" });
+      }
+      if (existingEntry.branchId !== userBranchId) {
+        return res.status(403).json({ error: 'Access denied: Queue entry not found' });
+      }
+      
+      await storage.deleteQueueEntry(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting queue entry:", error);
+      res.status(500).json({ error: "Failed to delete queue entry" });
+    }
+  });
+
+  // Queue Calls Routes
+  app.get("/api/queue/calls", authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      const activeOnly = req.query.activeOnly === 'true';
+      const calls = await storage.getQueueCalls(userBranchId, activeOnly);
+      
+      // Enrich with queue entry and patient details
+      const enrichedCalls = await Promise.all(calls.map(async (call) => {
+        const entry = await storage.getQueueEntry(call.queueEntryId);
+        const calledByUser = await storage.getUser(call.calledBy);
+        
+        if (entry) {
+          const patient = await storage.getPatient(entry.patientId);
+          const owner = await storage.getOwner(entry.ownerId);
+          
+          return {
+            ...call,
+            queueNumber: entry.queueNumber,
+            patientName: patient?.name || 'Неизвестно',
+            ownerName: owner?.name || 'Неизвестно',
+            calledByName: calledByUser?.fullName || 'Неизвестно',
+          };
+        }
+        
+        return {
+          ...call,
+          queueNumber: 0,
+          patientName: 'Неизвестно',
+          ownerName: 'Неизвестно',
+          calledByName: calledByUser?.fullName || 'Неизвестно',
+        };
+      }));
+      
+      res.json(enrichedCalls);
+    } catch (error) {
+      console.error("Error fetching queue calls:", error);
+      res.status(500).json({ error: "Failed to fetch queue calls" });
+    }
+  });
+
+  app.post("/api/queue/calls", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      // 🔒 SECURITY: Validate request body with Zod schema
+      const { insertQueueCallSchema } = await import('../shared/schema.js');
+      const validatedData = insertQueueCallSchema.omit({ 
+        id: true, 
+        tenantId: true, 
+        branchId: true,
+        calledBy: true,
+        calledAt: true 
+      }).parse(req.body);
+      
+      // 🔒 SECURITY: Verify queue entry belongs to user's branch
+      const entry = await storage.getQueueEntry(validatedData.queueEntryId);
+      if (!entry || entry.branchId !== userBranchId) {
+        return res.status(403).json({ error: 'Access denied: Queue entry not found' });
+      }
+      
+      // Set default displayedUntil to 5 minutes from now if not provided
+      const displayedUntil = validatedData.displayedUntil || new Date(Date.now() + 5 * 60 * 1000);
+      
+      const call = await storage.createQueueCall({
+        ...validatedData,
+        tenantId: user.tenantId,
+        branchId: userBranchId,
+        calledBy: user.id,
+        displayedUntil,
+      });
+      
+      // Update queue entry status to 'called'
+      await storage.updateQueueEntry(validatedData.queueEntryId, {
+        status: 'called',
+      });
+      
+      res.status(201).json(call);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      console.error("Error creating queue call:", error);
+      res.status(500).json({ error: "Failed to create queue call" });
+    }
+  });
+
+  app.put("/api/queue/calls/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      // 🔒 SECURITY: Check existing call access
+      const existingCall = await storage.getQueueCall(req.params.id);
+      if (!existingCall) {
+        return res.status(404).json({ error: "Queue call not found" });
+      }
+      if (existingCall.branchId !== userBranchId) {
+        return res.status(403).json({ error: 'Access denied: Queue call not found' });
+      }
+      
+      // 🔒 SECURITY: Prevent privilege escalation - strip sensitive fields
+      const { tenantId, branchId, calledBy, queueEntryId, ...updates } = req.body;
+      
+      const call = await storage.updateQueueCall(req.params.id, updates);
+      res.json(call);
+    } catch (error) {
+      console.error("Error updating queue call:", error);
+      res.status(500).json({ error: "Failed to update queue call" });
+    }
+  });
+
   // MEDICAL RECORDS ROUTES - Protected PHI data
   app.get("/api/medical-records", authenticateToken, requireModuleAccess('medical_records'), async (req, res) => {
     try {
