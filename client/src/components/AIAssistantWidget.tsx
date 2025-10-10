@@ -35,9 +35,11 @@ export function AIAssistantWidget({ role, onFillForm, className = '' }: AIAssist
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  const analyzeTranscriptMutation = useMutation({
-    mutationFn: (data: { transcript: string; role: 'admin' | 'doctor' }) =>
-      apiRequest('POST', '/api/ai/assistant-command', data),
+  const analyzeTranscriptMutation = useMutation<AICommand, Error, { transcript: string; role: 'admin' | 'doctor' }>({
+    mutationFn: async (data) => {
+      const response = await apiRequest('POST', '/api/ai/assistant-command', data);
+      return response as unknown as AICommand;
+    },
     onSuccess: (command: AICommand) => {
       if (command.action === 'NO_ACTION') {
         setWidgetState('idle');
@@ -111,6 +113,20 @@ export function AIAssistantWidget({ role, onFillForm, className = '' }: AIAssist
           toast({
             title: 'Данные заполнены',
             description: 'Проверьте заполненные поля',
+          });
+        } else {
+          // Show the data to copy manually
+          const dataText = Object.entries(suggestion.payload)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\n');
+          toast({
+            title: 'Данные для заполнения',
+            description: (
+              <pre className="text-xs mt-2 whitespace-pre-wrap">
+                {dataText}
+              </pre>
+            ) as any,
+            duration: 10000,
           });
         }
         break;

@@ -26,6 +26,7 @@ import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import OwnerRegistrationForm from "@/components/OwnerRegistrationForm"
 import CreateCaseDialog from "@/components/CreateCaseDialog"
 import { PrintDocumentButton } from "@/components/PrintDocumentButton"
+import { AIAssistantWidget } from "@/components/AIAssistantWidget"
 import { useLocation } from "wouter"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
@@ -928,6 +929,9 @@ export default function Registry() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* AI Assistant for voice-activated search and actions */}
+      <AIAssistantWidget role="admin" />
     </div>
   )
 }

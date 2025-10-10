@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import MedicalRecordCard from "@/components/MedicalRecordCard"
 import MedicalRecordForm from "@/components/MedicalRecordForm"
 import AIAssistant from "@/components/AIAssistant"
+import { AIAssistantWidget } from "@/components/AIAssistantWidget"
 import type { MedicalRecord } from "@shared/schema"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -415,6 +416,9 @@ export default function MedicalRecords() {
           )}
         </>
       )}
+
+      {/* AI Assistant for voice-activated medical record input */}
+      <AIAssistantWidget role="doctor" />
     </div>
   )
 }
