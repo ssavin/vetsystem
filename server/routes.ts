@@ -23,6 +23,7 @@ import rateLimit from "express-rate-limit";
 import * as veterinaryAI from './ai/veterinary-ai';
 import * as yookassa from './integrations/yookassa';
 import { documentService } from './services/documentService';
+import { aiAssistantService, aiCommandSchema } from './services/aiAssistantService';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -1732,6 +1733,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("AI chat error:", error);
       res.status(500).json({ error: "Ошибка ИИ-консультанта" });
+    }
+  });
+
+  // AI ASSISTANT - Real-time voice assistance
+  const aiAssistantRequestSchema = z.object({
+    transcript: z.string().min(1, "Транскрипт не может быть пустым"),
+    role: z.enum(['admin', 'doctor']),
+  });
+
+  app.post("/api/ai/assistant-command", authenticateToken, validateBody(aiAssistantRequestSchema), async (req, res) => {
+    try {
+      const { transcript, role } = req.body;
+      const command = await aiAssistantService.getCommandFromTranscript(transcript, role);
+      res.json(command);
+    } catch (error) {
+      console.error("AI assistant error:", error);
+      res.status(500).json({ error: "Ошибка AI-ассистента" });
     }
   });
 
