@@ -1539,7 +1539,7 @@ export const insertBranchSchema = createInsertSchema(branches).omit({
 }).extend({
   legalEntityId: z.string().uuid("Неверный формат ID юр.лица").optional().or(z.literal("")),
   status: z.enum(["active", "inactive", "maintenance"] as const).default("active"),
-  phone: z.string().regex(/^\+?[1-9]\d{10,14}$/, "Неверный формат номера телефона"),
+  phone: z.string().regex(/^\+?[1-9]\d{10,14}$/, "Неверный формат номера телефона").optional().or(z.literal("")),
   email: z.string().email().optional().or(z.literal("")),
 });
 

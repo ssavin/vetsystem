@@ -193,7 +193,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.body = schema.parse(req.body);
         next();
       } catch (error) {
-        res.status(400).json({ error: "Validation failed", details: error });
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ 
+            error: "Validation failed", 
+            details: error.errors.map(e => ({ 
+              field: e.path.join('.'), 
+              message: e.message 
+            }))
+          });
+        }
+        res.status(400).json({ error: "Validation failed", details: String(error) });
       }
     };
   };
