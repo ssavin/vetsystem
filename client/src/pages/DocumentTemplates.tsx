@@ -228,7 +228,7 @@ function TiptapToolbar({ editor }: { editor: any }) {
       
       {/* Font Family */}
       <Select
-        value={editor.getAttributes('textStyle').fontFamily || 'default'}
+        value={editor.getAttributes('textStyle').fontFamily?.trim() || 'default'}
         onValueChange={(value) => {
           if (value === 'default') {
             editor.chain().focus().unsetFontFamily().run()
@@ -252,7 +252,7 @@ function TiptapToolbar({ editor }: { editor: any }) {
       
       {/* Font Size */}
       <Select
-        value={editor.getAttributes('textStyle').fontSize || 'default'}
+        value={editor.getAttributes('textStyle').fontSize?.trim() || 'default'}
         onValueChange={(value) => {
           if (value === 'default') {
             editor.chain().focus().unsetFontSize().run()
@@ -283,8 +283,8 @@ function TiptapToolbar({ editor }: { editor: any }) {
       {/* Line Height */}
       <Select
         value={
-          editor.getAttributes('heading').lineHeight || 
-          editor.getAttributes('paragraph').lineHeight || 
+          editor.getAttributes('heading').lineHeight?.trim() || 
+          editor.getAttributes('paragraph').lineHeight?.trim() || 
           'default'
         }
         onValueChange={(value) => {
