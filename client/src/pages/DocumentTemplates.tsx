@@ -228,7 +228,7 @@ function TiptapToolbar({ editor }: { editor: any }) {
       
       {/* Font Family */}
       <Select
-        value={editor.getAttributes('textStyle').fontFamily || ''}
+        value={editor.getAttributes('textStyle').fontFamily || 'default'}
         onValueChange={(value) => {
           if (value === 'default') {
             editor.chain().focus().unsetFontFamily().run()
@@ -252,7 +252,7 @@ function TiptapToolbar({ editor }: { editor: any }) {
       
       {/* Font Size */}
       <Select
-        value={editor.getAttributes('textStyle').fontSize || ''}
+        value={editor.getAttributes('textStyle').fontSize || 'default'}
         onValueChange={(value) => {
           if (value === 'default') {
             editor.chain().focus().unsetFontSize().run()
@@ -285,7 +285,7 @@ function TiptapToolbar({ editor }: { editor: any }) {
         value={
           editor.getAttributes('heading').lineHeight || 
           editor.getAttributes('paragraph').lineHeight || 
-          ''
+          'default'
         }
         onValueChange={(value) => {
           if (value === 'default') {
@@ -482,7 +482,10 @@ function TiptapEditor({ content, onChange, editorMode }: { content: string; onCh
   
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        link: false, // Disable link from StarterKit as we use custom TiptapLink
+        underline: false, // Disable underline from StarterKit as we add it separately
+      }),
       Underline,
       TextStyle,
       FontFamily,
@@ -634,7 +637,7 @@ function TemplateDialog({ template, onSuccess }: { template?: DocumentTemplate; 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Тип документа</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-template-type">
                         <SelectValue placeholder="Выберите тип документа" />
