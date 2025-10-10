@@ -68,6 +68,10 @@ export const DOCUMENT_TEMPLATE_TYPE = [
 // Galen sync status enum
 export const GALEN_SYNC_STATUS = ['not_synced', 'sync_in_progress', 'synced', 'error'] as const;
 
+// Queue status enum
+export const QUEUE_STATUS = ['waiting', 'called', 'in_progress', 'completed', 'cancelled', 'no_show'] as const;
+export const QUEUE_PRIORITY = ['normal', 'urgent', 'emergency'] as const;
+
 // ========================================
 // MULTI-TENANT ARCHITECTURE
 // ========================================
@@ -424,6 +428,58 @@ export const appointments = pgTable("appointments", {
     statusIdx: index("appointments_status_idx").on(table.status),
     branchIdIdx: index("appointments_branch_id_idx").on(table.branchId),
     doctorDateIdx: index("appointments_doctor_date_idx").on(table.doctorId, table.appointmentDate),
+  };
+});
+
+// Queue Entries table - Электронная очередь
+export const queueEntries = pgTable("queue_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  branchId: varchar("branch_id").references(() => branches.id).notNull(),
+  appointmentId: varchar("appointment_id").references(() => appointments.id), // Опциональная связь с записью на прием
+  patientId: varchar("patient_id").references(() => patients.id).notNull(),
+  ownerId: varchar("owner_id").references(() => owners.id).notNull(),
+  queueNumber: integer("queue_number").notNull(), // Номер в очереди (автоматически генерируется)
+  priority: varchar("priority", { length: 20 }).default("normal").notNull(), // normal, urgent, emergency
+  status: varchar("status", { length: 20 }).default("waiting").notNull(), // waiting, called, in_progress, completed, cancelled, no_show
+  arrivalTime: timestamp("arrival_time").defaultNow().notNull(), // Время прихода клиента
+  expectedWaitTime: integer("expected_wait_time"), // Ожидаемое время ожидания в минутах
+  notes: text("notes"), // Дополнительные заметки
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    statusCheck: check("queue_entries_status_check", sql`${table.status} IN ('waiting', 'called', 'in_progress', 'completed', 'cancelled', 'no_show')`),
+    priorityCheck: check("queue_entries_priority_check", sql`${table.priority} IN ('normal', 'urgent', 'emergency')`),
+    tenantIdIdx: index("queue_entries_tenant_id_idx").on(table.tenantId),
+    branchIdIdx: index("queue_entries_branch_id_idx").on(table.branchId),
+    statusIdx: index("queue_entries_status_idx").on(table.status),
+    arrivalTimeIdx: index("queue_entries_arrival_time_idx").on(table.arrivalTime),
+    queueNumberIdx: index("queue_entries_queue_number_idx").on(table.queueNumber),
+    branchStatusIdx: index("queue_entries_branch_status_idx").on(table.branchId, table.status),
+  };
+});
+
+// Queue Calls table - Вызовы клиентов в кабинеты
+export const queueCalls = pgTable("queue_calls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  branchId: varchar("branch_id").references(() => branches.id).notNull(),
+  queueEntryId: varchar("queue_entry_id").references(() => queueEntries.id).notNull(),
+  roomNumber: varchar("room_number", { length: 50 }).notNull(), // Номер кабинета
+  calledBy: varchar("called_by").references(() => users.id).notNull(), // Кто вызвал (врач/администратор)
+  calledAt: timestamp("called_at").defaultNow().notNull(), // Время вызова
+  displayedUntil: timestamp("displayed_until"), // До какого времени показывать на экране (по умолчанию +5 минут)
+  voiceAnnounced: boolean("voice_announced").default(false).notNull(), // Было ли голосовое объявление
+  acknowledged: boolean("acknowledged").default(false).notNull(), // Подтверждено ли получение вызова
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("queue_calls_tenant_id_idx").on(table.tenantId),
+    branchIdIdx: index("queue_calls_branch_id_idx").on(table.branchId),
+    queueEntryIdIdx: index("queue_calls_queue_entry_id_idx").on(table.queueEntryId),
+    calledAtIdx: index("queue_calls_called_at_idx").on(table.calledAt),
+    displayedUntilIdx: index("queue_calls_displayed_until_idx").on(table.displayedUntil),
   };
 });
 
@@ -1142,6 +1198,50 @@ export const appointmentsRelations = relations(appointments, ({ one, many }) => 
   }),
   medicalRecords: many(medicalRecords),
   invoices: many(invoices),
+  queueEntries: many(queueEntries),
+}));
+
+export const queueEntriesRelations = relations(queueEntries, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [queueEntries.tenantId],
+    references: [tenants.id],
+  }),
+  branch: one(branches, {
+    fields: [queueEntries.branchId],
+    references: [branches.id],
+  }),
+  appointment: one(appointments, {
+    fields: [queueEntries.appointmentId],
+    references: [appointments.id],
+  }),
+  patient: one(patients, {
+    fields: [queueEntries.patientId],
+    references: [patients.id],
+  }),
+  owner: one(owners, {
+    fields: [queueEntries.ownerId],
+    references: [owners.id],
+  }),
+  calls: many(queueCalls),
+}));
+
+export const queueCallsRelations = relations(queueCalls, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [queueCalls.tenantId],
+    references: [tenants.id],
+  }),
+  branch: one(branches, {
+    fields: [queueCalls.branchId],
+    references: [branches.id],
+  }),
+  queueEntry: one(queueEntries, {
+    fields: [queueCalls.queueEntryId],
+    references: [queueEntries.id],
+  }),
+  calledByUser: one(users, {
+    fields: [queueCalls.calledBy],
+    references: [users.id],
+  }),
 }));
 
 export const medicalRecordsRelations = relations(medicalRecords, ({ one, many }) => ({
@@ -1533,6 +1633,27 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   duration: z.number().int().min(1, "Duration must be at least 1 minute"),
 });
 
+export const insertQueueEntrySchema = createInsertSchema(queueEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  status: z.enum(QUEUE_STATUS).default("waiting"),
+  priority: z.enum(QUEUE_PRIORITY).default("normal"),
+  arrivalTime: z.coerce.date().optional(),
+  expectedWaitTime: z.number().int().min(0).optional().nullable(),
+});
+
+export const insertQueueCallSchema = createInsertSchema(queueCalls).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  calledAt: z.coerce.date().optional(),
+  displayedUntil: z.coerce.date().optional().nullable(),
+  voiceAnnounced: z.boolean().default(false),
+  acknowledged: z.boolean().default(false),
+});
+
 export const insertMedicalRecordSchema = createInsertSchema(medicalRecords).omit({
   id: true,
   tenantId: true,
@@ -1889,6 +2010,12 @@ export type InsertDoctor = z.infer<typeof insertDoctorSchema>;
 
 export type Appointment = typeof appointments.$inferSelect;
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+
+export type QueueEntry = typeof queueEntries.$inferSelect;
+export type InsertQueueEntry = z.infer<typeof insertQueueEntrySchema>;
+
+export type QueueCall = typeof queueCalls.$inferSelect;
+export type InsertQueueCall = z.infer<typeof insertQueueCallSchema>;
 
 export type MedicalRecord = typeof medicalRecords.$inferSelect;
 export type InsertMedicalRecord = z.infer<typeof insertMedicalRecordSchema>;
