@@ -332,7 +332,7 @@ export default function LabResultDialog({ children }: LabResultDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">
+                        <SelectItem value="normal">
                           <div className="flex items-center">
                             <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
                             Норма

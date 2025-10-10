@@ -845,14 +845,14 @@ export default function Settings() {
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="legalEntity">Юридическое лицо</Label>
                   <Select 
-                    value={legalEntityId || ""} 
-                    onValueChange={(value) => setLegalEntityId(value || null)}
+                    value={legalEntityId || "none"} 
+                    onValueChange={(value) => setLegalEntityId(value === "none" ? null : value)}
                   >
                     <SelectTrigger id="legalEntity" data-testid="select-legal-entity">
                       <SelectValue placeholder="Выберите юридическое лицо" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Не выбрано</SelectItem>
+                      <SelectItem value="none">Не выбрано</SelectItem>
                       {legalEntities.map((entity) => (
                         <SelectItem key={entity.id} value={entity.id}>
                           {entity.legalName} (ИНН: {entity.inn})
@@ -1030,8 +1030,8 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>Юридическое лицо</FormLabel>
                           <Select 
-                            onValueChange={field.onChange} 
-                            value={field.value || ""}
+                            onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
+                            value={field.value || "none"}
                           >
                             <FormControl>
                               <SelectTrigger data-testid="select-branch-legal-entity">
@@ -1039,7 +1039,7 @@ export default function Settings() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">Не выбрано</SelectItem>
+                              <SelectItem value="none">Не выбрано</SelectItem>
                               {legalEntities.map((entity) => (
                                 <SelectItem key={entity.id} value={entity.id}>
                                   {entity.legalName} (ИНН: {entity.inn})
