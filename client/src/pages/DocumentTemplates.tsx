@@ -135,6 +135,44 @@ const LineHeight = Extension.create({
   },
 })
 
+// Custom Font Size Extension
+const FontSize = Extension.create({
+  name: 'fontSize',
+  
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['textStyle'],
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: element => element.style.fontSize || null,
+            renderHTML: attributes => {
+              if (!attributes.fontSize) {
+                return {}
+              }
+              return {
+                style: `font-size: ${attributes.fontSize}`,
+              }
+            },
+          },
+        },
+      },
+    ]
+  },
+
+  addCommands() {
+    return {
+      setFontSize: (fontSize: string) => ({ commands }) => {
+        return commands.setMark('textStyle', { fontSize })
+      },
+      unsetFontSize: () => ({ commands }) => {
+        return commands.setMark('textStyle', { fontSize: null })
+      },
+    }
+  },
+})
+
 // Tiptap Toolbar Component
 function TiptapToolbar({ editor }: { editor: any }) {
   if (!editor) return null
@@ -209,6 +247,36 @@ function TiptapToolbar({ editor }: { editor: any }) {
           <SelectItem value="Courier New">Courier New</SelectItem>
           <SelectItem value="Georgia">Georgia</SelectItem>
           <SelectItem value="Verdana">Verdana</SelectItem>
+        </SelectContent>
+      </Select>
+      
+      {/* Font Size */}
+      <Select
+        value={editor.getAttributes('textStyle').fontSize || ''}
+        onValueChange={(value) => {
+          if (value === 'default') {
+            editor.chain().focus().unsetFontSize().run()
+          } else {
+            editor.chain().focus().setFontSize(value).run()
+          }
+        }}
+      >
+        <SelectTrigger className="h-8 w-[100px]" data-testid="select-font-size">
+          <SelectValue placeholder="Размер" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="default">По умолчанию</SelectItem>
+          <SelectItem value="10px">10</SelectItem>
+          <SelectItem value="12px">12</SelectItem>
+          <SelectItem value="14px">14</SelectItem>
+          <SelectItem value="16px">16</SelectItem>
+          <SelectItem value="18px">18</SelectItem>
+          <SelectItem value="20px">20</SelectItem>
+          <SelectItem value="24px">24</SelectItem>
+          <SelectItem value="28px">28</SelectItem>
+          <SelectItem value="32px">32</SelectItem>
+          <SelectItem value="36px">36</SelectItem>
+          <SelectItem value="48px">48</SelectItem>
         </SelectContent>
       </Select>
       
@@ -418,6 +486,7 @@ function TiptapEditor({ content, onChange, editorMode }: { content: string; onCh
       Underline,
       TextStyle,
       FontFamily,
+      FontSize,
       Color,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
