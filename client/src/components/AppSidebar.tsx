@@ -78,20 +78,6 @@ const getMenuItems = (t: any) => [
     managerOnly: true,
   },
   {
-    titleKey: "menu.legalEntities",
-    url: "/legal-entities",
-    icon: Building2,
-    module: null,
-    managerOnly: true,
-  },
-  {
-    titleKey: "menu.documentTemplates",
-    url: "/document-templates",
-    icon: FileType,
-    module: null,
-    managerOnly: true,
-  },
-  {
     titleKey: "menu.adminPanel",
     url: "/superadmin",
     icon: Shield,

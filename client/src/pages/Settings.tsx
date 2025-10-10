@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Table,
   TableBody,
@@ -72,6 +73,8 @@ import { format } from "date-fns"
 import { ru } from "date-fns/locale"
 import IntegrationsSettings from "@/components/IntegrationsSettings"
 import { useAuth } from "@/contexts/AuthContext"
+import LegalEntities from "./LegalEntities"
+import DocumentTemplates from "./DocumentTemplates"
 
 // Form validation schema for branches
 const branchSchema = z.object({
@@ -783,6 +786,24 @@ export default function Settings() {
         <h1 className="text-3xl font-bold" data-testid="text-settings-title">Настройки системы</h1>
         <p className="text-muted-foreground">Конфигурация и управление параметрами VetSystem</p>
       </div>
+
+      <Tabs defaultValue="general" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="general" data-testid="tab-general-settings">
+            <SettingsIcon className="h-4 w-4 mr-2" />
+            Общие настройки
+          </TabsTrigger>
+          <TabsTrigger value="legal-entities" data-testid="tab-legal-entities">
+            <Building2 className="h-4 w-4 mr-2" />
+            Юридические лица
+          </TabsTrigger>
+          <TabsTrigger value="templates" data-testid="tab-document-templates">
+            <FileText className="h-4 w-4 mr-2" />
+            Шаблоны документов
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general" className="space-y-6">
 
       {/* Clinic Information - hidden for superadmin */}
       {!isSuperAdmin && (
@@ -2329,13 +2350,25 @@ export default function Settings() {
       {/* Integrations Management */}
       <IntegrationsSettings />
 
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button onClick={saveSettings} data-testid="button-save-settings">
-          <Save className="h-4 w-4 mr-2" />
-          Сохранить настройки
-        </Button>
-      </div>
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <Button onClick={saveSettings} data-testid="button-save-settings">
+              <Save className="h-4 w-4 mr-2" />
+              Сохранить настройки
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* Legal Entities Tab */}
+        <TabsContent value="legal-entities">
+          <LegalEntities />
+        </TabsContent>
+
+        {/* Document Templates Tab */}
+        <TabsContent value="templates">
+          <DocumentTemplates />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
