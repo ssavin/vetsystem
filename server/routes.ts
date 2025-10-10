@@ -2526,13 +2526,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Filter users with doctor role and same branch
       const doctors = users
-        .filter(u => u.role === 'врач' && u.branchId === user.branchId)
+        .filter(u => u.role === 'врач' && u.branchId === user.branchId && u.status === 'active')
         .map(({ password, ...doctor }) => ({
           id: doctor.id,
-          name: doctor.fullName,
-          specialization: doctor.department, // Use department as specialization
-          phone: doctor.phone,
-          email: doctor.email,
+          name: doctor.fullName, // fullName exists in User type
+          specialization: doctor.department || undefined, // Use department as specialization
+          phone: doctor.phone || undefined,
+          email: doctor.email || undefined,
           isActive: doctor.status === 'active'
         }));
       
