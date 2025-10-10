@@ -2518,6 +2518,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all doctors (users with role 'врач') for clinical forms
+  app.get("/api/users/doctors", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const users = await storage.getUsers();
+      
+      // Filter users with doctor role and same branch
+      const doctors = users
+        .filter(u => u.role === 'врач' && u.branchId === user.branchId)
+        .map(({ password, ...doctor }) => ({
+          id: doctor.id,
+          name: doctor.fullName,
+          specialization: doctor.department, // Use department as specialization
+          phone: doctor.phone,
+          email: doctor.email,
+          isActive: doctor.status === 'active'
+        }));
+      
+      res.json(doctors);
+    } catch (error) {
+      console.error("Error fetching doctors from users:", error);
+      res.status(500).json({ error: "Failed to fetch doctors" });
+    }
+  });
+
   app.post("/api/users", authenticateToken, validateBody(insertUserSchema), async (req, res) => {
     try {
       // Check permission: superadmin, руководитель, or администратор/admin

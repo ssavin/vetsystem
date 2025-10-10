@@ -54,9 +54,13 @@ export default function EncounterDialog({ caseId, patientName, trigger }: Encoun
   const [open, setOpen] = useState(false)
   const { toast } = useToast()
 
-  // Fetch doctors list
-  const { data: doctors = [] } = useQuery({
-    queryKey: ['/api/doctors'],
+  // Fetch doctors list (from users with role 'врач')
+  const { data: doctors = [] } = useQuery<Array<{
+    id: string;
+    name: string;
+    specialization?: string;
+  }>>({
+    queryKey: ['/api/users/doctors'],
   })
 
   const form = useForm<EncounterFormValues>({
