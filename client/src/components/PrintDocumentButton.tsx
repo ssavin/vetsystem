@@ -38,10 +38,13 @@ export function PrintDocumentButton({
   // Mutation for generating documents
   const generateDocumentMutation = useMutation({
     mutationFn: async (data: GenerateDocumentRequest) => {
+      const token = localStorage.getItem('authToken');
+      
       const response = await fetch('/api/documents/generate', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
         },
         credentials: 'include',
         body: JSON.stringify(data)
