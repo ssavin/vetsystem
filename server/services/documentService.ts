@@ -56,6 +56,25 @@ export class DocumentService {
   }
 
   /**
+   * Translate species from English to Russian
+   */
+  private translateSpecies(species: string): string {
+    const speciesMap: Record<string, string> = {
+      'dog': 'собака',
+      'cat': 'кошка',
+      'horse': 'лошадь',
+      'bird': 'птица',
+      'rodent': 'грызун',
+      'rabbit': 'кролик',
+      'reptile': 'рептилия',
+      'exotic': 'экзотическое животное',
+      'other': 'другое'
+    };
+
+    return speciesMap[species.toLowerCase()] || species;
+  }
+
+  /**
    * Get clinic information with legal entity requisites
    */
   private async getClinicInfoWithLegalEntity(branchId: string): Promise<any> {
@@ -314,7 +333,7 @@ export class DocumentService {
     // Build patient info
     const patientInfo = {
       name: patient.name,
-      species: patient.species,
+      species: this.translateSpecies(patient.species),
       breed: patient.breed || 'Не указана',
       age: calculateAge(patient.dateOfBirth)
     };
@@ -415,7 +434,7 @@ export class DocumentService {
     // Build patient info
     const patientInfo = {
       name: patient.name,
-      species: patient.species,
+      species: this.translateSpecies(patient.species),
       breed: patient.breed || 'Не указана',
       age: calculateAge(patient.dateOfBirth),
       sex: patient.sex || 'Не указан',
@@ -498,7 +517,7 @@ export class DocumentService {
     // Build patient info
     const patientInfo = {
       name: patient.name,
-      species: patient.species,
+      species: this.translateSpecies(patient.species),
       breed: patient.breed || 'Не указана',
       age: calculateAge(patient.dateOfBirth)
     };
@@ -632,7 +651,7 @@ export class DocumentService {
     // Build patient info
     const patientInfo = {
       name: patient.name,
-      species: patient.species,
+      species: this.translateSpecies(patient.species),
       breed: patient.breed || 'Не указана',
       age: calculateAge(patient.dateOfBirth),
       sex: patient.sex || 'Не указан',
@@ -721,7 +740,7 @@ export class DocumentService {
     // Build patient info
     const patientInfo = {
       name: patient.name,
-      species: patient.species,
+      species: this.translateSpecies(patient.species),
       breed: patient.breed || 'Не указана',
       age: calculateAge(patient.dateOfBirth),
       sex: patient.sex || 'Не указан',
@@ -810,7 +829,7 @@ export class DocumentService {
     // Build patient info
     const patientInfo = {
       name: patient.name,
-      species: patient.species,
+      species: this.translateSpecies(patient.species),
       breed: patient.breed || 'Не указана',
       age: calculateAge(patient.dateOfBirth),
       sex: patient.sex || 'Не указан',
