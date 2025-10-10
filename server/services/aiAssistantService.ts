@@ -106,7 +106,8 @@ export class AIAssistantService {
     role: 'admin' | 'doctor'
   ): Promise<AICommand> {
     try {
-      const systemPrompt = role === 'admin' ? ADMIN_SYSTEM_PROMPT : DOCTOR_SYSTEM_PROMPT;
+      // Use admin prompt for all non-doctor roles (админ, менеджер, руководитель, etc.)
+      const systemPrompt = role === 'doctor' ? DOCTOR_SYSTEM_PROMPT : ADMIN_SYSTEM_PROMPT;
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-2024-08-06',

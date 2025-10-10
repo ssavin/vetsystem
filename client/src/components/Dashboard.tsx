@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next"
 import { type DashboardStats, type Appointment } from "@shared/schema"
 import AppointmentCard from "./AppointmentCard"
 import { StatCardSkeleton, AppointmentCardSkeleton, NotificationRowSkeleton } from "./ui/loading-skeletons"
+import { AIAssistantWidget } from "./AIAssistantWidget"
 
 // Helper function to get today's date in YYYY-MM-DD format
 const getTodayDateString = () => {
@@ -57,6 +58,11 @@ const formatAppointmentForCard = (appointment: Appointment) => ({
 export default function Dashboard() {
   const [, navigate] = useLocation()
   const { t } = useTranslation('dashboard')
+
+  // Fetch current user to determine role
+  const { data: currentUser } = useQuery<{ role: string }>({
+    queryKey: ['/api/auth/me']
+  })
 
   const { 
     data: stats, 
@@ -233,6 +239,13 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* AI Assistant Widget - available for all users */}
+      {currentUser && (
+        <AIAssistantWidget 
+          role={currentUser.role === 'врач' ? 'doctor' : 'admin'} 
+        />
+      )}
     </div>
   )
 }
