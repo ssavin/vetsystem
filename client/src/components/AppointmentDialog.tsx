@@ -201,22 +201,36 @@ export default function AppointmentDialog({
     console.log('📅   defaultPatientId:', defaultPatientId)
     console.log('📅   defaultDoctorId:', defaultDoctorId)
     console.log('📅   doctors count:', (doctors as any[]).length)
+    console.log('📅   owners count:', (owners as any[]).length)
+    console.log('📅   patients count:', (patients as any[]).length)
     console.log('📅   hasAutoFilledRef.current:', hasAutoFilledRef.current)
     
     const doctorsList = doctors as any[]
+    const ownersList = owners as any[]
+    const patientsList = patients as any[]
     
     // Only reset if dialog is open AND we have default values AND haven't filled yet
-    // Wait for doctors to load before setting hasAutoFilledRef
+    // Wait for all data to load before auto-filling
     const shouldReset = open && (defaultOwnerId || defaultPatientId) && !hasAutoFilledRef.current
     console.log('📅   shouldReset:', shouldReset)
     
-    if (shouldReset) {
-      const selectedDoctorId = defaultDoctorId || doctorsList[0]?.id || ''
+    if (shouldReset && ownersList.length > 0 && patientsList.length > 0) {
+      // Verify that the owner and patient actually exist in loaded data
+      const ownerExists = defaultOwnerId && ownersList.some((o: any) => o.id === defaultOwnerId)
+      const patientExists = defaultPatientId && patientsList.some((p: any) => p.id === defaultPatientId)
+      
+      console.log('📅   ownerExists:', ownerExists)
+      console.log('📅   patientExists:', patientExists)
+      
+      // Find first available doctor from current branch only
+      const firstDoctor = defaultDoctorId 
+        ? doctorsList.find((d: any) => d.id === defaultDoctorId)
+        : doctorsList[0]
       
       const formData = {
-        ownerId: defaultOwnerId || '',
-        patientId: defaultPatientId || '',
-        doctorId: selectedDoctorId,
+        ownerId: ownerExists ? defaultOwnerId! : '',
+        patientId: patientExists ? defaultPatientId! : '',
+        doctorId: firstDoctor?.id || '',
         appointmentDate: defaultDate 
           ? new Date(defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
           : getNearestAppointmentTime(),
@@ -229,13 +243,11 @@ export default function AppointmentDialog({
       console.log('📅 AppointmentDialog: Resetting form with:', formData)
       form.reset(formData)
       
-      // Only mark as filled if doctors are loaded (or we have an explicit doctorId)
-      if (defaultDoctorId || doctorsList.length > 0) {
-        console.log('📅 AppointmentDialog: Setting hasAutoFilledRef to true')
-        hasAutoFilledRef.current = true
-      }
+      // Mark as filled
+      console.log('📅 AppointmentDialog: Setting hasAutoFilledRef to true')
+      hasAutoFilledRef.current = true
     }
-  }, [open, defaultOwnerId, defaultPatientId, defaultDoctorId, defaultDate, doctors, form])
+  }, [open, defaultOwnerId, defaultPatientId, defaultDoctorId, defaultDate, doctors, owners, patients, form])
 
   const appointmentTypes = [
     "Консультация",
