@@ -408,7 +408,7 @@ export const appointments = pgTable("appointments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   patientId: varchar("patient_id").references(() => patients.id).notNull(),
-  doctorId: varchar("doctor_id").references(() => users.id).notNull(), // Врачи хранятся в users с ролью "врач"
+  doctorId: varchar("doctor_id").references(() => doctors.id).notNull(),
   appointmentDate: timestamp("appointment_date").notNull(),
   duration: integer("duration").notNull(), // in minutes
   appointmentType: varchar("appointment_type", { length: 255 }).notNull(),
