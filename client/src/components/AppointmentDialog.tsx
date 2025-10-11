@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -68,10 +68,21 @@ type AppointmentFormData = z.infer<typeof appointmentFormSchema>
 interface AppointmentDialogProps {
   children?: React.ReactNode
   defaultDate?: Date
+  defaultOwnerId?: string
+  defaultPatientId?: string
+  defaultDoctorId?: string
+  autoOpen?: boolean
 }
 
-export default function AppointmentDialog({ children, defaultDate }: AppointmentDialogProps) {
-  const [open, setOpen] = useState(false)
+export default function AppointmentDialog({ 
+  children, 
+  defaultDate, 
+  defaultOwnerId,
+  defaultPatientId,
+  defaultDoctorId,
+  autoOpen = false 
+}: AppointmentDialogProps) {
+  const [open, setOpen] = useState(autoOpen)
   const [ownerSearchOpen, setOwnerSearchOpen] = useState(false)
   const [patientSearchOpen, setPatientSearchOpen] = useState(false)
   const { toast } = useToast()
@@ -108,15 +119,26 @@ export default function AppointmentDialog({ children, defaultDate }: Appointment
     enabled: open
   })
 
+  // Helper function to get nearest appointment time (round up to next 15 min interval)
+  const getNearestAppointmentTime = () => {
+    const now = new Date()
+    const minutes = now.getMinutes()
+    const roundedMinutes = Math.ceil(minutes / 15) * 15
+    now.setMinutes(roundedMinutes)
+    now.setSeconds(0)
+    now.setMilliseconds(0)
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  }
+
   const form = useForm<AppointmentFormData>({
     resolver: zodResolver(appointmentFormSchema),
     defaultValues: {
-      ownerId: "",
-      patientId: "",
-      doctorId: "",
+      ownerId: defaultOwnerId || "",
+      patientId: defaultPatientId || "",
+      doctorId: defaultDoctorId || "",
       appointmentDate: defaultDate 
         ? new Date(defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-        : "",
+        : getNearestAppointmentTime(),
       duration: 30,
       appointmentType: "",
       status: "scheduled",
@@ -155,6 +177,32 @@ export default function AppointmentDialog({ children, defaultDate }: Appointment
   const onSubmit = (data: AppointmentFormData) => {
     createMutation.mutate(data)
   }
+
+  // Sync open state with autoOpen prop
+  useEffect(() => {
+    if (autoOpen) {
+      setOpen(true)
+    }
+  }, [autoOpen])
+
+  // Auto-fill form when dialog opens with props
+  useEffect(() => {
+    if (open && (defaultOwnerId || defaultPatientId)) {
+      if (defaultOwnerId) {
+        form.setValue('ownerId', defaultOwnerId)
+      }
+      if (defaultPatientId) {
+        form.setValue('patientId', defaultPatientId)
+      }
+      // Select first available doctor if not specified
+      const doctorsList = doctors as any[]
+      if (!defaultDoctorId && doctorsList.length > 0) {
+        form.setValue('doctorId', doctorsList[0]?.id || '')
+      } else if (defaultDoctorId) {
+        form.setValue('doctorId', defaultDoctorId)
+      }
+    }
+  }, [open, defaultOwnerId, defaultPatientId, defaultDoctorId, doctors, form])
 
   const appointmentTypes = [
     "Консультация",

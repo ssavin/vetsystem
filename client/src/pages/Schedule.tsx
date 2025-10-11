@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import AppointmentCard from "@/components/AppointmentCard"
 import AppointmentDialog from "@/components/AppointmentDialog"
 import { AppointmentCardSkeleton } from "@/components/ui/loading-skeletons"
 import { DayView, WeekView, MonthView } from "@/components/CalendarViews"
+import { useLocation } from "wouter"
 
 type ViewMode = 'day' | 'week' | 'month'
 
@@ -39,10 +40,40 @@ const mapAppointmentStatus = (dbStatus: string | null): 'scheduled' | 'confirmed
 
 export default function Schedule() {
   const { t } = useTranslation('schedule')
+  const [location] = useLocation()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('day')
   const [selectedDoctor, setSelectedDoctor] = useState(t('filters.allDoctors'))
   const [selectedType, setSelectedType] = useState(t('types.allTypes'))
+  
+  // Parse URL parameters for pre-filled appointment
+  const [urlParams, setUrlParams] = useState<{ patientId?: string, ownerId?: string }>({})
+  const [shouldAutoOpenDialog, setShouldAutoOpenDialog] = useState(false)
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const patientId = searchParams.get('patientId')
+    const ownerId = searchParams.get('ownerId')
+    
+    if (patientId || ownerId) {
+      setUrlParams({ patientId: patientId || undefined, ownerId: ownerId || undefined })
+      setShouldAutoOpenDialog(true)
+      
+      // Clean URL after extracting params
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [location])
+
+  // Reset auto-open flag after dialog opens
+  useEffect(() => {
+    if (shouldAutoOpenDialog) {
+      const timer = setTimeout(() => {
+        setShouldAutoOpenDialog(false)
+        setUrlParams({})
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [shouldAutoOpenDialog])
 
   // Helper function to format appointment data for AppointmentCard
   const formatAppointmentForCard = (appointment: any) => ({
@@ -241,7 +272,12 @@ export default function Schedule() {
               Месяц
             </Button>
           </div>
-          <AppointmentDialog defaultDate={currentDate} />
+          <AppointmentDialog 
+            defaultDate={shouldAutoOpenDialog ? undefined : currentDate}
+            defaultOwnerId={urlParams.ownerId}
+            defaultPatientId={urlParams.patientId}
+            autoOpen={shouldAutoOpenDialog}
+          />
         </div>
       </div>
 
