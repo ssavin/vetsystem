@@ -197,7 +197,7 @@ export interface IStorage {
   // Owner methods - 🔒 SECURITY: branchId required for PHI isolation
   getOwners(branchId: string): Promise<Owner[]>;
   getOwnersPaginated(params: { branchId: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }>;
-  getAllOwners(): Promise<Owner[]>; // 🔒 All owners from all branches within tenant
+  getAllOwners(limit?: number, offset?: number): Promise<Owner[]>; // 🔒 All owners from all branches within tenant
   getOwner(id: string): Promise<Owner | undefined>;
   createOwner(owner: InsertOwner): Promise<Owner>;
   updateOwner(id: string, owner: Partial<InsertOwner>): Promise<Owner>;
@@ -1045,11 +1045,13 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getAllOwners(): Promise<Owner[]> {
+  async getAllOwners(limit: number = 100, offset: number = 0): Promise<Owner[]> {
     return withPerformanceLogging('getAllOwners', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         return await dbInstance.select().from(owners)
-          .orderBy(desc(owners.createdAt));
+          .orderBy(desc(owners.createdAt))
+          .limit(limit)
+          .offset(offset);
       });
     });
   }

@@ -88,16 +88,15 @@ export default function AppointmentDialog({
   const { toast } = useToast()
   const hasAutoFilledRef = useRef(false)
 
-  // Fetch data for dropdowns with reasonable limits
+  // Fetch data for dropdowns - use /all endpoints to get data across all branches
   const { data: patients = [] } = useQuery({
-    queryKey: ['/api/patients'],
+    queryKey: ['/api/patients/all'],
     queryFn: async () => {
-      const res = await fetch('/api/patients?limit=200', {
+      const res = await fetch('/api/patients/all?limit=200', {
         credentials: 'include'
       })
       if (!res.ok) throw new Error('Failed to fetch patients')
-      const data = await res.json()
-      return data.data || data
+      return res.json()
     },
     enabled: open
   })
@@ -108,15 +107,13 @@ export default function AppointmentDialog({
   })
 
   const { data: owners = [] } = useQuery({
-    queryKey: ['/api/owners'],
+    queryKey: ['/api/owners/all'],
     queryFn: async () => {
-      const res = await fetch('/api/owners?limit=100', {
+      const res = await fetch('/api/owners/all?limit=100', {
         credentials: 'include'
       })
       if (!res.ok) throw new Error('Failed to fetch owners')
-      const data = await res.json()
-      console.log('📅 AppointmentDialog: Loaded owners:', data)
-      return data.data || data
+      return res.json()
     },
     enabled: open
   })

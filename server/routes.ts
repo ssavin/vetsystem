@@ -273,7 +273,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 🔒 Get all owners from all branches within tenant
   app.get("/api/owners/all", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
-      const owners = await storage.getAllOwners();
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      const owners = await storage.getAllOwners(limit, offset);
       res.json(owners);
     } catch (error) {
       console.error("Error fetching all owners:", error);
@@ -1051,9 +1053,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Access denied: Patient not found' });
       }
       
-      // 🔒 SECURITY: Verify doctor belongs to user's branch
+      // 🔒 SECURITY: Verify doctor exists (doctors can work across branches)
       const doctor = await storage.getDoctor(req.body.doctorId);
-      if (!doctor || !await ensureEntityBranchAccess(doctor, userBranchId, 'doctor', req.body.doctorId)) {
+      if (!doctor) {
         return res.status(403).json({ error: 'Access denied: Doctor not found' });
       }
       
