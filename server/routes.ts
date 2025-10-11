@@ -319,18 +319,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/owners/:id", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
-      const user = (req as any).user;
-      const userBranchId = requireValidBranchId(req, res);
-      if (!userBranchId) return; // 403 already sent
-      
+      // 🔒 SECURITY: Owner can be from any branch within tenant (RLS enforces tenant isolation)
       const owner = await storage.getOwner(req.params.id);
       if (!owner) {
         return res.status(404).json({ error: "Owner not found" });
-      }
-      
-      // 🔒 SECURITY: Enforce branch isolation for PHI data
-      if (!await ensureEntityBranchAccess(owner, userBranchId, 'owner', req.params.id)) {
-        return res.status(403).json({ error: 'Access denied: Owner not found' });
       }
       
       res.json(owner);
@@ -507,18 +499,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/patients/:id", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
-      const user = (req as any).user;
-      const userBranchId = requireValidBranchId(req, res);
-      if (!userBranchId) return; // 403 already sent
-      
+      // 🔒 SECURITY: Patient can be from any branch within tenant (RLS enforces tenant isolation)
       const patient = await storage.getPatient(req.params.id);
       if (!patient) {
         return res.status(404).json({ error: "Patient not found" });
-      }
-      
-      // 🔒 SECURITY: Enforce branch isolation for PHI data  
-      if (!await ensureEntityBranchAccess(patient, userBranchId, 'patient', req.params.id)) {
-        return res.status(403).json({ error: 'Access denied: Patient not found' });
       }
       
       res.json(patient);
