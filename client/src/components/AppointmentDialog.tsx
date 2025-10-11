@@ -687,6 +687,35 @@ export default function AppointmentDialog({
               />
             </div>
 
+            {/* Status - only show when editing */}
+            {selectedAppointment && (
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Статус</FormLabel>
+                    <FormControl>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger data-testid="select-status">
+                          <SelectValue placeholder="Выберите статус" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="scheduled">Запланирован</SelectItem>
+                          <SelectItem value="confirmed">Подтвержден</SelectItem>
+                          <SelectItem value="in_progress">Идет прием</SelectItem>
+                          <SelectItem value="completed">Завершен</SelectItem>
+                          <SelectItem value="cancelled">Отменен</SelectItem>
+                          <SelectItem value="no_show">Неявка</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             {/* Notes */}
             <FormField
               control={form.control}
