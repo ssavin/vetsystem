@@ -57,7 +57,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
-import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, ilike, inArray, type SQL } from "drizzle-orm";
+import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, ilike, inArray, exists, type SQL } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { AsyncLocalStorage } from 'async_hooks';
@@ -944,9 +944,46 @@ export class DatabaseStorage implements IStorage {
   async getOwners(branchId: string): Promise<Owner[]> {
     return withPerformanceLogging('getOwners', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        return await dbInstance.select().from(owners)
-          .where(or(eq(owners.branchId, branchId), isNull(owners.branchId)))
+        // Filter owners through their patients' branchId
+        const result = await dbInstance
+          .select({
+            id: owners.id,
+            tenantId: owners.tenantId,
+            name: owners.name,
+            phone: owners.phone,
+            email: owners.email,
+            address: owners.address,
+            dateOfBirth: owners.dateOfBirth,
+            gender: owners.gender,
+            passportSeries: owners.passportSeries,
+            passportNumber: owners.passportNumber,
+            passportIssuedBy: owners.passportIssuedBy,
+            passportIssueDate: owners.passportIssueDate,
+            registrationAddress: owners.registrationAddress,
+            residenceAddress: owners.residenceAddress,
+            personalDataConsentGiven: owners.personalDataConsentGiven,
+            personalDataConsentDate: owners.personalDataConsentDate,
+            createdAt: owners.createdAt,
+            updatedAt: owners.updatedAt
+          })
+          .from(owners)
+          .where(
+            exists(
+              dbInstance
+                .select({ id: patientOwners.ownerId })
+                .from(patientOwners)
+                .innerJoin(patients, eq(patientOwners.patientId, patients.id))
+                .where(
+                  and(
+                    eq(patientOwners.ownerId, owners.id),
+                    or(eq(patients.branchId, branchId), isNull(patients.branchId))
+                  )
+                )
+            )
+          )
           .orderBy(owners.name);
+        
+        return result as Owner[];
       });
     });
   }
@@ -955,7 +992,7 @@ export class DatabaseStorage implements IStorage {
     const { branchId, search, limit = 50, offset = 0 } = params;
     return withPerformanceLogging('getOwnersPaginated', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        // Build query with search and branch filter, include lastVisit from medical_records
+        // Build query with search and branch filter through patients, include lastVisit from medical_records
         const result = await dbInstance.execute(sql`
           WITH owner_last_visit AS (
             SELECT 
@@ -964,7 +1001,6 @@ export class DatabaseStorage implements IStorage {
               o.phone,
               o.email,
               o.address,
-              o.branch_id,
               o.created_at,
               o.updated_at,
               MAX(mr.visit_date) as last_visit,
@@ -973,9 +1009,15 @@ export class DatabaseStorage implements IStorage {
             LEFT JOIN patient_owners po ON o.id = po.owner_id
             LEFT JOIN patients p ON po.patient_id = p.id
             LEFT JOIN medical_records mr ON p.id = mr.patient_id
-            WHERE (o.branch_id = ${branchId} OR o.branch_id IS NULL)
+            WHERE EXISTS (
+              SELECT 1 
+              FROM patient_owners po2
+              JOIN patients p2 ON po2.patient_id = p2.id
+              WHERE po2.owner_id = o.id 
+                AND (p2.branch_id = ${branchId} OR p2.branch_id IS NULL)
+            )
               ${search ? sql`AND (o.name ILIKE ${`%${search}%`} OR o.phone ILIKE ${`%${search}%`})` : sql``}
-            GROUP BY o.id, o.name, o.phone, o.email, o.address, o.branch_id, o.created_at, o.updated_at
+            GROUP BY o.id, o.name, o.phone, o.email, o.address, o.created_at, o.updated_at
             ORDER BY last_visit DESC NULLS LAST, o.name ASC
             LIMIT ${limit} OFFSET ${offset}
           )
@@ -992,7 +1034,6 @@ export class DatabaseStorage implements IStorage {
             phone: row.phone,
             email: row.email,
             address: row.address,
-            branchId: row.branch_id,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             lastVisit: row.last_visit
@@ -1069,7 +1110,23 @@ export class DatabaseStorage implements IStorage {
         return await dbInstance
           .select()
           .from(owners)
-          .where(and(searchConditions, or(eq(owners.branchId, branchId), isNull(owners.branchId))))
+          .where(
+            and(
+              searchConditions,
+              exists(
+                dbInstance
+                  .select({ id: patientOwners.ownerId })
+                  .from(patientOwners)
+                  .innerJoin(patients, eq(patientOwners.patientId, patients.id))
+                  .where(
+                    and(
+                      eq(patientOwners.ownerId, owners.id),
+                      or(eq(patients.branchId, branchId), isNull(patients.branchId))
+                    )
+                  )
+              )
+            )
+          )
           .orderBy(desc(owners.createdAt));
       });
     });
@@ -1117,7 +1174,6 @@ export class DatabaseStorage implements IStorage {
             phone: owners.phone,
             email: owners.email,
             address: owners.address,
-            branchId: owners.branchId,
             patientId: patients.id,
             patientName: patients.name,
             species: patients.species,
@@ -1139,7 +1195,6 @@ export class DatabaseStorage implements IStorage {
               phone: row.phone,
               email: row.email,
               address: row.address,
-              branchId: row.branchId,
               patients: []
             };
             acc.push(owner);
@@ -2991,9 +3046,12 @@ export class DatabaseStorage implements IStorage {
     return await withPerformanceLogging('countBranchRelations', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         const [ownersResult, patientsResult, usersResult] = await Promise.all([
-          dbInstance.select({ count: sql<number>`count(*)` })
+          // Count owners through their patients in this branch
+          dbInstance.select({ count: sql<number>`count(DISTINCT ${owners.id})` })
             .from(owners)
-            .where(eq(owners.branchId, branchId)),
+            .innerJoin(patientOwners, eq(patientOwners.ownerId, owners.id))
+            .innerJoin(patients, eq(patients.id, patientOwners.patientId))
+            .where(or(eq(patients.branchId, branchId), isNull(patients.branchId))),
           dbInstance.select({ count: sql<number>`count(*)` })
             .from(patients)
             .where(eq(patients.branchId, branchId)),
