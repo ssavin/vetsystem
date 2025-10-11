@@ -1086,10 +1086,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // 🔒 SECURITY: If changing patient/doctor, verify new ones belong to branch
-      if (req.body.patientId && !await ensurePatientAccess(user, req.body.patientId)) {
-        return res.status(403).json({ error: 'Access denied: Patient not found' });
+      if (req.body.patientId && req.body.patientId !== current.patientId) {
+        if (!await ensurePatientAccess(user, req.body.patientId)) {
+          return res.status(403).json({ error: 'Access denied: Patient not found' });
+        }
       }
-      if (req.body.doctorId) {
+      if (req.body.doctorId && req.body.doctorId !== current.doctorId) {
         const doctor = await storage.getDoctor(req.body.doctorId);
         if (!doctor || !await ensureEntityBranchAccess(doctor, userBranchId, 'doctor', req.body.doctorId)) {
           return res.status(403).json({ error: 'Access denied: Doctor not found' });
