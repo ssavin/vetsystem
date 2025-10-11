@@ -275,7 +275,7 @@ export default function Schedule() {
             </Button>
           </div>
           <AppointmentDialog 
-            defaultDate={shouldAutoOpenDialog ? undefined : currentDate}
+            defaultDate={currentDate}
             defaultOwnerId={urlParams.ownerId}
             defaultPatientId={urlParams.patientId}
             autoOpen={shouldAutoOpenDialog}
