@@ -187,11 +187,18 @@ export default function AppointmentDialog({
 
   // Auto-fill form when dialog opens with props
   useEffect(() => {
+    console.log('🔍 AppointmentDialog: Effect triggered')
+    console.log('🔍 AppointmentDialog: open:', open)
+    console.log('🔍 AppointmentDialog: defaultOwnerId:', defaultOwnerId)
+    console.log('🔍 AppointmentDialog: defaultPatientId:', defaultPatientId)
+    console.log('🔍 AppointmentDialog: defaultDoctorId:', defaultDoctorId)
+    console.log('🔍 AppointmentDialog: doctors:', doctors)
+    
     if (open && (defaultOwnerId || defaultPatientId)) {
       const doctorsList = doctors as any[]
       const selectedDoctorId = defaultDoctorId || doctorsList[0]?.id || ''
       
-      form.reset({
+      const formData = {
         ownerId: defaultOwnerId || '',
         patientId: defaultPatientId || '',
         doctorId: selectedDoctorId,
@@ -202,7 +209,10 @@ export default function AppointmentDialog({
         appointmentType: '',
         status: 'scheduled',
         notes: '',
-      })
+      }
+      
+      console.log('🔍 AppointmentDialog: Resetting form with data:', formData)
+      form.reset(formData)
     }
   }, [open, defaultOwnerId, defaultPatientId, defaultDoctorId, defaultDate, doctors, form])
 
