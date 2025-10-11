@@ -194,6 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         next();
       } catch (error) {
         if (error instanceof z.ZodError) {
+          console.error("Validation failed:", JSON.stringify(error.errors, null, 2));
           return res.status(400).json({ 
             error: "Validation failed", 
             details: error.errors.map(e => ({ 
@@ -202,6 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }))
           });
         }
+        console.error("Validation error:", error);
         res.status(400).json({ error: "Validation failed", details: String(error) });
       }
     };

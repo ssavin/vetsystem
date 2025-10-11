@@ -1631,6 +1631,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   status: z.enum(APPOINTMENT_STATUS).default("scheduled"),
   appointmentDate: z.coerce.date(),
   duration: z.number().int().min(1, "Duration must be at least 1 minute"),
+  appointmentType: z.string().min(1, "Appointment type is required").or(z.literal("")).transform(val => val || "Консультация"),
 });
 
 export const insertQueueEntrySchema = createInsertSchema(queueEntries).omit({
