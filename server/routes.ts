@@ -1116,6 +1116,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const appointment = await storage.updateAppointment(req.params.id, req.body);
+      
+      // 🔄 AUTO-QUEUE: If status changed to 'confirmed', automatically add to queue
+      if (req.body.status === 'confirmed' && current.status !== 'confirmed') {
+        try {
+          // Get patient and owner info
+          const patient = await storage.getPatient(appointment.patientId);
+          if (patient) {
+            const patientOwners = await storage.getPatientOwners(patient.id);
+            const primaryOwner = patientOwners.find(po => po.isPrimary) || patientOwners[0];
+            
+            if (primaryOwner) {
+              // Check if patient already in queue today
+              const existingEntries = await storage.getQueueEntries(userBranchId);
+              const todayStart = new Date();
+              todayStart.setHours(0, 0, 0, 0);
+              
+              const existingEntry = existingEntries.find(entry => 
+                entry.patientId === patient.id && 
+                ['waiting', 'called', 'in_progress'].includes(entry.status) &&
+                new Date(entry.arrivalTime) >= todayStart
+              );
+
+              // Only create queue entry if not already in queue
+              if (!existingEntry) {
+                const queueNumber = await storage.getNextQueueNumber(userBranchId);
+                await storage.createQueueEntry({
+                  tenantId: user.tenantId,
+                  branchId: userBranchId,
+                  patientId: patient.id,
+                  ownerId: primaryOwner.ownerId,
+                  queueNumber,
+                  priority: 'normal',
+                  status: 'waiting',
+                  arrivalTime: new Date(),
+                  notes: `Прием у ${appointment.appointmentType}`,
+                });
+              }
+            }
+          }
+        } catch (queueError) {
+          console.error("Error auto-creating queue entry:", queueError);
+          // Don't fail the appointment update if queue creation fails
+        }
+      }
+      
       res.json(appointment);
     } catch (error) {
       console.error("Error updating appointment:", error);
