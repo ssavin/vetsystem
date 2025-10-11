@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText, Edit, Trash2, Eye, CreditCard, Receipt, Printer } from "lucide-react"
 import InvoiceDialog from "@/components/InvoiceDialog"
@@ -351,7 +352,15 @@ export default function Finance() {
         </TabsList>
 
         <TabsContent value="invoices" className="space-y-4">
-          {filteredInvoices.length === 0 ? (
+          {isLoadingInvoices ? (
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </CardContent>
+            </Card>
+          ) : filteredInvoices.length === 0 ? (
             <Card className="text-center py-8">
               <CardContent>
                 <p className="text-muted-foreground">
