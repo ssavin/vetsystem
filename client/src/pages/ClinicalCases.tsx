@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import CreateCaseWithSearchDialog from "@/components/CreateCaseWithSearchDialog"
+import { translateSpecies } from "@/lib/utils"
 
 interface ClinicalCase {
   id: string
@@ -49,22 +50,6 @@ interface Owner {
   id: string
   name: string
   phone?: string
-}
-
-// Translate species from English to Russian
-function translateSpecies(species: string): string {
-  const speciesMap: Record<string, string> = {
-    'cat': 'Кошка',
-    'dog': 'Собака',
-    'exotic': 'Экзотическое',
-    'reptile': 'Рептилия',
-    'bird': 'Птица',
-    'other': 'Другое',
-    'rodent': 'Грызун',
-    'rabbit': 'Кролик',
-    'horse': 'Лошадь'
-  }
-  return speciesMap[species.toLowerCase()] || species
 }
 
 export default function ClinicalCases() {

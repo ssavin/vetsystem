@@ -33,6 +33,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Plus, Receipt, Trash2, Calculator } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
+import { translateSpecies } from "@/lib/utils"
 
 // Form validation schema for invoice creation
 const invoiceItemSchema = z.object({
@@ -246,7 +247,7 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                           return (
                             <SelectItem key={patient.id} value={patient.id}>
                               <div className="flex flex-col">
-                                <span className="font-medium">{patient.name} ({patient.species})</span>
+                                <span className="font-medium">{patient.name} ({translateSpecies(patient.species)})</span>
                                 <span className="text-sm text-muted-foreground">
                                   Владелец: {owner?.name || 'Не указан'}
                                 </span>

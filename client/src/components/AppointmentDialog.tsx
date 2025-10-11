@@ -46,7 +46,7 @@ import { Plus, Calendar, Check, ChevronsUpDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 import { insertAppointmentSchema } from "@shared/schema"
-import { cn } from "@/lib/utils"
+import { cn, translateSpecies } from "@/lib/utils"
 
 // Form validation schema - use shared schema subset for form fields
 const appointmentFormSchema = insertAppointmentSchema.pick({
@@ -60,6 +60,7 @@ const appointmentFormSchema = insertAppointmentSchema.pick({
 }).extend({
   appointmentDate: z.string().min(1, "Дата и время приема обязательны"),
   appointmentType: z.string().min(1, "Тип приема обязателен"),
+  ownerId: z.string().optional(), // Add owner selection
 })
 
 type AppointmentFormData = z.infer<typeof appointmentFormSchema>
@@ -71,6 +72,7 @@ interface AppointmentDialogProps {
 
 export default function AppointmentDialog({ children, defaultDate }: AppointmentDialogProps) {
   const [open, setOpen] = useState(false)
+  const [ownerSearchOpen, setOwnerSearchOpen] = useState(false)
   const [patientSearchOpen, setPatientSearchOpen] = useState(false)
   const { toast } = useToast()
 
@@ -109,6 +111,7 @@ export default function AppointmentDialog({ children, defaultDate }: Appointment
   const form = useForm<AppointmentFormData>({
     resolver: zodResolver(appointmentFormSchema),
     defaultValues: {
+      ownerId: "",
       patientId: "",
       doctorId: "",
       appointmentDate: defaultDate 
@@ -185,12 +188,102 @@ export default function AppointmentDialog({ children, defaultDate }: Appointment
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Patient Selection with Search */}
+            {/* Owner Selection with Search */}
+            <FormField
+              control={form.control}
+              name="ownerId"
+              render={({ field }) => {
+                const selectedOwner = (owners as any[]).find((o: any) => o.id === field.value)
+
+                return (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Владелец/Клиент</FormLabel>
+                    <Popover open={ownerSearchOpen} onOpenChange={setOwnerSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="select-owner"
+                          >
+                            {field.value ? (
+                              <div className="flex flex-col items-start">
+                                <span className="font-medium">{selectedOwner?.name}</span>
+                                {selectedOwner?.phone && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {selectedOwner.phone}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              "Выберите владельца или введите для поиска"
+                            )}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Поиск владельца по имени или телефону..." />
+                          <CommandList>
+                            <CommandEmpty>Владельцы не найдены</CommandEmpty>
+                            <CommandGroup>
+                              {(owners as any[]).map((owner: any) => {
+                                const searchText = `${owner.name} ${owner.phone || ''}`.toLowerCase()
+                                
+                                return (
+                                  <CommandItem
+                                    key={owner.id}
+                                    value={searchText}
+                                    onSelect={() => {
+                                      field.onChange(owner.id)
+                                      form.setValue('patientId', '') // Reset patient when owner changes
+                                      setOwnerSearchOpen(false)
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        owner.id === field.value ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{owner.name}</span>
+                                      {owner.phone && (
+                                        <span className="text-sm text-muted-foreground">
+                                          {owner.phone}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                )
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
+            />
+
+            {/* Patient Selection with Search - filtered by owner if selected */}
             <FormField
               control={form.control}
               name="patientId"
               render={({ field }) => {
-                const selectedPatient = (patients as any[]).find((p: any) => p.id === field.value)
+                const selectedOwnerId = form.watch('ownerId')
+                const filteredPatients = selectedOwnerId 
+                  ? (patients as any[]).filter((p: any) => p.ownerId === selectedOwnerId)
+                  : (patients as any[])
+                
+                const selectedPatient = filteredPatients.find((p: any) => p.id === field.value)
                 const selectedOwner = selectedPatient 
                   ? (owners as any[]).find((o: any) => o.id === selectedPatient.ownerId)
                   : null
@@ -213,7 +306,7 @@ export default function AppointmentDialog({ children, defaultDate }: Appointment
                             {field.value ? (
                               <div className="flex flex-col items-start">
                                 <span className="font-medium">
-                                  {selectedPatient?.name} ({selectedPatient?.species})
+                                  {selectedPatient?.name} ({translateSpecies(selectedPatient?.species)})
                                 </span>
                                 <span className="text-xs text-muted-foreground">
                                   Владелец: {selectedOwner?.name || 'Не указан'}
@@ -230,11 +323,15 @@ export default function AppointmentDialog({ children, defaultDate }: Appointment
                         <Command>
                           <CommandInput placeholder="Поиск по пациенту или владельцу..." />
                           <CommandList>
-                            <CommandEmpty>Пациенты не найдены</CommandEmpty>
+                            <CommandEmpty>
+                              {selectedOwnerId 
+                                ? 'У выбранного владельца нет пациентов' 
+                                : 'Пациенты не найдены'}
+                            </CommandEmpty>
                             <CommandGroup>
-                              {(patients as any[]).map((patient: any) => {
+                              {filteredPatients.map((patient: any) => {
                                 const owner = (owners as any[]).find((o: any) => o.id === patient.ownerId)
-                                const searchText = `${patient.name} ${patient.species} ${owner?.name || ''}`.toLowerCase()
+                                const searchText = `${patient.name} ${translateSpecies(patient.species)} ${owner?.name || ''}`.toLowerCase()
                                 
                                 return (
                                   <CommandItem
@@ -253,7 +350,7 @@ export default function AppointmentDialog({ children, defaultDate }: Appointment
                                     />
                                     <div className="flex flex-col">
                                       <span className="font-medium">
-                                        {patient.name} ({patient.species})
+                                        {patient.name} ({translateSpecies(patient.species)})
                                       </span>
                                       <span className="text-sm text-muted-foreground">
                                         Владелец: {owner?.name || 'Не указан'}

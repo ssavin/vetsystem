@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Search, User, Phone, Mail, MapPin } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
+import { translateSpecies } from "@/lib/utils"
 
 interface Patient {
   id: string
@@ -105,17 +106,6 @@ export default function OwnerPatientSearchDialog({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
-  const getSpeciesLabel = (species: string) => {
-    const labels: Record<string, string> = {
-      cat: "Кошка",
-      dog: "Собака",
-      rabbit: "Кролик",
-      bird: "Птица",
-      hamster: "Хомяк",
-      other: "Другое"
-    }
-    return labels[species] || species
-  }
 
   // Autocomplete mode - simple input with datalist
   if (showAutocomplete) {
@@ -242,7 +232,7 @@ export default function OwnerPatientSearchDialog({
                           >
                             <span className="font-medium">{patient.name}</span>
                             <Badge variant="secondary" className="text-xs">
-                              {getSpeciesLabel(patient.species)}
+                              {translateSpecies(patient.species)}
                             </Badge>
                             {patient.breed && (
                               <span className="text-xs text-muted-foreground ml-auto">

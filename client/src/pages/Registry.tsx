@@ -31,6 +31,7 @@ import { useLocation } from "wouter"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { apiRequest, queryClient } from "@/lib/queryClient"
+import { translateSpecies } from "@/lib/utils"
 
 // Helper functions for patient status
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -88,7 +89,7 @@ function PatientTableRow({ patient, onEdit, onDelete }: PatientTableRowProps) {
       </TableCell>
       <TableCell>
         <div className="text-sm">
-          <div className="font-medium">{patient.species}</div>
+          <div className="font-medium">{translateSpecies(patient.species)}</div>
           <div className="text-muted-foreground">{patient.breed}</div>
         </div>
       </TableCell>
@@ -208,22 +209,6 @@ function PatientTableRow({ patient, onEdit, onDelete }: PatientTableRowProps) {
       </TableCell>
     </TableRow>
   )
-}
-
-
-// Translate species from English to Russian
-function translateSpecies(species: string): string {
-  const speciesMap: Record<string, string> = {
-    'cat': 'Кошка',
-    'dog': 'Собака',
-    'exotic': 'Экзотическое',
-    'reptile': 'Рептилия',
-    'bird': 'Птица',
-    'other': 'Другое',
-    'rodent': 'Грызун',
-    'rabbit': 'Кролик',
-  }
-  return speciesMap[species.toLowerCase()] || species
 }
 
 export default function Registry() {

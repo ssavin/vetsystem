@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Calendar, User, Phone, FileText } from "lucide-react"
 import { useState } from "react"
 import { useLocation } from "wouter"
+import { translateSpecies } from "@/lib/utils"
 
 interface PatientCardProps {
   patient: {
@@ -57,7 +58,7 @@ export default function PatientCard({ patient }: PatientCardProps) {
                 {patient.name}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                {patient.species} • {patient.breed} • {patient.age}
+                {translateSpecies(patient.species)} • {patient.breed} • {patient.age}
               </p>
             </div>
           </div>

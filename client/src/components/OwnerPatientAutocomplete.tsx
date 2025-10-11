@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { Check, Search } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, translateSpecies } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { useQuery } from "@tanstack/react-query"
 
@@ -165,7 +165,7 @@ export function OwnerPatientAutocomplete({
                       <div className="flex-1">
                         <div className="font-medium">{patient.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {patient.species || 'Не указано'}
+                          {translateSpecies(patient.species)}
                           {patient.breed && ` • ${patient.breed}`}
                         </div>
                       </div>
