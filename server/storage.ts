@@ -223,6 +223,7 @@ export interface IStorage {
 
   // Doctor methods - 🔒 SECURITY: branchId required for PHI isolation
   getDoctors(branchId: string): Promise<Doctor[]>;
+  getAllDoctors(): Promise<Doctor[]>; // 🔒 All doctors from all branches within tenant (doctors can work in multiple branches)
   getDoctor(id: string): Promise<Doctor | undefined>;
   createDoctor(doctor: InsertDoctor): Promise<Doctor>;
   updateDoctor(id: string, doctor: Partial<InsertDoctor>): Promise<Doctor>;
@@ -1634,6 +1635,16 @@ export class DatabaseStorage implements IStorage {
       return withTenantContext(undefined, async (dbInstance) => {
         return await dbInstance.select().from(doctors)
           .where(eq(doctors.branchId, branchId))
+          .orderBy(desc(doctors.createdAt));
+      });
+    });
+  }
+
+  async getAllDoctors(): Promise<Doctor[]> {
+    return withPerformanceLogging('getAllDoctors', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Return all doctors from all branches within tenant (doctors can work in multiple branches)
+        return await dbInstance.select().from(doctors)
           .orderBy(desc(doctors.createdAt));
       });
     });

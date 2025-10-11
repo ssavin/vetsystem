@@ -850,8 +850,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // DOCTOR ROUTES - Protected PHI data
   app.get("/api/doctors", authenticateToken, requireModuleAccess('doctors'), async (req, res) => {
     try {
-      const user = (req as any).user;
-      const doctors = await storage.getDoctors(user.branchId);
+      // Doctors can work in multiple branches - return all doctors from tenant
+      const doctors = await storage.getAllDoctors();
       res.json(doctors);
     } catch (error) {
       console.error("Error fetching doctors:", error);

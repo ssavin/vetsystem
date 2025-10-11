@@ -115,6 +115,7 @@ export default function AppointmentDialog({
       })
       if (!res.ok) throw new Error('Failed to fetch owners')
       const data = await res.json()
+      console.log('📅 AppointmentDialog: Loaded owners:', data)
       return data.data || data
     },
     enabled: open
