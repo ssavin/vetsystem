@@ -1047,7 +1047,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasConflict = await storage.checkAppointmentConflicts(
         req.body.doctorId,
         new Date(req.body.appointmentDate),
-        req.body.duration
+        req.body.duration,
+        userBranchId
       );
       
       if (hasConflict) {
@@ -1105,6 +1106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           doctorId,
           appointmentDate,
           duration,
+          userBranchId,
           req.params.id
         );
         

@@ -238,7 +238,7 @@ export interface IStorage {
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointment(id: string, appointment: Partial<InsertAppointment>): Promise<Appointment>;
   deleteAppointment(id: string): Promise<void>;
-  checkAppointmentConflicts(doctorId: string, date: Date, duration: number, excludeId?: string): Promise<boolean>;
+  checkAppointmentConflicts(doctorId: string, date: Date, duration: number, branchId: string, excludeId?: string): Promise<boolean>;
 
   // Queue methods - 🔒 SECURITY: branchId required for PHI isolation
   getQueueEntries(branchId: string, status?: string): Promise<QueueEntry[]>;
@@ -1886,13 +1886,14 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async checkAppointmentConflicts(doctorId: string, date: Date, duration: number, excludeId?: string): Promise<boolean> {
+  async checkAppointmentConflicts(doctorId: string, date: Date, duration: number, branchId: string, excludeId?: string): Promise<boolean> {
     return withPerformanceLogging('checkAppointmentConflicts', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         const endTime = new Date(date.getTime() + duration * 60000);
         
         const baseConditions = [
           eq(appointments.doctorId, doctorId),
+          eq(appointments.branchId, branchId), // 🔒 Filter by branch
           or(
             and(
               lte(appointments.appointmentDate, date),
