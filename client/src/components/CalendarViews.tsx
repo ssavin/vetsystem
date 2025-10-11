@@ -28,7 +28,7 @@ interface CalendarViewsProps {
 
 // Day view - detailed schedule for one day
 export function DayView({ appointments, currentDate, onDateChange, loading }: CalendarViewsProps) {
-  const timeSlots = Array.from({ length: 12 }, (_, i) => `${8 + i}:00`)
+  const timeSlots = Array.from({ length: 17 }, (_, i) => `${8 + i}:00`)
 
   const getAppointmentsForTimeSlot = (timeSlot: string) => {
     return appointments.filter(apt => {
@@ -124,7 +124,7 @@ export function WeekView({ appointments, currentDate, onDateChange, loading }: C
   }
 
   const weekDates = getWeekDates(currentDate)
-  const timeSlots = Array.from({ length: 12 }, (_, i) => `${8 + i}:00`)
+  const timeSlots = Array.from({ length: 17 }, (_, i) => `${8 + i}:00`)
 
   const getAppointmentsForDate = (date: Date) => {
     return appointments.filter(apt => {
