@@ -1627,6 +1627,8 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  tenantId: true, // Added on server
+  branchId: true, // Added on server
 }).extend({
   status: z.enum(APPOINTMENT_STATUS).default("scheduled"),
   appointmentDate: z.coerce.date(),

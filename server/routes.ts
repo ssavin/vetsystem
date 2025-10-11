@@ -1068,7 +1068,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ error: "Appointment conflicts with existing schedule" });
       }
 
-      const appointment = await storage.createAppointment(req.body);
+      // Add tenantId and branchId from user context
+      const appointmentData = {
+        ...req.body,
+        tenantId: user.tenantId,
+        branchId: userBranchId,
+      };
+
+      const appointment = await storage.createAppointment(appointmentData);
       res.status(201).json(appointment);
     } catch (error) {
       console.error("Error creating appointment:", error);
