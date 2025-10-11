@@ -50,6 +50,9 @@ export default function Schedule() {
   // Parse URL parameters for pre-filled appointment
   const [urlParams, setUrlParams] = useState<{ patientId?: string, ownerId?: string }>({})
   const [shouldAutoOpenDialog, setShouldAutoOpenDialog] = useState(false)
+  
+  // Selected appointment for editing
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null)
 
   useEffect(() => {
     console.log('📅 Schedule: URL changed, searchString:', searchString)
@@ -92,7 +95,13 @@ export default function Schedule() {
     doctorName: appointment.doctorName || t('defaultNames.doctor'),
     appointmentType: appointment.appointmentType,
     status: mapAppointmentStatus(appointment.status),
-    notes: appointment.notes || ""
+    notes: appointment.notes || "",
+    // Include raw data for editing
+    patientId: appointment.patientId,
+    ownerId: appointment.ownerId,
+    doctorId: appointment.doctorId,
+    branchId: appointment.branchId,
+    durationMinutes: appointment.duration // Raw numeric duration
   })
 
   // Filter options - will be populated from actual data
@@ -279,6 +288,8 @@ export default function Schedule() {
             defaultOwnerId={urlParams.ownerId}
             defaultPatientId={urlParams.patientId}
             autoOpen={shouldAutoOpenDialog}
+            selectedAppointment={selectedAppointment}
+            onClose={() => setSelectedAppointment(null)}
           />
         </div>
       </div>
@@ -431,6 +442,7 @@ export default function Schedule() {
               currentDate={currentDate}
               viewMode={viewMode}
               onDateChange={setCurrentDate}
+              onAppointmentClick={setSelectedAppointment}
               loading={appointmentsLoading}
             />
           )}
@@ -440,6 +452,7 @@ export default function Schedule() {
               currentDate={currentDate}
               viewMode={viewMode}
               onDateChange={setCurrentDate}
+              onAppointmentClick={setSelectedAppointment}
               loading={appointmentsLoading}
             />
           )}
@@ -449,6 +462,7 @@ export default function Schedule() {
               currentDate={currentDate}
               viewMode={viewMode}
               onDateChange={setCurrentDate}
+              onAppointmentClick={setSelectedAppointment}
               loading={appointmentsLoading}
             />
           )}

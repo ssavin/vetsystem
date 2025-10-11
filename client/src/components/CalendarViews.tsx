@@ -23,11 +23,12 @@ interface CalendarViewsProps {
   currentDate: Date
   viewMode: 'day' | 'week' | 'month'
   onDateChange: (date: Date) => void
+  onAppointmentClick?: (appointment: AppointmentData) => void
   loading?: boolean
 }
 
 // Day view - detailed schedule for one day
-export function DayView({ appointments, currentDate, onDateChange, loading }: CalendarViewsProps) {
+export function DayView({ appointments, currentDate, onDateChange, onAppointmentClick, loading }: CalendarViewsProps) {
   const timeSlots = Array.from({ length: 17 }, (_, i) => `${8 + i}:00`)
 
   const getAppointmentsForTimeSlot = (timeSlot: string) => {
@@ -70,6 +71,7 @@ export function DayView({ appointments, currentDate, onDateChange, loading }: Ca
                   <div 
                     key={appointment.id}
                     className="p-3 rounded border hover-elevate cursor-pointer"
+                    onClick={() => onAppointmentClick?.(appointment)}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -107,7 +109,7 @@ export function DayView({ appointments, currentDate, onDateChange, loading }: Ca
 }
 
 // Week view - 7-day grid
-export function WeekView({ appointments, currentDate, onDateChange, loading }: CalendarViewsProps) {
+export function WeekView({ appointments, currentDate, onDateChange, onAppointmentClick, loading }: CalendarViewsProps) {
   const getWeekDates = (date: Date) => {
     const week = []
     const startOfWeek = new Date(date)
@@ -197,7 +199,11 @@ export function WeekView({ appointments, currentDate, onDateChange, loading }: C
                     <div className="h-8 bg-muted animate-pulse rounded" />
                   ) : slotAppointments.length > 0 ? (
                     slotAppointments.map(apt => (
-                      <div key={apt.id} className="text-xs p-1 bg-primary/10 rounded mb-1 cursor-pointer hover-elevate">
+                      <div 
+                        key={apt.id} 
+                        className="text-xs p-1 bg-primary/10 rounded mb-1 cursor-pointer hover-elevate"
+                        onClick={() => onAppointmentClick?.(apt)}
+                      >
                         {apt.time} {apt.patientName}
                       </div>
                     ))
@@ -213,7 +219,7 @@ export function WeekView({ appointments, currentDate, onDateChange, loading }: C
 }
 
 // Month view - calendar grid 
-export function MonthView({ appointments, currentDate, onDateChange, loading }: CalendarViewsProps) {
+export function MonthView({ appointments, currentDate, onDateChange, onAppointmentClick, loading }: CalendarViewsProps) {
   
   const getMonthDates = (date: Date) => {
     const year = date.getFullYear()
@@ -315,7 +321,14 @@ export function MonthView({ appointments, currentDate, onDateChange, loading }: 
                 ) : (
                   <>
                     {dayAppointments.slice(0, 2).map(apt => (
-                      <div key={apt.id} className="text-xs p-1 bg-primary/20 rounded truncate">
+                      <div 
+                        key={apt.id} 
+                        className="text-xs p-1 bg-primary/20 rounded truncate cursor-pointer hover:bg-primary/30"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onAppointmentClick?.(apt)
+                        }}
+                      >
                         {apt.time} {apt.patientName}
                       </div>
                     ))}

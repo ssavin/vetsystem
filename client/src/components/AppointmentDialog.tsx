@@ -72,6 +72,8 @@ interface AppointmentDialogProps {
   defaultPatientId?: string
   defaultDoctorId?: string
   autoOpen?: boolean
+  selectedAppointment?: any
+  onClose?: () => void
 }
 
 export default function AppointmentDialog({ 
@@ -80,7 +82,9 @@ export default function AppointmentDialog({
   defaultOwnerId,
   defaultPatientId,
   defaultDoctorId,
-  autoOpen = false 
+  autoOpen = false,
+  selectedAppointment,
+  onClose
 }: AppointmentDialogProps) {
   const [open, setOpen] = useState(autoOpen)
   const [ownerSearchOpen, setOwnerSearchOpen] = useState(false)
@@ -208,6 +212,7 @@ export default function AppointmentDialog({
       })
       form.reset()
       setOpen(false)
+      onClose?.()
     },
     onError: (error: Error) => {
       toast({
@@ -218,8 +223,76 @@ export default function AppointmentDialog({
     }
   })
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: AppointmentFormData) => {
+      if (!selectedAppointment?.id) throw new Error("No appointment ID")
+      
+      const processedData = {
+        ...data,
+        appointmentDate: new Date(data.appointmentDate),
+      }
+      
+      return apiRequest('PUT', `/api/appointments/${selectedAppointment.id}`, processedData)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/appointments'],
+        exact: false 
+      })
+      toast({
+        title: "Успех",
+        description: "Запись на прием успешно обновлена"
+      })
+      setOpen(false)
+      onClose?.()
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ошибка обновления записи",
+        description: error.message,
+        variant: "destructive"
+      })
+    }
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedAppointment?.id) throw new Error("No appointment ID")
+      return apiRequest('DELETE', `/api/appointments/${selectedAppointment.id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/appointments'],
+        exact: false 
+      })
+      toast({
+        title: "Успех",
+        description: "Запись на прием успешно удалена"
+      })
+      setOpen(false)
+      onClose?.()
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ошибка удаления записи",
+        description: error.message,
+        variant: "destructive"
+      })
+    }
+  })
+
   const onSubmit = (data: AppointmentFormData) => {
-    createMutation.mutate(data)
+    if (selectedAppointment) {
+      updateMutation.mutate(data)
+    } else {
+      createMutation.mutate(data)
+    }
+  }
+  
+  const handleDelete = () => {
+    if (confirm("Вы уверены, что хотите удалить эту запись?")) {
+      deleteMutation.mutate()
+    }
   }
 
   // Sync open state with autoOpen prop
@@ -228,6 +301,27 @@ export default function AppointmentDialog({
       setOpen(true)
     }
   }, [autoOpen])
+  
+  // Open dialog when selectedAppointment is set
+  useEffect(() => {
+    if (selectedAppointment) {
+      setOpen(true)
+      // Fill form with selected appointment data
+      const aptDate = new Date(selectedAppointment.appointmentDate)
+      const localDateString = new Date(aptDate.getTime() - aptDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+      
+      form.reset({
+        ownerId: selectedAppointment.ownerId || '',
+        patientId: selectedAppointment.patientId || '',
+        doctorId: selectedAppointment.doctorId || '',
+        appointmentDate: localDateString,
+        duration: selectedAppointment.durationMinutes || selectedAppointment.duration || 30,
+        appointmentType: selectedAppointment.appointmentType || '',
+        status: selectedAppointment.status || 'scheduled',
+        notes: selectedAppointment.notes || '',
+      })
+    }
+  }, [selectedAppointment, form])
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -279,8 +373,15 @@ export default function AppointmentDialog({
     "Повторный прием"
   ]
 
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen)
+    if (!newOpen) {
+      onClose?.()
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {children || (
           <Button data-testid="button-add-appointment">
@@ -293,10 +394,10 @@ export default function AppointmentDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <Calendar className="h-5 w-5 mr-2 text-primary" />
-            Новая запись на прием
+            {selectedAppointment ? 'Редактировать запись' : 'Новая запись на прием'}
           </DialogTitle>
           <DialogDescription>
-            Создайте новую запись на прием для пациента
+            {selectedAppointment ? 'Измените данные записи на прием' : 'Создайте новую запись на прием для пациента'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -608,16 +709,40 @@ export default function AppointmentDialog({
               )}
             />
 
-            {/* Submit Button */}
-            <div className="flex justify-end pt-4">
-              <Button 
-                type="submit" 
-                disabled={createMutation.isPending}
-                data-testid="button-save-appointment"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                {createMutation.isPending ? "Создание..." : "Создать запись"}
-              </Button>
+            {/* Action Buttons */}
+            <div className="flex justify-between pt-4">
+              {selectedAppointment ? (
+                <>
+                  <Button 
+                    type="button"
+                    variant="destructive"
+                    onClick={handleDelete}
+                    disabled={deleteMutation.isPending}
+                    data-testid="button-delete-appointment"
+                  >
+                    {deleteMutation.isPending ? "Удаление..." : "Удалить"}
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={updateMutation.isPending}
+                    data-testid="button-save-appointment"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {updateMutation.isPending ? "Сохранение..." : "Сохранить"}
+                  </Button>
+                </>
+              ) : (
+                <div className="ml-auto">
+                  <Button 
+                    type="submit" 
+                    disabled={createMutation.isPending}
+                    data-testid="button-save-appointment"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {createMutation.isPending ? "Создание..." : "Создать запись"}
+                  </Button>
+                </div>
+              )}
             </div>
           </form>
         </Form>
