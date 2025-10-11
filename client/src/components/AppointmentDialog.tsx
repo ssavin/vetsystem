@@ -361,13 +361,18 @@ export default function AppointmentDialog({
               render={({ field }) => {
                 const selectedOwnerId = form.watch('ownerId')
                 const filteredPatients = selectedOwnerId 
-                  ? (patients as any[]).filter((p: any) => p.ownerId === selectedOwnerId)
+                  ? (patients as any[]).filter((p: any) => {
+                      // Patient owners could be an array or a JSON string
+                      const patientOwners = Array.isArray(p.owners) ? p.owners : (p.owners ? JSON.parse(p.owners) : [])
+                      return patientOwners.some((po: any) => po.id === selectedOwnerId || po.ownerId === selectedOwnerId)
+                    })
                   : (patients as any[])
                 
                 const selectedPatient = filteredPatients.find((p: any) => p.id === field.value)
-                const selectedOwner = selectedPatient 
-                  ? (owners as any[]).find((o: any) => o.id === selectedPatient.ownerId)
-                  : null
+                const selectedPatientOwners = selectedPatient 
+                  ? (Array.isArray(selectedPatient.owners) ? selectedPatient.owners : (selectedPatient.owners ? JSON.parse(selectedPatient.owners) : []))
+                  : []
+                const selectedOwner = selectedPatientOwners.find((po: any) => po.isPrimary) || selectedPatientOwners[0]
 
                 return (
                   <FormItem className="flex flex-col">
@@ -411,7 +416,8 @@ export default function AppointmentDialog({
                             </CommandEmpty>
                             <CommandGroup>
                               {filteredPatients.map((patient: any) => {
-                                const owner = (owners as any[]).find((o: any) => o.id === patient.ownerId)
+                                const patientOwners = Array.isArray(patient.owners) ? patient.owners : (patient.owners ? JSON.parse(patient.owners) : [])
+                                const owner = patientOwners.find((po: any) => po.isPrimary) || patientOwners[0]
                                 const searchText = `${patient.name} ${translateSpecies(patient.species)} ${owner?.name || ''}`.toLowerCase()
                                 
                                 return (
