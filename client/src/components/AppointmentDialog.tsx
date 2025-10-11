@@ -88,33 +88,59 @@ export default function AppointmentDialog({
   const { toast } = useToast()
   const hasAutoFilledRef = useRef(false)
 
-  // Fetch data for dropdowns - use /all endpoints to get data across all branches
-  const { data: patients = [] } = useQuery({
-    queryKey: ['/api/patients/all'],
+  // Conditional loading: if opening from Registry (with defaultOwnerId) - load only that owner
+  // Otherwise load owner list for search
+  const { data: owners = [] } = useQuery({
+    queryKey: defaultOwnerId ? ['/api/owners', defaultOwnerId] : ['/api/owners/all'],
     queryFn: async () => {
-      const res = await fetch('/api/patients/all?limit=200', {
-        credentials: 'include'
-      })
-      if (!res.ok) throw new Error('Failed to fetch patients')
-      return res.json()
+      if (defaultOwnerId) {
+        // Load specific owner only
+        const res = await fetch(`/api/owners/${defaultOwnerId}`, {
+          credentials: 'include'
+        })
+        if (!res.ok) return []
+        const owner = await res.json()
+        return [owner] // Return as array for consistent interface
+      } else {
+        // Load search list (when creating appointment manually)
+        const res = await fetch('/api/owners/all?limit=100', {
+          credentials: 'include'
+        })
+        if (!res.ok) return []
+        return res.json()
+      }
     },
     enabled: open
   })
 
+  // Conditional loading: if opening from Registry (with defaultPatientId) - load only that patient  
+  // Otherwise load patient list for search
+  const { data: patients = [] } = useQuery({
+    queryKey: defaultPatientId ? ['/api/patients', defaultPatientId] : ['/api/patients/all'],
+    queryFn: async () => {
+      if (defaultPatientId) {
+        // Load specific patient only
+        const res = await fetch(`/api/patients/${defaultPatientId}`, {
+          credentials: 'include'
+        })
+        if (!res.ok) return []
+        const patient = await res.json()
+        return [patient] // Return as array for consistent interface
+      } else {
+        // Load search list (when creating appointment manually)
+        const res = await fetch('/api/patients/all?limit=200', {
+          credentials: 'include'
+        })
+        if (!res.ok) return []
+        return res.json()
+      }
+    },
+    enabled: open
+  })
+
+  // Load all doctors (small list)
   const { data: doctors = [] } = useQuery({
     queryKey: ['/api/doctors'],
-    enabled: open
-  })
-
-  const { data: owners = [] } = useQuery({
-    queryKey: ['/api/owners/all'],
-    queryFn: async () => {
-      const res = await fetch('/api/owners/all?limit=100', {
-        credentials: 'include'
-      })
-      if (!res.ok) throw new Error('Failed to fetch owners')
-      return res.json()
-    },
     enabled: open
   })
 
@@ -193,26 +219,13 @@ export default function AppointmentDialog({
 
   // Auto-fill form when dialog opens with props - only once when dialog opens
   useEffect(() => {
-    console.log('📅 AppointmentDialog: Auto-fill effect')
-    console.log('📅   open:', open)
-    console.log('📅   defaultOwnerId:', defaultOwnerId)
-    console.log('📅   defaultPatientId:', defaultPatientId)
-    console.log('📅   defaultDoctorId:', defaultDoctorId)
-    console.log('📅   doctors count:', (doctors as any[]).length)
-    console.log('📅   owners count:', (owners as any[]).length)
-    console.log('📅   patients count:', (patients as any[]).length)
-    console.log('📅   hasAutoFilledRef.current:', hasAutoFilledRef.current)
-    
     const doctorsList = doctors as any[]
-    const ownersList = owners as any[]
-    const patientsList = patients as any[]
     
     // Only reset if dialog is open AND we have default values AND haven't filled yet
     const shouldReset = open && (defaultOwnerId || defaultPatientId) && !hasAutoFilledRef.current
-    console.log('📅   shouldReset:', shouldReset)
     
     if (shouldReset) {
-      // Set form immediately with IDs - lists will populate when data loads
+      // Set form immediately with IDs
       const firstDoctor = defaultDoctorId 
         ? doctorsList.find((d: any) => d.id === defaultDoctorId)
         : doctorsList[0]
@@ -230,14 +243,10 @@ export default function AppointmentDialog({
         notes: '',
       }
       
-      console.log('📅 AppointmentDialog: Resetting form with:', formData)
       form.reset(formData)
-      
-      // Mark as filled
-      console.log('📅 AppointmentDialog: Setting hasAutoFilledRef to true')
       hasAutoFilledRef.current = true
     }
-  }, [open, defaultOwnerId, defaultPatientId, defaultDoctorId, defaultDate, doctors, owners, patients, form])
+  }, [open, defaultOwnerId, defaultPatientId, defaultDoctorId, defaultDate, doctors, form])
 
   const appointmentTypes = [
     "Консультация",
