@@ -87,56 +87,71 @@ export default function AppointmentDialog({
   const [patientSearchOpen, setPatientSearchOpen] = useState(false)
   const { toast } = useToast()
   const hasAutoFilledRef = useRef(false)
+  
+  // Store loaded owner/patient to prevent loss when defaultIds change
+  const [loadedOwner, setLoadedOwner] = useState<any>(null)
+  const [loadedPatient, setLoadedPatient] = useState<any>(null)
 
-  // Conditional loading: if opening from Registry (with defaultOwnerId) - load only that owner
-  // Otherwise load owner list for search
-  const { data: owners = [] } = useQuery({
-    queryKey: defaultOwnerId ? ['/api/owners', defaultOwnerId] : ['/api/owners/all'],
+  // Load specific owner if defaultOwnerId provided (from Registry)
+  useQuery({
+    queryKey: ['/api/owners', defaultOwnerId],
     queryFn: async () => {
-      if (defaultOwnerId) {
-        // Load specific owner only
-        const res = await fetch(`/api/owners/${defaultOwnerId}`, {
-          credentials: 'include'
-        })
-        if (!res.ok) return []
-        const owner = await res.json()
-        return [owner] // Return as array for consistent interface
-      } else {
-        // Load search list (when creating appointment manually)
-        const res = await fetch('/api/owners/all?limit=100', {
-          credentials: 'include'
-        })
-        if (!res.ok) return []
-        return res.json()
-      }
+      if (!defaultOwnerId) return null
+      const res = await fetch(`/api/owners/${defaultOwnerId}`, {
+        credentials: 'include'
+      })
+      if (!res.ok) return null
+      const owner = await res.json()
+      setLoadedOwner(owner) // Save to state
+      return owner
     },
-    enabled: open
+    enabled: open && !!defaultOwnerId
   })
 
-  // Conditional loading: if opening from Registry (with defaultPatientId) - load only that patient  
-  // Otherwise load patient list for search
-  const { data: patients = [] } = useQuery({
-    queryKey: defaultPatientId ? ['/api/patients', defaultPatientId] : ['/api/patients/all'],
+  // Load specific patient if defaultPatientId provided (from Registry)
+  useQuery({
+    queryKey: ['/api/patients', defaultPatientId],
     queryFn: async () => {
-      if (defaultPatientId) {
-        // Load specific patient only
-        const res = await fetch(`/api/patients/${defaultPatientId}`, {
-          credentials: 'include'
-        })
-        if (!res.ok) return []
-        const patient = await res.json()
-        return [patient] // Return as array for consistent interface
-      } else {
-        // Load search list (when creating appointment manually)
-        const res = await fetch('/api/patients/all?limit=200', {
-          credentials: 'include'
-        })
-        if (!res.ok) return []
-        return res.json()
-      }
+      if (!defaultPatientId) return null
+      const res = await fetch(`/api/patients/${defaultPatientId}`, {
+        credentials: 'include'
+      })
+      if (!res.ok) return null
+      const patient = await res.json()
+      setLoadedPatient(patient) // Save to state
+      return patient
     },
-    enabled: open
+    enabled: open && !!defaultPatientId
   })
+
+  // Load search lists only when NOT opening from Registry (no defaultIds)
+  const { data: ownersList = [] } = useQuery({
+    queryKey: ['/api/owners/all'],
+    queryFn: async () => {
+      const res = await fetch('/api/owners/all?limit=100', {
+        credentials: 'include'
+      })
+      if (!res.ok) return []
+      return res.json()
+    },
+    enabled: open && !defaultOwnerId
+  })
+
+  const { data: patientsList = [] } = useQuery({
+    queryKey: ['/api/patients/all'],
+    queryFn: async () => {
+      const res = await fetch('/api/patients/all?limit=200', {
+        credentials: 'include'
+      })
+      if (!res.ok) return []
+      return res.json()
+    },
+    enabled: open && !defaultPatientId
+  })
+
+  // Combine loaded data: use saved single owner/patient OR search lists
+  const owners = loadedOwner ? [loadedOwner] : ownersList
+  const patients = loadedPatient ? [loadedPatient] : patientsList
 
   // Load all doctors (small list)
   const { data: doctors = [] } = useQuery({
@@ -210,10 +225,12 @@ export default function AppointmentDialog({
     }
   }, [autoOpen])
 
-  // Reset hasAutoFilledRef when dialog closes
+  // Reset state when dialog closes
   useEffect(() => {
     if (!open) {
       hasAutoFilledRef.current = false
+      setLoadedOwner(null)
+      setLoadedPatient(null)
     }
   }, [open])
 
