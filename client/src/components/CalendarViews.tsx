@@ -14,7 +14,7 @@ interface AppointmentData {
   ownerName: string
   doctorName: string
   appointmentType: string
-  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show'
+  status: 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'
   notes?: string
 }
 
@@ -43,10 +43,10 @@ export function DayView({ appointments, currentDate, onDateChange, onAppointment
     switch (status) {
       case 'scheduled': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
       case 'confirmed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-      case 'in-progress': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+      case 'in_progress': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
       case 'completed': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300'
       case 'cancelled': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-      case 'no-show': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+      case 'no_show': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
     }
   }
@@ -79,7 +79,7 @@ export function DayView({ appointments, currentDate, onDateChange, onAppointment
                         <Badge className={getStatusColor(appointment.status)}>
                           {appointment.status === 'scheduled' ? 'Запланирован' : 
                            appointment.status === 'confirmed' ? 'Подтвержден' :
-                           appointment.status === 'in-progress' ? 'Идет прием' :
+                           appointment.status === 'in_progress' ? 'Идет прием' :
                            appointment.status === 'completed' ? 'Завершен' :
                            appointment.status === 'cancelled' ? 'Отменен' : 'Неявка'}
                         </Badge>

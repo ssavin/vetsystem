@@ -18,14 +18,37 @@ interface AppointmentCardProps {
     ownerName: string
     doctorName: string
     appointmentType: string
-    status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show'
+    status: 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'
     notes?: string
   }
 }
 
 export default function AppointmentCard({ appointment }: AppointmentCardProps) {
-  const [currentStatus, setCurrentStatus] = useState(appointment.status)
   const { toast } = useToast()
+
+  // Mutation for updating appointment status
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: string }) => {
+      return apiRequest('PUT', `/api/appointments/${id}`, { status })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/appointments'],
+        exact: false 
+      })
+      toast({
+        title: "Статус обновлен",
+        description: "Статус записи успешно изменен",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Ошибка обновления",
+        description: error.message || "Не удалось обновить статус",
+      })
+    }
+  })
 
   // Mutation for check-in
   const checkInMutation = useMutation({
@@ -34,8 +57,10 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
       return await response.json()
     },
     onSuccess: (data: any) => {
-      setCurrentStatus('confirmed')
-      queryClient.invalidateQueries({ queryKey: ['/api/appointments'] })
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/appointments'],
+        exact: false 
+      })
       queryClient.invalidateQueries({ queryKey: ['/api/queue/entries'] })
       toast({
         title: "Пациент зарегистрирован",
@@ -65,7 +90,7 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
           text: 'Подтвержден',
           icon: CheckCircle
         }
-      case 'in-progress':
+      case 'in_progress':
         return {
           color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
           text: 'Идет прием',
@@ -83,7 +108,7 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
           text: 'Отменен',
           icon: XCircle
         }
-      case 'no-show':
+      case 'no_show':
         return {
           color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
           text: 'Неявка',
@@ -98,13 +123,8 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
     }
   }
 
-  const statusConfig = getStatusConfig(currentStatus)
+  const statusConfig = getStatusConfig(appointment.status)
   const StatusIcon = statusConfig.icon
-
-  const handleStatusChange = (newStatus: typeof appointment.status) => {
-    setCurrentStatus(newStatus)
-    console.log(`Appointment ${appointment.id} status changed to ${newStatus}`)
-  }
 
   return (
     <Card className="hover-elevate">
@@ -157,7 +177,7 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
         )}
 
         <div className="flex gap-2 pt-2">
-          {(currentStatus === 'scheduled' || currentStatus === 'confirmed') && (
+          {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
             <Button 
               size="sm" 
               variant="default"
@@ -169,12 +189,13 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
               {checkInMutation.isPending ? 'Регистрация...' : 'Регистрация прибытия'}
             </Button>
           )}
-          {currentStatus === 'scheduled' && (
+          {appointment.status === 'scheduled' && (
             <>
               <Button 
                 size="sm" 
                 variant="outline" 
-                onClick={() => handleStatusChange('confirmed')}
+                onClick={() => updateStatusMutation.mutate({ id: appointment.id, status: 'confirmed' })}
+                disabled={updateStatusMutation.isPending}
                 data-testid={`button-confirm-${appointment.id}`}
               >
                 Подтвердить
@@ -182,26 +203,29 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
               <Button 
                 size="sm" 
                 variant="outline" 
-                onClick={() => handleStatusChange('cancelled')}
+                onClick={() => updateStatusMutation.mutate({ id: appointment.id, status: 'cancelled' })}
+                disabled={updateStatusMutation.isPending}
                 data-testid={`button-cancel-${appointment.id}`}
               >
                 Отменить
               </Button>
             </>
           )}
-          {currentStatus === 'confirmed' && (
+          {appointment.status === 'confirmed' && (
             <Button 
               size="sm" 
-              onClick={() => handleStatusChange('in-progress')}
+              onClick={() => updateStatusMutation.mutate({ id: appointment.id, status: 'in_progress' })}
+              disabled={updateStatusMutation.isPending}
               data-testid={`button-start-${appointment.id}`}
             >
               Начать прием
             </Button>
           )}
-          {currentStatus === 'in-progress' && (
+          {appointment.status === 'in_progress' && (
             <Button 
               size="sm" 
-              onClick={() => handleStatusChange('completed')}
+              onClick={() => updateStatusMutation.mutate({ id: appointment.id, status: 'completed' })}
+              disabled={updateStatusMutation.isPending}
               data-testid={`button-complete-${appointment.id}`}
             >
               Завершить

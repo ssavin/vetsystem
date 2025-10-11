@@ -20,19 +20,18 @@ const formatDateForAPI = (date: Date) => {
 }
 
 // Helper function to map database appointment status to component status
-const mapAppointmentStatus = (dbStatus: string | null): 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show' => {
+const mapAppointmentStatus = (dbStatus: string | null): 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' => {
   if (!dbStatus) return 'scheduled'
   
+  // Database uses underscores, component uses underscores too now
   switch (dbStatus) {
     case 'in_progress':
-      return 'in-progress'
     case 'no_show':
-      return 'no-show'
     case 'scheduled':
     case 'confirmed':
     case 'completed':
     case 'cancelled':
-      return dbStatus as 'scheduled' | 'confirmed' | 'completed' | 'cancelled'
+      return dbStatus as 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'
     default:
       return 'scheduled'
   }
