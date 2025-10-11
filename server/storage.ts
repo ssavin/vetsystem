@@ -1718,7 +1718,7 @@ export class DatabaseStorage implements IStorage {
         
         // 🔒 Add branch isolation if branchId provided
         if (branchId) {
-          whereConditions.push(eq(patients.branchId, branchId));
+          whereConditions.push(eq(appointments.branchId, branchId));
         }
         
         return await db.select({
@@ -1782,7 +1782,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(owners, eq(patients.ownerId, owners.id));
         
       if (branchId) {
-        query = query.where(eq(patients.branchId, branchId));
+        query = query.where(eq(appointments.branchId, branchId));
       }
       
       return await query.orderBy(appointments.appointmentDate);
