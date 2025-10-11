@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -86,6 +86,7 @@ export default function AppointmentDialog({
   const [ownerSearchOpen, setOwnerSearchOpen] = useState(false)
   const [patientSearchOpen, setPatientSearchOpen] = useState(false)
   const { toast } = useToast()
+  const hasAutoFilledRef = useRef(false)
 
   // Fetch data for dropdowns with reasonable limits
   const { data: patients = [] } = useQuery({
@@ -185,17 +186,22 @@ export default function AppointmentDialog({
     }
   }, [autoOpen])
 
-  // Auto-fill form when dialog opens with props
+  // Reset hasAutoFilledRef when dialog closes
   useEffect(() => {
-    console.log('🔍 AppointmentDialog: Effect triggered')
-    console.log('🔍 AppointmentDialog: open:', open)
-    console.log('🔍 AppointmentDialog: defaultOwnerId:', defaultOwnerId)
-    console.log('🔍 AppointmentDialog: defaultPatientId:', defaultPatientId)
-    console.log('🔍 AppointmentDialog: defaultDoctorId:', defaultDoctorId)
-    console.log('🔍 AppointmentDialog: doctors:', doctors)
+    if (!open) {
+      hasAutoFilledRef.current = false
+    }
+  }, [open])
+
+  // Auto-fill form when dialog opens with props - only once when dialog opens
+  useEffect(() => {
+    const doctorsList = doctors as any[]
     
-    if (open && (defaultOwnerId || defaultPatientId)) {
-      const doctorsList = doctors as any[]
+    // Only reset if dialog is open AND we have default values AND haven't filled yet
+    // Wait for doctors to load before setting hasAutoFilledRef
+    const shouldReset = open && (defaultOwnerId || defaultPatientId) && !hasAutoFilledRef.current
+    
+    if (shouldReset) {
       const selectedDoctorId = defaultDoctorId || doctorsList[0]?.id || ''
       
       const formData = {
@@ -207,12 +213,16 @@ export default function AppointmentDialog({
           : getNearestAppointmentTime(),
         duration: 30,
         appointmentType: '',
-        status: 'scheduled',
+        status: 'scheduled' as const,
         notes: '',
       }
       
-      console.log('🔍 AppointmentDialog: Resetting form with data:', formData)
       form.reset(formData)
+      
+      // Only mark as filled if doctors are loaded (or we have an explicit doctorId)
+      if (defaultDoctorId || doctorsList.length > 0) {
+        hasAutoFilledRef.current = true
+      }
     }
   }, [open, defaultOwnerId, defaultPatientId, defaultDoctorId, defaultDate, doctors, form])
 

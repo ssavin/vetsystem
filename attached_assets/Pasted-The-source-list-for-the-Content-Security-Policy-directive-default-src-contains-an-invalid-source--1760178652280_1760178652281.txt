@@ -1,0 +1,185 @@
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+_app-1c888cfd47054486.js:28 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+VetSystemImport:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+VetSystemImport:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+VetSystemImport:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+_app-1c888cfd47054486.js:28 [LaunchDarkly] LaunchDarkly client initialized
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+framework-056c853913327799.js:1 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'ambient-light-sensor'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'battery'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'execution-while-not-rendered'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'execution-while-out-of-viewport'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'layout-animations'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'legacy-image-formats'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'navigation-override'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'oversized-images'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'publickey-credentials'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'speaker-selection'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'unoptimized-images'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'unsized-media'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Unrecognized feature: 'pointer-lock'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Allow attribute will take precedence over 'allowfullscreen'.
+_ @ framework-056c853913327799.js:1
+framework-056c853913327799.js:1 Allow attribute will take precedence over 'allowpaymentrequest'.
+_ @ framework-056c853913327799.js:1
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'battery'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html?initialPath=%2F&id=%3Arge%3A:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+163c7f4b-ecd0-4898-bed1-7f874b611cee-00-3qk3u36tdricg.riker.replit.dev/api/auth/me:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+injected.js:27 🔍 Schedule: Location changed: /schedule
+injected.js:27 🔍 Schedule: window.location.search: 
+injected.js:27 🔍 Schedule: Extracted patientId: null
+injected.js:27 🔍 Schedule: Extracted ownerId: null
+injected.js:27 🔍 AppointmentDialog: Effect triggered
+injected.js:27 🔍 AppointmentDialog: open: false
+injected.js:27 🔍 AppointmentDialog: defaultOwnerId: undefined
+injected.js:27 🔍 AppointmentDialog: defaultPatientId: undefined
+injected.js:27 🔍 AppointmentDialog: defaultDoctorId: undefined
+injected.js:27 🔍 AppointmentDialog: doctors: Array(2)
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+_app-1c888cfd47054486.js:28 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-1c888cfd47054486.js:28
+stallwart.build.js:1 stallwart: failed ping 1
+injected.js:27 🔍 Registry: Patient data: Object
+injected.js:27 🔍 Registry: Patient owners array: Array(1)
+injected.js:27 🔍 Registry: Primary owner: Object
+injected.js:27 🔍 Registry: URL params string: patientId=f2fba622-dcbb-4026-bf02-5eafb6252111&ownerId=11d9ba2a-d172-443c-a244-b05e7786c82d
+injected.js:27 🔍 Registry: Navigating to: /schedule?patientId=f2fba622-dcbb-4026-bf02-5eafb6252111&ownerId=11d9ba2a-d172-443c-a244-b05e7786c82d
+injected.js:27 🔍 AppointmentDialog: Effect triggered
+injected.js:27 🔍 AppointmentDialog: open: false
+injected.js:27 🔍 AppointmentDialog: defaultOwnerId: undefined
+injected.js:27 🔍 AppointmentDialog: defaultPatientId: undefined
+injected.js:27 🔍 AppointmentDialog: defaultDoctorId: undefined
+injected.js:27 🔍 AppointmentDialog: doctors: Array(2)
+injected.js:27 🔍 Schedule: Location changed: /schedule
+injected.js:27 🔍 Schedule: window.location.search: ?patientId=f2fba622-dcbb-4026-bf02-5eafb6252111&ownerId=11d9ba2a-d172-443c-a244-b05e7786c82d
+injected.js:27 🔍 Schedule: Extracted patientId: f2fba622-dcbb-4026-bf02-5eafb6252111
+injected.js:27 🔍 Schedule: Extracted ownerId: 11d9ba2a-d172-443c-a244-b05e7786c82d
+injected.js:27 🔍 Schedule: Setting urlParams: Object
+injected.js:27 🔍 AppointmentDialog: Effect triggered
+injected.js:27 🔍 AppointmentDialog: open: false
+injected.js:27 🔍 AppointmentDialog: defaultOwnerId: 11d9ba2a-d172-443c-a244-b05e7786c82d
+injected.js:27 🔍 AppointmentDialog: defaultPatientId: f2fba622-dcbb-4026-bf02-5eafb6252111
+injected.js:27 🔍 AppointmentDialog: defaultDoctorId: undefined
+injected.js:27 🔍 AppointmentDialog: doctors: Array(2)
+injected.js:27 🔍 AppointmentDialog: Effect triggered
+injected.js:27 🔍 AppointmentDialog: open: true
+injected.js:27 🔍 AppointmentDialog: defaultOwnerId: 11d9ba2a-d172-443c-a244-b05e7786c82d
+injected.js:27 🔍 AppointmentDialog: defaultPatientId: f2fba622-dcbb-4026-bf02-5eafb6252111
+injected.js:27 🔍 AppointmentDialog: defaultDoctorId: undefined
+injected.js:27 🔍 AppointmentDialog: doctors: Array(2)
+injected.js:27 🔍 AppointmentDialog: Resetting form with data: Object
+injected.js:27 🔍 Schedule: Resetting shouldAutoOpenDialog
+injected.js:27 🔍 AppointmentDialog: Effect triggered
+injected.js:27 🔍 AppointmentDialog: open: true
+injected.js:27 🔍 AppointmentDialog: defaultOwnerId: 11d9ba2a-d172-443c-a244-b05e7786c82d
+injected.js:27 🔍 AppointmentDialog: defaultPatientId: f2fba622-dcbb-4026-bf02-5eafb6252111
+injected.js:27 🔍 AppointmentDialog: defaultDoctorId: undefined
+injected.js:27 🔍 AppointmentDialog: doctors: Array(2)
+injected.js:27 🔍 AppointmentDialog: Resetting form with data: Object
+injected.js:27 🔍 Schedule: Clearing urlParams
+injected.js:27 🔍 AppointmentDialog: Effect triggered
+injected.js:27 🔍 AppointmentDialog: open: true
+injected.js:27 🔍 AppointmentDialog: defaultOwnerId: undefined
+injected.js:27 🔍 AppointmentDialog: defaultPatientId: undefined
+injected.js:27 🔍 AppointmentDialog: defaultDoctorId: undefined
+injected.js:27 🔍 AppointmentDialog: doctors: Array(2)
+stallwart.build.js:1 stallwart: failed ping 1

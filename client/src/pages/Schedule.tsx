@@ -10,7 +10,7 @@ import AppointmentCard from "@/components/AppointmentCard"
 import AppointmentDialog from "@/components/AppointmentDialog"
 import { AppointmentCardSkeleton } from "@/components/ui/loading-skeletons"
 import { DayView, WeekView, MonthView } from "@/components/CalendarViews"
-import { useLocation } from "wouter"
+import { useLocation, useSearch } from "wouter"
 
 type ViewMode = 'day' | 'week' | 'month'
 
@@ -41,6 +41,7 @@ const mapAppointmentStatus = (dbStatus: string | null): 'scheduled' | 'confirmed
 export default function Schedule() {
   const { t } = useTranslation('schedule')
   const [location] = useLocation()
+  const searchString = useSearch()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('day')
   const [selectedDoctor, setSelectedDoctor] = useState(t('filters.allDoctors'))
@@ -51,35 +52,25 @@ export default function Schedule() {
   const [shouldAutoOpenDialog, setShouldAutoOpenDialog] = useState(false)
 
   useEffect(() => {
-    console.log('🔍 Schedule: Location changed:', location)
-    console.log('🔍 Schedule: window.location.search:', window.location.search)
-    const searchParams = new URLSearchParams(window.location.search)
+    const searchParams = new URLSearchParams(searchString)
     const patientId = searchParams.get('patientId')
     const ownerId = searchParams.get('ownerId')
-    console.log('🔍 Schedule: Extracted patientId:', patientId)
-    console.log('🔍 Schedule: Extracted ownerId:', ownerId)
     
     if (patientId || ownerId) {
       const params = { patientId: patientId || undefined, ownerId: ownerId || undefined }
-      console.log('🔍 Schedule: Setting urlParams:', params)
       setUrlParams(params)
       setShouldAutoOpenDialog(true)
       
-      // Clean URL immediately to prevent multiple triggers
-      window.history.replaceState({}, '', window.location.pathname)
-      
       // Reset flags after dialog has had time to consume the params
       setTimeout(() => {
-        console.log('🔍 Schedule: Resetting shouldAutoOpenDialog')
         setShouldAutoOpenDialog(false)
         // Keep urlParams for a bit longer for dialog to use
         setTimeout(() => {
-          console.log('🔍 Schedule: Clearing urlParams')
           setUrlParams({})
         }, 1000)
       }, 1000)
     }
-  }, [location])
+  }, [location, searchString])
 
   // Helper function to format appointment data for AppointmentCard
   const formatAppointmentForCard = (appointment: any) => ({
