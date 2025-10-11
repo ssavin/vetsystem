@@ -52,20 +52,25 @@ export default function Schedule() {
   const [shouldAutoOpenDialog, setShouldAutoOpenDialog] = useState(false)
 
   useEffect(() => {
+    console.log('📅 Schedule: URL changed, searchString:', searchString)
     const searchParams = new URLSearchParams(searchString)
     const patientId = searchParams.get('patientId')
     const ownerId = searchParams.get('ownerId')
+    console.log('📅 Schedule: Parsed params - patientId:', patientId, 'ownerId:', ownerId)
     
     if (patientId || ownerId) {
       const params = { patientId: patientId || undefined, ownerId: ownerId || undefined }
+      console.log('📅 Schedule: Setting urlParams and auto-opening dialog:', params)
       setUrlParams(params)
       setShouldAutoOpenDialog(true)
       
       // Reset flags after dialog has had time to consume the params
       setTimeout(() => {
+        console.log('📅 Schedule: Resetting shouldAutoOpenDialog')
         setShouldAutoOpenDialog(false)
         // Keep urlParams for a bit longer for dialog to use
         setTimeout(() => {
+          console.log('📅 Schedule: Clearing urlParams')
           setUrlParams({})
         }, 1000)
       }, 1000)

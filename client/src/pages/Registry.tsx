@@ -155,12 +155,17 @@ function PatientTableRow({ patient, onEdit, onDelete }: PatientTableRowProps) {
                 variant="outline"
                 onClick={(e) => {
                   e.stopPropagation()
+                  console.log('📅 Registry: Click calendar for patient:', patient.id, patient.name)
+                  console.log('📅 Registry: Patient owners:', patient.owners)
                   const primaryOwner = patient.owners?.find(o => o.isPrimary) || patient.owners?.[0]
+                  console.log('📅 Registry: Primary owner:', primaryOwner)
                   const params = new URLSearchParams({
                     patientId: patient.id,
                     ...(primaryOwner?.id && { ownerId: primaryOwner.id })
                   })
-                  navigate(`/schedule?${params.toString()}`)
+                  const url = `/schedule?${params.toString()}`
+                  console.log('📅 Registry: Navigating to:', url)
+                  navigate(url)
                 }}
                 data-testid={`button-schedule-appointment-${patient.id}`}
               >

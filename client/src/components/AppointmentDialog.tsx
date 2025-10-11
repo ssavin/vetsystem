@@ -195,11 +195,20 @@ export default function AppointmentDialog({
 
   // Auto-fill form when dialog opens with props - only once when dialog opens
   useEffect(() => {
+    console.log('📅 AppointmentDialog: Auto-fill effect')
+    console.log('📅   open:', open)
+    console.log('📅   defaultOwnerId:', defaultOwnerId)
+    console.log('📅   defaultPatientId:', defaultPatientId)
+    console.log('📅   defaultDoctorId:', defaultDoctorId)
+    console.log('📅   doctors count:', (doctors as any[]).length)
+    console.log('📅   hasAutoFilledRef.current:', hasAutoFilledRef.current)
+    
     const doctorsList = doctors as any[]
     
     // Only reset if dialog is open AND we have default values AND haven't filled yet
     // Wait for doctors to load before setting hasAutoFilledRef
     const shouldReset = open && (defaultOwnerId || defaultPatientId) && !hasAutoFilledRef.current
+    console.log('📅   shouldReset:', shouldReset)
     
     if (shouldReset) {
       const selectedDoctorId = defaultDoctorId || doctorsList[0]?.id || ''
@@ -217,10 +226,12 @@ export default function AppointmentDialog({
         notes: '',
       }
       
+      console.log('📅 AppointmentDialog: Resetting form with:', formData)
       form.reset(formData)
       
       // Only mark as filled if doctors are loaded (or we have an explicit doctorId)
       if (defaultDoctorId || doctorsList.length > 0) {
+        console.log('📅 AppointmentDialog: Setting hasAutoFilledRef to true')
         hasAutoFilledRef.current = true
       }
     }
