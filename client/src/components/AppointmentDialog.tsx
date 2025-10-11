@@ -197,7 +197,11 @@ export default function AppointmentDialog({
       return apiRequest('POST', '/api/appointments', processedData)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/appointments'] })
+      // Invalidate all appointment queries (with any parameters)
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/appointments'],
+        exact: false 
+      })
       toast({
         title: "Успех",
         description: "Запись на прием успешно создана"
