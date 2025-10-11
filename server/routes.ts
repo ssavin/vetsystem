@@ -1146,6 +1146,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Appointment Check-in - Add patient to queue when they arrive
+  app.post("/api/appointments/:id/checkin", authenticateToken, requireModuleAccess('appointments'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      // 🔒 SECURITY: Verify appointment exists and belongs to user's branch
+      const appointment = await storage.getAppointment(req.params.id);
+      if (!appointment) {
+        return res.status(404).json({ error: "Appointment not found" });
+      }
+      
+      // 🔒 CRITICAL: Verify appointment belongs to user's branch (prevents cross-branch manipulation)
+      if (appointment.branchId !== userBranchId) {
+        return res.status(403).json({ error: 'Access denied: Appointment not found' });
+      }
+      
+      if (!await ensurePatientAccess(user, appointment.patientId)) {
+        return res.status(403).json({ error: 'Access denied: Appointment not found' });
+      }
+
+      // Get patient and owner info
+      const patient = await storage.getPatient(appointment.patientId);
+      if (!patient) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+
+      const patientOwners = await storage.getPatientOwners(patient.id);
+      const primaryOwner = patientOwners.find(po => po.isPrimary) || patientOwners[0];
+      if (!primaryOwner) {
+        return res.status(400).json({ error: "Patient must have an owner" });
+      }
+
+      // 🔒 IDEMPOTENCY: Check if patient already in queue today
+      const existingEntries = await storage.getQueueEntries(userBranchId);
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      
+      const existingEntry = existingEntries.find(entry => 
+        entry.patientId === patient.id && 
+        ['waiting', 'called', 'in_progress'].includes(entry.status) &&
+        new Date(entry.arrivalTime) >= todayStart
+      );
+
+      if (existingEntry) {
+        // Return existing entry instead of creating duplicate
+        return res.json(existingEntry);
+      }
+
+      // Get next queue number
+      const queueNumber = await storage.getNextQueueNumber(userBranchId);
+
+      // Create queue entry
+      const queueEntry = await storage.createQueueEntry({
+        tenantId: user.tenantId,
+        branchId: userBranchId,
+        patientId: patient.id,
+        ownerId: primaryOwner.ownerId,
+        queueNumber,
+        status: 'waiting',
+        arrivalTime: new Date(),
+        notes: `Прием у ${appointment.appointmentType}`,
+      });
+
+      // Update appointment status to confirmed
+      await storage.updateAppointment(req.params.id, { status: 'confirmed' });
+
+      res.status(201).json(queueEntry);
+    } catch (error) {
+      console.error("Error checking in appointment:", error);
+      res.status(500).json({ error: "Failed to check in appointment" });
+    }
+  });
+
   // QUEUE ROUTES - Electronic Queue Management
   app.get("/api/queue/entries", authenticateToken, async (req, res) => {
     try {

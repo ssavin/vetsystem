@@ -76,10 +76,7 @@ export default function Queue() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return apiRequest(`/api/queue/entries/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
-      });
+      return apiRequest('PUT', `/api/queue/entries/${id}`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/queue/entries'] });
@@ -92,12 +89,9 @@ export default function Queue() {
 
   const callPatientMutation = useMutation({
     mutationFn: async ({ queueEntryId, cabinetNumber }: { queueEntryId: string; cabinetNumber: string }) => {
-      return apiRequest('/api/queue/calls', {
-        method: 'POST',
-        body: JSON.stringify({
-          queueEntryId,
-          cabinetNumber,
-        }),
+      return apiRequest('POST', '/api/queue/calls', {
+        queueEntryId,
+        cabinetNumber,
       });
     },
     onSuccess: () => {
