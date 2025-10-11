@@ -428,8 +428,16 @@ export default function Registry() {
         : t('patients.unknown')
 
       // Multi-owner support: show primary owner or first owner
-      const primaryOwner = patient.owners?.find((o: any) => o.isPrimary) || patient.owners?.[0]
-      const allOwners = patient.owners || []
+      // Parse owners if it's a JSON string
+      let allOwners = patient.owners || []
+      if (typeof allOwners === 'string') {
+        try {
+          allOwners = JSON.parse(allOwners)
+        } catch {
+          allOwners = []
+        }
+      }
+      const primaryOwner = allOwners?.find((o: any) => o.isPrimary) || allOwners?.[0]
       const ownerDisplay = primaryOwner 
         ? `${primaryOwner.name}${allOwners.length > 1 ? ` (+${allOwners.length - 1})` : ''}`
         : (patient.ownerName || t('patients.unknownOwner'))

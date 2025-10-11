@@ -188,21 +188,23 @@ export default function AppointmentDialog({
   // Auto-fill form when dialog opens with props
   useEffect(() => {
     if (open && (defaultOwnerId || defaultPatientId)) {
-      if (defaultOwnerId) {
-        form.setValue('ownerId', defaultOwnerId)
-      }
-      if (defaultPatientId) {
-        form.setValue('patientId', defaultPatientId)
-      }
-      // Select first available doctor if not specified
       const doctorsList = doctors as any[]
-      if (!defaultDoctorId && doctorsList.length > 0) {
-        form.setValue('doctorId', doctorsList[0]?.id || '')
-      } else if (defaultDoctorId) {
-        form.setValue('doctorId', defaultDoctorId)
-      }
+      const selectedDoctorId = defaultDoctorId || doctorsList[0]?.id || ''
+      
+      form.reset({
+        ownerId: defaultOwnerId || '',
+        patientId: defaultPatientId || '',
+        doctorId: selectedDoctorId,
+        appointmentDate: defaultDate 
+          ? new Date(defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+          : getNearestAppointmentTime(),
+        duration: 30,
+        appointmentType: '',
+        status: 'scheduled',
+        notes: '',
+      })
     }
-  }, [open, defaultOwnerId, defaultPatientId, defaultDoctorId, doctors, form])
+  }, [open, defaultOwnerId, defaultPatientId, defaultDoctorId, defaultDate, doctors, form])
 
   const appointmentTypes = [
     "Консультация",

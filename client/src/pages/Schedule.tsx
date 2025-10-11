@@ -59,21 +59,19 @@ export default function Schedule() {
       setUrlParams({ patientId: patientId || undefined, ownerId: ownerId || undefined })
       setShouldAutoOpenDialog(true)
       
-      // Clean URL after extracting params
+      // Clean URL immediately to prevent multiple triggers
       window.history.replaceState({}, '', window.location.pathname)
+      
+      // Reset flags after dialog has had time to consume the params
+      setTimeout(() => {
+        setShouldAutoOpenDialog(false)
+        // Keep urlParams for a bit longer for dialog to use
+        setTimeout(() => {
+          setUrlParams({})
+        }, 1000)
+      }, 1000)
     }
   }, [location])
-
-  // Reset auto-open flag after dialog opens
-  useEffect(() => {
-    if (shouldAutoOpenDialog) {
-      const timer = setTimeout(() => {
-        setShouldAutoOpenDialog(false)
-        setUrlParams({})
-      }, 500)
-      return () => clearTimeout(timer)
-    }
-  }, [shouldAutoOpenDialog])
 
   // Helper function to format appointment data for AppointmentCard
   const formatAppointmentForCard = (appointment: any) => ({
