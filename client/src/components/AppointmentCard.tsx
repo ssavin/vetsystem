@@ -2,8 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Clock, User, Stethoscope, CheckCircle, XCircle, AlertCircle } from "lucide-react"
+import { Clock, User, Stethoscope, CheckCircle, XCircle, AlertCircle, UserCheck } from "lucide-react"
 import { useState } from "react"
+import { useMutation } from "@tanstack/react-query"
+import { apiRequest, queryClient } from "@/lib/queryClient"
+import { useToast } from "@/hooks/use-toast"
 
 interface AppointmentCardProps {
   appointment: {
@@ -22,6 +25,30 @@ interface AppointmentCardProps {
 
 export default function AppointmentCard({ appointment }: AppointmentCardProps) {
   const [currentStatus, setCurrentStatus] = useState(appointment.status)
+  const { toast } = useToast()
+
+  // Mutation for check-in
+  const checkInMutation = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      return await apiRequest('POST', `/api/appointments/${appointmentId}/checkin`, {})
+    },
+    onSuccess: (data: any) => {
+      setCurrentStatus('confirmed')
+      queryClient.invalidateQueries({ queryKey: ['/api/appointments'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/queue/entries'] })
+      toast({
+        title: "Пациент зарегистрирован",
+        description: `Номер в очереди: ${data.queueNumber}`,
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Ошибка регистрации",
+        description: error.message || "Не удалось зарегистрировать прибытие пациента",
+      })
+    }
+  })
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -129,6 +156,18 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
         )}
 
         <div className="flex gap-2 pt-2">
+          {(currentStatus === 'scheduled' || currentStatus === 'confirmed') && (
+            <Button 
+              size="sm" 
+              variant="default"
+              onClick={() => checkInMutation.mutate(appointment.id)}
+              disabled={checkInMutation.isPending}
+              data-testid={`button-checkin-${appointment.id}`}
+            >
+              <UserCheck className="h-3 w-3 mr-1" />
+              {checkInMutation.isPending ? 'Регистрация...' : 'Регистрация прибытия'}
+            </Button>
+          )}
           {currentStatus === 'scheduled' && (
             <>
               <Button 
