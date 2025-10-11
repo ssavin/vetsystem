@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, PhoneCall, CheckCircle, XCircle } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { translateSpecies } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -223,7 +224,7 @@ export default function Queue() {
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">{entry.patientName}</div>
-                    <div className="text-sm text-muted-foreground">{entry.patientSpecies}</div>
+                    <div className="text-sm text-muted-foreground">{translateSpecies(entry.patientSpecies)}</div>
                   </TableCell>
                   <TableCell>
                     <div>{entry.ownerName}</div>
