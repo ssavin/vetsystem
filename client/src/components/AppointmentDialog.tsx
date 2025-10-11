@@ -26,13 +26,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Plus, Calendar } from "lucide-react"
+import { Plus, Calendar, Check, ChevronsUpDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 import { insertAppointmentSchema } from "@shared/schema"
+import { cn } from "@/lib/utils"
 
 // Form validation schema - use shared schema subset for form fields
 const appointmentFormSchema = insertAppointmentSchema.pick({
@@ -57,6 +71,7 @@ interface AppointmentDialogProps {
 
 export default function AppointmentDialog({ children, defaultDate }: AppointmentDialogProps) {
   const [open, setOpen] = useState(false)
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false)
   const { toast } = useToast()
 
   // Fetch data for dropdowns with reasonable limits
@@ -170,38 +185,92 @@ export default function AppointmentDialog({ children, defaultDate }: Appointment
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Patient Selection */}
+            {/* Patient Selection with Search */}
             <FormField
               control={form.control}
               name="patientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Пациент *</FormLabel>
-                  <FormControl>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger data-testid="select-patient">
-                        <SelectValue placeholder="Выберите пациента" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(patients as any[]).map((patient: any) => {
-                          const owner = (owners as any[]).find((o: any) => o.id === patient.ownerId)
-                          return (
-                            <SelectItem key={patient.id} value={patient.id}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{patient.name} ({patient.species})</span>
-                                <span className="text-sm text-muted-foreground">
-                                  Владелец: {owner?.name || 'Не указан'}
+              render={({ field }) => {
+                const selectedPatient = (patients as any[]).find((p: any) => p.id === field.value)
+                const selectedOwner = selectedPatient 
+                  ? (owners as any[]).find((o: any) => o.id === selectedPatient.ownerId)
+                  : null
+
+                return (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Пациент *</FormLabel>
+                    <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="select-patient"
+                          >
+                            {field.value ? (
+                              <div className="flex flex-col items-start">
+                                <span className="font-medium">
+                                  {selectedPatient?.name} ({selectedPatient?.species})
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  Владелец: {selectedOwner?.name || 'Не указан'}
                                 </span>
                               </div>
-                            </SelectItem>
-                          )
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+                            ) : (
+                              "Выберите пациента или введите для поиска"
+                            )}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Поиск по пациенту или владельцу..." />
+                          <CommandList>
+                            <CommandEmpty>Пациенты не найдены</CommandEmpty>
+                            <CommandGroup>
+                              {(patients as any[]).map((patient: any) => {
+                                const owner = (owners as any[]).find((o: any) => o.id === patient.ownerId)
+                                const searchText = `${patient.name} ${patient.species} ${owner?.name || ''}`.toLowerCase()
+                                
+                                return (
+                                  <CommandItem
+                                    key={patient.id}
+                                    value={searchText}
+                                    onSelect={() => {
+                                      field.onChange(patient.id)
+                                      setPatientSearchOpen(false)
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        patient.id === field.value ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">
+                                        {patient.name} ({patient.species})
+                                      </span>
+                                      <span className="text-sm text-muted-foreground">
+                                        Владелец: {owner?.name || 'Не указан'}
+                                      </span>
+                                    </div>
+                                  </CommandItem>
+                                )
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
             />
 
             {/* Doctor Selection */}
