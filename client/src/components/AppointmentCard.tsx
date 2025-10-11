@@ -30,7 +30,8 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
   // Mutation for check-in
   const checkInMutation = useMutation({
     mutationFn: async (appointmentId: string) => {
-      return await apiRequest('POST', `/api/appointments/${appointmentId}/checkin`, {})
+      const response = await apiRequest('POST', `/api/appointments/${appointmentId}/checkin`, {})
+      return await response.json()
     },
     onSuccess: (data: any) => {
       setCurrentStatus('confirmed')
