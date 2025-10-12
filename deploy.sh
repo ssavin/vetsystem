@@ -40,9 +40,13 @@ tar -xzf /tmp/vetsystem-deploy.tar.gz
 sudo mkdir -p /var/log/pm2
 sudo chown $USER:$USER /var/log/pm2
 
-# Установка зависимостей
+# Установка зависимостей (включая devDependencies для сборки)
 echo "📚 Установка зависимостей..."
-npm ci --only=production
+npm install
+
+# Сборка frontend
+echo "🔨 Сборка frontend..."
+npm run build
 
 # Создание .env файла из шаблона (нужно будет отредактировать)
 if [ ! -f .env ]; then
