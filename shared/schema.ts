@@ -25,9 +25,10 @@ export const LAB_URGENCY = ['routine', 'urgent', 'stat'] as const;
 // User roles and permissions
 export const USER_ROLES = ['врач', 'администратор', 'менеджер', 'менеджер_склада', 'руководитель', 'superadmin'] as const;
 export const USER_STATUS = ['active', 'inactive'] as const;
-export const SMS_VERIFICATION_PURPOSE = ['phone_verification', '2fa'] as const;
+export const SMS_VERIFICATION_PURPOSE = ['phone_verification', '2fa', 'mobile_login'] as const;
 export const TWO_FACTOR_METHOD = ['sms', 'disabled'] as const;
 export const BRANCH_STATUS = ['active', 'inactive', 'maintenance'] as const;
+export const PUSH_TOKEN_PLATFORMS = ['ios', 'android', 'web'] as const;
 
 // Integration and fiscal compliance enums
 export const INTEGRATION_TYPE = ['1c_kassa', 'onec_retail', 'moysklad', 'yookassa', 'honest_sign'] as const;
@@ -260,11 +261,33 @@ export const smsVerificationCodes = pgTable("sms_verification_codes", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => {
   return {
-    purposeCheck: check("sms_codes_purpose_check", sql`${table.purpose} IN ('phone_verification', '2fa')`),
+    purposeCheck: check("sms_codes_purpose_check", sql`${table.purpose} IN ('phone_verification', '2fa', 'mobile_login')`),
     userIdIdx: index("sms_codes_user_id_idx").on(table.userId),
     phoneIdx: index("sms_codes_phone_idx").on(table.phone),
     expiresAtIdx: index("sms_codes_expires_at_idx").on(table.expiresAt),
     purposeIdx: index("sms_codes_purpose_idx").on(table.purpose),
+  };
+});
+
+// Push Tokens table (for mobile app notifications)
+export const pushTokens = pgTable("push_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  ownerId: varchar("owner_id").references(() => owners.id), // For client mobile app
+  token: text("token").notNull(), // Expo push token
+  deviceId: varchar("device_id", { length: 255 }), // Optional device identifier
+  platform: varchar("platform", { length: 20 }), // ios, android
+  isActive: boolean("is_active").default(true).notNull(),
+  lastUsedAt: timestamp("last_used_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    userIdIdx: index("push_tokens_user_id_idx").on(table.userId),
+    ownerIdIdx: index("push_tokens_owner_id_idx").on(table.ownerId),
+    tokenIdx: index("push_tokens_token_idx").on(table.token),
+    isActiveIdx: index("push_tokens_is_active_idx").on(table.isActive),
+    // Unique constraint: one token per device
+    uniqueToken: uniqueIndex("push_tokens_token_unique_idx").on(table.token),
   };
 });
 
@@ -1989,6 +2012,22 @@ export const sendSmsCodeSchema = z.object({
   purpose: z.enum(SMS_VERIFICATION_PURPOSE),
 });
 
+// Push tokens schemas
+export const insertPushTokenSchema = createInsertSchema(pushTokens).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+}).extend({
+  token: z.string().min(1, "Push token обязателен"),
+  platform: z.enum(PUSH_TOKEN_PLATFORMS).optional(),
+});
+
+export const registerPushTokenSchema = z.object({
+  token: z.string().min(1, "Push token обязателен"),
+  deviceId: z.string().optional(),
+  platform: z.enum(PUSH_TOKEN_PLATFORMS).optional(),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpdateUser = z.infer<typeof updateUserSchema>;
@@ -1998,6 +2037,10 @@ export type SmsVerificationCode = typeof smsVerificationCodes.$inferSelect;
 export type InsertSmsVerificationCode = z.infer<typeof insertSmsVerificationCodeSchema>;
 export type VerifySmsCode = z.infer<typeof verifySmsCodeSchema>;
 export type SendSmsCode = z.infer<typeof sendSmsCodeSchema>;
+
+export type PushToken = typeof pushTokens.$inferSelect;
+export type InsertPushToken = z.infer<typeof insertPushTokenSchema>;
+export type RegisterPushToken = z.infer<typeof registerPushTokenSchema>;
 
 export type Owner = typeof owners.$inferSelect;
 export type InsertOwner = z.infer<typeof insertOwnerSchema>;

@@ -18,12 +18,14 @@ import {
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
 import { authenticateToken, requireRole, requireModuleAccess, generateTokens, verifyToken, requireSuperAdmin } from "./middleware/auth";
+import { mobileTenantMiddleware } from "./middleware/mobile-tenant";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import * as veterinaryAI from './ai/veterinary-ai';
 import * as yookassa from './integrations/yookassa';
 import { documentService } from './services/documentService';
 import { aiAssistantService, aiCommandSchema } from './services/aiAssistantService';
+import { smsService } from './services/smsService';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -7352,6 +7354,266 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.status(500).json({ error: error.message || "Failed to generate document" });
+    }
+  });
+
+  // ========================================
+  // 📱 MOBILE APP API ENDPOINTS
+  // ========================================
+
+  // Rate limiter for mobile auth endpoints
+  const mobileAuthLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // 5 requests per window
+    message: 'Too many auth attempts, please try again later',
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Mobile Auth: Send SMS code
+  app.post('/api/mobile/auth/send-code', mobileAuthLimiter, async (req, res) => {
+    try {
+      const { phone } = req.body;
+      
+      if (!phone) {
+        return res.status(400).json({ error: 'Phone number required' });
+      }
+
+      // Validate phone format
+      const phoneRegex = /^\+?[1-9]\d{10,14}$/;
+      if (!phoneRegex.test(phone)) {
+        return res.status(400).json({ error: 'Invalid phone number format' });
+      }
+
+      // SECURITY: Find owner by phone - don't reveal if they exist
+      const owner = await storage.getOwnerByPhone(phone);
+      
+      // ALWAYS return success to prevent phone enumeration
+      // Only send SMS if owner exists
+      if (owner) {
+        const result = await smsService.sendVerificationCode(
+          owner.id, 
+          phone, 
+          'mobile_login'
+        );
+        
+        if (!result.success) {
+          console.error('Failed to send SMS:', result.error);
+        }
+      }
+
+      // Generic response - don't reveal if owner exists
+      res.json({ 
+        success: true, 
+        message: 'Если этот номер зарегистрирован, на него будет отправлен код подтверждения',
+      });
+    } catch (error: any) {
+      console.error('Error sending SMS code:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // Mobile Auth: Verify SMS code and login
+  app.post('/api/mobile/auth/verify-code', mobileAuthLimiter, async (req, res) => {
+    try {
+      const { phone, code } = req.body;
+      
+      if (!phone || !code) {
+        return res.status(400).json({ error: 'Phone and code required' });
+      }
+
+      // Validate phone format
+      const phoneRegex = /^\+?[1-9]\d{10,14}$/;
+      if (!phoneRegex.test(phone)) {
+        return res.status(400).json({ error: 'Invalid phone number format' });
+      }
+
+      // SECURITY: Find owner by phone
+      const owner = await storage.getOwnerByPhone(phone);
+      
+      if (!owner) {
+        // Don't reveal that owner doesn't exist - return generic error
+        return res.status(401).json({ error: 'Неверный код подтверждения' });
+      }
+
+      // Verify code
+      const isValid = await smsService.verifyCode(owner.id, code, 'mobile_login');
+
+      if (!isValid) {
+        return res.status(401).json({ error: 'Неверный код подтверждения' });
+      }
+
+      // Generate JWT token for mobile client
+      const token = generateTokens({
+        id: owner.id,
+        username: owner.phone,
+        role: 'client',
+        tenantId: owner.tenantId,
+        branchId: null, // Clients don't have branch restrictions
+        isMobileClient: true
+      }).accessToken;
+
+      res.json({
+        success: true,
+        token,
+        owner: {
+          id: owner.id,
+          name: owner.name,
+          phone: owner.phone,
+          email: owner.email,
+        }
+      });
+    } catch (error: any) {
+      console.error('Error verifying SMS code:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // Mobile: Get owner profile with pets
+  app.get('/api/mobile/me/profile', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const ownerId = req.user.id;
+      
+      const data = await storage.getOwnerWithPets(ownerId);
+      
+      res.json(data);
+    } catch (error: any) {
+      console.error('Error fetching profile:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
+  // Mobile: Get available appointment slots
+  app.get('/api/mobile/appointments/slots', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const { doctorId, date, branchId } = req.query;
+      
+      if (!doctorId || !date || !branchId) {
+        return res.status(400).json({ error: 'doctorId, date, and branchId required' });
+      }
+
+      const slots = await storage.getAvailableSlots(
+        doctorId as string,
+        new Date(date as string),
+        branchId as string
+      );
+
+      res.json({ slots });
+    } catch (error: any) {
+      console.error('Error fetching slots:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
+  // Mobile: Create appointment
+  app.post('/api/mobile/appointments', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const ownerId = req.user.id;
+      const { petId, doctorId, branchId, scheduledAt, description } = req.body;
+      
+      if (!petId || !doctorId || !branchId || !scheduledAt) {
+        return res.status(400).json({ error: 'Missing required fields: petId, doctorId, branchId, scheduledAt' });
+      }
+
+      // SECURITY: Verify pet exists
+      const patient = await storage.getPatient(petId);
+      if (!patient) {
+        return res.status(404).json({ error: 'Pet not found' });
+      }
+
+      // SECURITY: Verify pet belongs to owner via patient_owners relationship
+      const patientOwners = await storage.getPatientOwners(petId);
+      const ownsPatient = patientOwners.some(po => po.ownerId === ownerId);
+      
+      if (!ownsPatient) {
+        return res.status(403).json({ error: 'Access denied: You do not own this pet' });
+      }
+
+      // Verify doctor exists
+      const doctor = await storage.getDoctor(doctorId);
+      if (!doctor) {
+        return res.status(404).json({ error: 'Doctor not found' });
+      }
+
+      const appointment = await storage.createAppointment({
+        patientId: petId,
+        doctorId,
+        branchId,
+        scheduledAt: new Date(scheduledAt),
+        status: 'scheduled',
+        notes: description || '',
+      });
+
+      res.json({ success: true, appointment });
+    } catch (error: any) {
+      console.error('Error creating appointment:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
+  // Mobile: Get pet medical history
+  app.get('/api/mobile/pets/:petId/history', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const ownerId = req.user.id;
+      const { petId } = req.params;
+      
+      if (!petId) {
+        return res.status(400).json({ error: 'Pet ID required' });
+      }
+
+      // SECURITY: Verify pet exists and belongs to owner before accessing history
+      const patient = await storage.getPatient(petId);
+      
+      if (!patient) {
+        return res.status(404).json({ error: 'Pet not found' });
+      }
+
+      // Check if owner owns this patient via patient_owners relationship
+      const patientOwners = await storage.getPatientOwners(petId);
+      const ownsPatient = patientOwners.some(po => po.ownerId === ownerId);
+      
+      if (!ownsPatient) {
+        return res.status(403).json({ error: 'Access denied: You do not own this pet' });
+      }
+
+      const history = await storage.getPetMedicalHistory(petId);
+
+      res.json({ history });
+    } catch (error: any) {
+      console.error('Error fetching pet history:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
+  // Mobile: Register push token
+  app.post('/api/mobile/me/register-push-token', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      // SECURITY: Always use authenticated user's ID, never trust client-provided IDs
+      const ownerId = req.user.id;
+      const { token, deviceId, platform } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ error: 'Token required' });
+      }
+
+      // Validate platform if provided
+      if (platform && !['ios', 'android', 'web'].includes(platform)) {
+        return res.status(400).json({ error: 'Invalid platform' });
+      }
+
+      const pushToken = await storage.createPushToken({
+        userId: ownerId,  // Always use authenticated user's ID
+        ownerId,          // Same as userId for mobile clients
+        token,
+        deviceId: deviceId || null,
+        platform: platform || null,
+        isActive: true,
+      });
+
+      res.json({ success: true, pushToken: { id: pushToken.id, token: pushToken.token } });
+    } catch (error: any) {
+      console.error('Error registering push token:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
     }
   });
 

@@ -42,6 +42,8 @@ import {
   type LabAnalysis, type InsertLabAnalysis,
   type Attachment, type InsertAttachment,
   type DocumentTemplate, type InsertDocumentTemplate,
+  type SmsVerificationCode, type InsertSmsVerificationCode,
+  type PushToken, type InsertPushToken,
   users, owners, patients, patientOwners, doctors, appointments, 
   queueEntries, queueCalls,
   medicalRecords, medications, services, products, 
@@ -53,7 +55,8 @@ import {
   salesTransactionItems, cashOperations, userRoles, userRoleAssignments,
   integrationLogs, subscriptionPlans, clinicSubscriptions,
   subscriptionPayments, billingNotifications, tenants, legalEntities, integrationCredentials,
-  clinicalCases, clinicalEncounters, labAnalyses, attachments, documentTemplates
+  clinicalCases, clinicalEncounters, labAnalyses, attachments, documentTemplates,
+  smsVerificationCodes, pushTokens
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -609,6 +612,33 @@ export interface IStorage {
   createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate>;
   updateDocumentTemplate(id: string, template: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate>;
   deleteDocumentTemplate(id: string): Promise<void>;
+
+  // === MOBILE APP API METHODS ===
+  
+  // Mobile Auth - SMS verification for client login
+  getOwnerByPhone(phone: string): Promise<Owner | undefined>;
+  createSmsVerificationCode(code: InsertSmsVerificationCode): Promise<SmsVerificationCode>;
+  getSmsVerificationCode(userId: string, purpose: string): Promise<SmsVerificationCode | undefined>;
+  verifySmsCode(userId: string, code: string, purpose: string): Promise<boolean>;
+  deleteSmsVerificationCode(id: string): Promise<void>;
+  
+  // Mobile - Owner & Pets data
+  getOwnerWithPets(ownerId: string): Promise<{ owner: Owner; pets: Patient[] }>;
+  
+  // Mobile - Appointments
+  getAvailableSlots(doctorId: string, date: Date, branchId: string): Promise<{ time: string; available: boolean }[]>;
+  getOwnerAppointments(ownerId: string): Promise<Appointment[]>;
+  
+  // Mobile - Pet history
+  getPetMedicalHistory(patientId: string): Promise<any[]>;
+  
+  // Push Tokens
+  createPushToken(token: InsertPushToken): Promise<PushToken>;
+  updatePushToken(id: string, updates: Partial<InsertPushToken>): Promise<PushToken>;
+  getPushTokensByUser(userId: string): Promise<PushToken[]>;
+  getPushTokensByOwner(ownerId: string): Promise<PushToken[]>;
+  deactivatePushToken(token: string): Promise<void>;
+  getActivePushTokens(): Promise<PushToken[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5391,6 +5421,301 @@ export class DatabaseStorage implements IStorage {
       await dbInstance
         .delete(documentTemplates)
         .where(eq(documentTemplates.id, id));
+    });
+  }
+
+  // ========================================
+  // 📱 MOBILE APP API METHODS
+  // ========================================
+
+  async getOwnerByPhone(phone: string): Promise<Owner | undefined> {
+    return withPerformanceLogging('getOwnerByPhone', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [owner] = await dbInstance
+        .select()
+        .from(owners)
+        .where(eq(owners.phone, phone))
+        .limit(1);
+      
+      return owner;
+    });
+  }
+
+  async createSmsVerificationCode(code: InsertSmsVerificationCode): Promise<SmsVerificationCode> {
+    return withPerformanceLogging('createSmsVerificationCode', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [newCode] = await dbInstance
+        .insert(smsVerificationCodes)
+        .values(code)
+        .returning();
+      
+      return newCode;
+    });
+  }
+
+  async getSmsVerificationCode(userId: string, purpose: string): Promise<SmsVerificationCode | undefined> {
+    return withPerformanceLogging('getSmsVerificationCode', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [code] = await dbInstance
+        .select()
+        .from(smsVerificationCodes)
+        .where(
+          and(
+            eq(smsVerificationCodes.userId, userId),
+            eq(smsVerificationCodes.purpose, purpose),
+            gt(smsVerificationCodes.expiresAt, new Date())
+          )
+        )
+        .orderBy(desc(smsVerificationCodes.createdAt))
+        .limit(1);
+      
+      return code;
+    });
+  }
+
+  async verifySmsCode(userId: string, code: string, purpose: string): Promise<boolean> {
+    return withPerformanceLogging('verifySmsCode', async () => {
+      const verificationCode = await this.getSmsVerificationCode(userId, purpose);
+      
+      if (!verificationCode) {
+        return false;
+      }
+
+      const bcrypt = await import('bcryptjs');
+      const isValid = await bcrypt.compare(code, verificationCode.codeHash);
+      
+      if (isValid) {
+        await this.deleteSmsVerificationCode(verificationCode.id);
+      }
+      
+      return isValid;
+    });
+  }
+
+  async deleteSmsVerificationCode(id: string): Promise<void> {
+    return withPerformanceLogging('deleteSmsVerificationCode', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      await dbInstance
+        .delete(smsVerificationCodes)
+        .where(eq(smsVerificationCodes.id, id));
+    });
+  }
+
+  async getOwnerWithPets(ownerId: string): Promise<{ owner: Owner; pets: Patient[] }> {
+    return withPerformanceLogging('getOwnerWithPets', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [owner] = await dbInstance
+        .select()
+        .from(owners)
+        .where(eq(owners.id, ownerId));
+
+      if (!owner) {
+        throw new Error('Owner not found');
+      }
+
+      const petOwnerRelations = await dbInstance
+        .select()
+        .from(patientOwners)
+        .where(eq(patientOwners.ownerId, ownerId));
+
+      const petIds = petOwnerRelations.map(rel => rel.patientId);
+      
+      const pets = petIds.length > 0 
+        ? await dbInstance
+            .select()
+            .from(patients)
+            .where(inArray(patients.id, petIds))
+        : [];
+
+      return { owner, pets };
+    });
+  }
+
+  async getAvailableSlots(doctorId: string, date: Date, branchId: string): Promise<{ time: string; available: boolean }[]> {
+    return withPerformanceLogging('getAvailableSlots', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const existingAppointments = await dbInstance
+        .select()
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.doctorId, doctorId),
+            eq(appointments.branchId, branchId),
+            gte(appointments.scheduledAt, startOfDay),
+            lte(appointments.scheduledAt, endOfDay)
+          )
+        );
+
+      const slots: { time: string; available: boolean }[] = [];
+      const workStart = 9;
+      const workEnd = 18;
+      const slotDuration = 30;
+
+      for (let hour = workStart; hour < workEnd; hour++) {
+        for (let minute = 0; minute < 60; minute += slotDuration) {
+          const slotTime = new Date(date);
+          slotTime.setHours(hour, minute, 0, 0);
+          
+          const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          
+          const isBooked = existingAppointments.some(apt => {
+            const aptTime = new Date(apt.scheduledAt);
+            return aptTime.getTime() === slotTime.getTime();
+          });
+
+          slots.push({
+            time: timeStr,
+            available: !isBooked
+          });
+        }
+      }
+
+      return slots;
+    });
+  }
+
+  async getOwnerAppointments(ownerId: string): Promise<Appointment[]> {
+    return withPerformanceLogging('getOwnerAppointments', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const ownerPets = await dbInstance
+        .select()
+        .from(patientOwners)
+        .where(eq(patientOwners.ownerId, ownerId));
+
+      const petIds = ownerPets.map(rel => rel.patientId);
+      
+      if (petIds.length === 0) {
+        return [];
+      }
+
+      const ownerAppointments = await dbInstance
+        .select()
+        .from(appointments)
+        .where(inArray(appointments.patientId, petIds))
+        .orderBy(desc(appointments.scheduledAt));
+
+      return ownerAppointments;
+    });
+  }
+
+  async getPetMedicalHistory(patientId: string): Promise<any[]> {
+    return withPerformanceLogging('getPetMedicalHistory', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const records = await dbInstance
+        .select({
+          id: medicalRecords.id,
+          visitDate: medicalRecords.visitDate,
+          chiefComplaint: medicalRecords.chiefComplaint,
+          diagnosis: medicalRecords.diagnosis,
+          doctorId: medicalRecords.doctorId,
+        })
+        .from(medicalRecords)
+        .where(eq(medicalRecords.patientId, patientId))
+        .orderBy(desc(medicalRecords.visitDate));
+
+      return records;
+    });
+  }
+
+  async createPushToken(token: InsertPushToken): Promise<PushToken> {
+    return withPerformanceLogging('createPushToken', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [newToken] = await dbInstance
+        .insert(pushTokens)
+        .values(token)
+        .onConflictDoUpdate({
+          target: pushTokens.token,
+          set: {
+            isActive: true,
+            lastUsedAt: new Date(),
+          }
+        })
+        .returning();
+      
+      return newToken;
+    });
+  }
+
+  async updatePushToken(id: string, updates: Partial<InsertPushToken>): Promise<PushToken> {
+    return withPerformanceLogging('updatePushToken', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [updatedToken] = await dbInstance
+        .update(pushTokens)
+        .set(updates)
+        .where(eq(pushTokens.id, id))
+        .returning();
+      
+      return updatedToken;
+    });
+  }
+
+  async getPushTokensByUser(userId: string): Promise<PushToken[]> {
+    return withPerformanceLogging('getPushTokensByUser', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      return await dbInstance
+        .select()
+        .from(pushTokens)
+        .where(
+          and(
+            eq(pushTokens.userId, userId),
+            eq(pushTokens.isActive, true)
+          )
+        );
+    });
+  }
+
+  async getPushTokensByOwner(ownerId: string): Promise<PushToken[]> {
+    return withPerformanceLogging('getPushTokensByOwner', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      return await dbInstance
+        .select()
+        .from(pushTokens)
+        .where(
+          and(
+            eq(pushTokens.ownerId, ownerId),
+            eq(pushTokens.isActive, true)
+          )
+        );
+    });
+  }
+
+  async deactivatePushToken(token: string): Promise<void> {
+    return withPerformanceLogging('deactivatePushToken', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      await dbInstance
+        .update(pushTokens)
+        .set({ isActive: false })
+        .where(eq(pushTokens.token, token));
+    });
+  }
+
+  async getActivePushTokens(): Promise<PushToken[]> {
+    return withPerformanceLogging('getActivePushTokens', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      return await dbInstance
+        .select()
+        .from(pushTokens)
+        .where(eq(pushTokens.isActive, true));
     });
   }
 }
