@@ -140,7 +140,7 @@ Preferred communication style: Simple, everyday language.
 # Production Deployment
 
 ## Deployment Architecture
--   **Target Server**: vetsysai.ru (Ubuntu 22.04 LTS recommended)
+-   **Target Server**: vetsystemai.ru (Ubuntu 22.04 LTS recommended)
 -   **Process Manager**: PM2 in cluster mode with auto-restart
 -   **Web Server**: Nginx reverse proxy with SSL/HTTPS
 -   **SSL Certificates**: Let's Encrypt via Certbot with auto-renewal

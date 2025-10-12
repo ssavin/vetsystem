@@ -1,4 +1,4 @@
-# 🚀 Quick Start - Развертывание VetSystem на vetsysai.ru
+# 🚀 Quick Start - Развертывание VetSystem на vetsystemai.ru
 
 Это краткое руководство для быстрого развертывания. Полная документация в [DEPLOYMENT.md](DEPLOYMENT.md).
 
@@ -48,7 +48,7 @@ sudo su - vetsystem
 mkdir -p ~/apps && cd ~/apps
 
 # Скопируйте файлы проекта (используйте scp/rsync)
-# Например: scp -r vetsystem/ vetsystem@vetsysai.ru:~/apps/
+# Например: scp -r vetsystem/ vetsystem@vetsystemai.ru:~/apps/
 
 # Или клонируйте из Git
 # git clone https://github.com/your-repo/vetsystem.git
@@ -93,12 +93,12 @@ pm2 logs vetsystem --lines 50
 
 ### 5. Настройка Nginx (5 минут)
 
-Создайте конфигурацию `/etc/nginx/sites-available/vetsysai.ru`:
+Создайте конфигурацию `/etc/nginx/sites-available/vetsystemai.ru`:
 
 ```nginx
 server {
     listen 80;
-    server_name vetsysai.ru www.vetsysai.ru;
+    server_name vetsystemai.ru www.vetsystemai.ru;
     
     location / {
         proxy_pass http://localhost:5000;
@@ -112,7 +112,7 @@ server {
 Активируйте конфигурацию:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/vetsysai.ru /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/vetsystemai.ru /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
@@ -125,7 +125,7 @@ sudo systemctl reload nginx
 sudo apt install -y certbot python3-certbot-nginx
 
 # Получите сертификат
-sudo certbot --nginx -d vetsysai.ru -d www.vetsysai.ru
+sudo certbot --nginx -d vetsystemai.ru -d www.vetsystemai.ru
 ```
 
 ### 7. Firewall (2 минуты)
@@ -146,7 +146,7 @@ sudo ufw enable
 curl http://localhost:5000
 
 # Проверьте через Nginx
-curl https://vetsysai.ru
+curl https://vetsystemai.ru
 
 # Просмотрите логи
 pm2 logs vetsystem
@@ -192,8 +192,8 @@ pm2 restart vetsystem
 - [ ] Nginx работает и настроен
 - [ ] SSL сертификат получен
 - [ ] Firewall настроен
-- [ ] DNS записи для vetsysai.ru направлены на сервер
-- [ ] Приложение доступно по https://vetsysai.ru
+- [ ] DNS записи для vetsystemai.ru направлены на сервер
+- [ ] Приложение доступно по https://vetsystemai.ru
 - [ ] Логи не показывают критических ошибок
 
 ---

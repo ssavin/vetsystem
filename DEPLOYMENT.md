@@ -1,4 +1,4 @@
-# 🚀 Deployment Guide для VetSystem на vetsysai.ru
+# 🚀 Deployment Guide для VetSystem на vetsystemai.ru
 
 **Дата обновления:** 12 октября 2025  
 **Версия приложения:** 2.0 (с мобильным приложением)
@@ -190,7 +190,7 @@ zip -r vetsystem-$(date +%Y%m%d).zip . \
 
 # Скачайте архив и загрузите на сервер через scp
 # На локальном компьютере:
-scp vetsystem-*.zip vetsystem@vetsysai.ru:~/apps/
+scp vetsystem-*.zip vetsystem@vetsystemai.ru:~/apps/
 ```
 
 На **сервере**:
@@ -260,7 +260,7 @@ VETAIS_DB_USER=your_vetais_user
 VETAIS_DB_PASSWORD=your_vetais_password
 
 # ===== ДОМЕН =====
-VITE_API_URL=https://vetsysai.ru
+VITE_API_URL=https://vetsystemai.ru
 ```
 
 **Важно**: Защитите файл от чтения другими пользователями:
@@ -303,7 +303,7 @@ chmod 755 ~/apps/vetsystem/uploads
 ### Создание конфигурации
 
 ```bash
-sudo nano /etc/nginx/sites-available/vetsysai.ru
+sudo nano /etc/nginx/sites-available/vetsystemai.ru
 ```
 
 Содержимое файла:
@@ -313,7 +313,7 @@ sudo nano /etc/nginx/sites-available/vetsysai.ru
 server {
     listen 80;
     listen [::]:80;
-    server_name vetsysai.ru www.vetsysai.ru;
+    server_name vetsystemai.ru www.vetsystemai.ru;
     
     # Разрешить Let's Encrypt вчаlidation
     location ^~ /.well-known/acme-challenge/ {
@@ -331,11 +331,11 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name vetsysai.ru www.vetsysai.ru;
+    server_name vetsystemai.ru www.vetsystemai.ru;
 
     # ===== SSL сертификаты =====
-    ssl_certificate /etc/letsencrypt/live/vetsysai.ru/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/vetsysai.ru/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/vetsystemai.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vetsystemai.ru/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
     ssl_prefer_server_ciphers on;
@@ -399,7 +399,7 @@ server {
 
 ```bash
 # Создайте символическую ссылку
-sudo ln -s /etc/nginx/sites-available/vetsysai.ru /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/vetsystemai.ru /etc/nginx/sites-enabled/
 
 # Удалите конфигурацию по умолчанию
 sudo rm -f /etc/nginx/sites-enabled/default
@@ -423,12 +423,12 @@ sudo apt install -y certbot python3-certbot-nginx
 ### Получение SSL сертификата
 
 **ВАЖНО**: Перед этим убедитесь что:
-- DNS записи A для vetsysai.ru и www.vetsysai.ru направлены на IP вашего сервера
+- DNS записи A для vetsystemai.ru и www.vetsystemai.ru направлены на IP вашего сервера
 - Порты 80 и 443 открыты в firewall
 
 ```bash
 # Получите сертификат
-sudo certbot --nginx -d vetsysai.ru -d www.vetsysai.ru --email your@email.com --agree-tos --no-eff-email
+sudo certbot --nginx -d vetsystemai.ru -d www.vetsystemai.ru --email your@email.com --agree-tos --no-eff-email
 
 # Certbot автоматически настроит Nginx
 ```
@@ -864,10 +864,10 @@ find ~/backups -mtime +30 -delete
 - [ ] PM2 запущен, приложение работает
 - [ ] Автозапуск PM2 настроен (pm2 startup)
 - [ ] Firewall настроен (UFW)
-- [ ] DNS записи для vetsysai.ru настроены
+- [ ] DNS записи для vetsystemai.ru настроены
 - [ ] Резервное копирование настроено (cron)
 - [ ] Логи приложения проверены (нет критических ошибок)
-- [ ] Приложение доступно по https://vetsysai.ru
+- [ ] Приложение доступно по https://vetsystemai.ru
 - [ ] API ключи (Twilio, YooKassa) актуальны и работают
 - [ ] Тестирование основных функций выполнено
 
@@ -878,7 +878,7 @@ find ~/backups -mtime +30 -delete
 Мобильное приложение находится в папке `mobile-app/`. Для его развертывания:
 
 1. Установите Expo CLI на вашем компьютере: `npm install -g expo-cli`
-2. Обновите `mobile-app/src/services/api.ts` - измените baseURL на `https://vetsysai.ru`
+2. Обновите `mobile-app/src/services/api.ts` - измените baseURL на `https://vetsystemai.ru`
 3. Соберите приложение через Expo EAS Build
 4. Опубликуйте в App Store / Google Play
 
