@@ -171,7 +171,7 @@ cd ~/apps/vetsystem
 ```bash
 cd ~/apps/vetsystem
 git pull origin main
-npm install --production
+npm install
 npm run build
 export NODE_ENV=production
 npm run db:push
