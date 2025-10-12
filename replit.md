@@ -68,30 +68,50 @@ Preferred communication style: Simple, everyday language.
 -   **Framework**: React Native with Expo for cross-platform development (iOS/Android).
 -   **UI Library**: React Native Paper with Material Design 3 theming.
 -   **Navigation**: React Navigation with native stack navigator.
--   **State Management**: TanStack Query for server state and caching.
--   **Authentication**: SMS-based authentication with JWT tokens.
--   **API Integration**: Axios client with automatic token management and tenant context.
--   **Security**: Tenant isolation enforced via mobileTenantMiddleware on backend.
+-   **State Management**: 
+    -   TanStack Query for server state and caching
+    -   AuthContext for authentication state management
+    -   Token rehydration on app launch via initializeAuth()
+-   **Authentication**: 
+    -   SMS-based authentication with JWT tokens
+    -   Token persistence in AsyncStorage
+    -   Automatic token injection into axios defaults on app relaunch
+    -   Logout clears both AsyncStorage and axios headers
+-   **API Integration**: 
+    -   Axios client with automatic token management
+    -   Tenant context extracted from JWT by mobileTenantMiddleware
+    -   Base URL: `/api/mobile/*`
+-   **Security**: 
+    -   Tenant isolation enforced via mobileTenantMiddleware on backend (AsyncLocalStorage + RLS)
+    -   All authenticated endpoints chain: authenticateToken → mobileTenantMiddleware
+    -   Ownership validation for pets, appointments, and medical history
+    -   Unauthenticated SMS endpoints intentionally outside tenant middleware
 -   **Features**:
     -   SMS authentication (send code, verify code)
     -   Owner profile with pets list
     -   Pet details and medical history
-    -   Appointment booking (multi-step process)
+    -   Appointment booking (multi-step process with real-time slot availability)
     -   Push notifications support (Expo Notifications)
 -   **Screens**:
-    -   AuthScreen: SMS login flow
-    -   HomeScreen: Dashboard with owner info and pets
+    -   AuthScreen: SMS login flow with phone verification
+    -   HomeScreen: Dashboard with owner info and pets carousel
     -   PetsScreen: Searchable list of all pets
-    -   PetDetailScreen: Pet information and medical history
-    -   BookingScreen: Step-by-step appointment booking
+    -   PetDetailScreen: Pet information and medical history timeline
+    -   BookingScreen: Step-by-step appointment booking (pet → doctor → branch → date/time → confirm)
 -   **API Endpoints** (Mobile-specific):
-    -   POST `/api/mobile/auth/send-code` - Send SMS verification code
-    -   POST `/api/mobile/auth/verify-code` - Verify code and authenticate
-    -   GET `/api/mobile/me/profile` - Get owner profile with pets
-    -   GET `/api/mobile/appointments/slots` - Get available time slots
-    -   POST `/api/mobile/appointments` - Create appointment
-    -   GET `/api/mobile/pets/:petId/history` - Get pet medical history
-    -   POST `/api/mobile/me/register-push-token` - Register push notification token
+    -   POST `/api/mobile/auth/send-code` - Send SMS verification code (unauthenticated)
+    -   POST `/api/mobile/auth/verify-code` - Verify code and authenticate (unauthenticated)
+    -   GET `/api/mobile/me/profile` - Get owner profile with pets (authenticated)
+    -   GET `/api/mobile/doctors` - Get active doctors (authenticated)
+    -   GET `/api/mobile/branches` - Get active branches (authenticated)
+    -   GET `/api/mobile/appointments/slots` - Get available time slots (authenticated)
+    -   POST `/api/mobile/appointments` - Create appointment (authenticated)
+    -   GET `/api/mobile/pets/:petId/history` - Get pet medical history (authenticated)
+    -   POST `/api/mobile/me/register-push-token` - Register push notification token (authenticated)
+-   **Development Notes**:
+    -   Entry point: `node_modules/expo/AppEntry.js` (configured in package.json)
+    -   TypeScript errors in mobile-app are expected (Expo/React Native type mismatches)
+    -   Run with: `cd mobile-app && npx expo start`
 
 # External Dependencies
 
