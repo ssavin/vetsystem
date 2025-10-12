@@ -136,3 +136,37 @@ Preferred communication style: Simple, everyday language.
 ## Document Generation
 -   `handlebars`: Template engine.
 -   `puppeteer`: Headless browser for PDF generation.
+
+# Production Deployment
+
+## Deployment Architecture
+-   **Target Server**: vetsysai.ru (Ubuntu 22.04 LTS recommended)
+-   **Process Manager**: PM2 in cluster mode with auto-restart
+-   **Web Server**: Nginx reverse proxy with SSL/HTTPS
+-   **SSL Certificates**: Let's Encrypt via Certbot with auto-renewal
+-   **Database**: Self-hosted PostgreSQL 14+ (migrating from Neon)
+-   **Build Process**: Vite production build (requires devDependencies)
+-   **Runtime**: tsx loader for TypeScript (PM2 ecosystem.config.js)
+
+## Critical Deployment Notes
+-   **IMPORTANT**: Must use `npm install` (NOT `npm install --production`) to preserve devDependencies
+-   **Reason**: Vite and tsx are devDependencies required for build and runtime
+-   **Build Step**: `npm run build` compiles frontend before deployment
+-   **Migration**: Use scripts/migrate-production.sh for safe DB migrations with automatic backups
+-   **Zero Downtime**: deploy.sh script handles pull → install → build → migrate → restart
+
+## Deployment Documentation
+-   **DEPLOYMENT.md**: Comprehensive production deployment guide (server setup, Nginx, SSL, PM2, monitoring)
+-   **QUICKSTART.md**: 30-minute quick setup guide for experienced admins
+-   **.env.production.example**: Complete environment variables template
+-   **deploy.sh**: Automated deployment script with zero-downtime updates
+-   **scripts/migrate-production.sh**: Safe database migration script with backups
+-   **ecosystem.config.js**: PM2 cluster configuration (4 instances, auto-restart)
+
+## Required Environment Variables
+See `.env.production.example` for complete list with descriptions. Critical variables:
+-   NODE_ENV=production
+-   DATABASE_URL (PostgreSQL connection string)
+-   JWT_SECRET, SESSION_SECRET (64-character random strings)
+-   External APIs: TWILIO_*, YOOKASSA_*, MOYSKLAD_*, DADATA_API_KEY, OPENAI_API_KEY
+-   Optional: VETAIS_DB_* (for legacy data migration)
