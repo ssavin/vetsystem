@@ -7617,6 +7617,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mobile: Get active doctors
+  app.get('/api/mobile/doctors', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const doctors = await storage.getActiveDoctors();
+      
+      // Return simplified doctor info for mobile
+      const simplifiedDoctors = doctors.map(doctor => ({
+        id: doctor.id,
+        name: `${doctor.lastName} ${doctor.firstName} ${doctor.middleName || ''}`.trim(),
+        firstName: doctor.firstName,
+        lastName: doctor.lastName,
+        middleName: doctor.middleName,
+        specialization: doctor.specialization,
+      }));
+
+      res.json({ doctors: simplifiedDoctors });
+    } catch (error: any) {
+      console.error('Error fetching doctors:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
+  // Mobile: Get active branches
+  app.get('/api/mobile/branches', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const branches = await storage.getActiveBranches();
+      
+      // Return simplified branch info for mobile
+      const simplifiedBranches = branches.map(branch => ({
+        id: branch.id,
+        name: branch.name,
+        address: branch.address,
+        phone: branch.phone,
+      }));
+
+      res.json({ branches: simplifiedBranches });
+    } catch (error: any) {
+      console.error('Error fetching branches:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
