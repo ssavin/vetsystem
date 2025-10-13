@@ -73,10 +73,11 @@ Preferred communication style: Simple, everyday language.
     -   AuthContext for authentication state management
     -   Token rehydration on app launch via initializeAuth()
 -   **Authentication**: 
-    -   SMS-based authentication with JWT tokens
+    -   SMS-based authentication with JWT tokens via SMS.RU API
     -   Token persistence in AsyncStorage
     -   Automatic token injection into axios defaults on app relaunch
     -   Logout clears both AsyncStorage and axios headers
+    -   SMS verification codes expire in 10 minutes
 -   **API Integration**: 
     -   Axios client with automatic token management
     -   Tenant context extracted from JWT by mobileTenantMiddleware
@@ -148,8 +149,19 @@ Preferred communication style: Simple, everyday language.
 -   `handlebars`: Template engine.
 -   `puppeteer`: Headless browser for PDF generation.
 
-## Mobile Push Notifications
+## Mobile Push Notifications & SMS
 -   `expo-server-sdk`: Expo push notification service for mobile app health reminders.
+
+## SMS Service Integration
+-   **Provider**: SMS.RU API for sending SMS verification codes
+-   **Authentication**: API key-based authentication (SMSRU_API_KEY)
+-   **Features**:
+    -   6-digit verification codes with 10-minute expiration
+    -   Bcrypt hashing for secure code storage
+    -   Separate handling for staff users (2FA, phone verification) and mobile clients (mobile_login)
+    -   Database schema supports both userId and ownerId with exclusive constraint
+-   **Security**: Rate limiting (5 requests per 15 minutes), phone enumeration protection
+-   **Service File**: `server/services/smsService.ts`
 
 # Production Deployment
 
