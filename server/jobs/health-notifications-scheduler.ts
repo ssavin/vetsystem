@@ -65,6 +65,7 @@ async function sendPushNotification(ownerId: string, title: string, body: string
 async function checkHealthEventsForTenant() {
   try {
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
     
     // Дата через 7 дней
     const sevenDaysFromNow = new Date();
@@ -78,8 +79,9 @@ async function checkHealthEventsForTenant() {
 
     let notificationsSent = 0;
 
-    // Получаем appointments для текущего тенанта с фильтрацией по дате
-    const upcomingAppointments = await storage.getUpcomingAppointments(sevenDaysFromNow, oneDayFromNow);
+    // Получаем appointments для текущего тенанта в диапазоне от сегодня до 7 дней вперёд
+    // CRITICAL FIX: startDate MUST be <= endDate
+    const upcomingAppointments = await storage.getUpcomingAppointments(now, sevenDaysFromNow);
 
     for (const appointment of upcomingAppointments) {
       // Проверяем только будущие appointments со статусом "scheduled" или "confirmed"

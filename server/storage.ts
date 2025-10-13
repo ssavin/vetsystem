@@ -240,6 +240,7 @@ export interface IStorage {
   getAppointment(id: string): Promise<Appointment | undefined>;
   getAppointmentsByDoctor(doctorId: string, date: Date | undefined, branchId: string): Promise<Appointment[]>;
   getAppointmentsByPatient(patientId: string, branchId: string): Promise<Appointment[]>;
+  getUpcomingAppointments(startDate: Date, endDate: Date): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointment(id: string, appointment: Partial<InsertAppointment>): Promise<Appointment>;
   deleteAppointment(id: string): Promise<void>;
@@ -1952,6 +1953,24 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(patients, eq(appointments.patientId, patients.id))
           .where(and(eq(appointments.patientId, patientId), eq(patients.branchId, branchId)))
           .orderBy(desc(appointments.appointmentDate));
+      });
+    });
+  }
+
+  async getUpcomingAppointments(startDate: Date, endDate: Date): Promise<Appointment[]> {
+    return withPerformanceLogging('getUpcomingAppointments', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 Get appointments within date range for current tenant
+        return await dbInstance
+          .select()
+          .from(appointments)
+          .where(
+            and(
+              gte(appointments.appointmentDate, startDate),
+              lte(appointments.appointmentDate, endDate)
+            )
+          )
+          .orderBy(appointments.appointmentDate);
       });
     });
   }
