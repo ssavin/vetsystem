@@ -1982,7 +1982,7 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Building className="h-5 w-5" />
+                <Building2 className="h-5 w-5" />
                 Юридические лица
               </CardTitle>
             </CardHeader>
