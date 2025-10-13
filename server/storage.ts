@@ -5542,6 +5542,38 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async verifyMobileSmsCode(ownerId: string, code: string): Promise<boolean> {
+    return withPerformanceLogging('verifyMobileSmsCode', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [verificationCode] = await dbInstance
+        .select()
+        .from(smsVerificationCodes)
+        .where(
+          and(
+            eq(smsVerificationCodes.ownerId, ownerId),
+            eq(smsVerificationCodes.purpose, 'mobile_login'),
+            gt(smsVerificationCodes.expiresAt, new Date())
+          )
+        )
+        .orderBy(desc(smsVerificationCodes.createdAt))
+        .limit(1);
+      
+      if (!verificationCode) {
+        return false;
+      }
+
+      const bcrypt = await import('bcryptjs');
+      const isValid = await bcrypt.compare(code, verificationCode.codeHash);
+      
+      if (isValid) {
+        await this.deleteSmsVerificationCode(verificationCode.id);
+      }
+      
+      return isValid;
+    });
+  }
+
   async getOwnerWithPets(ownerId: string): Promise<{ owner: Owner; pets: Patient[] }> {
     return withPerformanceLogging('getOwnerWithPets', async () => {
       const dbInstance = requestDbStorage.getStore() || db;

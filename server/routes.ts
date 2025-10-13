@@ -7391,10 +7391,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ALWAYS return success to prevent phone enumeration
       // Only send SMS if owner exists
       if (owner) {
-        const result = await smsService.sendVerificationCode(
+        const result = await smsService.sendMobileLoginCode(
           owner.id, 
-          phone, 
-          'mobile_login'
+          phone
         );
         
         if (!result.success) {
@@ -7437,7 +7436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify code
-      const isValid = await smsService.verifyCode(owner.id, code, 'mobile_login');
+      const isValid = await smsService.verifyMobileLoginCode(owner.id, code);
 
       if (!isValid) {
         return res.status(401).json({ error: 'Неверный код подтверждения' });

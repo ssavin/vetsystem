@@ -256,7 +256,8 @@ export const users = pgTable("users", {
 // SMS Verification Codes table
 export const smsVerificationCodes = pgTable("sms_verification_codes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  ownerId: varchar("owner_id").references(() => owners.id),
   phone: varchar("phone", { length: 20 }).notNull(),
   codeHash: text("code_hash").notNull(),
   purpose: varchar("purpose", { length: 20 }).notNull(),
@@ -266,7 +267,9 @@ export const smsVerificationCodes = pgTable("sms_verification_codes", {
 }, (table) => {
   return {
     purposeCheck: check("sms_codes_purpose_check", sql`${table.purpose} IN ('phone_verification', '2fa', 'mobile_login')`),
+    exclusiveIdCheck: check("sms_codes_exclusive_id_check", sql`(${table.userId} IS NOT NULL AND ${table.ownerId} IS NULL) OR (${table.userId} IS NULL AND ${table.ownerId} IS NOT NULL)`),
     userIdIdx: index("sms_codes_user_id_idx").on(table.userId),
+    ownerIdIdx: index("sms_codes_owner_id_idx").on(table.ownerId),
     phoneIdx: index("sms_codes_phone_idx").on(table.phone),
     expiresAtIdx: index("sms_codes_expires_at_idx").on(table.expiresAt),
     purposeIdx: index("sms_codes_purpose_idx").on(table.purpose),
