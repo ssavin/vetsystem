@@ -162,6 +162,13 @@ Preferred communication style: Simple, everyday language.
     -   Database schema supports both userId and ownerId with exclusive constraint
 -   **Security**: Rate limiting (5 requests per 15 minutes), phone enumeration protection
 -   **Service File**: `server/services/smsService.ts`
+-   **Admin UI Integration** (NEW):
+    -   SMS.RU configuration card in Settings → Integrations section
+    -   "Настройки SMS" button in Settings page scrolls to integrations section
+    -   Test connection functionality validates API key via account balance check
+    -   Tenant-scoped credentials storage via integration_credentials table
+    -   API endpoints: POST `/api/integration-credentials/smsru/test`, PUT `/api/integration-credentials/smsru`
+    -   Integration module: `server/integrations/smsRu.ts` with testConnection() and sendSms()
 
 # Production Deployment
 
