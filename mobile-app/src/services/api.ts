@@ -175,4 +175,69 @@ export const getBranches = async (): Promise<Branch[]> => {
   return data.branches;
 };
 
+// ========== ENCOUNTERS & FILES API ==========
+
+export interface EncounterAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  createdAt: string;
+  downloadUrl: string;
+}
+
+export const getEncounterAttachments = async (encounterId: string): Promise<EncounterAttachment[]> => {
+  const { data } = await api.get(`/mobile/encounters/${encounterId}/attachments`);
+  return data.attachments;
+};
+
+export const getFileDownloadUrl = (fileId: string): string => {
+  return `${API_URL}/mobile/files/${fileId}`;
+};
+
+// ========== CHAT API ==========
+
+export interface Conversation {
+  id: string;
+  subject: string;
+  status: string;
+  unreadCount: number;
+  lastMessage?: {
+    text: string;
+    createdAt: string;
+    senderType: 'owner' | 'clinic';
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderType: 'owner' | 'clinic';
+  messageText: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export const getConversations = async (): Promise<Conversation[]> => {
+  const { data } = await api.get('/mobile/me/conversations');
+  return data.conversations;
+};
+
+export const createConversation = async (subject: string): Promise<Conversation> => {
+  const { data } = await api.post('/mobile/me/conversations', { subject });
+  return data.conversation;
+};
+
+export const getConversationMessages = async (conversationId: string): Promise<Message[]> => {
+  const { data } = await api.get(`/mobile/conversations/${conversationId}/messages`);
+  return data.messages;
+};
+
+export const sendMessage = async (conversationId: string, messageText: string): Promise<Message> => {
+  const { data } = await api.post(`/mobile/conversations/${conversationId}/messages`, { messageText });
+  return data.message;
+};
+
 export default api;
