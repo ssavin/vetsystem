@@ -60,9 +60,190 @@ const galenSchema = z.object({
   galenServiceId: z.string().min(1, "ID сервиса обязателен"),
 })
 
+const smsruSchema = z.object({
+  apiKey: z.string().min(1, "API ключ обязателен"),
+})
+
 type MoySkladFormData = z.infer<typeof moyskladSchema>
 type YooKassaFormData = z.infer<typeof yookassaSchema>
 type GalenFormData = z.infer<typeof galenSchema>
+type SmsRuFormData = z.infer<typeof smsruSchema>
+
+function SmsRuIntegrationCard() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(false)
+  const { toast } = useToast()
+
+  const { data: integration, isLoading } = useQuery<IntegrationCredential>({
+    queryKey: ['/api/integration-credentials/smsru'],
+    retry: false,
+  })
+
+  const form = useForm<SmsRuFormData>({
+    resolver: zodResolver(smsruSchema),
+    defaultValues: {
+      apiKey: '',
+    },
+  })
+
+  useEffect(() => {
+    if (integration?.credentials) {
+      form.reset({
+        apiKey: '',
+      })
+    }
+  }, [integration, form])
+
+  const testMutation = useMutation({
+    mutationFn: async (credentials: Record<string, string>) => {
+      const response = await apiRequest('POST', '/api/integration-credentials/smsru/test', { credentials })
+      return await response.json()
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: data.success ? "Успешно" : "Ошибка",
+        description: data.message,
+        variant: data.success ? "default" : "destructive",
+      })
+    },
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: SmsRuFormData) => {
+      const response = await apiRequest('PUT', '/api/integration-credentials/smsru', {
+        credentials: data,
+        isActive: true,
+      })
+      return await response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/integration-credentials/smsru'] })
+      toast({
+        title: "Настройки сохранены",
+        description: "Интеграция SMS.RU настроена успешно",
+      })
+      setIsOpen(false)
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось сохранить настройки",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const handleTest = () => {
+    const values = form.getValues()
+    testMutation.mutate(values)
+  }
+
+  const onSubmit = (data: SmsRuFormData) => {
+    saveMutation.mutate(data)
+  }
+
+  return (
+    <Card data-testid="card-integration-smsru">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              SMS.RU
+              {integration?.isActive ? (
+                <Badge variant="default" className="bg-green-600">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Активна
+                </Badge>
+              ) : (
+                <Badge variant="secondary">
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Не настроена
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>Отправка SMS через SMS.RU API</CardDescription>
+          </div>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" data-testid="button-configure-smsru">
+                <Settings className="h-4 w-4 mr-2" />
+                Настроить
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Настройка интеграции SMS.RU</DialogTitle>
+                <DialogDescription>
+                  Введите API ключ для отправки SMS через SMS.RU
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="apiKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API ключ</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              type={showApiKey ? "text" : "password"}
+                              placeholder="Введите API ключ SMS.RU"
+                              data-testid="input-smsru-apikey"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowApiKey(!showApiKey)}
+                            >
+                              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleTest}
+                      disabled={testMutation.isPending || !form.watch('apiKey')}
+                      data-testid="button-test-smsru"
+                    >
+                      {testMutation.isPending ? "Проверка..." : "Тест соединения"}
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={saveMutation.isPending}
+                      data-testid="button-save-smsru"
+                    >
+                      {saveMutation.isPending ? "Сохранение..." : "Сохранить"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      {integration?.isActive && (
+        <CardContent>
+          <div className="text-sm text-muted-foreground">
+            <p>API ключ настроен</p>
+            <p className="text-xs mt-1">Последнее обновление: {new Date(integration.updatedAt).toLocaleString('ru-RU')}</p>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  )
+}
 
 function MoySkladIntegrationCard() {
   const [isOpen, setIsOpen] = useState(false)
@@ -756,6 +937,7 @@ export default function IntegrationsSettings() {
         <MoySkladIntegrationCard />
         <YooKassaIntegrationCard />
         <GalenIntegrationCard />
+        <SmsRuIntegrationCard />
       </div>
 
       <Card>

@@ -4313,6 +4313,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: true, 
           message: "YooKassa credentials format valid" 
         });
+      } else if (provider === 'smsru') {
+        const { testConnection } = await import('./integrations/smsRu.js');
+        const result = await testConnection(credentials);
+        res.json(result);
       } else {
         return res.status(400).json({ error: "Unknown provider" });
       }

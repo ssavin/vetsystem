@@ -62,7 +62,7 @@ import {
   Users,
   FileText
 } from "lucide-react"
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -123,6 +123,13 @@ export default function Settings() {
   
   const { toast } = useToast()
   const userQueryClient = useQueryClient()
+  
+  // Ref for scrolling to integrations section
+  const integrationsRef = useRef<HTMLDivElement>(null)
+  
+  const scrollToIntegrations = () => {
+    integrationsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
   
   const [notifications, setNotifications] = useState({
     email: true,
@@ -2340,7 +2347,7 @@ export default function Settings() {
               <Mail className="h-5 w-5" />
               <span>Настройки email</span>
             </Button>
-            <Button variant="outline" className="h-16 flex-col gap-2" data-testid="button-sms-config">
+            <Button variant="outline" className="h-16 flex-col gap-2" onClick={scrollToIntegrations} data-testid="button-sms-config">
               <Phone className="h-5 w-5" />
               <span>Настройки SMS</span>
             </Button>
@@ -2349,7 +2356,9 @@ export default function Settings() {
       </Card>
 
       {/* Integrations Management */}
-      <IntegrationsSettings />
+      <div ref={integrationsRef}>
+        <IntegrationsSettings />
+      </div>
 
           {/* Save Button */}
           <div className="flex justify-end">
