@@ -69,7 +69,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
-import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch, SystemSetting, insertSystemSettingSchema, updateSystemSettingSchema, LegalEntity } from "@shared/schema"
+import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch, SystemSetting, insertSystemSettingSchema, updateSystemSettingSchema, LegalEntity, insertLegalEntitySchema, InsertLegalEntity } from "@shared/schema"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
 import IntegrationsSettings from "@/components/IntegrationsSettings"
@@ -116,6 +116,10 @@ export default function Settings() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null)
+  
+  // Legal entities state
+  const [isCreateLegalEntityDialogOpen, setIsCreateLegalEntityDialogOpen] = useState(false)
+  const [editingLegalEntity, setEditingLegalEntity] = useState<LegalEntity | null>(null)
   
   // User management state
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false)
@@ -179,6 +183,11 @@ export default function Settings() {
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/users'],
+  })
+
+  // Fetch legal entities
+  const { data: legalEntities = [], isLoading: legalEntitiesLoading } = useQuery<LegalEntity[]>({
+    queryKey: ['/api/legal-entities'],
   })
 
   // Fetch system settings for fiscal receipts
