@@ -2101,13 +2101,574 @@ export default function Settings() {
         <TabsContent value="legal-entities">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Юридические лица
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Управление юридическими лицами
+                </CardTitle>
+                <Dialog 
+                  open={isCreateLegalEntityDialogOpen || !!editingLegalEntity} 
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setIsCreateLegalEntityDialogOpen(false)
+                      setEditingLegalEntity(null)
+                      legalEntityForm.reset()
+                    }
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button onClick={() => setIsCreateLegalEntityDialogOpen(true)} data-testid="button-add-legal-entity">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Добавить юр. лицо
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto" data-testid="dialog-legal-entity-form">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center">
+                        <Building2 className="h-5 w-5 mr-2 text-primary" />
+                        {editingLegalEntity ? 'Редактировать юридическое лицо' : 'Новое юридическое лицо'}
+                      </DialogTitle>
+                      <DialogDescription>
+                        {editingLegalEntity ? 'Изменение информации о юридическом лице' : 'Добавление нового юридического лица'}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Form {...legalEntityForm}>
+                      <form onSubmit={legalEntityForm.handleSubmit((data) => {
+                        if (editingLegalEntity) {
+                          updateLegalEntityMutation.mutate({ id: editingLegalEntity.id, data })
+                        } else {
+                          createLegalEntityMutation.mutate(data)
+                        }
+                      })} className="space-y-4">
+                        {/* Основные реквизиты */}
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Основные реквизиты</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="legalName"
+                              render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                  <FormLabel>Полное наименование *</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="ООО 'Ветеринарная клиника'" 
+                                      {...field}
+                                      data-testid="input-legal-name"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="shortName"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Сокращенное наименование</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="ООО 'ВетКлиника'" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      data-testid="input-short-name"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="inn"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>ИНН *</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="7707083893" 
+                                      {...field}
+                                      maxLength={12}
+                                      data-testid="input-inn"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="kpp"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>КПП</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="770701001" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      maxLength={9}
+                                      data-testid="input-kpp"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="ogrn"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>ОГРН/ОГРНИП *</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="1027700132195" 
+                                      {...field}
+                                      maxLength={15}
+                                      data-testid="input-ogrn"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Адреса */}
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Адреса</h4>
+                          <div className="space-y-4">
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="legalAddress"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Юридический адрес *</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="г. Москва, ул. Примерная, д. 1" 
+                                      {...field}
+                                      data-testid="input-legal-address"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="actualAddress"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Фактический адрес</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="Если отличается от юридического" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      data-testid="input-actual-address"
+                                    />
+                                  </FormControl>
+                                  <FormDescription>Оставьте пустым, если совпадает с юридическим</FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Контакты */}
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Контактная информация</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="phone"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Телефон</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="+7 (495) 123-45-67" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      data-testid="input-phone"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="email"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Email</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="email"
+                                      placeholder="info@company.ru" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      data-testid="input-email"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="website"
+                              render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                  <FormLabel>Веб-сайт</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="https://example.com" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      data-testid="input-website"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Банковские реквизиты */}
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Банковские реквизиты</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="bankName"
+                              render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                  <FormLabel>Наименование банка</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="ПАО Сбербанк" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      data-testid="input-bank-name"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="bik"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>БИК</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="044525225" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      maxLength={9}
+                                      data-testid="input-bik"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="correspondentAccount"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Корр. счет</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="30101810400000000225" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      maxLength={20}
+                                      data-testid="input-correspondent-account"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="paymentAccount"
+                              render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                  <FormLabel>Расчетный счет</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="40702810000000000000" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      maxLength={20}
+                                      data-testid="input-payment-account"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Руководство */}
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Руководство и бухгалтерия</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="directorName"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>ФИО руководителя</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="Иванов Иван Иванович" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      data-testid="input-director-name"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="directorPosition"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Должность руководителя</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="Генеральный директор" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      data-testid="input-director-position"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={legalEntityForm.control}
+                              name="accountantName"
+                              render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                  <FormLabel>ФИО главного бухгалтера</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="Петрова Мария Сергеевна" 
+                                      {...field}
+                                      value={field.value || ""}
+                                      data-testid="input-accountant-name"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end space-x-2 pt-4">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => {
+                              setIsCreateLegalEntityDialogOpen(false)
+                              setEditingLegalEntity(null)
+                              legalEntityForm.reset()
+                            }}
+                            data-testid="button-cancel-legal-entity"
+                          >
+                            Отмена
+                          </Button>
+                          <Button 
+                            type="submit" 
+                            disabled={createLegalEntityMutation.isPending || updateLegalEntityMutation.isPending}
+                            data-testid="button-save-legal-entity"
+                          >
+                            {createLegalEntityMutation.isPending || updateLegalEntityMutation.isPending 
+                              ? "Сохранение..." 
+                              : editingLegalEntity ? "Обновить" : "Создать"
+                            }
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Управление юридическими лицами здесь...</p>
+            <CardContent className="space-y-4">
+              {/* Statistics */}
+              {!legalEntitiesLoading && legalEntities.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary">
+                      {legalEntities.length}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Всего</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {legalEntities.length}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Активных</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-muted-foreground">
+                      0
+                    </div>
+                    <div className="text-sm text-muted-foreground">Неактивных</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Legal Entities Table */}
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Наименование</TableHead>
+                      <TableHead>ИНН</TableHead>
+                      <TableHead>ОГРН</TableHead>
+                      <TableHead>Юридический адрес</TableHead>
+                      <TableHead className="text-right">Действия</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {legalEntitiesLoading ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="animate-pulse">
+                            <div className="h-4 bg-muted rounded w-3/4"></div>
+                          </TableCell>
+                          <TableCell className="animate-pulse">
+                            <div className="h-4 bg-muted rounded w-1/2"></div>
+                          </TableCell>
+                          <TableCell className="animate-pulse">
+                            <div className="h-4 bg-muted rounded w-2/3"></div>
+                          </TableCell>
+                          <TableCell className="animate-pulse">
+                            <div className="h-4 bg-muted rounded"></div>
+                          </TableCell>
+                          <TableCell className="animate-pulse text-right">
+                            <div className="h-8 bg-muted rounded w-16 ml-auto"></div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : legalEntities.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">
+                          <Building2 className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                          <div className="text-sm text-muted-foreground">
+                            Нет созданных юридических лиц
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      legalEntities.map((entity) => (
+                        <TableRow key={entity.id} data-testid={`row-legal-entity-${entity.id}`}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium" data-testid={`text-legal-name-${entity.id}`}>
+                                {entity.shortName || entity.legalName}
+                              </div>
+                              {entity.shortName && (
+                                <div className="text-sm text-muted-foreground">
+                                  {entity.legalName}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell data-testid={`text-inn-${entity.id}`}>
+                            {entity.inn}
+                          </TableCell>
+                          <TableCell data-testid={`text-ogrn-${entity.id}`}>
+                            {entity.ogrn}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate" data-testid={`text-address-${entity.id}`}>
+                            {entity.legalAddress}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setEditingLegalEntity(entity)
+                                  legalEntityForm.reset({
+                                    legalName: entity.legalName,
+                                    shortName: entity.shortName || "",
+                                    inn: entity.inn,
+                                    kpp: entity.kpp || "",
+                                    ogrn: entity.ogrn,
+                                    legalAddress: entity.legalAddress,
+                                    actualAddress: entity.actualAddress || "",
+                                    phone: entity.phone || "",
+                                    email: entity.email || "",
+                                    website: entity.website || "",
+                                    bankName: entity.bankName || "",
+                                    bik: entity.bik || "",
+                                    correspondentAccount: entity.correspondentAccount || "",
+                                    paymentAccount: entity.paymentAccount || "",
+                                    directorName: entity.directorName || "",
+                                    directorPosition: entity.directorPosition || "Генеральный директор",
+                                    accountantName: entity.accountantName || "",
+                                  })
+                                }}
+                                data-testid={`button-edit-legal-entity-${entity.id}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (confirm(`Удалить юридическое лицо "${entity.shortName || entity.legalName}"?`)) {
+                                    deleteLegalEntityMutation.mutate(entity.id)
+                                  }
+                                }}
+                                data-testid={`button-delete-legal-entity-${entity.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
