@@ -117,6 +117,16 @@ type LegalEntityFormData = z.infer<typeof legalEntityFormSchema>
 type UserFormValues = z.infer<typeof insertUserSchema>
 type UpdateUserFormValues = z.infer<typeof updateUserSchema>
 
+interface OneCConfig {
+  data: {
+    baseUrl: string
+    username: string
+    password: string
+    organizationKey: string
+    cashRegisterKey: string
+  }
+}
+
 export default function Settings() {
   const { user } = useAuth()
   const isSuperAdmin = user?.role === 'superadmin'
@@ -422,7 +432,7 @@ export default function Settings() {
   });
 
   // Загрузка конфигурации 1С
-  const { data: onecConfig1C, isLoading: onecConfigLoading } = useQuery({
+  const { data: onecConfig1C, isLoading: onecConfigLoading } = useQuery<OneCConfig>({
     queryKey: ['/api/onec/config'],
     enabled: true,
   });

@@ -88,6 +88,21 @@ type SmsRuFormData = z.infer<typeof smsruSchema>
 type EmailFormData = z.infer<typeof emailSchema>
 type OneCFormData = z.infer<typeof onecSchema>
 
+interface OneCConfig {
+  data: {
+    baseUrl: string
+    username: string
+    password: string
+    organizationKey: string
+    cashRegisterKey: string
+  }
+}
+
+interface OneCStats {
+  products: number
+  services: number
+}
+
 function SmsRuIntegrationCard() {
   const [isOpen, setIsOpen] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
@@ -947,11 +962,11 @@ function OneCIntegrationCard() {
   const [showPassword, setShowPassword] = useState(false)
   const { toast } = useToast()
 
-  const { data: config, isLoading: configLoading } = useQuery({
+  const { data: config, isLoading: configLoading } = useQuery<OneCConfig>({
     queryKey: ['/api/onec/config'],
   })
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<OneCStats>({
     queryKey: ['/api/onec/stats'],
     refetchInterval: 30000,
   })
