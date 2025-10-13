@@ -64,10 +64,20 @@ const smsruSchema = z.object({
   apiKey: z.string().min(1, "API ключ обязателен"),
 })
 
+const emailSchema = z.object({
+  smtpHost: z.string().min(1, "SMTP хост обязателен"),
+  smtpPort: z.string().min(1, "SMTP порт обязателен"),
+  smtpUsername: z.string().min(1, "Имя пользователя обязательно"),
+  smtpPassword: z.string().min(1, "Пароль обязателен"),
+  fromEmail: z.string().email("Неверный формат email"),
+  fromName: z.string().optional(),
+})
+
 type MoySkladFormData = z.infer<typeof moyskladSchema>
 type YooKassaFormData = z.infer<typeof yookassaSchema>
 type GalenFormData = z.infer<typeof galenSchema>
 type SmsRuFormData = z.infer<typeof smsruSchema>
+type EmailFormData = z.infer<typeof emailSchema>
 
 function SmsRuIntegrationCard() {
   const [isOpen, setIsOpen] = useState(false)
@@ -923,6 +933,269 @@ function YooKassaIntegrationCard() {
   )
 }
 
+function EmailIntegrationCard() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const { toast } = useToast()
+
+  const { data: integration, isLoading } = useQuery<IntegrationCredential>({
+    queryKey: ['/api/integration-credentials/email'],
+  })
+
+  const form = useForm<EmailFormData>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: {
+      smtpHost: integration?.credentials?.smtpHost || "",
+      smtpPort: integration?.credentials?.smtpPort || "587",
+      smtpUsername: integration?.credentials?.smtpUsername || "",
+      smtpPassword: integration?.credentials?.smtpPassword || "",
+      fromEmail: integration?.credentials?.fromEmail || "",
+      fromName: integration?.credentials?.fromName || "",
+    }
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: EmailFormData) => {
+      return apiRequest('PUT', '/api/integration-credentials/email', {
+        credentials: data,
+        isEnabled: true
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/integration-credentials/email'] })
+      toast({
+        title: "Настройки сохранены",
+        description: "Email интеграция успешно настроена",
+      })
+      setIsOpen(false)
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка сохранения",
+        description: error.message || "Не удалось сохранить настройки",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const testConnectionMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/integration-credentials/email/test')
+    },
+    onSuccess: () => {
+      toast({
+        title: "Подключение успешно",
+        description: "Email сервер доступен",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка подключения",
+        description: error.message || "Не удалось подключиться к Email серверу",
+        variant: "destructive",
+      })
+    }
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              Email (SMTP)
+              {integration?.isEnabled ? (
+                <Badge variant="default" className="bg-green-600">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Активна
+                </Badge>
+              ) : (
+                <Badge variant="secondary">
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Не настроена
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Настройка SMTP сервера для отправки email уведомлений
+            </CardDescription>
+          </div>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" data-testid="button-configure-email">
+                <Settings className="h-4 w-4 mr-2" />
+                Настроить
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Настройка Email (SMTP)</DialogTitle>
+                <DialogDescription>
+                  Введите параметры подключения к вашему SMTP серверу
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="smtpHost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMTP Хост</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="smtp.example.com"
+                            data-testid="input-smtp-host"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="smtpPort"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMTP Порт</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="587"
+                            data-testid="input-smtp-port"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="smtpUsername"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Имя пользователя</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="user@example.com"
+                            data-testid="input-smtp-username"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="smtpPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Пароль</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Введите пароль"
+                              data-testid="input-smtp-password"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fromEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email отправителя</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="email"
+                            placeholder="noreply@example.com"
+                            data-testid="input-from-email"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fromName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Имя отправителя (необязательно)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Ветеринарная клиника"
+                            data-testid="input-from-name"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => testConnectionMutation.mutate()}
+                      disabled={testConnectionMutation.isPending}
+                      className="flex-1"
+                      data-testid="button-test-email"
+                    >
+                      {testConnectionMutation.isPending ? "Проверка..." : "Тест соединения"}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={saveMutation.isPending}
+                      className="flex-1"
+                      data-testid="button-save-email"
+                    >
+                      {saveMutation.isPending ? "Сохранение..." : "Сохранить"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      {integration?.isEnabled && (
+        <CardContent>
+          <div className="text-sm text-muted-foreground">
+            <p>SMTP: {integration.credentials.smtpHost}:{integration.credentials.smtpPort}</p>
+            <p>От: {integration.credentials.fromEmail}</p>
+            <p className="text-xs mt-1">Последнее обновление: {new Date(integration.updatedAt).toLocaleString('ru-RU')}</p>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
 export default function IntegrationsSettings() {
   return (
     <div className="space-y-6">
@@ -938,6 +1211,7 @@ export default function IntegrationsSettings() {
         <YooKassaIntegrationCard />
         <GalenIntegrationCard />
         <SmsRuIntegrationCard />
+        <EmailIntegrationCard />
       </div>
 
       <Card>
