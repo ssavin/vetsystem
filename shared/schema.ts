@@ -73,6 +73,10 @@ export const GALEN_SYNC_STATUS = ['not_synced', 'sync_in_progress', 'synced', 'e
 export const QUEUE_STATUS = ['waiting', 'called', 'in_progress', 'completed', 'cancelled', 'no_show'] as const;
 export const QUEUE_PRIORITY = ['normal', 'urgent', 'emergency'] as const;
 
+// Chat/Conversations enums
+export const CONVERSATION_STATUS = ['open', 'closed_by_client', 'closed_by_staff'] as const;
+export const MESSAGE_SENDER_TYPE = ['client', 'staff'] as const;
+
 // ========================================
 // MULTI-TENANT ARCHITECTURE
 // ========================================
@@ -2660,6 +2664,40 @@ export const attachments = pgTable('attachments', {
   entityTypeCheck: check('attachments_entity_type_check', sql`${table.entityType} IN ('lab_analysis', 'clinical_encounter', 'clinical_case')`)
 }));
 
+// Чаты/Диалоги (Conversations) - переписка клиента с клиникой
+export const conversations = pgTable('conversations', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  ownerId: varchar('owner_id').references(() => owners.id).notNull(),
+  subject: varchar('subject', { length: 500 }).notNull(), // Тема диалога
+  status: varchar('status', { length: 30 }).default('open').notNull(), // open, closed_by_client, closed_by_staff
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('conversations_tenant_idx').on(table.tenantId),
+  ownerIdIdx: index('conversations_owner_idx').on(table.ownerId),
+  statusIdx: index('conversations_status_idx').on(table.status),
+  updatedAtIdx: index('conversations_updated_at_idx').on(table.updatedAt),
+  statusCheck: check('conversations_status_check', sql`${table.status} IN ('open', 'closed_by_client', 'closed_by_staff')`)
+}));
+
+// Сообщения в чате (Messages) - отдельные сообщения в рамках диалога
+export const messages = pgTable('messages', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar('conversation_id').references(() => conversations.id).notNull(),
+  senderId: varchar('sender_id').notNull(), // ID отправителя (owner_id или user_id)
+  senderType: varchar('sender_type', { length: 20 }).notNull(), // client, staff
+  messageText: text('message_text').notNull(),
+  isRead: boolean('is_read').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  conversationIdIdx: index('messages_conversation_idx').on(table.conversationId),
+  senderIdIdx: index('messages_sender_idx').on(table.senderId),
+  isReadIdx: index('messages_is_read_idx').on(table.isRead),
+  createdAtIdx: index('messages_created_at_idx').on(table.createdAt),
+  senderTypeCheck: check('messages_sender_type_check', sql`${table.senderType} IN ('client', 'staff')`)
+}));
+
 // === Схемы для валидации ===
 
 export const insertCashRegisterSchema = createInsertSchema(cashRegisters).omit({
@@ -2844,6 +2882,25 @@ export type InsertLabAnalysis = z.infer<typeof insertLabAnalysisSchema>;
 
 export type Attachment = typeof attachments.$inferSelect;
 export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
+
+// Conversations and Messages schemas and types
+export const insertConversationSchema = createInsertSchema(conversations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+});
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  createdAt: true
+});
+
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 // Document Templates schemas and types
 export const insertDocumentTemplateSchema = createInsertSchema(documentTemplates).omit({

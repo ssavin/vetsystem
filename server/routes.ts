@@ -7659,6 +7659,271 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mobile: Download file by ID (with ownership verification)
+  app.get('/api/mobile/files/:fileId', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const ownerId = req.user.id;
+      const { fileId } = req.params;
+
+      if (!fileId) {
+        return res.status(400).json({ error: 'File ID required' });
+      }
+
+      // Get attachment
+      const attachment = await storage.getAttachment(fileId);
+      if (!attachment) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      // Verify ownership based on entity type
+      let patientId: string | null = null;
+
+      if (attachment.entityType === 'clinical_encounter') {
+        const encounterData = await storage.getClinicalEncounter(attachment.entityId);
+        if (!encounterData || !encounterData.encounter) {
+          return res.status(404).json({ error: 'Associated encounter not found' });
+        }
+
+        const clinicalCase = await storage.getClinicalCase(encounterData.encounter.clinicalCaseId);
+        if (!clinicalCase || !clinicalCase.case) {
+          return res.status(404).json({ error: 'Associated case not found' });
+        }
+
+        patientId = clinicalCase.case.patientId;
+      } else if (attachment.entityType === 'lab_analysis') {
+        const labAnalysis = await storage.getLabAnalysis(attachment.entityId);
+        if (!labAnalysis || !labAnalysis.labAnalysis) {
+          return res.status(404).json({ error: 'Associated lab analysis not found' });
+        }
+
+        const encounterData = await storage.getClinicalEncounter(labAnalysis.labAnalysis.encounterId);
+        if (!encounterData || !encounterData.encounter) {
+          return res.status(404).json({ error: 'Associated encounter not found' });
+        }
+
+        const clinicalCase = await storage.getClinicalCase(encounterData.encounter.clinicalCaseId);
+        if (!clinicalCase || !clinicalCase.case) {
+          return res.status(404).json({ error: 'Associated case not found' });
+        }
+
+        patientId = clinicalCase.case.patientId;
+      } else if (attachment.entityType === 'clinical_case') {
+        const clinicalCase = await storage.getClinicalCase(attachment.entityId);
+        if (!clinicalCase || !clinicalCase.case) {
+          return res.status(404).json({ error: 'Associated case not found' });
+        }
+
+        patientId = clinicalCase.case.patientId;
+      } else {
+        // Unsupported entity type
+        return res.status(400).json({ error: 'Unsupported attachment type' });
+      }
+
+      // Verify owner has access to this patient
+      if (!patientId) {
+        return res.status(500).json({ error: 'Could not determine patient' });
+      }
+
+      const patientOwners = await storage.getPatientOwners(patientId);
+      const ownsPatient = patientOwners.some(po => po.ownerId === ownerId);
+
+      if (!ownsPatient) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Send file
+      res.download(attachment.filePath, attachment.fileName);
+    } catch (error: any) {
+      console.error('Error downloading file:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
+  // Mobile: Get owner's conversations (chat list)
+  app.get('/api/mobile/me/conversations', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const ownerId = req.user.id;
+
+      const conversations = await storage.getConversations(ownerId);
+
+      // Enrich with unread message count for each conversation
+      const enrichedConversations = await Promise.all(
+        conversations.map(async (conv) => {
+          const messages = await storage.getMessages(conv.id);
+          const unreadCount = messages.filter(m => !m.isRead && m.senderType === 'staff').length;
+          const lastMessage = messages[messages.length - 1];
+
+          return {
+            id: conv.id,
+            subject: conv.subject,
+            status: conv.status,
+            unreadCount,
+            lastMessage: lastMessage ? {
+              text: lastMessage.messageText,
+              senderType: lastMessage.senderType,
+              createdAt: lastMessage.createdAt
+            } : null,
+            createdAt: conv.createdAt,
+            updatedAt: conv.updatedAt
+          };
+        })
+      );
+
+      res.json({ conversations: enrichedConversations });
+    } catch (error: any) {
+      console.error('Error fetching conversations:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
+  // Mobile: Create new conversation (start chat)
+  app.post('/api/mobile/me/conversations', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const ownerId = req.user.id;
+      const { subject } = req.body;
+
+      if (!subject) {
+        return res.status(400).json({ error: 'Subject required' });
+      }
+
+      const conversation = await storage.createConversation({
+        ownerId,
+        subject,
+        status: 'open'
+      });
+
+      res.json({ conversation });
+    } catch (error: any) {
+      console.error('Error creating conversation:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
+  // Mobile: Get messages for a conversation
+  app.get('/api/mobile/conversations/:conversationId/messages', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const ownerId = req.user.id;
+      const { conversationId } = req.params;
+
+      if (!conversationId) {
+        return res.status(400).json({ error: 'Conversation ID required' });
+      }
+
+      // SECURITY: Verify conversation belongs to owner
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+
+      if (conversation.ownerId !== ownerId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const messages = await storage.getMessages(conversationId);
+
+      // Mark messages as read
+      await storage.markConversationMessagesAsRead(conversationId, ownerId);
+
+      res.json({ messages });
+    } catch (error: any) {
+      console.error('Error fetching messages:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
+  // Mobile: Send message in conversation
+  app.post('/api/mobile/conversations/:conversationId/messages', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const ownerId = req.user.id;
+      const { conversationId } = req.params;
+      const { messageText } = req.body;
+
+      if (!conversationId) {
+        return res.status(400).json({ error: 'Conversation ID required' });
+      }
+
+      if (!messageText || messageText.trim() === '') {
+        return res.status(400).json({ error: 'Message text required' });
+      }
+
+      // SECURITY: Verify conversation belongs to owner
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+
+      if (conversation.ownerId !== ownerId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const message = await storage.createMessage({
+        conversationId,
+        senderId: ownerId,
+        senderType: 'client',
+        messageText: messageText.trim(),
+        isRead: false
+      });
+
+      res.json({ message });
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
+  // Mobile: Get encounter attachments (medical files, lab results, x-rays)
+  app.get('/api/mobile/encounters/:encounterId/attachments', authenticateToken, mobileTenantMiddleware, async (req, res) => {
+    try {
+      const ownerId = req.user.id;
+      const { encounterId } = req.params;
+
+      if (!encounterId) {
+        return res.status(400).json({ error: 'Encounter ID required' });
+      }
+
+      // Get encounter
+      const encounterData = await storage.getClinicalEncounter(encounterId);
+      if (!encounterData || !encounterData.encounter) {
+        return res.status(404).json({ error: 'Encounter not found' });
+      }
+
+      // Get clinical case to find patient
+      const clinicalCase = await storage.getClinicalCase(encounterData.encounter.clinicalCaseId);
+      if (!clinicalCase || !clinicalCase.case) {
+        return res.status(404).json({ error: 'Clinical case not found' });
+      }
+
+      const patientId = clinicalCase.case.patientId;
+
+      // SECURITY: Verify ownership - check if owner owns this patient
+      const patientOwners = await storage.getPatientOwners(patientId);
+      const ownsPatient = patientOwners.some(po => po.ownerId === ownerId);
+
+      if (!ownsPatient) {
+        return res.status(403).json({ error: 'Access denied: You do not own this pet' });
+      }
+
+      // Get attachments for this encounter
+      const attachments = await storage.getAttachments(encounterId, 'clinical_encounter');
+
+      // Return attachment info with download URLs
+      const attachmentList = attachments.map(att => ({
+        id: att.id,
+        fileName: att.fileName,
+        mimeType: att.mimeType,
+        fileSize: att.fileSize,
+        createdAt: att.createdAt,
+        // Generate download URL (will be handled by separate endpoint with auth)
+        downloadUrl: `/api/mobile/files/${att.id}`
+      }));
+
+      res.json({ attachments: attachmentList });
+    } catch (error: any) {
+      console.error('Error fetching encounter attachments:', error);
+      res.status(500).json({ error: error.message || 'Server error' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

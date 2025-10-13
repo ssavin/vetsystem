@@ -44,6 +44,8 @@ import {
   type DocumentTemplate, type InsertDocumentTemplate,
   type SmsVerificationCode, type InsertSmsVerificationCode,
   type PushToken, type InsertPushToken,
+  type Conversation, type InsertConversation,
+  type Message, type InsertMessage,
   users, owners, patients, patientOwners, doctors, appointments, 
   queueEntries, queueCalls,
   medicalRecords, medications, services, products, 
@@ -56,7 +58,7 @@ import {
   integrationLogs, subscriptionPlans, clinicSubscriptions,
   subscriptionPayments, billingNotifications, tenants, legalEntities, integrationCredentials,
   clinicalCases, clinicalEncounters, labAnalyses, attachments, documentTemplates,
-  smsVerificationCodes, pushTokens
+  smsVerificationCodes, pushTokens, conversations, messages
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -639,6 +641,22 @@ export interface IStorage {
   getPushTokensByOwner(ownerId: string): Promise<PushToken[]>;
   deactivatePushToken(token: string): Promise<void>;
   getActivePushTokens(): Promise<PushToken[]>;
+
+  // === CONVERSATIONS & MESSAGES (CHAT) ===
+  
+  // Conversations methods - 🔒 SECURITY: tenantId-aware, owner isolation
+  getConversations(ownerId: string): Promise<Conversation[]>;
+  getConversation(id: string): Promise<Conversation | undefined>;
+  createConversation(conversation: InsertConversation): Promise<Conversation>;
+  updateConversation(id: string, updates: Partial<InsertConversation>): Promise<Conversation>;
+  closeConversation(id: string, closedBy: 'client' | 'staff'): Promise<Conversation>;
+  
+  // Messages methods - 🔒 SECURITY: conversation ownership verified
+  getMessages(conversationId: string): Promise<Message[]>;
+  getMessage(id: string): Promise<Message | undefined>;
+  createMessage(message: InsertMessage): Promise<Message>;
+  markMessageAsRead(id: string): Promise<Message>;
+  markConversationMessagesAsRead(conversationId: string, readerId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5716,6 +5734,147 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(pushTokens)
         .where(eq(pushTokens.isActive, true));
+    });
+  }
+
+  // ========================================
+  // CONVERSATIONS & MESSAGES (CHAT)
+  // ========================================
+
+  async getConversations(ownerId: string): Promise<Conversation[]> {
+    return withPerformanceLogging('getConversations', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(conversations)
+          .where(eq(conversations.ownerId, ownerId))
+          .orderBy(desc(conversations.updatedAt));
+      });
+    });
+  }
+
+  async getConversation(id: string): Promise<Conversation | undefined> {
+    return withPerformanceLogging('getConversation', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [conversation] = await dbInstance
+          .select()
+          .from(conversations)
+          .where(eq(conversations.id, id));
+        return conversation;
+      });
+    });
+  }
+
+  async createConversation(conversation: InsertConversation): Promise<Conversation> {
+    return withPerformanceLogging('createConversation', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newConversation] = await dbInstance
+          .insert(conversations)
+          .values(conversation)
+          .returning();
+        return newConversation;
+      });
+    });
+  }
+
+  async updateConversation(id: string, updates: Partial<InsertConversation>): Promise<Conversation> {
+    return withPerformanceLogging('updateConversation', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updatedConversation] = await dbInstance
+          .update(conversations)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(conversations.id, id))
+          .returning();
+        return updatedConversation;
+      });
+    });
+  }
+
+  async closeConversation(id: string, closedBy: 'client' | 'staff'): Promise<Conversation> {
+    return withPerformanceLogging('closeConversation', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const status = closedBy === 'client' ? 'closed_by_client' : 'closed_by_staff';
+        const [closedConversation] = await dbInstance
+          .update(conversations)
+          .set({ status, updatedAt: new Date() })
+          .where(eq(conversations.id, id))
+          .returning();
+        return closedConversation;
+      });
+    });
+  }
+
+  async getMessages(conversationId: string): Promise<Message[]> {
+    return withPerformanceLogging('getMessages', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(messages)
+          .where(eq(messages.conversationId, conversationId))
+          .orderBy(messages.createdAt);
+      });
+    });
+  }
+
+  async getMessage(id: string): Promise<Message | undefined> {
+    return withPerformanceLogging('getMessage', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [message] = await dbInstance
+          .select()
+          .from(messages)
+          .where(eq(messages.id, id));
+        return message;
+      });
+    });
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    return withPerformanceLogging('createMessage', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newMessage] = await dbInstance
+          .insert(messages)
+          .values(message)
+          .returning();
+        
+        // Update conversation's updatedAt timestamp
+        await dbInstance
+          .update(conversations)
+          .set({ updatedAt: new Date() })
+          .where(eq(conversations.id, message.conversationId));
+        
+        return newMessage;
+      });
+    });
+  }
+
+  async markMessageAsRead(id: string): Promise<Message> {
+    return withPerformanceLogging('markMessageAsRead', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [readMessage] = await dbInstance
+          .update(messages)
+          .set({ isRead: true })
+          .where(eq(messages.id, id))
+          .returning();
+        return readMessage;
+      });
+    });
+  }
+
+  async markConversationMessagesAsRead(conversationId: string, readerId: string): Promise<void> {
+    return withPerformanceLogging('markConversationMessagesAsRead', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Mark all messages not sent by the reader as read
+        await dbInstance
+          .update(messages)
+          .set({ isRead: true })
+          .where(
+            and(
+              eq(messages.conversationId, conversationId),
+              ne(messages.senderId, readerId),
+              eq(messages.isRead, false)
+            )
+          );
+      });
     });
   }
 }
