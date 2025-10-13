@@ -1274,6 +1274,99 @@ export default function Settings() {
         <IntegrationsSettings />
       </div>
 
+      {/* Notifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Уведомления
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Email уведомления</Label>
+                <p className="text-sm text-muted-foreground">
+                  Получать уведомления на электронную почту
+                </p>
+              </div>
+              <Switch
+                checked={notifications.email}
+                onCheckedChange={(checked) => 
+                  setNotifications(prev => ({ ...prev, email: checked }))
+                }
+                data-testid="switch-email-notifications"
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>SMS уведомления</Label>
+                <p className="text-sm text-muted-foreground">
+                  Отправлять SMS клиентам
+                </p>
+              </div>
+              <Switch
+                checked={notifications.sms}
+                onCheckedChange={(checked) => 
+                  setNotifications(prev => ({ ...prev, sms: checked }))
+                }
+                data-testid="switch-sms-notifications"
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Напоминания о записях</Label>
+                <p className="text-sm text-muted-foreground">
+                  Автоматические напоминания клиентам
+                </p>
+              </div>
+              <Switch
+                checked={notifications.appointments}
+                onCheckedChange={(checked) => 
+                  setNotifications(prev => ({ ...prev, appointments: checked }))
+                }
+                data-testid="switch-appointment-notifications"
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Низкие остатки на складе</Label>
+                <p className="text-sm text-muted-foreground">
+                  Уведомления о товарах с низким остатком
+                </p>
+              </div>
+              <Switch
+                checked={notifications.lowStock}
+                onCheckedChange={(checked) => 
+                  setNotifications(prev => ({ ...prev, lowStock: checked }))
+                }
+                data-testid="switch-low-stock-notifications"
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Просроченные платежи</Label>
+                <p className="text-sm text-muted-foreground">
+                  Уведомления о просроченных счетах
+                </p>
+              </div>
+              <Switch
+                checked={notifications.overduePayments}
+                onCheckedChange={(checked) => 
+                  setNotifications(prev => ({ ...prev, overduePayments: checked }))
+                }
+                data-testid="switch-overdue-notifications"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
           {/* Save Button */}
           <div className="flex justify-end">
             <Button onClick={saveSettings} data-testid="button-save-settings">
@@ -1655,15 +1748,17 @@ export default function Settings() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
 
-      {/* User Management */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Управление пользователями
-            </CardTitle>
+        {/* Staff Tab */}
+        <TabsContent value="staff">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Управление сотрудниками
+                </CardTitle>
             <Dialog 
               open={isCreateUserDialogOpen || !!editingUser} 
               onOpenChange={(open) => {
@@ -2004,681 +2099,21 @@ export default function Settings() {
           )}
         </CardContent>
       </Card>
-
-      {/* Notifications */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Уведомления
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Email уведомления</Label>
-                <p className="text-sm text-muted-foreground">
-                  Получать уведомления на электронную почту
-                </p>
-              </div>
-              <Switch
-                checked={notifications.email}
-                onCheckedChange={(checked) => 
-                  setNotifications(prev => ({ ...prev, email: checked }))
-                }
-                data-testid="switch-email-notifications"
-              />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>SMS уведомления</Label>
-                <p className="text-sm text-muted-foreground">
-                  Отправлять SMS клиентам
-                </p>
-              </div>
-              <Switch
-                checked={notifications.sms}
-                onCheckedChange={(checked) => 
-                  setNotifications(prev => ({ ...prev, sms: checked }))
-                }
-                data-testid="switch-sms-notifications"
-              />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Напоминания о записях</Label>
-                <p className="text-sm text-muted-foreground">
-                  Автоматические напоминания клиентам
-                </p>
-              </div>
-              <Switch
-                checked={notifications.appointments}
-                onCheckedChange={(checked) => 
-                  setNotifications(prev => ({ ...prev, appointments: checked }))
-                }
-                data-testid="switch-appointment-notifications"
-              />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Низкие остатки на складе</Label>
-                <p className="text-sm text-muted-foreground">
-                  Уведомления о товарах с низким остатком
-                </p>
-              </div>
-              <Switch
-                checked={notifications.lowStock}
-                onCheckedChange={(checked) => 
-                  setNotifications(prev => ({ ...prev, lowStock: checked }))
-                }
-                data-testid="switch-low-stock-notifications"
-              />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Просроченные платежи</Label>
-                <p className="text-sm text-muted-foreground">
-                  Уведомления о просроченных счетах
-                </p>
-              </div>
-              <Switch
-                checked={notifications.overduePayments}
-                onCheckedChange={(checked) => 
-                  setNotifications(prev => ({ ...prev, overduePayments: checked }))
-                }
-                data-testid="switch-overdue-notifications"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Fiscal Receipt Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Printer className="h-5 w-5" />
-            Фискальные чеки
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fiscalReceiptSystem">Система печати фискальных чеков</Label>
-              <p className="text-sm text-muted-foreground">
-                Выберите систему для печати фискальных чеков в соответствии с требованиями 54-ФЗ
-              </p>
-              <Select 
-                value={fiscalReceiptSystem} 
-                onValueChange={(value) => {
-                  setFiscalReceiptSystem(value)
-                  updateSystemSettingMutation.mutate({ key: 'fiscal_receipt_system', value })
-                }}
-                disabled={systemSettingsLoading || updateSystemSettingMutation.isPending}
-              >
-                <SelectTrigger data-testid="select-fiscal-system">
-                  <SelectValue placeholder="Выберите систему печати" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="yookassa">YooKassa (ЮKassa)</SelectItem>
-                  <SelectItem value="moysklad">Мой склад</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* System status and description */}
-            <div className="rounded-lg border bg-muted/50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <Printer className="h-4 w-4 text-primary" />
-                </div>
-                <div className="space-y-1">
-                  <p className="font-medium text-sm">
-                    {fiscalReceiptSystem === 'yookassa' ? 'YooKassa (ЮKassa)' : 'Мой склад'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {fiscalReceiptSystem === 'yookassa' 
-                      ? 'Интегрированная система приема платежей и печати фискальных чеков от Сбербанка. Поддерживает автоматическую печать чеков для безналичных и наличных платежей.'
-                      : 'Система управления торговлей и печати фискальных чеков. Обеспечивает полное соответствие требованиям 54-ФЗ с возможностью интеграции с кассовым оборудованием.'
-                    }
-                  </p>
-                  {updateSystemSettingMutation.isPending && (
-                    <p className="text-xs text-orange-600">Сохранение настроек...</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Current configuration status */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-              <div className="text-center">
-                <div className="text-lg font-semibold text-primary">
-                  {fiscalReceiptSystem === 'yookassa' ? 'ЮKassa' : 'МойСклад'}
-                </div>
-                <div className="text-xs text-muted-foreground">Текущая система</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-semibold text-green-600">54-ФЗ</div>
-                <div className="text-xs text-muted-foreground">Соответствие</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-semibold text-blue-600">
-                  {systemSettingsLoading ? '...' : 'Активно'}
-                </div>
-                <div className="text-xs text-muted-foreground">Статус</div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* МойСклад Nomenclature Synchronization */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Синхронизация номенклатуры с МойСклад
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Синхронизируйте товары и услуги из VetSystem с прейскурантом МойСклад для корректной работы фискальных чеков
-              </p>
-            </div>
-
-            {/* Current status */}
-            <div className="rounded-lg border bg-muted/50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <Database className="h-4 w-4 text-primary" />
-                </div>
-                <div className="space-y-2 flex-1">
-                  <p className="font-medium text-sm">Статус синхронизации</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-blue-600">
-                        {syncStatusLoading ? '...' : ((syncStatus as any)?.localData?.products || 0)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Товары</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-green-600">
-                        {syncStatusLoading ? '...' : ((syncStatus as any)?.localData?.services || 0)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Услуги</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-primary">
-                        {syncStatusLoading ? '...' : ((syncStatus as any)?.localData?.total || 0)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Всего позиций</div>
-                    </div>
-                  </div>
-                  {(syncStatus as any)?.lastSync && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Последняя синхронизация: {format(new Date((syncStatus as any).lastSync), 'dd.MM.yyyy HH:mm', { locale: ru })}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                onClick={() => testConnectionMutation.mutate()}
-                disabled={testConnectionMutation.isPending}
-                variant="outline"
-                className="flex-1"
-                data-testid="button-test-moysklad-connection"
-              >
-                {testConnectionMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
-                    Проверка...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Проверить подключение
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={() => syncNomenclatureMutation.mutate()}
-                disabled={syncNomenclatureMutation.isPending || ((syncStatus as any)?.localData?.total || 0) === 0}
-                className="flex-1"
-                data-testid="button-sync-nomenclature"
-              >
-                {syncNomenclatureMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
-                    Синхронизация...
-                  </>
-                ) : (
-                  <>
-                    <Database className="h-4 w-4 mr-2" />
-                    Синхронизировать номенклатуру
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {((syncStatus as any)?.localData?.total || 0) === 0 && (
-              <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm text-orange-800">
-                      Нет данных для синхронизации
-                    </p>
-                    <p className="text-sm text-orange-700 mt-1">
-                      Добавьте товары и услуги в системе перед синхронизацией с МойСклад
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Help information */}
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-sm text-blue-800">
-                    Важная информация о синхронизации
-                  </p>
-                  <ul className="text-sm text-blue-700 mt-1 space-y-1">
-                    <li>• Перед печатью фискальных чеков необходимо синхронизировать номенклатуру</li>
-                    <li>• Товары и услуги будут добавлены в прейскурант МойСклад с ценами</li>
-                    <li>• Используется артикул из VetSystem для связи позиций</li>
-                    <li>• Настройки НДС: 20% (можно изменить в настройках МойСклад)</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 1С Розница Nomenclature Synchronization */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Синхронизация номенклатуры с 1С Розница
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Синхронизируйте товары и услуги из 1С Розница в VetSystem для ведения актуального прейскуранта
-              </p>
-            </div>
-
-            {/* Current status */}
-            <div className="rounded-lg border bg-muted/50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <Database className="h-4 w-4 text-primary" />
-                </div>
-                <div className="space-y-2 flex-1">
-                  <p className="font-medium text-sm">Статус синхронизации</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-blue-600">
-                        {onecStatsLoading ? '...' : (onecStats?.products?.length || 0)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Товары</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-green-600">
-                        {onecStatsLoading ? '...' : (onecStats?.services?.length || 0)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Услуги</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-primary">
-                        {onecStatsLoading ? '...' : ((onecStats?.products?.length || 0) + (onecStats?.services?.length || 0))}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Всего позиций</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className={`h-2 w-2 rounded-full ${onecStats?.connected ? 'bg-green-500' : 'bg-orange-500'}`} />
-                    <p className="text-xs text-muted-foreground">
-                      Статус подключения: {onecStats?.connected ? 'Подключено' : 'Требует настройки'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                onClick={() => testOnecConnectionMutation.mutate()}
-                disabled={testOnecConnectionMutation.isPending}
-                variant="outline"
-                className="flex-1"
-                data-testid="button-test-onec-connection"
-              >
-                {testOnecConnectionMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
-                    Проверка...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Проверить подключение
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={() => syncOnecProductsMutation.mutate()}
-                disabled={syncOnecProductsMutation.isPending}
-                variant="outline"
-                className="flex-1"
-                data-testid="button-sync-onec-products"
-              >
-                {syncOnecProductsMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
-                    Синхронизация...
-                  </>
-                ) : (
-                  <>
-                    <Database className="h-4 w-4 mr-2" />
-                    Синхронизировать товары
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={() => syncOnecServicesMutation.mutate()}
-                disabled={syncOnecServicesMutation.isPending}
-                className="flex-1"
-                data-testid="button-sync-onec-services"
-              >
-                {syncOnecServicesMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
-                    Синхронизация...
-                  </>
-                ) : (
-                  <>
-                    <Database className="h-4 w-4 mr-2" />
-                    Синхронизировать услуги
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Configuration section */}
-            <div className="rounded-lg border bg-card p-4">
-              <h4 className="font-medium text-sm mb-4">Параметры подключения к 1С Розница</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="onec-url">URL базы данных 1С</Label>
-                  <Input
-                    id="onec-url"
-                    type="url"
-                    placeholder="http://localhost:8080/trade/odata/standard.odata"
-                    value={onecConfig.baseUrl}
-                    onChange={(e) => setOnecConfig(prev => ({ ...prev, baseUrl: e.target.value }))}
-                    data-testid="input-onec-url"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    URL OData сервиса 1С Розница/Касса
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="onec-username">Имя пользователя</Label>
-                  <Input
-                    id="onec-username"
-                    type="text"
-                    placeholder="admin"
-                    value={onecConfig.username}
-                    onChange={(e) => setOnecConfig(prev => ({ ...prev, username: e.target.value }))}
-                    data-testid="input-onec-username"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="onec-password">Пароль</Label>
-                  <Input
-                    id="onec-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={onecConfig.password}
-                    onChange={(e) => setOnecConfig(prev => ({ ...prev, password: e.target.value }))}
-                    data-testid="input-onec-password"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="onec-org-key">Ключ организации</Label>
-                  <Input
-                    id="onec-org-key"
-                    type="text"
-                    placeholder="guid-организации"
-                    value={onecConfig.organizationKey}
-                    onChange={(e) => setOnecConfig(prev => ({ ...prev, organizationKey: e.target.value }))}
-                    data-testid="input-onec-org-key"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    GUID организации в 1С
-                  </p>
-                </div>
-                
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="onec-cash-key">Ключ кассы (необязательно)</Label>
-                  <Input
-                    id="onec-cash-key"
-                    type="text"
-                    placeholder="guid-кассы"
-                    value={onecConfig.cashRegisterKey}
-                    onChange={(e) => setOnecConfig(prev => ({ ...prev, cashRegisterKey: e.target.value }))}
-                    data-testid="input-onec-cash-key"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    GUID кассы для отправки чеков (если не указан, будет использована основная касса)
-                  </p>
-                </div>
-              </div>
-              
-              <Button
-                onClick={() => saveOnecConfigMutation.mutate(onecConfig)}
-                disabled={saveOnecConfigMutation.isPending || !onecConfig.baseUrl || !onecConfig.username || !onecConfig.password || !onecConfig.organizationKey}
-                className="mt-4"
-                data-testid="button-save-onec-config"
-              >
-                {saveOnecConfigMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
-                    Сохранение...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Сохранить настройки подключения
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Configuration notice */}
-            {!onecStats?.connected && (
-              <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm text-orange-800">
-                      Требуется настройка подключения
-                    </p>
-                    <p className="text-sm text-orange-700 mt-1">
-                      Заполните все обязательные поля выше и нажмите "Сохранить настройки подключения", затем проверьте подключение
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Help information */}
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-sm text-blue-800">
-                    Информация о синхронизации с 1С Розница
-                  </p>
-                  <ul className="text-sm text-blue-700 mt-1 space-y-1">
-                    <li>• Синхронизация импортирует товары и услуги из 1С Розница в VetSystem</li>
-                    <li>• Цены и остатки обновляются автоматически при каждой синхронизации</li>
-                    <li>• Используется OData API для интеграции с 1С Розница/Касса</li>
-                    <li>• Поддерживается отправка чеков обратно в 1С для фискализации</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* System Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Системные настройки
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Автоматическое резервное копирование</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Ежедневное создание резервных копий
-                  </p>
-                </div>
-                <Switch
-                  checked={systemSettings.autoBackup}
-                  onCheckedChange={(checked) => 
-                    setSystemSettings(prev => ({ ...prev, autoBackup: checked }))
-                  }
-                  data-testid="switch-auto-backup"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dataRetention">Хранение данных (дни)</Label>
-                <Input
-                  id="dataRetention"
-                  type="number"
-                  value={systemSettings.dataRetention}
-                  onChange={(e) => 
-                    setSystemSettings(prev => ({ 
-                      ...prev, 
-                      dataRetention: parseInt(e.target.value) || 365 
-                    }))
-                  }
-                  data-testid="input-data-retention"
-                />
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Двухфакторная аутентификация</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Дополнительная защита входа в систему
-                  </p>
-                </div>
-                <Switch
-                  checked={systemSettings.twoFactorAuth}
-                  onCheckedChange={(checked) => 
-                    setSystemSettings(prev => ({ ...prev, twoFactorAuth: checked }))
-                  }
-                  data-testid="switch-two-factor"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sessionTimeout">Тайм-аут сессии (минуты)</Label>
-                <Input
-                  id="sessionTimeout"
-                  type="number"
-                  value={systemSettings.sessionTimeout}
-                  onChange={(e) => 
-                    setSystemSettings(prev => ({ 
-                      ...prev, 
-                      sessionTimeout: parseInt(e.target.value) || 30 
-                    }))
-                  }
-                  data-testid="input-session-timeout"
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Быстрые действия</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button variant="outline" className="h-16 flex-col gap-2" data-testid="button-database-backup">
-              <Database className="h-5 w-5" />
-              <span>Резервная копия</span>
-            </Button>
-            <Button variant="outline" className="h-16 flex-col gap-2" data-testid="button-print-settings">
-              <Printer className="h-5 w-5" />
-              <span>Настройки печати</span>
-            </Button>
-            <Button variant="outline" className="h-16 flex-col gap-2" data-testid="button-email-config">
-              <Mail className="h-5 w-5" />
-              <span>Настройки email</span>
-            </Button>
-            <Button variant="outline" className="h-16 flex-col gap-2" onClick={scrollToIntegrations} data-testid="button-sms-config">
-              <Phone className="h-5 w-5" />
-              <span>Настройки SMS</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Integrations Management */}
-      <div ref={integrationsRef}>
-        <IntegrationsSettings />
-      </div>
-
-          {/* Save Button */}
-          <div className="flex justify-end">
-            <Button onClick={saveSettings} data-testid="button-save-settings">
-              <Save className="h-4 w-4 mr-2" />
-              Сохранить настройки
-            </Button>
-          </div>
         </TabsContent>
 
         {/* Legal Entities Tab */}
         <TabsContent value="legal-entities">
-          <LegalEntities />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                Юридические лица
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Управление юридическими лицами здесь...</p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Document Templates Tab */}

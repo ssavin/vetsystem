@@ -64,6 +64,16 @@ Preferred communication style: Simple, everyday language.
 -   **Responsiveness**: Mobile-first responsive design.
 -   **Theming**: Dark/light mode support.
 
+## Settings Page UI Structure
+-   **Tab-based Organization**: Settings page reorganized into dedicated tabs for better UX and maintainability.
+-   **Tabs**:
+    -   **General Settings** (general): Clinic information, theme settings, quick action buttons, integrations management, notifications (email/SMS/appointments/stock/payments), system-wide settings
+    -   **Branch Management** (branches): Complete CRUD operations for clinic branches with statistics (total, active, inactive)
+    -   **Staff Management** (staff): Complete CRUD operations for users/staff with role management and statistics
+    -   **Legal Entities** (legal-entities): Placeholder for future legal entity management
+    -   **Document Templates** (templates): Document template management with live preview
+-   **Benefits**: Reduced cognitive load, cleaner code organization, isolated functionality, easier maintenance
+
 ## Mobile Application
 -   **Framework**: React Native with Expo for cross-platform development (iOS/Android).
 -   **UI Library**: React Native Paper with Material Design 3 theming.
