@@ -92,6 +92,10 @@ Preferred communication style: Simple, everyday language.
     -   Pet details and medical history
     -   Appointment booking (multi-step process with real-time slot availability)
     -   Push notifications support (Expo Notifications)
+    -   **V2 Features (NEW)**:
+        -   **Chat System**: Real-time messaging with clinic staff via conversations API
+        -   **Medical File Access**: View and download clinical encounter attachments (X-rays, lab results, prescriptions)
+        -   **Proactive Health Notifications**: Automated reminders for upcoming vaccinations and appointments (7 days & 1 day ahead)
 -   **Screens**:
     -   AuthScreen: SMS login flow with phone verification
     -   HomeScreen: Dashboard with owner info and pets carousel
@@ -108,6 +112,13 @@ Preferred communication style: Simple, everyday language.
     -   POST `/api/mobile/appointments` - Create appointment (authenticated)
     -   GET `/api/mobile/pets/:petId/history` - Get pet medical history (authenticated)
     -   POST `/api/mobile/me/register-push-token` - Register push notification token (authenticated)
+    -   **V2 Endpoints (NEW)**:
+        -   GET `/api/mobile/me/conversations` - Get owner's conversations (authenticated)
+        -   POST `/api/mobile/me/conversations` - Create new conversation (authenticated)
+        -   GET `/api/mobile/conversations/:id/messages` - Get conversation messages (authenticated)
+        -   POST `/api/mobile/conversations/:id/messages` - Send message (authenticated)
+        -   GET `/api/mobile/encounters/:id/attachments` - Get encounter attachments (authenticated)
+        -   GET `/api/mobile/files/:fileId` - Download medical file (authenticated, ownership validated)
 -   **Development Notes**:
     -   Entry point: `node_modules/expo/AppEntry.js` (configured in package.json)
     -   TypeScript errors in mobile-app are expected (Expo/React Native type mismatches)
@@ -136,6 +147,9 @@ Preferred communication style: Simple, everyday language.
 ## Document Generation
 -   `handlebars`: Template engine.
 -   `puppeteer`: Headless browser for PDF generation.
+
+## Mobile Push Notifications
+-   `expo-server-sdk`: Expo push notification service for mobile app health reminders.
 
 # Production Deployment
 
