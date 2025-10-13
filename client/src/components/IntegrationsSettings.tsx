@@ -73,11 +73,20 @@ const emailSchema = z.object({
   fromName: z.string().optional(),
 })
 
+const onecSchema = z.object({
+  baseUrl: z.string().min(1, "Base URL обязателен"),
+  username: z.string().min(1, "Имя пользователя обязательно"),
+  password: z.string().min(1, "Пароль обязателен"),
+  organizationKey: z.string().min(1, "Ключ организации обязателен"),
+  cashRegisterKey: z.string().min(1, "Ключ кассы обязателен"),
+})
+
 type MoySkladFormData = z.infer<typeof moyskladSchema>
 type YooKassaFormData = z.infer<typeof yookassaSchema>
 type GalenFormData = z.infer<typeof galenSchema>
 type SmsRuFormData = z.infer<typeof smsruSchema>
 type EmailFormData = z.infer<typeof emailSchema>
+type OneCFormData = z.infer<typeof onecSchema>
 
 function SmsRuIntegrationCard() {
   const [isOpen, setIsOpen] = useState(false)
@@ -933,6 +942,319 @@ function YooKassaIntegrationCard() {
   )
 }
 
+function OneCIntegrationCard() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const { toast } = useToast()
+
+  const { data: config, isLoading: configLoading } = useQuery({
+    queryKey: ['/api/onec/config'],
+  })
+
+  const { data: stats } = useQuery({
+    queryKey: ['/api/onec/stats'],
+    refetchInterval: 30000,
+  })
+
+  const form = useForm<OneCFormData>({
+    resolver: zodResolver(onecSchema),
+    defaultValues: {
+      baseUrl: config?.data?.baseUrl || "",
+      username: config?.data?.username || "",
+      password: config?.data?.password || "",
+      organizationKey: config?.data?.organizationKey || "",
+      cashRegisterKey: config?.data?.cashRegisterKey || "",
+    }
+  })
+
+  const saveConfigMutation = useMutation({
+    mutationFn: async (data: OneCFormData) => {
+      return apiRequest('POST', '/api/onec/config', data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/onec/config'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/onec/stats'] })
+      toast({
+        title: "Настройки сохранены",
+        description: "Параметры подключения к 1С Розница обновлены",
+      })
+      setIsOpen(false)
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка сохранения",
+        description: error.message || "Не удалось сохранить настройки 1С Розница",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const testConnectionMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/onec/test-connection')
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Подключение успешно",
+        description: data?.message || "Подключение к 1С Розница установлено",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка подключения",
+        description: error.message || "Не удалось подключиться к 1С Розница",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const syncProductsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/onec/products/sync')
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/onec/stats'] })
+      toast({
+        title: "Синхронизация товаров завершена",
+        description: `Загружено: ${data?.imported || 0} товаров из 1С Розница`,
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка синхронизации товаров",
+        description: error.message || "Не удалось синхронизировать товары с 1С Розница",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const syncServicesMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/onec/services/sync')
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/onec/stats'] })
+      toast({
+        title: "Синхронизация услуг завершена",
+        description: `Загружено: ${data?.imported || 0} услуг из 1С Розница`,
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка синхронизации услуг",
+        description: error.message || "Не удалось синхронизировать услуги с 1С Розница",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const isConfigured = config?.data?.baseUrl && config?.data?.username
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              1С Розница
+              {isConfigured ? (
+                <Badge variant="default" className="bg-green-600">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Настроена
+                </Badge>
+              ) : (
+                <Badge variant="secondary">
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Не настроена
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Интеграция с 1С Розница для синхронизации товаров и услуг
+            </CardDescription>
+          </div>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" data-testid="button-configure-onec">
+                <Settings className="h-4 w-4 mr-2" />
+                Настроить
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Настройка 1С Розница</DialogTitle>
+                <DialogDescription>
+                  Введите параметры подключения к 1С Розница
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => saveConfigMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="baseUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Base URL</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="http://server:port/accounting/odata/standard.odata/"
+                            data-testid="input-onec-baseurl"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Имя пользователя</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Введите имя пользователя"
+                            data-testid="input-onec-username"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Пароль</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Введите пароль"
+                              data-testid="input-onec-password"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="organizationKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ключ организации</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Введите ключ организации"
+                            data-testid="input-onec-orgkey"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="cashRegisterKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ключ кассы</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Введите ключ кассы"
+                            data-testid="input-onec-cashkey"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => testConnectionMutation.mutate()}
+                      disabled={testConnectionMutation.isPending}
+                      className="flex-1"
+                      data-testid="button-test-onec"
+                    >
+                      {testConnectionMutation.isPending ? "Проверка..." : "Тест"}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={saveConfigMutation.isPending}
+                      className="flex-1"
+                      data-testid="button-save-onec"
+                    >
+                      {saveConfigMutation.isPending ? "Сохранение..." : "Сохранить"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      {isConfigured && (
+        <CardContent className="space-y-4">
+          <div className="text-sm text-muted-foreground">
+            <p>URL: {config.data.baseUrl}</p>
+            <p>Пользователь: {config.data.username}</p>
+            {stats && (
+              <div className="mt-2">
+                <p>Товаров: {stats.products || 0}</p>
+                <p>Услуг: {stats.services || 0}</p>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => syncProductsMutation.mutate()}
+              disabled={syncProductsMutation.isPending}
+              data-testid="button-sync-products"
+            >
+              {syncProductsMutation.isPending ? "Синхронизация..." : "Синхронизировать товары"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => syncServicesMutation.mutate()}
+              disabled={syncServicesMutation.isPending}
+              data-testid="button-sync-services"
+            >
+              {syncServicesMutation.isPending ? "Синхронизация..." : "Синхронизировать услуги"}
+            </Button>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
 function EmailIntegrationCard() {
   const [isOpen, setIsOpen] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -1209,6 +1531,7 @@ export default function IntegrationsSettings() {
       <div className="grid gap-6 md:grid-cols-2">
         <MoySkladIntegrationCard />
         <YooKassaIntegrationCard />
+        <OneCIntegrationCard />
         <GalenIntegrationCard />
         <SmsRuIntegrationCard />
         <EmailIntegrationCard />
