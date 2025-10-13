@@ -4247,12 +4247,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid credentials format" });
       }
       
-      const result = await storage.upsertIntegrationCredentials(
+      const result = await storage.upsertIntegrationCredentials({
         tenantId,
-        provider,
+        integrationType: provider,
         credentials,
-        isActive ?? true
-      );
+        isEnabled: isActive ?? true
+      });
       
       // Mask ALL sensitive credential values for security
       const maskedResult = {
