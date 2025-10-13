@@ -655,7 +655,6 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/legal-entities'] })
-      queryClient.invalidateQueries({ queryKey: ['/api/legal-entities/active'] })
       toast({
         title: "Успешно!",
         description: "Юридическое лицо создано",
@@ -679,7 +678,6 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/legal-entities'] })
-      queryClient.invalidateQueries({ queryKey: ['/api/legal-entities/active'] })
       toast({
         title: "Успешно!",
         description: "Юридическое лицо обновлено",
@@ -703,7 +701,6 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/legal-entities'] })
-      queryClient.invalidateQueries({ queryKey: ['/api/legal-entities/active'] })
       toast({
         title: "Успешно!",
         description: "Юридическое лицо удалено",
