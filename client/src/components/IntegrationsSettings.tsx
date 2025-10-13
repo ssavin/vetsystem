@@ -34,7 +34,7 @@ interface IntegrationCredential {
   tenantId: string
   integrationType: string
   credentials: Record<string, string>
-  isActive: boolean
+  isEnabled: boolean
   createdAt: string
   updatedAt: string
 }
@@ -149,7 +149,7 @@ function SmsRuIntegrationCard() {
           <div>
             <CardTitle className="flex items-center gap-2">
               SMS.RU
-              {integration?.isActive ? (
+              {integration?.isEnabled ? (
                 <Badge variant="default" className="bg-green-600">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Активна
@@ -233,7 +233,7 @@ function SmsRuIntegrationCard() {
           </Dialog>
         </div>
       </CardHeader>
-      {integration?.isActive && (
+      {integration?.isEnabled && (
         <CardContent>
           <div className="text-sm text-muted-foreground">
             <p>API ключ настроен</p>
@@ -333,7 +333,7 @@ function MoySkladIntegrationCard() {
           <div>
             <CardTitle className="flex items-center gap-2">
               МойСклад
-              {integration?.isActive ? (
+              {integration?.isEnabled ? (
                 <Badge variant="default" className="bg-green-600">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Активна
@@ -478,7 +478,7 @@ function MoySkladIntegrationCard() {
           </Dialog>
         </div>
       </CardHeader>
-      {integration?.isActive && (
+      {integration?.isEnabled && (
         <CardContent>
           <div className="text-sm text-muted-foreground">
             <p>Retail Store ID: {integration.credentials.retailStoreId}</p>
@@ -823,7 +823,7 @@ function YooKassaIntegrationCard() {
           <div>
             <CardTitle className="flex items-center gap-2">
               ЮKassa
-              {integration?.isActive ? (
+              {integration?.isEnabled ? (
                 <Badge variant="default" className="bg-green-600">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Активна
@@ -911,7 +911,7 @@ function YooKassaIntegrationCard() {
           </Dialog>
         </div>
       </CardHeader>
-      {integration?.isActive && (
+      {integration?.isEnabled && (
         <CardContent>
           <div className="text-sm text-muted-foreground">
             <p>Shop ID: {integration.credentials.shopId}</p>
