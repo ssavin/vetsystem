@@ -154,10 +154,6 @@ export default function Settings() {
   // Ref for scrolling to integrations section
   const integrationsRef = useRef<HTMLDivElement>(null)
   
-  const scrollToIntegrations = () => {
-    integrationsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-  
   const [notifications, setNotifications] = useState({
     email: true,
     sms: false,
@@ -1230,37 +1226,6 @@ export default function Settings() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-
-      {/* Advanced Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Дополнительные настройки
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button variant="outline" className="h-16 flex-col gap-2" data-testid="button-database-backup">
-              <Database className="h-5 w-5" />
-              <span>Резервная копия</span>
-            </Button>
-            <Button variant="outline" className="h-16 flex-col gap-2" data-testid="button-print-settings">
-              <Printer className="h-5 w-5" />
-              <span>Настройки печати</span>
-            </Button>
-            <Button variant="outline" className="h-16 flex-col gap-2" data-testid="button-email-config">
-              <Mail className="h-5 w-5" />
-              <span>Настройки email</span>
-            </Button>
-            <Button variant="outline" className="h-16 flex-col gap-2" onClick={scrollToIntegrations} data-testid="button-sms-config">
-              <Phone className="h-5 w-5" />
-              <span>Настройки SMS</span>
-            </Button>
           </div>
         </CardContent>
       </Card>
