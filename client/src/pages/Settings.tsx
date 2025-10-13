@@ -108,6 +108,7 @@ const legalEntityFormSchema = insertLegalEntitySchema.pick({
   directorName: true,
   directorPosition: true,
   accountantName: true,
+  isActive: true,
 })
 
 type BranchFormData = z.infer<typeof branchSchema>
@@ -234,9 +235,9 @@ export default function Settings() {
     refetchOnMount: 'always', // Always refetch when component mounts
   })
 
-  // Fetch legal entities
+  // Fetch legal entities (all records, not just active)
   const { data: legalEntities = [], isLoading: legalEntitiesLoading } = useQuery<LegalEntity[]>({
-    queryKey: ['/api/legal-entities/active'],
+    queryKey: ['/api/legal-entities'],
     enabled: !isSuperAdmin,
   })
 
@@ -512,6 +513,7 @@ export default function Settings() {
       directorName: "",
       directorPosition: "Генеральный директор",
       accountantName: "",
+      isActive: true,
     },
   })
 
@@ -2497,6 +2499,34 @@ export default function Settings() {
                           </div>
                         </div>
 
+                        {/* Статус */}
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Статус</h4>
+                          <FormField
+                            control={legalEntityForm.control}
+                            name="isActive"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                  <FormLabel className="text-base">
+                                    Активное юридическое лицо
+                                  </FormLabel>
+                                  <FormDescription>
+                                    Неактивные юридические лица не отображаются в списках выбора
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    data-testid="switch-is-active"
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
                         <div className="flex justify-end space-x-2 pt-4">
                           <Button 
                             type="button" 
@@ -2539,13 +2569,13 @@ export default function Settings() {
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-600">
-                      {legalEntities.length}
+                      {legalEntities.filter(e => e.isActive).length}
                     </div>
                     <div className="text-sm text-muted-foreground">Активных</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-muted-foreground">
-                      0
+                      {legalEntities.filter(e => !e.isActive).length}
                     </div>
                     <div className="text-sm text-muted-foreground">Неактивных</div>
                   </div>
@@ -2643,6 +2673,7 @@ export default function Settings() {
                                     directorName: entity.directorName || "",
                                     directorPosition: entity.directorPosition || "Генеральный директор",
                                     accountantName: entity.accountantName || "",
+                                    isActive: entity.isActive,
                                   })
                                 }}
                                 data-testid={`button-edit-legal-entity-${entity.id}`}
