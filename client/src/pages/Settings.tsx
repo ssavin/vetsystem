@@ -1223,6 +1223,7 @@ export default function Settings() {
                 <SelectContent>
                   <SelectItem value="yookassa">YooKassa (ЮKassa)</SelectItem>
                   <SelectItem value="moysklad">Мой склад</SelectItem>
+                  <SelectItem value="onec">1С Розница</SelectItem>
                 </SelectContent>
               </Select>
             </div>
