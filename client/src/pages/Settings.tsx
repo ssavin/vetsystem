@@ -801,6 +801,14 @@ export default function Settings() {
             <SettingsIcon className="h-4 w-4 mr-2" />
             Общие настройки
           </TabsTrigger>
+          <TabsTrigger value="branches" data-testid="tab-branches">
+            <Building2 className="h-4 w-4 mr-2" />
+            Управление отделениями
+          </TabsTrigger>
+          <TabsTrigger value="staff" data-testid="tab-staff">
+            <Users className="h-4 w-4 mr-2" />
+            Управление сотрудниками
+          </TabsTrigger>
           <TabsTrigger value="legal-entities" data-testid="tab-legal-entities">
             <Building2 className="h-4 w-4 mr-2" />
             Юридические лица
@@ -977,15 +985,314 @@ export default function Settings() {
         </Card>
       )}
 
-      {/* Branch Management */}
+      {/* Notifications */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Управление отделениями
-            </CardTitle>
-            <Dialog 
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Уведомления
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Email уведомления</Label>
+                <p className="text-sm text-muted-foreground">
+                  Получать уведомления на электронную почту
+                </p>
+              </div>
+              <Switch
+                checked={notifications.email}
+                onCheckedChange={(checked) => 
+                  setNotifications(prev => ({ ...prev, email: checked }))
+                }
+                data-testid="switch-email-notifications"
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>SMS уведомления</Label>
+                <p className="text-sm text-muted-foreground">
+                  Отправлять SMS клиентам
+                </p>
+              </div>
+              <Switch
+                checked={notifications.sms}
+                onCheckedChange={(checked) => 
+                  setNotifications(prev => ({ ...prev, sms: checked }))
+                }
+                data-testid="switch-sms-notifications"
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Напоминания о записях</Label>
+                <p className="text-sm text-muted-foreground">
+                  Автоматические напоминания клиентам
+                </p>
+              </div>
+              <Switch
+                checked={notifications.appointments}
+                onCheckedChange={(checked) => 
+                  setNotifications(prev => ({ ...prev, appointments: checked }))
+                }
+                data-testid="switch-appointment-notifications"
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Низкие остатки на складе</Label>
+                <p className="text-sm text-muted-foreground">
+                  Уведомления о товарах с низким остатком
+                </p>
+              </div>
+              <Switch
+                checked={notifications.lowStock}
+                onCheckedChange={(checked) => 
+                  setNotifications(prev => ({ ...prev, lowStock: checked }))
+                }
+                data-testid="switch-low-stock-notifications"
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Просроченные платежи</Label>
+                <p className="text-sm text-muted-foreground">
+                  Уведомления о просроченных счетах
+                </p>
+              </div>
+              <Switch
+                checked={notifications.overduePayments}
+                onCheckedChange={(checked) => 
+                  setNotifications(prev => ({ ...prev, overduePayments: checked }))
+                }
+                data-testid="switch-overdue-notifications"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Fiscal Receipt Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Printer className="h-5 w-5" />
+            Фискальные чеки
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fiscalReceiptSystem">Система печати фискальных чеков</Label>
+              <p className="text-sm text-muted-foreground">
+                Выберите систему для печати фискальных чеков в соответствии с требованиями 54-ФЗ
+              </p>
+              <Select 
+                value={fiscalReceiptSystem} 
+                onValueChange={(value) => {
+                  setFiscalReceiptSystem(value)
+                  updateSystemSettingMutation.mutate({ key: 'fiscal_receipt_system', value })
+                }}
+                disabled={systemSettingsLoading || updateSystemSettingMutation.isPending}
+              >
+                <SelectTrigger data-testid="select-fiscal-system">
+                  <SelectValue placeholder="Выберите систему печати" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yookassa">YooKassa (ЮKassa)</SelectItem>
+                  <SelectItem value="moysklad">Мой склад</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Galen AI Integration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Интеграция Galen AI
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-2">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Статус подключения</p>
+                <p className="text-sm text-muted-foreground">
+                  {galenCredentials?.connected ? 'Подключено' : 'Не подключено'}
+                </p>
+              </div>
+              <Badge variant={galenCredentials?.connected ? "default" : "secondary"} data-testid="badge-galen-status">
+                {galenCredentials?.connected ? 'Активно' : 'Неактивно'}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 1C Retail (Розница) Integration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Интеграция 1С:Розница
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Интеграция с 1С:Розница для управления товарами и услугами
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Товары</p>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-bold">{onecStats?.products || 0}</div>
+                  <p className="text-sm text-muted-foreground">синхронизировано</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Услуги</p>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-bold">{onecStats?.services || 0}</div>
+                  <p className="text-sm text-muted-foreground">синхронизировано</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* МойСклад Integration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Интеграция МойСклад
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-2">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Статус подключения</p>
+                <p className="text-sm text-muted-foreground">
+                  {moySkladCredentials ? 'Настроено' : 'Не настроено'}
+                </p>
+              </div>
+              <Badge variant={moySkladCredentials ? "default" : "secondary"} data-testid="badge-moysklad-status">
+                {moySkladCredentials ? 'Активно' : 'Неактивно'}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Товары и услуги</p>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-bold">
+                    {(moySkladStats?.products || 0) + (moySkladStats?.services || 0)}
+                  </div>
+                  <p className="text-sm text-muted-foreground">синхронизировано</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Подключение</p>
+                <Badge variant={moySkladCredentials?.connected ? "default" : "secondary"}>
+                  {moySkladCredentials?.connected ? 'Подключено' : 'Не подключено'}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* YooKassa Payment Integration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Интеграция YooKassa
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-2">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Статус подключения</p>
+                <p className="text-sm text-muted-foreground">
+                  {yooKassaCredentials ? 'Настроено' : 'Не настроено'}
+                </p>
+              </div>
+              <Badge variant={yooKassaCredentials ? "default" : "secondary"} data-testid="badge-yookassa-status">
+                {yooKassaCredentials ? 'Активно' : 'Неактивно'}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Advanced Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Дополнительные настройки
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Button variant="outline" className="h-16 flex-col gap-2" data-testid="button-database-backup">
+              <Database className="h-5 w-5" />
+              <span>Резервная копия</span>
+            </Button>
+            <Button variant="outline" className="h-16 flex-col gap-2" data-testid="button-print-settings">
+              <Printer className="h-5 w-5" />
+              <span>Настройки печати</span>
+            </Button>
+            <Button variant="outline" className="h-16 flex-col gap-2" data-testid="button-email-config">
+              <Mail className="h-5 w-5" />
+              <span>Настройки email</span>
+            </Button>
+            <Button variant="outline" className="h-16 flex-col gap-2" onClick={scrollToIntegrations} data-testid="button-sms-config">
+              <Phone className="h-5 w-5" />
+              <span>Настройки SMS</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Integrations Management */}
+      <div ref={integrationsRef}>
+        <IntegrationsSettings />
+      </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <Button onClick={saveSettings} data-testid="button-save-settings">
+              <Save className="h-4 w-4 mr-2" />
+              Сохранить настройки
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* Branches Tab */}
+        <TabsContent value="branches">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Управление отделениями
+                </CardTitle>
+                <Dialog 
               open={isCreateDialogOpen || !!editingBranch} 
               onOpenChange={(open) => {
                 if (!open) resetForm()
