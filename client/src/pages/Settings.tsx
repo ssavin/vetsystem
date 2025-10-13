@@ -90,7 +90,28 @@ const branchSchema = z.object({
   status: z.enum(["active", "inactive", "maintenance"]).default("active"),
 })
 
+const legalEntityFormSchema = insertLegalEntitySchema.pick({
+  legalName: true,
+  shortName: true,
+  inn: true,
+  kpp: true,
+  ogrn: true,
+  legalAddress: true,
+  actualAddress: true,
+  phone: true,
+  email: true,
+  website: true,
+  bankName: true,
+  bik: true,
+  correspondentAccount: true,
+  paymentAccount: true,
+  directorName: true,
+  directorPosition: true,
+  accountantName: true,
+})
+
 type BranchFormData = z.infer<typeof branchSchema>
+type LegalEntityFormData = z.infer<typeof legalEntityFormSchema>
 type UserFormValues = z.infer<typeof insertUserSchema>
 type UpdateUserFormValues = z.infer<typeof updateUserSchema>
 
@@ -183,11 +204,6 @@ export default function Settings() {
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/users'],
-  })
-
-  // Fetch legal entities
-  const { data: legalEntities = [], isLoading: legalEntitiesLoading } = useQuery<LegalEntity[]>({
-    queryKey: ['/api/legal-entities'],
   })
 
   // Fetch system settings for fiscal receipts
@@ -476,6 +492,29 @@ export default function Settings() {
     }
   })
 
+  const legalEntityForm = useForm<LegalEntityFormData>({
+    resolver: zodResolver(legalEntityFormSchema),
+    defaultValues: {
+      legalName: "",
+      shortName: "",
+      inn: "",
+      kpp: "",
+      ogrn: "",
+      legalAddress: "",
+      actualAddress: "",
+      phone: "",
+      email: "",
+      website: "",
+      bankName: "",
+      bik: "",
+      correspondentAccount: "",
+      paymentAccount: "",
+      directorName: "",
+      directorPosition: "Генеральный директор",
+      accountantName: "",
+    },
+  })
+
   // Create branch mutation
   const createBranchMutation = useMutation({
     mutationFn: async (data: BranchFormData) => {
@@ -605,6 +644,78 @@ export default function Settings() {
     onError: (error: Error) => {
       toast({ title: "Ошибка", description: error.message, variant: "destructive" })
     }
+  })
+
+  // Legal entities mutations
+  const createLegalEntityMutation = useMutation({
+    mutationFn: async (data: LegalEntityFormData) => {
+      return apiRequest('POST', '/api/legal-entities', data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/legal-entities'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/legal-entities/active'] })
+      toast({
+        title: "Успешно!",
+        description: "Юридическое лицо создано",
+      })
+      setIsCreateLegalEntityDialogOpen(false)
+      legalEntityForm.reset()
+    },
+    onError: (error: any) => {
+      console.error("Error creating legal entity:", error)
+      toast({
+        title: "Ошибка",
+        description: "Не удалось создать юридическое лицо",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const updateLegalEntityMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: LegalEntityFormData }) => {
+      return apiRequest('PUT', `/api/legal-entities/${id}`, data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/legal-entities'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/legal-entities/active'] })
+      toast({
+        title: "Успешно!",
+        description: "Юридическое лицо обновлено",
+      })
+      setEditingLegalEntity(null)
+      legalEntityForm.reset()
+    },
+    onError: (error: any) => {
+      console.error("Error updating legal entity:", error)
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить юридическое лицо",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const deleteLegalEntityMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('DELETE', `/api/legal-entities/${id}`, undefined)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/legal-entities'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/legal-entities/active'] })
+      toast({
+        title: "Успешно!",
+        description: "Юридическое лицо удалено",
+      })
+    },
+    onError: (error: any) => {
+      console.error("Error deleting legal entity:", error)
+      const errorMessage = error?.details || error?.error || error?.message || "Не удалось удалить юридическое лицо"
+      toast({
+        title: "Ошибка", 
+        description: errorMessage,
+        variant: "destructive",
+      })
+    },
   })
 
   const saveTenantSettingsMutation = useMutation({
