@@ -353,31 +353,29 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                           control={form.control}
                           name={`items.${index}.name`}
                           render={({ field }) => (
-                            <FormItem className="flex flex-col">
+                            <FormItem className="flex flex-col relative">
                               <FormLabel>Название</FormLabel>
-                              <Popover 
-                                open={itemPopoverStates[index] || false} 
-                                onOpenChange={(isOpen) => {
-                                  setItemPopoverStates(prev => ({ ...prev, [index]: isOpen }))
-                                }}
-                              >
-                                <PopoverTrigger asChild>
-                                  <FormControl>
-                                    <Input 
-                                      {...field} 
-                                      placeholder="Начните вводить название услуги или товара"
-                                      data-testid={`input-item-name-${index}`}
-                                      onChange={(e) => {
-                                        field.onChange(e)
-                                        setItemPopoverStates(prev => ({ ...prev, [index]: true }))
-                                      }}
-                                      onFocus={() => {
-                                        setItemPopoverStates(prev => ({ ...prev, [index]: true }))
-                                      }}
-                                    />
-                                  </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[400px] p-0" align="start">
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  placeholder="Начните вводить название услуги или товара"
+                                  data-testid={`input-item-name-${index}`}
+                                  onChange={(e) => {
+                                    field.onChange(e)
+                                    setItemPopoverStates(prev => ({ ...prev, [index]: true }))
+                                  }}
+                                  onFocus={() => {
+                                    setItemPopoverStates(prev => ({ ...prev, [index]: true }))
+                                  }}
+                                  onBlur={() => {
+                                    setTimeout(() => {
+                                      setItemPopoverStates(prev => ({ ...prev, [index]: false }))
+                                    }, 200)
+                                  }}
+                                />
+                              </FormControl>
+                              {itemPopoverStates[index] && (
+                                <div className="absolute top-full left-0 right-0 z-50 mt-1 w-[400px] rounded-md border bg-popover text-popover-foreground shadow-md outline-none">
                                   <Command shouldFilter={false}>
                                     <CommandList>
                                       <CommandEmpty>Ничего не найдено</CommandEmpty>
@@ -439,8 +437,8 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                                       </CommandGroup>
                                     </CommandList>
                                   </Command>
-                                </PopoverContent>
-                              </Popover>
+                                </div>
+                              )}
                               <FormMessage />
                             </FormItem>
                           )}
