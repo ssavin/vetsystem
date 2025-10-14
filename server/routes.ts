@@ -2142,8 +2142,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { transcript, role } = req.body;
       const command = await aiAssistantService.getCommandFromTranscript(transcript, role);
       res.json(command);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI assistant error:", error);
+      
+      // Специальная обработка ошибок OpenAI
+      if (error?.status === 429 || error?.code === 'insufficient_quota') {
+        return res.status(503).json({ 
+          error: "AI-сервис временно недоступен. Пожалуйста, попробуйте позже." 
+        });
+      }
+      
       res.status(500).json({ error: "Ошибка AI-ассистента" });
     }
   });

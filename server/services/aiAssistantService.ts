@@ -130,10 +130,8 @@ export class AIAssistantService {
       return validatedCommand;
     } catch (error) {
       console.error('AI Assistant error:', error);
-      return { 
-        action: 'NO_ACTION', 
-        payload: { message: 'Ошибка обработки запроса' } 
-      };
+      // Пробрасываем ошибку наверх, чтобы роут вернул правильный статус
+      throw error;
     }
   }
 

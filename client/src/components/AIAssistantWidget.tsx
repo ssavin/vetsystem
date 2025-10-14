@@ -52,11 +52,16 @@ export function AIAssistantWidget({ role, onFillForm, className = '' }: AIAssist
         setWidgetState('suggestion');
       }
     },
-    onError: () => {
+    onError: (error: any) => {
       setWidgetState('idle');
+      resetTranscript();
+      
+      // Извлекаем сообщение об ошибке из ответа сервера
+      const errorMessage = error?.message || 'Не удалось обработать запрос';
+      
       toast({
         title: 'Ошибка',
-        description: 'Не удалось обработать запрос',
+        description: errorMessage,
         variant: 'destructive',
       });
     },
