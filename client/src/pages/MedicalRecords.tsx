@@ -249,13 +249,18 @@ export default function MedicalRecords() {
     setShowAIAssistant(!showAIAssistant)
   }
 
-  // Auto-open form when triggered from registry and no records exist
+  // Auto-open form when triggered from registry (regardless of existing records)
   useEffect(() => {
-    if (autoOpenTriggered && !isLoading && filteredRecords.length === 0 && selectedPatientId) {
+    if (autoOpenTriggered && !isLoading && selectedPatientId) {
       setIsCreateDialogOpen(true)
       setAutoOpenTriggered(false) // Reset flag after opening
+      
+      // Remove autoOpen from URL to avoid re-triggering on refresh/back navigation
+      const url = new URL(window.location.href)
+      url.searchParams.delete('autoOpen')
+      window.history.replaceState({}, '', url.toString())
     }
-  }, [autoOpenTriggered, isLoading, filteredRecords.length, selectedPatientId])
+  }, [autoOpenTriggered, isLoading, selectedPatientId])
 
   return (
     <div className="space-y-6 p-6">
