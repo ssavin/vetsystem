@@ -274,29 +274,29 @@ export function MonthView({ appointments, currentDate, onDateChange, onAppointme
   }
 
   return (
-    <div className="space-y-4 max-w-full overflow-hidden">
+    <div className="space-y-3 max-w-full">
       {/* Month navigation */}
       <div className="flex items-center justify-between">
         <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <h2 className="text-xl font-semibold capitalize">{monthName}</h2>
+        <h2 className="text-lg font-semibold capitalize">{monthName}</h2>
         <Button variant="outline" size="icon" onClick={goToNextMonth}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Days of week header */}
-      <div className="grid grid-cols-7 gap-1 sm:gap-2">
+      <div className="grid grid-cols-7 gap-1">
         {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
-          <div key={day} className="text-center font-medium text-muted-foreground p-1 sm:p-2 text-xs sm:text-sm">
+          <div key={day} className="text-center font-medium text-muted-foreground text-xs py-1">
             {day}
           </div>
         ))}
       </div>
 
       {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-1 sm:gap-2">
+      <div className="grid grid-cols-7 gap-1">
         {monthDates.map(date => {
           const dayAppointments = getAppointmentsForDate(date)
           const isCurrentMonthDate = isCurrentMonth(date)
@@ -306,36 +306,35 @@ export function MonthView({ appointments, currentDate, onDateChange, onAppointme
             <div 
               key={date.toISOString()}
               className={`
-                min-h-20 sm:min-h-24 p-1 sm:p-2 border rounded cursor-pointer hover-elevate
+                h-16 p-1 border rounded cursor-pointer hover-elevate overflow-hidden
                 ${isTodayDate ? 'bg-primary/10 border-primary' : 'border-border'}
                 ${!isCurrentMonthDate ? 'text-muted-foreground bg-muted/30' : ''}
               `}
               onClick={() => onDateChange(date)}
             >
-              <div className="font-medium mb-1 text-xs sm:text-sm">
+              <div className="font-medium text-xs mb-0.5">
                 {date.getDate()}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {loading ? (
-                  <div className="h-4 bg-muted animate-pulse rounded" />
+                  <div className="h-3 bg-muted animate-pulse rounded" />
                 ) : (
                   <>
-                    {dayAppointments.slice(0, 2).map(apt => (
+                    {dayAppointments.slice(0, 1).map(apt => (
                       <div 
                         key={apt.id} 
-                        className="text-xs p-1 bg-primary/20 rounded truncate cursor-pointer hover:bg-primary/30"
+                        className="text-[10px] px-0.5 py-0.5 bg-primary/20 rounded truncate cursor-pointer hover:bg-primary/30"
                         onClick={(e) => {
                           e.stopPropagation()
                           onAppointmentClick?.(apt)
                         }}
                       >
-                        <span className="hidden sm:inline">{apt.time} </span>
                         {apt.patientName}
                       </div>
                     ))}
-                    {dayAppointments.length > 2 && (
-                      <div className="text-xs text-muted-foreground">
-                        +{dayAppointments.length - 2}
+                    {dayAppointments.length > 1 && (
+                      <div className="text-[10px] text-muted-foreground">
+                        +{dayAppointments.length - 1}
                       </div>
                     )}
                   </>
