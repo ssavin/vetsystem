@@ -137,7 +137,7 @@ function PatientTableRow({ patient, onEdit, onDelete }: PatientTableRowProps) {
                 variant="outline"
                 onClick={(e) => {
                   e.stopPropagation()
-                  navigate(`/medical-records?patientId=${patient.id}`)
+                  navigate(`/medical-records?patientId=${patient.id}&autoOpen=true`)
                 }}
                 data-testid={`button-view-records-${patient.id}`}
               >

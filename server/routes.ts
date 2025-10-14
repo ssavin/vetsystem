@@ -1546,7 +1546,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // 🔒 SECURITY: Pass branchId to enforce branch isolation
-      const records = await storage.getMedicalRecords(patientId, userBranchId, limit, offset);
+      // Администраторы и руководители видят записи из всех филиалов
+      const isAdmin = user.role === 'администратор' || user.role === 'admin' || user.role === 'руководитель';
+      const filterBranchId = isAdmin ? undefined : userBranchId;
+      const records = await storage.getMedicalRecords(patientId, filterBranchId, limit, offset);
       
       // Enrich records with patient and doctor names
       const { translateVisitType } = await import('../shared/visitTypes.js');
@@ -1594,7 +1597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       
       // Получаем общее количество для пагинации
-      const total = await storage.getMedicalRecordsCount(patientId, userBranchId);
+      const total = await storage.getMedicalRecordsCount(patientId, filterBranchId);
       
       res.json({
         records: enrichedRecords,

@@ -86,16 +86,25 @@ export default function MedicalRecords() {
   const [selectedPatientForAI, setSelectedPatientForAI] = useState<any>(null)
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [page, setPage] = useState(0)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [autoOpenTriggered, setAutoOpenTriggered] = useState(false)
   const pageSize = 50
   const { toast } = useToast()
 
-  // Get patientId from URL query parameter
+  // Get patientId and autoOpen from URL query parameters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const patientId = params.get('patientId')
+    const autoOpen = params.get('autoOpen') === 'true'
+    
     if (patientId) {
       setSelectedPatientId(patientId)
       setPage(0) // Reset page when patient changes
+      
+      // Set flag to trigger auto-open after records load
+      if (autoOpen && !autoOpenTriggered) {
+        setAutoOpenTriggered(true)
+      }
     }
   }, [])
 
@@ -240,6 +249,14 @@ export default function MedicalRecords() {
     setShowAIAssistant(!showAIAssistant)
   }
 
+  // Auto-open form when triggered from registry and no records exist
+  useEffect(() => {
+    if (autoOpenTriggered && !isLoading && filteredRecords.length === 0 && selectedPatientId) {
+      setIsCreateDialogOpen(true)
+      setAutoOpenTriggered(false) // Reset flag after opening
+    }
+  }, [autoOpenTriggered, isLoading, filteredRecords.length, selectedPatientId])
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -247,7 +264,10 @@ export default function MedicalRecords() {
           <h1 className="text-3xl font-bold" data-testid="text-medical-records-title">{t('title')}</h1>
           <p className="text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <MedicalRecordForm />
+        <MedicalRecordForm 
+          open={isCreateDialogOpen}
+          onOpenChange={setIsCreateDialogOpen}
+        />
       </div>
 
       {selectedPatientName && (
