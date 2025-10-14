@@ -1555,7 +1555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { translateVisitType } = await import('../shared/visitTypes.js');
       const enrichedRecords = await Promise.all(records.map(async (record) => {
         const patient = record.patientId ? await storage.getPatient(record.patientId) : null;
-        const doctor = record.doctorId ? await storage.getDoctor(record.doctorId) : null;
+        const doctor = record.doctorId ? await storage.getUser(record.doctorId) : null;
         
         // Get owner info for the patient
         let ownerName = 'Не указан';
