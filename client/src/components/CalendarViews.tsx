@@ -274,7 +274,7 @@ export function MonthView({ appointments, currentDate, onDateChange, onAppointme
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-full overflow-hidden">
       {/* Month navigation */}
       <div className="flex items-center justify-between">
         <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
@@ -287,16 +287,16 @@ export function MonthView({ appointments, currentDate, onDateChange, onAppointme
       </div>
 
       {/* Days of week header */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
-          <div key={day} className="text-center font-medium text-muted-foreground p-2">
+          <div key={day} className="text-center font-medium text-muted-foreground p-1 sm:p-2 text-xs sm:text-sm">
             {day}
           </div>
         ))}
       </div>
 
       {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {monthDates.map(date => {
           const dayAppointments = getAppointmentsForDate(date)
           const isCurrentMonthDate = isCurrentMonth(date)
@@ -306,13 +306,13 @@ export function MonthView({ appointments, currentDate, onDateChange, onAppointme
             <div 
               key={date.toISOString()}
               className={`
-                min-h-24 p-2 border rounded cursor-pointer hover-elevate
+                min-h-20 sm:min-h-24 p-1 sm:p-2 border rounded cursor-pointer hover-elevate
                 ${isTodayDate ? 'bg-primary/10 border-primary' : 'border-border'}
                 ${!isCurrentMonthDate ? 'text-muted-foreground bg-muted/30' : ''}
               `}
               onClick={() => onDateChange(date)}
             >
-              <div className="font-medium mb-1">
+              <div className="font-medium mb-1 text-xs sm:text-sm">
                 {date.getDate()}
               </div>
               <div className="space-y-1">
@@ -329,12 +329,13 @@ export function MonthView({ appointments, currentDate, onDateChange, onAppointme
                           onAppointmentClick?.(apt)
                         }}
                       >
-                        {apt.time} {apt.patientName}
+                        <span className="hidden sm:inline">{apt.time} </span>
+                        {apt.patientName}
                       </div>
                     ))}
                     {dayAppointments.length > 2 && (
                       <div className="text-xs text-muted-foreground">
-                        +{dayAppointments.length - 2} ещё
+                        +{dayAppointments.length - 2}
                       </div>
                     )}
                   </>
