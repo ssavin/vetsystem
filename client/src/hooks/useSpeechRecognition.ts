@@ -31,6 +31,7 @@ export function useSpeechRecognition() {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const finalTranscriptRef = useRef('');
 
   useEffect(() => {
     // Check if Speech Recognition is supported
@@ -47,21 +48,17 @@ export function useSpeechRecognition() {
         let interimTranscript = '';
         let finalTranscript = '';
 
-        for (let i = e.resultIndex; i < e.results.length; i++) {
+        for (let i = 0; i < e.results.length; i++) {
           const transcriptPiece = e.results[i][0].transcript;
           if (e.results[i].isFinal) {
             finalTranscript += transcriptPiece + ' ';
           } else {
-            interimTranscript += transcriptPiece;
+            interimTranscript += transcriptPiece + ' ';
           }
         }
 
-        setTranscript(prev => {
-          if (finalTranscript) {
-            return prev + finalTranscript;
-          }
-          return prev + interimTranscript;
-        });
+        finalTranscriptRef.current = finalTranscript;
+        setTranscript(finalTranscript + interimTranscript);
       });
 
       recognition.addEventListener('end', () => {
@@ -90,6 +87,7 @@ export function useSpeechRecognition() {
   const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening) {
       setTranscript('');
+      finalTranscriptRef.current = '';
       setIsListening(true);
       try {
         recognitionRef.current.start();
