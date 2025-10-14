@@ -26,14 +26,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Receipt, Trash2, Calculator } from "lucide-react"
+import { Plus, Receipt, Trash2, Calculator, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
-import { translateSpecies } from "@/lib/utils"
+import { translateSpecies, cn } from "@/lib/utils"
 
 // Form validation schema for invoice creation
 const invoiceItemSchema = z.object({
@@ -65,6 +78,7 @@ interface InvoiceDialogProps {
 
 export default function InvoiceDialog({ children }: InvoiceDialogProps) {
   const [open, setOpen] = useState(false)
+  const [itemPopoverStates, setItemPopoverStates] = useState<Record<number, boolean>>({})
   const { toast } = useToast()
 
   // Fetch data for dropdowns with reasonable limits
@@ -337,70 +351,89 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                       <div className="col-span-4">
                         <FormField
                           control={form.control}
-                          name={`items.${index}.type`}
-                          render={({ field: typeField }) => (
-                            <FormItem>
-                              <FormLabel>Выбрать из каталога</FormLabel>
-                              <FormControl>
-                                <Select
-                                  value=""
-                                  onValueChange={(value) => {
-                                    const [itemType, itemId] = value.split(':')
-                                    const allItems = itemType === 'service' ? services : products
-                                    const selectedItem = (allItems as any[]).find((item: any) => item.id === itemId)
-                                    
-                                    if (selectedItem) {
-                                      form.setValue(`items.${index}.name`, selectedItem.name)
-                                      form.setValue(`items.${index}.type`, itemType as "service" | "product")
-                                      form.setValue(`items.${index}.price`, selectedItem.price)
-                                      form.setValue(`items.${index}.vatRate`, selectedItem.vat || (itemType === 'service' ? 'not_applicable' : '20'))
-                                      form.setValue(`items.${index}.productCode`, selectedItem.markingCode)
-                                      form.setValue(`items.${index}.itemId`, selectedItem.id)
-                                      setTimeout(() => calculateItemTotal(index), 0)
-                                    }
-                                  }}
-                                >
-                                  <SelectTrigger data-testid={`select-catalog-item-${index}`}>
-                                    <SelectValue placeholder="Выберите услугу или товар" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Услуги</div>
-                                    {(services as any[]).map((service: any) => (
-                                      <SelectItem key={`service:${service.id}`} value={`service:${service.id}`}>
-                                        <div className="flex justify-between w-full">
-                                          <span>{service.name}</span>
-                                          <span className="text-muted-foreground ml-2">{service.price} ₽</span>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground border-t mt-1">Товары</div>
-                                    {(products as any[]).map((product: any) => (
-                                      <SelectItem key={`product:${product.id}`} value={`product:${product.id}`}>
-                                        <div className="flex justify-between w-full">
-                                          <span>{product.name}</span>
-                                          <span className="text-muted-foreground ml-2">{product.price} ₽</span>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
                           name={`items.${index}.name`}
                           render={({ field }) => (
-                            <FormItem className="mt-2">
-                              <FormControl>
-                                <Input 
-                                  {...field} 
-                                  placeholder="или введите название вручную"
-                                  data-testid={`input-item-name-${index}`}
-                                  className="text-sm"
-                                />
-                              </FormControl>
+                            <FormItem className="flex flex-col">
+                              <FormLabel>Название</FormLabel>
+                              <Popover 
+                                open={itemPopoverStates[index] || false} 
+                                onOpenChange={(isOpen) => {
+                                  setItemPopoverStates(prev => ({ ...prev, [index]: isOpen }))
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Input 
+                                      {...field} 
+                                      placeholder="Начните вводить или введите название вручную"
+                                      data-testid={`input-item-name-${index}`}
+                                      onFocus={() => {
+                                        setItemPopoverStates(prev => ({ ...prev, [index]: true }))
+                                      }}
+                                    />
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0" align="start">
+                                  <Command>
+                                    <CommandInput 
+                                      placeholder="Поиск услуги или товара..." 
+                                      value={field.value}
+                                      onValueChange={(value) => {
+                                        field.onChange(value)
+                                      }}
+                                    />
+                                    <CommandList>
+                                      <CommandEmpty>Ничего не найдено</CommandEmpty>
+                                      <CommandGroup heading="Услуги">
+                                        {(services as any[]).map((service: any) => (
+                                          <CommandItem
+                                            key={`service:${service.id}`}
+                                            value={service.name}
+                                            onSelect={() => {
+                                              form.setValue(`items.${index}.name`, service.name)
+                                              form.setValue(`items.${index}.type`, "service")
+                                              form.setValue(`items.${index}.price`, service.price)
+                                              form.setValue(`items.${index}.vatRate`, service.vat || 'not_applicable')
+                                              form.setValue(`items.${index}.productCode`, service.markingCode)
+                                              form.setValue(`items.${index}.itemId`, service.id)
+                                              setTimeout(() => calculateItemTotal(index), 0)
+                                              setItemPopoverStates(prev => ({ ...prev, [index]: false }))
+                                            }}
+                                          >
+                                            <div className="flex justify-between w-full">
+                                              <span>{service.name}</span>
+                                              <span className="text-muted-foreground ml-2">{service.price} ₽</span>
+                                            </div>
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                      <CommandGroup heading="Товары">
+                                        {(products as any[]).map((product: any) => (
+                                          <CommandItem
+                                            key={`product:${product.id}`}
+                                            value={product.name}
+                                            onSelect={() => {
+                                              form.setValue(`items.${index}.name`, product.name)
+                                              form.setValue(`items.${index}.type`, "product")
+                                              form.setValue(`items.${index}.price`, product.price)
+                                              form.setValue(`items.${index}.vatRate`, product.vat || '20')
+                                              form.setValue(`items.${index}.productCode`, product.markingCode)
+                                              form.setValue(`items.${index}.itemId`, product.id)
+                                              setTimeout(() => calculateItemTotal(index), 0)
+                                              setItemPopoverStates(prev => ({ ...prev, [index]: false }))
+                                            }}
+                                          >
+                                            <div className="flex justify-between w-full">
+                                              <span>{product.name}</span>
+                                              <span className="text-muted-foreground ml-2">{product.price} ₽</span>
+                                            </div>
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
                               <FormMessage />
                             </FormItem>
                           )}
