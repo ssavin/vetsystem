@@ -226,8 +226,9 @@ export default function Schedule() {
   // Get filtered appointments for display
   const formattedAppointments = getFilteredAppointments()
   
-  // Get unique doctors from appointments for filter
-  const doctors = [t('filters.allDoctors'), ...Array.from(new Set(formattedAppointments.map(apt => apt.doctorName).filter(Boolean)))]
+  // Get unique doctors from ALL appointments for filter (not filtered)
+  const allFormattedAppointments = appointments ? appointments.map(formatAppointmentForCard) : []
+  const doctors = [t('filters.allDoctors'), ...Array.from(new Set(allFormattedAppointments.map(apt => apt.doctorName).filter(Boolean)))]
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('ru-RU', {
@@ -357,10 +358,6 @@ export default function Schedule() {
                       placeholder={selectedDoctor}
                       className="h-9 pr-8"
                       data-testid="input-doctor-filter"
-                      onPointerDown={(e) => {
-                        e.preventDefault()
-                        e.currentTarget.focus()
-                      }}
                     />
                     {selectedDoctor !== t('filters.allDoctors') && (
                       <Check className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-primary pointer-events-none" />
@@ -419,10 +416,6 @@ export default function Schedule() {
                       placeholder={selectedType}
                       className="h-9 pr-8"
                       data-testid="input-type-filter"
-                      onPointerDown={(e) => {
-                        e.preventDefault()
-                        e.currentTarget.focus()
-                      }}
                     />
                     {selectedType !== t('types.allTypes') && (
                       <Check className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-primary pointer-events-none" />
