@@ -4367,39 +4367,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/moysklad/nomenclature/sync - Загрузить номенклатуру ИЗ МойСклад
+  // POST /api/moysklad/nomenclature/sync - Односторонняя синхронизация номенклатуры из МойСклад (с очисткой)
   app.post("/api/moysklad/nomenclature/sync", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
-      console.log('[МойСклад] Начинаем загрузку номенклатуры ИЗ МойСклад...');
+      console.log('[МойСклад] Начинаем одностороннюю синхронизацию номенклатуры (МойСклад → VetSystem)...');
       
       // Get tenant credentials for МойСклад
       const tenantId = req.tenantId!;
       const credentials = await getIntegrationCredentialsOrThrow(tenantId, 'moysklad');
       
-      // Импортируем модуль МойСклад и запускаем загрузку
+      // Импортируем модуль МойСклад и запускаем синхронизацию
       const { syncNomenclature } = await import('./integrations/moysklad');
       
       const result = await syncNomenclature(credentials);
       
-      console.log('[МойСклад] Загрузка завершена:', result);
+      console.log('[МойСклад] Синхронизация завершена:', result);
       
-      // Возвращаем результат с информацией о двухсторонней синхронизации
+      // Возвращаем результат с информацией об односторонней синхронизации
       res.json({
         success: result.success,
-        message: "Двухсторонняя синхронизация номенклатуры завершена",
+        message: "Односторонняя синхронизация номенклатуры завершена (МойСклад → VetSystem)",
         data: {
           // Импорт из МойСклад
           imported: {
             products: result.importedProducts,
             services: result.importedServices,
             total: result.importedProducts + result.importedServices
-          },
-          // Экспорт в МойСклад
-          exported: {
-            products: result.exportedProducts,
-            services: result.exportedServices,
-            archived: result.archivedItems,
-            total: result.exportedProducts + result.exportedServices + result.archivedItems
           },
           // Итоговое состояние
           final: {
@@ -4417,8 +4410,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error in MoySklad sync:", error);
       res.status(500).json({ 
-        error: "Failed to load nomenclature", 
-        message: "Не удалось загрузить номенклатуру из МойСклад",
+        error: "Failed to sync nomenclature", 
+        message: "Не удалось синхронизировать номенклатуру с МойСклад",
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
