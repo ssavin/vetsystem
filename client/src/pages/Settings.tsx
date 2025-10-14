@@ -1236,6 +1236,13 @@ export default function Settings() {
                   <SelectItem value="onec">1С Розница</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="flex items-start gap-2 p-3 mt-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <strong>Важно:</strong> Выбранная система будет использоваться для загрузки номенклатуры (товаров и услуг).
+                  При синхронизации из раздела "Прейскурант" вся текущая номенклатура будет удалена и заменена данными из выбранной системы.
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>

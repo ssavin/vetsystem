@@ -1,24 +1,34 @@
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Search, Plus, Clock, Package, AlertTriangle } from "lucide-react"
-import ServiceDialog from "@/components/ServiceDialog"
-import ProductDialog from "@/components/ProductDialog"
-import type { Service, Product } from "@shared/schema"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Search, RefreshCw, Clock, Package, AlertTriangle, Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { apiRequest } from "@/lib/queryClient"
+import type { Service, Product, SystemSetting } from "@shared/schema"
 
 // Real API data fetching
 
 export default function ServicesInventory() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("services")
-  const [serviceDialogOpen, setServiceDialogOpen] = useState(false)
-  const [productDialogOpen, setProductDialogOpen] = useState(false)
+  const [showSyncConfirmDialog, setShowSyncConfirmDialog] = useState(false)
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
 
   // Fetch real services data
   const { data: services = [], isLoading: servicesLoading } = useQuery<Service[]>({
@@ -31,6 +41,63 @@ export default function ServicesInventory() {
     queryKey: ['/api/products'],
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
+
+  // Fetch system settings to determine fiscal receipt system
+  const { data: systemSettings = [], isLoading: isLoadingSettings } = useQuery<SystemSetting[]>({
+    queryKey: ['/api/system-settings'],
+  })
+
+  const fiscalReceiptSystem = systemSettings.find(s => s.key === 'fiscal_receipt_system')?.value
+
+  // Nomenclature sync mutation
+  const syncNomenclatureMutation = useMutation({
+    mutationFn: async () => {
+      if (fiscalReceiptSystem === 'onec') {
+        // Синхронизация с 1С Розница
+        await apiRequest('POST', '/api/onec/products/sync')
+        await apiRequest('POST', '/api/onec/services/sync')
+      } else if (fiscalReceiptSystem === 'moysklad') {
+        // Синхронизация с МойСклад
+        await apiRequest('POST', '/api/moysklad/nomenclature/sync')
+      } else {
+        throw new Error('Не выбрана система для синхронизации номенклатуры')
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/services'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] })
+      toast({
+        title: "Синхронизация завершена",
+        description: `Номенклатура успешно загружена из ${fiscalReceiptSystem === 'onec' ? '1С Розница' : 'МойСклад'}`,
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка синхронизации",
+        description: error.message || "Не удалось загрузить номенклатуру",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const handleSyncNomenclature = () => {
+    setShowSyncConfirmDialog(true)
+  }
+
+  const confirmSync = () => {
+    setShowSyncConfirmDialog(false)
+    syncNomenclatureMutation.mutate()
+  }
+
+  // Determine display name for fiscal system
+  const getSystemDisplayName = () => {
+    if (fiscalReceiptSystem === 'onec') return '1С Розница'
+    if (fiscalReceiptSystem === 'moysklad') return 'МойСклад'
+    return 'не выбрана'
+  }
+
+  // Check if sync is available
+  const isSyncAvailable = !isLoadingSettings && (fiscalReceiptSystem === 'moysklad' || fiscalReceiptSystem === 'onec')
 
   const filteredServices = services.filter(service =>
     service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -53,24 +120,26 @@ export default function ServicesInventory() {
         <div>
           <h1 className="text-3xl font-bold" data-testid="text-services-inventory-title">Цены на услуги и товары</h1>
           <p className="text-muted-foreground">Прейскурант ветеринарных услуг и товаров клиники</p>
+          {!isLoadingSettings && !isSyncAvailable && (
+            <p className="text-sm text-amber-600 dark:text-amber-500 mt-1">
+              Для синхронизации номенклатуры настройте систему фискальных чеков (МойСклад или 1С Розница) в настройках
+            </p>
+          )}
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => setServiceDialogOpen(true)}
-            data-testid="button-add-service"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Добавить услугу
-          </Button>
-          <Button 
-            onClick={() => setProductDialogOpen(true)}
-            data-testid="button-add-product"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Добавить товар
-          </Button>
-        </div>
+        <Button 
+          onClick={handleSyncNomenclature}
+          disabled={!isSyncAvailable || syncNomenclatureMutation.isPending}
+          data-testid="button-sync-nomenclature"
+        >
+          {syncNomenclatureMutation.isPending ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : isLoadingSettings ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          {isLoadingSettings ? 'Загрузка...' : 'Загрузить номенклатуру'}
+        </Button>
       </div>
 
       {/* Search */}
@@ -139,7 +208,7 @@ export default function ServicesInventory() {
                       </TableCell>
                       <TableCell>{service.category}</TableCell>
                       <TableCell data-testid={`text-service-price-${service.id}`}>
-                        {service.price.toLocaleString('ru-RU')} ₽
+                        {Number(service.price).toLocaleString('ru-RU')} ₽
                       </TableCell>
                       <TableCell>
                         {service.duration ? (
@@ -186,7 +255,9 @@ export default function ServicesInventory() {
                   </TableRow>
                 ) : (
                   filteredProducts.map(product => {
-                    const isLowStock = product.stock !== undefined && product.minStock !== undefined && product.stock <= product.minStock;
+                    const isLowStock = product.stock !== null && product.stock !== undefined && 
+                                       product.minStock !== null && product.minStock !== undefined && 
+                                       product.stock <= product.minStock;
                     return (
                       <TableRow key={product.id} className={!product.isActive ? 'opacity-50' : ''}>
                         <TableCell>
@@ -202,7 +273,7 @@ export default function ServicesInventory() {
                         </TableCell>
                         <TableCell>{product.category}</TableCell>
                         <TableCell data-testid={`text-product-price-${product.id}`}>
-                          {product.price.toLocaleString('ru-RU')} ₽
+                          {Number(product.price).toLocaleString('ru-RU')} ₽
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -235,15 +306,42 @@ export default function ServicesInventory() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialogs */}
-      <ServiceDialog 
-        open={serviceDialogOpen} 
-        onOpenChange={setServiceDialogOpen} 
-      />
-      <ProductDialog 
-        open={productDialogOpen} 
-        onOpenChange={setProductDialogOpen} 
-      />
+      {/* Sync Confirmation Dialog */}
+      <AlertDialog open={showSyncConfirmDialog} onOpenChange={setShowSyncConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Загрузка номенклатуры</AlertDialogTitle>
+            <AlertDialogDescription>
+              Внимание! Вся текущая номенклатура (товары и услуги) будет удалена и заменена данными из системы{' '}
+              <strong>{getSystemDisplayName()}</strong>.
+              <br /><br />
+              Эта операция необратима. Продолжить?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              data-testid="button-cancel-sync"
+              disabled={syncNomenclatureMutation.isPending}
+            >
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmSync}
+              disabled={syncNomenclatureMutation.isPending}
+              data-testid="button-confirm-sync"
+            >
+              {syncNomenclatureMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Загрузка...
+                </>
+              ) : (
+                'Загрузить'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
