@@ -906,19 +906,13 @@ export async function archiveItemInMoysklad(credentials: MoySkladCredentials, mo
 }
 
 /**
- * Двухсторонняя синхронизация номенклатуры (МойСклад ↔ VetSystem)
- * Приоритет: МойСклад (авторитетная система)
+ * Односторонняя синхронизация номенклатуры (МойСклад → VetSystem)
+ * Очищает всю номенклатуру в VetSystem и загружает свежие данные из МойСклад
  */
 export async function syncNomenclature(credentials: MoySkladCredentials): Promise<{
   success: boolean;
-  // Импорт из МойСклад
   importedProducts: number;
   importedServices: number;
-  // Экспорт в МойСклад
-  exportedServices: number;
-  exportedProducts: number;
-  archivedItems: number;
-  // Статистика
   products: any[];
   services: any[];
   errors: string[];
@@ -926,22 +920,37 @@ export async function syncNomenclature(credentials: MoySkladCredentials): Promis
   const errors: string[] = [];
   let importedProducts = 0;
   let importedServices = 0;
-  let exportedServices = 0;
-  let exportedProducts = 0;
-  let archivedItems = 0;
 
   try {
-    console.log('[МойСклад] Начинаем двухстороннюю синхронизацию номенклатуры...');
+    console.log('[МойСклад] Начинаем одностороннюю синхронизацию номенклатуры (МойСклад → VetSystem)...');
 
-    // ===== ЭТАП 1: ИМПОРТ ИЗ МОЙСКЛАД (ПРИОРИТЕТ) =====
-    console.log('[МойСклад] Этап 1: Импорт изменений из МойСклад (приоритет)...');
-    
     // Проверяем подключение к МойСклад перед началом
     try {
       await makeApiRequest(credentials, 'context/employee');
     } catch (error: any) {
       throw new Error(`Ошибка подключения к МойСклад: ${error.message}`);
     }
+
+    // ===== ЭТАП 1: ОЧИСТКА НОМЕНКЛАТУРЫ В VETSYSTEM =====
+    console.log('[МойСклад] Этап 1: Очистка существующей номенклатуры...');
+    try {
+      await storage.deleteAllProducts();
+      console.log('[МойСклад] Все товары удалены');
+    } catch (error: any) {
+      console.error('[МойСклад] Ошибка удаления товаров:', error);
+      errors.push(`Очистка товаров: ${error.message}`);
+    }
+
+    try {
+      await storage.deleteAllServices();
+      console.log('[МойСклад] Все услуги удалены');
+    } catch (error: any) {
+      console.error('[МойСклад] Ошибка удаления услуг:', error);
+      errors.push(`Очистка услуг: ${error.message}`);
+    }
+    
+    // ===== ЭТАП 2: ИМПОРТ ИЗ МОЙСКЛАД =====
+    console.log('[МойСклад] Этап 2: Импорт номенклатуры из МойСклад...');
     
     const importResult = await loadNomenclatureFromMoysklad(credentials);
     importedProducts = importResult.products.length;
@@ -952,53 +961,30 @@ export async function syncNomenclature(credentials: MoySkladCredentials): Promis
       console.warn(`[МойСклад] Ошибки при импорте: ${importResult.errors.length}`);
     }
 
-    // КРИТИЧНО: МойСклад имеет приоритет - обновляем все конфликтующие записи
-    console.log('[МойСклад] Применяем приоритет МойСклад для конфликтов...');
-    await enforceMoyskladPriority(credentials);
-
-    // ===== ЭТАП 2: ЭКСПОРТ В МОЙСКЛАД (ТОЛЬКО НОВЫЕ/ИЗМЕНЁННЫЕ) =====
-    console.log('[МойСклад] Этап 2: Экспорт изменений из VetSystem...');
-    
-    const exportResult = await exportToMoysklad(credentials);
-    exportedServices = exportResult.exportedServices;
-    exportedProducts = exportResult.exportedProducts;
-    archivedItems = exportResult.archivedItems;
-    
-    if (exportResult.errors.length > 0) {
-      errors.push(...exportResult.errors.map(e => `Экспорт: ${e}`));
-    }
-
     // Получаем финальные данные для отчета
     const finalProducts = await storage.getProducts();
     const finalServices = await storage.getServices();
 
-    console.log('[МойСклад] Двухсторонняя синхронизация завершена');
+    console.log('[МойСклад] Односторонняя синхронизация завершена');
     console.log(`Импортировано: товаров ${importedProducts}, услуг ${importedServices}`);
-    console.log(`Экспортировано: товаров ${exportedProducts}, услуг ${exportedServices}`);
-    console.log(`Архивировано: ${archivedItems}, ошибок: ${errors.length}`);
+    console.log(`Ошибок: ${errors.length}`);
 
     return {
       success: errors.length === 0,
       importedProducts,
       importedServices,
-      exportedServices,
-      exportedProducts,
-      archivedItems,
       products: finalProducts,
       services: finalServices,
       errors
     };
 
   } catch (error: any) {
-    console.error('[МойСклад] Критическая ошибка двухсторонней синхронизации:', error);
+    console.error('[МойСклад] Критическая ошибка односторонней синхронизации:', error);
     errors.push(error.message);
     return {
       success: false,
       importedProducts,
       importedServices,
-      exportedServices,
-      exportedProducts,
-      archivedItems,
       products: [],
       services: [],
       errors
