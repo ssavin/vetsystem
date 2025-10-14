@@ -15,6 +15,12 @@ import type { MedicalRecord } from "@shared/schema"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { PrintDocumentButton } from "@/components/PrintDocumentButton"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { ru } from "date-fns/locale"
 
 // Table row component for medical records
 function MedicalRecordTableRow({ record }: { record: any }) {
@@ -90,6 +96,14 @@ export default function MedicalRecords() {
   const [autoOpenTriggered, setAutoOpenTriggered] = useState(false)
   const pageSize = 50
   const { toast } = useToast()
+  
+  // Фильтры
+  const [showFilters, setShowFilters] = useState(false)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
+  const [selectedVisitType, setSelectedVisitType] = useState<string | null>(null)
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null)
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined })
 
   // Get patientId and autoOpen from URL query parameters
   useEffect(() => {
@@ -189,7 +203,7 @@ export default function MedicalRecords() {
     }))
   }, [medicalRecords])
 
-  // Filter records based on search term and selected patient
+  // Filter records based on all filters
   const filteredRecords = useMemo(() => {
     let records = transformedRecords
 
@@ -198,7 +212,7 @@ export default function MedicalRecords() {
       records = records.filter(record => record.patientId === selectedPatientId)
     }
 
-    // Then apply search filter
+    // Apply search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
       records = records.filter(record => 
@@ -209,8 +223,36 @@ export default function MedicalRecords() {
       )
     }
 
+    // Apply status filter
+    if (selectedStatus) {
+      records = records.filter(record => record.status === selectedStatus)
+    }
+
+    // Apply visit type filter
+    if (selectedVisitType) {
+      records = records.filter(record => record.visitType === selectedVisitType)
+    }
+
+    // Apply doctor filter
+    if (selectedDoctorId) {
+      records = records.filter(record => record.doctorId === selectedDoctorId)
+    }
+
+    // Apply date range filter
+    if (dateRange.from || dateRange.to) {
+      records = records.filter(record => {
+        if (!record.visitDate) return false
+        const recordDate = new Date(record.visitDate)
+        
+        if (dateRange.from && recordDate < dateRange.from) return false
+        if (dateRange.to && recordDate > dateRange.to) return false
+        
+        return true
+      })
+    }
+
     return records
-  }, [transformedRecords, searchTerm, selectedPatientId])
+  }, [transformedRecords, searchTerm, selectedPatientId, selectedStatus, selectedVisitType, selectedDoctorId, dateRange])
 
   // Get selected patient name
   const selectedPatientName = useMemo(() => {
@@ -224,18 +266,21 @@ export default function MedicalRecords() {
   }
 
   const handleFiltersClick = () => {
-    toast({
-      title: t('filtersTitle'),
-      description: t('filtersDescription'),
-    })
+    setShowFilters(true)
   }
 
   const handlePeriodClick = () => {
-    toast({
-      title: t('periodTitle'),
-      description: t('periodDescription'),
-    })
+    setShowDatePicker(true)
   }
+  
+  const clearAllFilters = () => {
+    setSelectedStatus(null)
+    setSelectedVisitType(null)
+    setSelectedDoctorId(null)
+    setDateRange({ from: undefined, to: undefined })
+  }
+  
+  const hasActiveFilters = selectedStatus || selectedVisitType || selectedDoctorId || dateRange.from || dateRange.to
 
   const handleAIAssistantToggle = () => {
     if (!showAIAssistant && !selectedPatientForAI) {
@@ -292,6 +337,40 @@ export default function MedicalRecords() {
               <X className="h-3 w-3" />
             </Button>
           </Badge>
+        </div>
+      )}
+
+      {/* Active Filters Display */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Активные фильтры:</span>
+          {selectedStatus && (
+            <Badge variant="outline" className="gap-1">
+              Статус: {selectedStatus === 'active' ? 'Активное' : selectedStatus === 'completed' ? 'Завершено' : 'Требует наблюдения'}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedStatus(null)} />
+            </Badge>
+          )}
+          {selectedVisitType && (
+            <Badge variant="outline" className="gap-1">
+              Тип: {selectedVisitType}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedVisitType(null)} />
+            </Badge>
+          )}
+          {selectedDoctorId && (
+            <Badge variant="outline" className="gap-1">
+              Врач: {doctors.find(d => d.id === selectedDoctorId)?.name}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedDoctorId(null)} />
+            </Badge>
+          )}
+          {(dateRange.from || dateRange.to) && (
+            <Badge variant="outline" className="gap-1">
+              Период: {dateRange.from ? format(dateRange.from, 'dd.MM.yyyy') : '...'} - {dateRange.to ? format(dateRange.to, 'dd.MM.yyyy') : '...'}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setDateRange({ from: undefined, to: undefined })} />
+            </Badge>
+          )}
+          <Button variant="ghost" size="sm" onClick={clearAllFilters} data-testid="button-clear-all-filters">
+            Очистить все
+          </Button>
         </div>
       )}
 
@@ -441,6 +520,131 @@ export default function MedicalRecords() {
           )}
         </>
       )}
+
+      {/* Filters Dialog */}
+      <Dialog open={showFilters} onOpenChange={setShowFilters}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Фильтры медицинских записей</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Статус</label>
+              <Select value={selectedStatus || ""} onValueChange={(val) => setSelectedStatus(val || null)}>
+                <SelectTrigger data-testid="select-status-filter">
+                  <SelectValue placeholder="Все статусы" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Все статусы</SelectItem>
+                  <SelectItem value="active">Активное лечение</SelectItem>
+                  <SelectItem value="completed">Завершено</SelectItem>
+                  <SelectItem value="follow_up_required">Требует наблюдения</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Тип визита</label>
+              <Select value={selectedVisitType || ""} onValueChange={(val) => setSelectedVisitType(val || null)}>
+                <SelectTrigger data-testid="select-visittype-filter">
+                  <SelectValue placeholder="Все типы" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Все типы</SelectItem>
+                  <SelectItem value="consultation">Консультация</SelectItem>
+                  <SelectItem value="vaccination">Вакцинация</SelectItem>
+                  <SelectItem value="surgery">Хирургия</SelectItem>
+                  <SelectItem value="emergency">Экстренный прием</SelectItem>
+                  <SelectItem value="follow_up">Повторный визит</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Врач</label>
+              <Select value={selectedDoctorId || ""} onValueChange={(val) => setSelectedDoctorId(val || null)}>
+                <SelectTrigger data-testid="select-doctor-filter">
+                  <SelectValue placeholder="Все врачи" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Все врачи</SelectItem>
+                  {doctors.map((doctor) => (
+                    <SelectItem key={doctor.id} value={doctor.id}>
+                      {doctor.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={clearAllFilters} data-testid="button-clear-filters">
+              Очистить все
+            </Button>
+            <Button onClick={() => setShowFilters(false)} data-testid="button-apply-filters">
+              Применить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Date Range Picker Dialog */}
+      <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Выбор периода</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Начальная дата</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal" data-testid="button-date-from">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateRange.from ? format(dateRange.from, 'PPP', { locale: ru }) : 'Выберите дату'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange.from}
+                    onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Конечная дата</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal" data-testid="button-date-to">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateRange.to ? format(dateRange.to, 'PPP', { locale: ru }) : 'Выберите дату'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange.to}
+                    onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDateRange({ from: undefined, to: undefined })} data-testid="button-clear-dates">
+              Очистить даты
+            </Button>
+            <Button onClick={() => setShowDatePicker(false)} data-testid="button-apply-dates">
+              Применить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* AI Assistant for voice-activated medical record input */}
       <AIAssistantWidget role="doctor" />
