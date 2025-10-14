@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, ChevronLeft, ChevronRight, Plus, Filter, CalendarDays, Table, Clock } from "lucide-react"
+import { Calendar, ChevronLeft, ChevronRight, Plus, Filter, CalendarDays, Table, Clock, Check } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { type Appointment } from "@shared/schema"
 import AppointmentCard from "@/components/AppointmentCard"
@@ -11,6 +11,10 @@ import AppointmentDialog from "@/components/AppointmentDialog"
 import { AppointmentCardSkeleton } from "@/components/ui/loading-skeletons"
 import { DayView, WeekView, MonthView } from "@/components/CalendarViews"
 import { useLocation, useSearch } from "wouter"
+import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command"
+import { cn } from "@/lib/utils"
 
 type ViewMode = 'day' | 'week' | 'month'
 
@@ -45,6 +49,12 @@ export default function Schedule() {
   const [viewMode, setViewMode] = useState<ViewMode>('day')
   const [selectedDoctor, setSelectedDoctor] = useState(t('filters.allDoctors'))
   const [selectedType, setSelectedType] = useState(t('types.allTypes'))
+  
+  // Autocomplete states
+  const [doctorInput, setDoctorInput] = useState("")
+  const [typeInput, setTypeInput] = useState("")
+  const [doctorPopoverOpen, setDoctorPopoverOpen] = useState(false)
+  const [typePopoverOpen, setTypePopoverOpen] = useState(false)
   
   // Parse URL parameters for pre-filled appointment
   const [urlParams, setUrlParams] = useState<{ patientId?: string, ownerId?: string }>({})
@@ -330,38 +340,121 @@ export default function Schedule() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <div className="flex gap-2 items-center">
-              <span className="text-sm text-muted-foreground">Врач:</span>
-              <div className="flex gap-1">
-                {doctors.map(doctor => (
-                  <Badge
-                    key={doctor}
-                    variant={selectedDoctor === doctor ? "default" : "outline"}
-                    className="cursor-pointer hover-elevate"
-                    onClick={() => setSelectedDoctor(doctor)}
-                    data-testid={`filter-doctor-${doctor.toLowerCase().replace(/\s+/g, '-')}`}
-                  >
-                    {doctor}
-                  </Badge>
-                ))}
-              </div>
+          <div className="flex gap-3 items-center">
+            {/* Doctor Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground whitespace-nowrap">Врач:</span>
+              <Popover open={doctorPopoverOpen} onOpenChange={setDoctorPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <div className="relative w-48">
+                    <Input
+                      value={doctorInput}
+                      onChange={(e) => {
+                        setDoctorInput(e.target.value)
+                        setDoctorPopoverOpen(true)
+                      }}
+                      onFocus={() => setDoctorPopoverOpen(true)}
+                      placeholder={selectedDoctor}
+                      className="h-9 pr-8"
+                      data-testid="input-doctor-filter"
+                    />
+                    {selectedDoctor !== t('filters.allDoctors') && (
+                      <Check className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                    )}
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-0" align="start">
+                  <Command shouldFilter={false}>
+                    <CommandList>
+                      <CommandEmpty>Не найдено</CommandEmpty>
+                      <CommandGroup>
+                        {doctors
+                          .filter(doctor => 
+                            doctor.toLowerCase().includes(doctorInput.toLowerCase())
+                          )
+                          .map((doctor) => (
+                            <CommandItem
+                              key={doctor}
+                              value={doctor}
+                              onSelect={() => {
+                                setSelectedDoctor(doctor)
+                                setDoctorInput("")
+                                setDoctorPopoverOpen(false)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedDoctor === doctor ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {doctor}
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
-            <div className="flex gap-2 items-center">
-              <span className="text-sm text-muted-foreground">Тип:</span>
-              <div className="flex gap-1">
-                {appointmentTypes.map(type => (
-                  <Badge
-                    key={type}
-                    variant={selectedType === type ? "default" : "outline"}
-                    className="cursor-pointer hover-elevate"
-                    onClick={() => setSelectedType(type)}
-                    data-testid={`filter-type-${type.toLowerCase().replace(/\s+/g, '-')}`}
-                  >
-                    {type}
-                  </Badge>
-                ))}
-              </div>
+
+            {/* Type Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground whitespace-nowrap">Тип:</span>
+              <Popover open={typePopoverOpen} onOpenChange={setTypePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <div className="relative w-48">
+                    <Input
+                      value={typeInput}
+                      onChange={(e) => {
+                        setTypeInput(e.target.value)
+                        setTypePopoverOpen(true)
+                      }}
+                      onFocus={() => setTypePopoverOpen(true)}
+                      placeholder={selectedType}
+                      className="h-9 pr-8"
+                      data-testid="input-type-filter"
+                    />
+                    {selectedType !== t('types.allTypes') && (
+                      <Check className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                    )}
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-0" align="start">
+                  <Command shouldFilter={false}>
+                    <CommandList>
+                      <CommandEmpty>Не найдено</CommandEmpty>
+                      <CommandGroup>
+                        {appointmentTypes
+                          .filter(type => 
+                            type.toLowerCase().includes(typeInput.toLowerCase())
+                          )
+                          .map((type) => (
+                            <CommandItem
+                              key={type}
+                              value={type}
+                              onSelect={() => {
+                                setSelectedType(type)
+                                setTypeInput("")
+                                setTypePopoverOpen(false)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedType === type ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {type}
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </CardContent>
