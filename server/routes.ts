@@ -1549,7 +1549,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Администраторы и руководители видят записи из всех филиалов
       const isAdmin = user.role === 'администратор' || user.role === 'admin' || user.role === 'руководитель';
       const filterBranchId = isAdmin ? undefined : userBranchId;
+      console.log(`📋 getMedicalRecords - user: ${user.id}, role: ${user.role}, isAdmin: ${isAdmin}, branchId: ${filterBranchId}, patientId: ${patientId}`);
       const records = await storage.getMedicalRecords(patientId, filterBranchId, limit, offset);
+      console.log(`📋 getMedicalRecords returned ${records.length} records`);
       
       // Enrich records with patient and doctor names
       const { translateVisitType } = await import('../shared/visitTypes.js');
