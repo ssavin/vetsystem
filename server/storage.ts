@@ -2230,50 +2230,63 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // Medical Record methods - 🔒 SECURITY: branchId mandatory for PHI isolation
-  async getMedicalRecords(patientId: string | undefined, branchId: string, limit: number = 50, offset: number = 0): Promise<MedicalRecord[]> {
+  // Medical Record methods - 🔒 SECURITY: branchId optional for admins (undefined = all branches)
+  async getMedicalRecords(patientId: string | undefined, branchId: string | undefined, limit: number = 50, offset: number = 0): Promise<MedicalRecord[]> {
     return withPerformanceLogging('getMedicalRecords', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         if (patientId) {
-          // 🔒 CRITICAL: For specific patient, still enforce branch isolation
+          // 🔒 CRITICAL: For specific patient, enforce branch isolation if branchId provided
+          const conditions = [eq(medicalRecords.patientId, patientId)];
+          if (branchId) {
+            conditions.push(eq(patients.branchId, branchId));
+          }
           const results = await dbInstance.select({ medicalRecord: medicalRecords })
             .from(medicalRecords)
             .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
-            .where(and(eq(medicalRecords.patientId, patientId), eq(patients.branchId, branchId)))
+            .where(and(...conditions))
             .orderBy(desc(medicalRecords.visitDate))
             .limit(limit)
             .offset(offset);
           return results.map(r => r.medicalRecord);
         }
         
-        // 🔒 CRITICAL: For all medical records, enforce branch isolation via patient join
-        const results = await dbInstance.select({ medicalRecord: medicalRecords })
+        // 🔒 CRITICAL: For all medical records, enforce branch isolation if branchId provided
+        const query = dbInstance.select({ medicalRecord: medicalRecords })
           .from(medicalRecords)
-          .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
-          .where(eq(patients.branchId, branchId))
-          .orderBy(desc(medicalRecords.visitDate))
-          .limit(limit)
-          .offset(offset);
+          .leftJoin(patients, eq(medicalRecords.patientId, patients.id));
+        
+        const results = branchId
+          ? await query.where(eq(patients.branchId, branchId)).orderBy(desc(medicalRecords.visitDate)).limit(limit).offset(offset)
+          : await query.orderBy(desc(medicalRecords.visitDate)).limit(limit).offset(offset);
+        
         return results.map(r => r.medicalRecord);
       });
     });
   }
 
-  async getMedicalRecordsCount(patientId: string | undefined, branchId: string): Promise<number> {
+  async getMedicalRecordsCount(patientId: string | undefined, branchId: string | undefined): Promise<number> {
     return withPerformanceLogging('getMedicalRecordsCount', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         if (patientId) {
+          const conditions = [eq(medicalRecords.patientId, patientId)];
+          if (branchId) {
+            conditions.push(eq(patients.branchId, branchId));
+          }
           const result = await dbInstance.select({ count: sql<number>`count(*)::int` })
             .from(medicalRecords)
             .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
-            .where(and(eq(medicalRecords.patientId, patientId), eq(patients.branchId, branchId)));
+            .where(and(...conditions));
           return result[0]?.count || 0;
         }
         
-        const result = await dbInstance.select({ count: sql<number>`count(*)::int` })
+        const query = dbInstance.select({ count: sql<number>`count(*)::int` })
           .from(medicalRecords)
-          .leftJoin(patients, eq(medicalRecords.patientId, patients.id))
-          .where(eq(patients.branchId, branchId));
+          .leftJoin(patients, eq(medicalRecords.patientId, patients.id));
+        
+        const result = branchId
+          ? await query.where(eq(patients.branchId, branchId))
+          : await query;
+        
         return result[0]?.count || 0;
       });
     });
