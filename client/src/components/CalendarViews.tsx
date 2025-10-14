@@ -274,29 +274,29 @@ export function MonthView({ appointments, currentDate, onDateChange, onAppointme
   }
 
   return (
-    <div className="space-y-3 max-w-full">
+    <div className="space-y-4 max-w-5xl mx-auto">
       {/* Month navigation */}
       <div className="flex items-center justify-between">
         <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <h2 className="text-lg font-semibold capitalize">{monthName}</h2>
+        <h2 className="text-xl font-semibold capitalize">{monthName}</h2>
         <Button variant="outline" size="icon" onClick={goToNextMonth}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Days of week header */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-2">
         {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
-          <div key={day} className="text-center font-medium text-muted-foreground text-xs py-1">
+          <div key={day} className="text-center font-medium text-muted-foreground p-2">
             {day}
           </div>
         ))}
       </div>
 
       {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-2">
         {monthDates.map(date => {
           const dayAppointments = getAppointmentsForDate(date)
           const isCurrentMonthDate = isCurrentMonth(date)
@@ -306,35 +306,35 @@ export function MonthView({ appointments, currentDate, onDateChange, onAppointme
             <div 
               key={date.toISOString()}
               className={`
-                h-16 p-1 border rounded cursor-pointer hover-elevate overflow-hidden
+                min-h-24 p-2 border rounded cursor-pointer hover-elevate
                 ${isTodayDate ? 'bg-primary/10 border-primary' : 'border-border'}
                 ${!isCurrentMonthDate ? 'text-muted-foreground bg-muted/30' : ''}
               `}
               onClick={() => onDateChange(date)}
             >
-              <div className="font-medium text-xs mb-0.5">
+              <div className="font-medium mb-1">
                 {date.getDate()}
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {loading ? (
-                  <div className="h-3 bg-muted animate-pulse rounded" />
+                  <div className="h-4 bg-muted animate-pulse rounded" />
                 ) : (
                   <>
-                    {dayAppointments.slice(0, 1).map(apt => (
+                    {dayAppointments.slice(0, 2).map(apt => (
                       <div 
                         key={apt.id} 
-                        className="text-[10px] px-0.5 py-0.5 bg-primary/20 rounded truncate cursor-pointer hover:bg-primary/30"
+                        className="text-xs p-1 bg-primary/20 rounded truncate cursor-pointer hover:bg-primary/30"
                         onClick={(e) => {
                           e.stopPropagation()
                           onAppointmentClick?.(apt)
                         }}
                       >
-                        {apt.patientName}
+                        {apt.time} {apt.patientName}
                       </div>
                     ))}
-                    {dayAppointments.length > 1 && (
-                      <div className="text-[10px] text-muted-foreground">
-                        +{dayAppointments.length - 1}
+                    {dayAppointments.length > 2 && (
+                      <div className="text-xs text-muted-foreground">
+                        +{dayAppointments.length - 2} ещё
                       </div>
                     )}
                   </>
