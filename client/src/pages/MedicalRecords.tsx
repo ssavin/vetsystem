@@ -530,12 +530,12 @@ export default function MedicalRecords() {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Статус</label>
-              <Select value={selectedStatus || ""} onValueChange={(val) => setSelectedStatus(val || null)}>
+              <Select value={selectedStatus || "all"} onValueChange={(val) => setSelectedStatus(val === 'all' ? null : val)}>
                 <SelectTrigger data-testid="select-status-filter">
                   <SelectValue placeholder="Все статусы" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все статусы</SelectItem>
+                  <SelectItem value="all">Все статусы</SelectItem>
                   <SelectItem value="active">Активное лечение</SelectItem>
                   <SelectItem value="completed">Завершено</SelectItem>
                   <SelectItem value="follow_up_required">Требует наблюдения</SelectItem>
@@ -545,12 +545,12 @@ export default function MedicalRecords() {
             
             <div>
               <label className="text-sm font-medium">Тип визита</label>
-              <Select value={selectedVisitType || ""} onValueChange={(val) => setSelectedVisitType(val || null)}>
+              <Select value={selectedVisitType || "all"} onValueChange={(val) => setSelectedVisitType(val === 'all' ? null : val)}>
                 <SelectTrigger data-testid="select-visittype-filter">
                   <SelectValue placeholder="Все типы" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все типы</SelectItem>
+                  <SelectItem value="all">Все типы</SelectItem>
                   <SelectItem value="consultation">Консультация</SelectItem>
                   <SelectItem value="vaccination">Вакцинация</SelectItem>
                   <SelectItem value="surgery">Хирургия</SelectItem>
@@ -562,12 +562,12 @@ export default function MedicalRecords() {
             
             <div>
               <label className="text-sm font-medium">Врач</label>
-              <Select value={selectedDoctorId || ""} onValueChange={(val) => setSelectedDoctorId(val || null)}>
+              <Select value={selectedDoctorId || "all"} onValueChange={(val) => setSelectedDoctorId(val === 'all' ? null : val)}>
                 <SelectTrigger data-testid="select-doctor-filter">
                   <SelectValue placeholder="Все врачи" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все врачи</SelectItem>
+                  <SelectItem value="all">Все врачи</SelectItem>
                   {doctors.map((doctor) => (
                     <SelectItem key={doctor.id} value={doctor.id}>
                       {doctor.name}
