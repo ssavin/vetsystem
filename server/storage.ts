@@ -283,6 +283,7 @@ export interface IStorage {
   createService(service: InsertService): Promise<Service>;
   updateService(id: string, service: Partial<InsertService>): Promise<Service>;
   deleteService(id: string): Promise<void>;
+  deleteAllServices(): Promise<void>;
   searchServices(query: string): Promise<Service[]>;
   // External system integration methods for services
   getServiceByExternalId(externalId: string, system: string): Promise<Service | undefined>;
@@ -294,6 +295,7 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product>;
   deleteProduct(id: string): Promise<void>;
+  deleteAllProducts(): Promise<void>;
   searchProducts(query: string): Promise<Product[]>;
   getLowStockProducts(): Promise<Product[]>;
   updateProductStock(id: string, quantity: number): Promise<Product>;
@@ -2499,6 +2501,15 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async deleteAllServices(): Promise<void> {
+    return withPerformanceLogging('deleteAllServices', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Hard delete all services for МойСклад sync
+        await dbInstance.delete(services);
+      });
+    });
+  }
+
   // External system integration methods for services
   async getServiceByExternalId(externalId: string, system: string): Promise<Service | undefined> {
     return withPerformanceLogging('getServiceByExternalId', async () => {
@@ -2656,6 +2667,15 @@ export class DatabaseStorage implements IStorage {
             updatedAt: new Date()
           })
           .where(eq(products.id, id));
+      });
+    });
+  }
+
+  async deleteAllProducts(): Promise<void> {
+    return withPerformanceLogging('deleteAllProducts', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Hard delete all products for МойСклад sync
+        await dbInstance.delete(products);
       });
     });
   }
