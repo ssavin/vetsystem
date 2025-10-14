@@ -345,56 +345,61 @@ export default function Schedule() {
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground whitespace-nowrap">Врач:</span>
               <Popover open={doctorPopoverOpen} onOpenChange={setDoctorPopoverOpen}>
-                <div className="relative w-48">
-                  <Input
-                    value={doctorInput}
-                    onChange={(e) => {
-                      setDoctorInput(e.target.value)
-                      setDoctorPopoverOpen(true)
-                    }}
-                    onFocus={() => setDoctorPopoverOpen(true)}
-                    onBlur={() => setTimeout(() => setDoctorPopoverOpen(false), 200)}
-                    placeholder={selectedDoctor}
-                    className="h-9 pr-8"
-                    data-testid="input-doctor-filter"
-                  />
-                  {selectedDoctor !== t('filters.allDoctors') && (
-                    <Check className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-primary pointer-events-none" />
-                  )}
-                  <PopoverContent className="w-48 p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-                    <Command shouldFilter={false}>
-                      <CommandList>
-                        <CommandEmpty>Не найдено</CommandEmpty>
-                        <CommandGroup>
-                          {doctors
-                            .filter(doctor => 
-                              doctor.toLowerCase().includes(doctorInput.toLowerCase())
-                            )
-                            .map((doctor) => (
-                              <CommandItem
-                                key={doctor}
-                                value={doctor}
-                                onSelect={() => {
-                                  setSelectedDoctor(doctor)
-                                  setDoctorInput("")
-                                  setDoctorPopoverOpen(false)
-                                }}
-                                className="cursor-pointer"
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedDoctor === doctor ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {doctor}
-                              </CommandItem>
-                            ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </div>
+                <PopoverTrigger asChild>
+                  <div className="relative w-48">
+                    <Input
+                      value={doctorInput}
+                      onChange={(e) => {
+                        setDoctorInput(e.target.value)
+                        if (!doctorPopoverOpen) setDoctorPopoverOpen(true)
+                      }}
+                      onFocus={() => setDoctorPopoverOpen(true)}
+                      placeholder={selectedDoctor}
+                      className="h-9 pr-8"
+                      data-testid="input-doctor-filter"
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        e.currentTarget.focus()
+                      }}
+                    />
+                    {selectedDoctor !== t('filters.allDoctors') && (
+                      <Check className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-primary pointer-events-none" />
+                    )}
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                  <Command shouldFilter={false}>
+                    <CommandList>
+                      <CommandEmpty>Не найдено</CommandEmpty>
+                      <CommandGroup>
+                        {doctors
+                          .filter(doctor => 
+                            doctor.toLowerCase().includes(doctorInput.toLowerCase())
+                          )
+                          .map((doctor) => (
+                            <CommandItem
+                              key={doctor}
+                              value={doctor}
+                              onSelect={() => {
+                                setSelectedDoctor(doctor)
+                                setDoctorInput("")
+                                setDoctorPopoverOpen(false)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedDoctor === doctor ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {doctor}
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
               </Popover>
             </div>
 
@@ -402,56 +407,61 @@ export default function Schedule() {
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground whitespace-nowrap">Тип:</span>
               <Popover open={typePopoverOpen} onOpenChange={setTypePopoverOpen}>
-                <div className="relative w-48">
-                  <Input
-                    value={typeInput}
-                    onChange={(e) => {
-                      setTypeInput(e.target.value)
-                      setTypePopoverOpen(true)
-                    }}
-                    onFocus={() => setTypePopoverOpen(true)}
-                    onBlur={() => setTimeout(() => setTypePopoverOpen(false), 200)}
-                    placeholder={selectedType}
-                    className="h-9 pr-8"
-                    data-testid="input-type-filter"
-                  />
-                  {selectedType !== t('types.allTypes') && (
-                    <Check className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-primary pointer-events-none" />
-                  )}
-                  <PopoverContent className="w-48 p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-                    <Command shouldFilter={false}>
-                      <CommandList>
-                        <CommandEmpty>Не найдено</CommandEmpty>
-                        <CommandGroup>
-                          {appointmentTypes
-                            .filter(type => 
-                              type.toLowerCase().includes(typeInput.toLowerCase())
-                            )
-                            .map((type) => (
-                              <CommandItem
-                                key={type}
-                                value={type}
-                                onSelect={() => {
-                                  setSelectedType(type)
-                                  setTypeInput("")
-                                  setTypePopoverOpen(false)
-                                }}
-                                className="cursor-pointer"
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedType === type ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {type}
-                              </CommandItem>
-                            ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </div>
+                <PopoverTrigger asChild>
+                  <div className="relative w-48">
+                    <Input
+                      value={typeInput}
+                      onChange={(e) => {
+                        setTypeInput(e.target.value)
+                        if (!typePopoverOpen) setTypePopoverOpen(true)
+                      }}
+                      onFocus={() => setTypePopoverOpen(true)}
+                      placeholder={selectedType}
+                      className="h-9 pr-8"
+                      data-testid="input-type-filter"
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        e.currentTarget.focus()
+                      }}
+                    />
+                    {selectedType !== t('types.allTypes') && (
+                      <Check className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-primary pointer-events-none" />
+                    )}
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                  <Command shouldFilter={false}>
+                    <CommandList>
+                      <CommandEmpty>Не найдено</CommandEmpty>
+                      <CommandGroup>
+                        {appointmentTypes
+                          .filter(type => 
+                            type.toLowerCase().includes(typeInput.toLowerCase())
+                          )
+                          .map((type) => (
+                            <CommandItem
+                              key={type}
+                              value={type}
+                              onSelect={() => {
+                                setSelectedType(type)
+                                setTypeInput("")
+                                setTypePopoverOpen(false)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedType === type ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {type}
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
               </Popover>
             </div>
           </div>
