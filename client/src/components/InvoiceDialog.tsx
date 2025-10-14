@@ -365,8 +365,12 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                                   <FormControl>
                                     <Input 
                                       {...field} 
-                                      placeholder="Начните вводить или введите название вручную"
+                                      placeholder="Начните вводить название услуги или товара"
                                       data-testid={`input-item-name-${index}`}
+                                      onChange={(e) => {
+                                        field.onChange(e)
+                                        setItemPopoverStates(prev => ({ ...prev, [index]: true }))
+                                      }}
                                       onFocus={() => {
                                         setItemPopoverStates(prev => ({ ...prev, [index]: true }))
                                       }}
@@ -374,18 +378,16 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                                   </FormControl>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-[400px] p-0" align="start">
-                                  <Command>
-                                    <CommandInput 
-                                      placeholder="Поиск услуги или товара..." 
-                                      value={field.value}
-                                      onValueChange={(value) => {
-                                        field.onChange(value)
-                                      }}
-                                    />
+                                  <Command shouldFilter={false}>
                                     <CommandList>
                                       <CommandEmpty>Ничего не найдено</CommandEmpty>
                                       <CommandGroup heading="Услуги">
-                                        {(services as any[]).map((service: any) => (
+                                        {(services as any[])
+                                          .filter((service: any) => 
+                                            !field.value || 
+                                            service.name.toLowerCase().includes(field.value.toLowerCase())
+                                          )
+                                          .map((service: any) => (
                                           <CommandItem
                                             key={`service:${service.id}`}
                                             value={service.name}
@@ -408,7 +410,12 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                                         ))}
                                       </CommandGroup>
                                       <CommandGroup heading="Товары">
-                                        {(products as any[]).map((product: any) => (
+                                        {(products as any[])
+                                          .filter((product: any) => 
+                                            !field.value || 
+                                            product.name.toLowerCase().includes(field.value.toLowerCase())
+                                          )
+                                          .map((product: any) => (
                                           <CommandItem
                                             key={`product:${product.id}`}
                                             value={product.name}
