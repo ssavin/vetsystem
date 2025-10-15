@@ -206,48 +206,46 @@ export default function ServicesInventory() {
         </Button>
       </div>
 
-      {/* Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Поиск услуг и товаров</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Поиск по названию или категории..."
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-10"
-              data-testid="input-search-services"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Services and Products Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="services" data-testid="tab-services">
-            Услуги ({filteredServices.length})
-          </TabsTrigger>
-          <TabsTrigger value="products" data-testid="tab-products">
-            Товары ({filteredProducts.length})
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        {/* Sticky Search and Tabs Section */}
+        <div className="sticky top-0 z-10 bg-background pb-4">
+          {/* Search and Tabs in one row */}
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Поиск по названию или категории..."
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-10"
+                data-testid="input-search-services"
+              />
+            </div>
+            <TabsList>
+              <TabsTrigger value="services" data-testid="tab-services">
+                Услуги ({filteredServices.length})
+              </TabsTrigger>
+              <TabsTrigger value="products" data-testid="tab-products">
+                Товары ({filteredProducts.length})
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
 
-        <TabsContent value="services" className="space-y-4">
+        <TabsContent value="services" className="mt-0 space-y-4">
           <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12"></TableHead>
-                  <TableHead>Название</TableHead>
-                  <TableHead>Цена</TableHead>
-                  <TableHead>Длительность</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card z-10">
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Название</TableHead>
+                    <TableHead>Цена</TableHead>
+                    <TableHead>Длительность</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                 {filteredServices.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
@@ -283,6 +281,7 @@ export default function ServicesInventory() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </Card>
 
           {/* Services Pagination */}
@@ -320,18 +319,19 @@ export default function ServicesInventory() {
           )}
         </TabsContent>
 
-        <TabsContent value="products" className="space-y-4">
+        <TabsContent value="products" className="mt-0 space-y-4">
           <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12"></TableHead>
-                  <TableHead>Название</TableHead>
-                  <TableHead>Цена</TableHead>
-                  <TableHead>Единица</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card z-10">
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Название</TableHead>
+                    <TableHead>Цена</TableHead>
+                    <TableHead>Единица</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
@@ -361,6 +361,7 @@ export default function ServicesInventory() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </Card>
 
           {/* Products Pagination */}
