@@ -243,22 +243,20 @@ export default function ServicesInventory() {
                 <TableRow>
                   <TableHead className="w-12"></TableHead>
                   <TableHead>Название</TableHead>
-                  <TableHead>Категория</TableHead>
                   <TableHead>Цена</TableHead>
                   <TableHead>Длительность</TableHead>
-                  <TableHead>Статус</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredServices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                       {searchTerm ? 'Услуги не найдены' : 'Услуги отсутствуют'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedServices.map(service => (
-                    <TableRow key={service.id} className={!service.isActive ? 'opacity-50' : ''}>
+                    <TableRow key={service.id}>
                       <TableCell>
                         <Clock className="h-4 w-4 text-blue-500" />
                       </TableCell>
@@ -270,7 +268,6 @@ export default function ServicesInventory() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{service.category}</TableCell>
                       <TableCell data-testid={`text-service-price-${service.id}`}>
                         {Number(service.price).toLocaleString('ru-RU')} ₽
                       </TableCell>
@@ -279,13 +276,6 @@ export default function ServicesInventory() {
                           <Badge variant="secondary">{service.duration} мин</Badge>
                         ) : (
                           '-'
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {service.isActive ? (
-                          <Badge variant="default">Активно</Badge>
-                        ) : (
-                          <Badge variant="destructive">Неактивно</Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -337,22 +327,20 @@ export default function ServicesInventory() {
                 <TableRow>
                   <TableHead className="w-12"></TableHead>
                   <TableHead>Название</TableHead>
-                  <TableHead>Категория</TableHead>
                   <TableHead>Цена</TableHead>
                   <TableHead>Единица</TableHead>
-                  <TableHead>Статус</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                       {searchTerm ? 'Товары не найдены' : 'Товары отсутствуют'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedProducts.map(product => (
-                    <TableRow key={product.id} className={!product.isActive ? 'opacity-50' : ''}>
+                    <TableRow key={product.id}>
                       <TableCell>
                         <Package className="h-4 w-4 text-green-500" />
                       </TableCell>
@@ -364,18 +352,10 @@ export default function ServicesInventory() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{product.category}</TableCell>
                       <TableCell data-testid={`text-product-price-${product.id}`}>
                         {Number(product.price).toLocaleString('ru-RU')} ₽
                       </TableCell>
                       <TableCell>{product.unit || '-'}</TableCell>
-                      <TableCell>
-                        {product.isActive ? (
-                          <Badge variant="default">Активно</Badge>
-                        ) : (
-                          <Badge variant="destructive">Неактивно</Badge>
-                        )}
-                      </TableCell>
                     </TableRow>
                   ))
                 )}
