@@ -574,9 +574,21 @@ export default function Registry() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-registry-title">{t('title')}</h1>
-          <p className="text-muted-foreground">{t('subtitle')}</p>
+        <div className="flex items-center gap-6">
+          <div>
+            <h1 className="text-3xl font-bold" data-testid="text-registry-title">{t('title')}</h1>
+            <p className="text-muted-foreground">{t('subtitle')}</p>
+          </div>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "clients" | "patients")}>
+            <TabsList>
+              <TabsTrigger value="clients" data-testid="tab-clients">
+                {t('tabs.clients', 'Клиенты')}
+              </TabsTrigger>
+              <TabsTrigger value="patients" data-testid="tab-patients">
+                {t('tabs.patients', 'Пациенты')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
@@ -619,34 +631,19 @@ export default function Registry() {
                 data-testid="input-search-patients"
               />
             </div>
-            <Button variant="outline" data-testid="button-filters">
-              <Filter className="h-4 w-4 mr-2" />
-              {t('filters')}
+            <Button 
+              onClick={() => activeTab === 'patients' ? setShowPatientForm(true) : setShowOwnerForm(true)}
+              data-testid={activeTab === 'patients' ? "button-new-patient" : "button-new-owner"}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              {activeTab === 'patients' ? 'Добавить пациента' : 'Добавить клиента'}
             </Button>
           </div>
         </CardContent>
       </Card>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "clients" | "patients")}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="clients" data-testid="tab-clients">
-            {t('tabs.clients', 'Клиенты')}
-          </TabsTrigger>
-          <TabsTrigger value="patients" data-testid="tab-patients">
-            {t('tabs.patients', 'Пациенты')}
-          </TabsTrigger>
-        </TabsList>
-
         <TabsContent value="clients">
-          <div className="flex justify-end mb-4">
-            <Button 
-              onClick={() => setShowOwnerForm(true)}
-              data-testid="button-new-owner"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Добавить клиента
-            </Button>
-          </div>
           <Card>
             <CardContent className="p-0">
               {isOwnersLoading ? (
@@ -794,15 +791,6 @@ export default function Registry() {
         </TabsContent>
 
         <TabsContent value="patients">
-          <div className="flex justify-end mb-4">
-            <Button 
-              onClick={() => setShowPatientForm(true)}
-              data-testid="button-new-patient"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Добавить пациента
-            </Button>
-          </div>
           <Card>
             <CardContent className="p-0">
               {isPatientsLoading ? (
