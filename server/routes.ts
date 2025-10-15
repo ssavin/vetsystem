@@ -4028,9 +4028,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function getIntegrationCredentialsOrThrow(tenantId: string, provider: string): Promise<any> {
     const integrationConfig = await storage.getIntegrationCredentials(tenantId, provider);
     
-    console.log(`[getIntegrationCredentialsOrThrow] Provider: ${provider}, Config:`, integrationConfig);
-    console.log(`[getIntegrationCredentialsOrThrow] isEnabled:`, integrationConfig?.isEnabled);
-    
     if (!integrationConfig || !integrationConfig.isEnabled) {
       throw new Error(`${provider} integration not configured or inactive`);
     }
@@ -4382,7 +4379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Импортируем модуль МойСклад и запускаем синхронизацию
       const { syncNomenclature } = await import('./integrations/moysklad');
       
-      const result = await syncNomenclature(credentials);
+      const result = await syncNomenclature(credentials, tenantId);
       
       console.log('[МойСклад] Синхронизация завершена:', result);
       

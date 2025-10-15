@@ -551,7 +551,7 @@ export async function getCurrency(credentials: MoySkladCredentials): Promise<any
 /**
  * Загружает номенклатуру ИЗ МойСклад в нашу систему
  */
-export async function loadNomenclatureFromMoysklad(credentials: MoySkladCredentials): Promise<{
+export async function loadNomenclatureFromMoysklad(credentials: MoySkladCredentials, tenantId: string): Promise<{
   products: any[],
   services: any[],
   errors: string[]
@@ -582,6 +582,7 @@ export async function loadNomenclatureFromMoysklad(credentials: MoySkladCredenti
             const existingProduct = existingProductsMap.get(product.id);
             
             const productData = {
+              tenantId, // Добавляем tenantId
               moyskladId: product.id,
               name: product.name,
               description: product.description || '',
@@ -636,6 +637,7 @@ export async function loadNomenclatureFromMoysklad(credentials: MoySkladCredenti
             const existingService = existingServicesMap.get(service.id);
             
             const serviceData = {
+              tenantId, // Добавляем tenantId
               moyskladId: service.id,
               name: service.name,
               description: service.description || '',
@@ -909,7 +911,7 @@ export async function archiveItemInMoysklad(credentials: MoySkladCredentials, mo
  * Односторонняя синхронизация номенклатуры (МойСклад → VetSystem)
  * Очищает всю номенклатуру в VetSystem и загружает свежие данные из МойСклад
  */
-export async function syncNomenclature(credentials: MoySkladCredentials): Promise<{
+export async function syncNomenclature(credentials: MoySkladCredentials, tenantId: string): Promise<{
   success: boolean;
   importedProducts: number;
   importedServices: number;
@@ -952,7 +954,7 @@ export async function syncNomenclature(credentials: MoySkladCredentials): Promis
     // ===== ЭТАП 2: ИМПОРТ ИЗ МОЙСКЛАД =====
     console.log('[МойСклад] Этап 2: Импорт номенклатуры из МойСклад...');
     
-    const importResult = await loadNomenclatureFromMoysklad(credentials);
+    const importResult = await loadNomenclatureFromMoysklad(credentials, tenantId);
     importedProducts = importResult.products.length;
     importedServices = importResult.services.length;
     
