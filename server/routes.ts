@@ -4028,6 +4028,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function getIntegrationCredentialsOrThrow(tenantId: string, provider: string): Promise<any> {
     const integrationConfig = await storage.getIntegrationCredentials(tenantId, provider);
     
+    console.log(`[getIntegrationCredentialsOrThrow] Provider: ${provider}, Config:`, integrationConfig);
+    console.log(`[getIntegrationCredentialsOrThrow] isEnabled:`, integrationConfig?.isEnabled);
+    
     if (!integrationConfig || !integrationConfig.isEnabled) {
       throw new Error(`${provider} integration not configured or inactive`);
     }
