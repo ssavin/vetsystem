@@ -19,7 +19,7 @@ import {
 import { Search, RefreshCw, Clock, Package, AlertTriangle, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { apiRequest } from "@/lib/queryClient"
-import type { Service, Product, SystemSetting } from "@shared/schema"
+import type { Service, Product, SystemSetting, IntegrationCredentials } from "@shared/schema"
 
 // Real API data fetching
 
@@ -49,6 +49,17 @@ export default function ServicesInventory() {
 
   const fiscalReceiptSystem = systemSettings.find(s => s.key === 'fiscal_receipt_system')?.value
 
+  // Fetch integration credentials to check if they are configured
+  const { data: moyskladCreds } = useQuery<IntegrationCredentials>({
+    queryKey: ['/api/integration-credentials/moysklad'],
+    enabled: fiscalReceiptSystem === 'moysklad',
+  })
+
+  const { data: onecCreds } = useQuery<IntegrationCredentials>({
+    queryKey: ['/api/integration-credentials/onec'],
+    enabled: fiscalReceiptSystem === 'onec',
+  })
+
   // Nomenclature sync mutation
   const syncNomenclatureMutation = useMutation({
     mutationFn: async () => {
@@ -72,9 +83,20 @@ export default function ServicesInventory() {
       })
     },
     onError: (error: any) => {
+      let errorMessage = "Не удалось загрузить номенклатуру"
+      
+      // Преобразуем технические ошибки в понятные сообщения на русском
+      if (error.message?.includes('integration not configured')) {
+        errorMessage = `Интеграция с ${getSystemDisplayName()} не настроена или неактивна`
+      } else if (error.message?.includes('Unauthorized') || error.message?.includes('401')) {
+        errorMessage = `Ошибка авторизации в ${getSystemDisplayName()}. Проверьте настройки интеграции`
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
       toast({
         title: "Ошибка синхронизации",
-        description: error.message || "Не удалось загрузить номенклатуру",
+        description: errorMessage,
         variant: "destructive",
       })
     }
@@ -96,8 +118,26 @@ export default function ServicesInventory() {
     return 'не выбрана'
   }
 
-  // Check if sync is available
-  const isSyncAvailable = !isLoadingSettings && (fiscalReceiptSystem === 'moysklad' || fiscalReceiptSystem === 'onec')
+  // Check if sync is available - system must be selected AND integration must be configured
+  const isSyncAvailable = !isLoadingSettings && (
+    (fiscalReceiptSystem === 'moysklad' && moyskladCreds?.isEnabled) ||
+    (fiscalReceiptSystem === 'onec' && onecCreds?.isEnabled)
+  )
+
+  // Get warning message if sync is not available
+  const getSyncWarningMessage = () => {
+    if (isLoadingSettings) return null
+    if (!fiscalReceiptSystem || fiscalReceiptSystem === 'yookassa') {
+      return 'Для синхронизации номенклатуры выберите систему фискальных чеков (МойСклад или 1С Розница) в настройках'
+    }
+    if (fiscalReceiptSystem === 'moysklad' && !moyskladCreds?.isEnabled) {
+      return 'Интеграция с МойСклад не настроена или неактивна. Настройте её в разделе Интеграции'
+    }
+    if (fiscalReceiptSystem === 'onec' && !onecCreds?.isEnabled) {
+      return 'Интеграция с 1С Розница не настроена или неактивна. Настройте её в разделе Интеграции'
+    }
+    return null
+  }
 
   const filteredServices = services.filter(service =>
     service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -120,9 +160,9 @@ export default function ServicesInventory() {
         <div>
           <h1 className="text-3xl font-bold" data-testid="text-services-inventory-title">Цены на услуги и товары</h1>
           <p className="text-muted-foreground">Прейскурант ветеринарных услуг и товаров клиники</p>
-          {!isLoadingSettings && !isSyncAvailable && (
+          {getSyncWarningMessage() && (
             <p className="text-sm text-amber-600 dark:text-amber-500 mt-1">
-              Для синхронизации номенклатуры настройте систему фискальных чеков (МойСклад или 1С Розница) в настройках
+              {getSyncWarningMessage()}
             </p>
           )}
         </div>
