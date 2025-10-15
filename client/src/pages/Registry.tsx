@@ -659,17 +659,18 @@ export default function Registry() {
                   </p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('clients.tableHeaders.name', 'Имя клиента')}</TableHead>
-                      <TableHead>{t('clients.tableHeaders.phone', 'Телефон')}</TableHead>
-                      <TableHead>{t('clients.tableHeaders.email', 'Email')}</TableHead>
-                      <TableHead>{t('clients.tableHeaders.address', 'Адрес')}</TableHead>
-                      <TableHead className="text-right">{t('clients.tableHeaders.actions', 'Действия')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <div className="overflow-auto max-h-[calc(100vh-400px)]">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-card z-10">
+                      <TableRow>
+                        <TableHead>{t('clients.tableHeaders.name', 'Имя клиента')}</TableHead>
+                        <TableHead>{t('clients.tableHeaders.phone', 'Телефон')}</TableHead>
+                        <TableHead>{t('clients.tableHeaders.email', 'Email')}</TableHead>
+                        <TableHead>{t('clients.tableHeaders.address', 'Адрес')}</TableHead>
+                        <TableHead className="text-right">{t('clients.tableHeaders.actions', 'Действия')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                     {transformedOwners.map((owner: any) => (
                       <TableRow key={owner.id} className="hover-elevate">
                         <TableCell>
@@ -741,6 +742,7 @@ export default function Registry() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
             {ownersTotalPages > 1 && (
@@ -806,28 +808,30 @@ export default function Registry() {
                   </p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('patients.tableHeaders.patient')}</TableHead>
-                      <TableHead>{t('patients.tableHeaders.speciesBreed')}</TableHead>
-                      <TableHead>{t('patients.tableHeaders.owner')}</TableHead>
-                      <TableHead>{t('patients.tableHeaders.phone')}</TableHead>
-                      <TableHead>{t('patients.tableHeaders.lastVisit')}</TableHead>
-                      <TableHead className="text-right">{t('patients.tableHeaders.actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transformedPatients.map((patient: any) => (
-                      <PatientTableRow 
-                        key={patient.id} 
-                        patient={patient}
-                        onEdit={setPatientToEdit}
-                        onDelete={setPatientToDelete}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="overflow-auto max-h-[calc(100vh-400px)]">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-card z-10">
+                      <TableRow>
+                        <TableHead>{t('patients.tableHeaders.patient')}</TableHead>
+                        <TableHead>{t('patients.tableHeaders.speciesBreed')}</TableHead>
+                        <TableHead>{t('patients.tableHeaders.owner')}</TableHead>
+                        <TableHead>{t('patients.tableHeaders.phone')}</TableHead>
+                        <TableHead>{t('patients.tableHeaders.lastVisit')}</TableHead>
+                        <TableHead className="text-right">{t('patients.tableHeaders.actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transformedPatients.map((patient: any) => (
+                        <PatientTableRow 
+                          key={patient.id} 
+                          patient={patient}
+                          onEdit={setPatientToEdit}
+                          onDelete={setPatientToDelete}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
             {patientsTotalPages > 1 && (
