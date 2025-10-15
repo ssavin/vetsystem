@@ -573,76 +573,70 @@ export default function Registry() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <div>
-            <h1 className="text-3xl font-bold" data-testid="text-registry-title">{t('title')}</h1>
-            <p className="text-muted-foreground">{t('subtitle')}</p>
-          </div>
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "clients" | "patients")}>
-            <TabsList>
-              <TabsTrigger value="clients" data-testid="tab-clients">
-                {t('tabs.clients', 'Клиенты')}
-              </TabsTrigger>
-              <TabsTrigger value="patients" data-testid="tab-patients">
-                {t('tabs.patients', 'Пациенты')}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold" data-testid="text-registry-title">{t('title')}</h1>
+        <p className="text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {activeTab === 'patients' 
-              ? t('patients.search', 'Поиск пациентов') 
-              : t('clients.search', 'Поиск клиентов')
-            }
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 mb-4">
-            <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-              <SelectTrigger className="w-[250px]" data-testid="select-branch">
-                <Building2 className="h-4 w-4 mr-2" />
-                <SelectValue placeholder={t('selectBranch', 'Выберите филиал')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" data-testid="branch-option-all">
-                  {t('allBranches', 'Все филиалы')}
-                </SelectItem>
-                {Array.isArray(branchesData) && branchesData.map((branch: any) => (
-                  <SelectItem key={branch.id} value={branch.id} data-testid={`branch-option-${branch.id}`}>
-                    {branch.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t('patients.searchPlaceholder')}
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-patients"
-              />
-            </div>
-            <Button 
-              onClick={() => activeTab === 'patients' ? setShowPatientForm(true) : setShowOwnerForm(true)}
-              data-testid={activeTab === 'patients' ? "button-new-patient" : "button-new-owner"}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              {activeTab === 'patients' ? 'Добавить пациента' : 'Добавить клиента'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "clients" | "patients")}>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>
+                {activeTab === 'patients' 
+                  ? t('patients.search', 'Поиск пациентов') 
+                  : t('clients.search', 'Поиск клиентов')
+                }
+              </CardTitle>
+              <TabsList>
+                <TabsTrigger value="clients" data-testid="tab-clients">
+                  {t('tabs.clients', 'Клиенты')}
+                </TabsTrigger>
+                <TabsTrigger value="patients" data-testid="tab-patients">
+                  {t('tabs.patients', 'Пациенты')}
+                </TabsTrigger>
+              </TabsList>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('patients.searchPlaceholder')}
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search-patients"
+                />
+              </div>
+              <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                <SelectTrigger className="w-[250px]" data-testid="select-branch">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder={t('selectBranch', 'Выберите филиал')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" data-testid="branch-option-all">
+                    {t('allBranches', 'Все филиалы')}
+                  </SelectItem>
+                  {Array.isArray(branchesData) && branchesData.map((branch: any) => (
+                    <SelectItem key={branch.id} value={branch.id} data-testid={`branch-option-${branch.id}`}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={() => activeTab === 'patients' ? setShowPatientForm(true) : setShowOwnerForm(true)}
+                data-testid={activeTab === 'patients' ? "button-new-patient" : "button-new-owner"}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {activeTab === 'patients' ? 'Добавить пациента' : 'Добавить клиента'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <TabsContent value="clients">
           <Card>
             <CardContent className="p-0">
