@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Search, RefreshCw, Clock, Package, AlertTriangle, Loader2 } from "lucide-react"
+import { Search, RefreshCw, Clock, Package, Loader2, ChevronLeft, ChevronRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { apiRequest } from "@/lib/queryClient"
 import type { Service, Product, SystemSetting, IntegrationCredentials } from "@shared/schema"
@@ -27,6 +27,9 @@ export default function ServicesInventory() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("services")
   const [showSyncConfirmDialog, setShowSyncConfirmDialog] = useState(false)
+  const [servicesPage, setServicesPage] = useState(1)
+  const [productsPage, setProductsPage] = useState(1)
+  const itemsPerPage = 50
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
@@ -149,6 +152,27 @@ export default function ServicesInventory() {
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  // Pagination logic
+  const totalServicesPages = Math.ceil(filteredServices.length / itemsPerPage)
+  const totalProductsPages = Math.ceil(filteredProducts.length / itemsPerPage)
+  
+  const paginatedServices = filteredServices.slice(
+    (servicesPage - 1) * itemsPerPage,
+    servicesPage * itemsPerPage
+  )
+  
+  const paginatedProducts = filteredProducts.slice(
+    (productsPage - 1) * itemsPerPage,
+    productsPage * itemsPerPage
+  )
+
+  // Reset to page 1 when search term changes
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value)
+    setServicesPage(1)
+    setProductsPage(1)
+  }
+
   if (servicesLoading || productsLoading) {
     return <div className="flex justify-center items-center h-64">Загрузка...</div>
   }
@@ -193,7 +217,7 @@ export default function ServicesInventory() {
             <Input
               placeholder="Поиск по названию или категории..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
               data-testid="input-search-services"
             />
@@ -233,7 +257,7 @@ export default function ServicesInventory() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredServices.map(service => (
+                  paginatedServices.map(service => (
                     <TableRow key={service.id} className={!service.isActive ? 'opacity-50' : ''}>
                       <TableCell>
                         <Clock className="h-4 w-4 text-blue-500" />
@@ -270,6 +294,40 @@ export default function ServicesInventory() {
               </TableBody>
             </Table>
           </Card>
+
+          {/* Services Pagination */}
+          {totalServicesPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Показано {((servicesPage - 1) * itemsPerPage) + 1} - {Math.min(servicesPage * itemsPerPage, filteredServices.length)} из {filteredServices.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setServicesPage(p => Math.max(1, p - 1))}
+                  disabled={servicesPage === 1}
+                  data-testid="button-services-prev-page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Назад
+                </Button>
+                <span className="text-sm">
+                  Страница {servicesPage} из {totalServicesPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setServicesPage(p => Math.min(totalServicesPages, p + 1))}
+                  disabled={servicesPage === totalServicesPages}
+                  data-testid="button-services-next-page"
+                >
+                  Вперед
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="products" className="space-y-4">
@@ -281,7 +339,6 @@ export default function ServicesInventory() {
                   <TableHead>Название</TableHead>
                   <TableHead>Категория</TableHead>
                   <TableHead>Цена</TableHead>
-                  <TableHead>Остаток</TableHead>
                   <TableHead>Единица</TableHead>
                   <TableHead>Статус</TableHead>
                 </TableRow>
@@ -289,60 +346,76 @@ export default function ServicesInventory() {
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       {searchTerm ? 'Товары не найдены' : 'Товары отсутствуют'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredProducts.map(product => {
-                    const isLowStock = product.stock !== null && product.stock !== undefined && 
-                                       product.minStock !== null && product.minStock !== undefined && 
-                                       product.stock <= product.minStock;
-                    return (
-                      <TableRow key={product.id} className={!product.isActive ? 'opacity-50' : ''}>
-                        <TableCell>
-                          <Package className="h-4 w-4 text-green-500" />
-                        </TableCell>
-                        <TableCell className="font-medium" data-testid={`text-product-name-${product.id}`}>
-                          {product.name}
-                          {product.description && (
-                            <div className="text-sm text-muted-foreground mt-1">
-                              {product.description}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>{product.category}</TableCell>
-                        <TableCell data-testid={`text-product-price-${product.id}`}>
-                          {Number(product.price).toLocaleString('ru-RU')} ₽
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className={isLowStock ? 'text-red-600 font-medium' : ''}>
-                              {product.stock || 0}
-                            </span>
-                            {isLowStock && (
-                              <Badge variant="destructive" className="flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                Мало
-                              </Badge>
-                            )}
+                  paginatedProducts.map(product => (
+                    <TableRow key={product.id} className={!product.isActive ? 'opacity-50' : ''}>
+                      <TableCell>
+                        <Package className="h-4 w-4 text-green-500" />
+                      </TableCell>
+                      <TableCell className="font-medium" data-testid={`text-product-name-${product.id}`}>
+                        {product.name}
+                        {product.description && (
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {product.description}
                           </div>
-                        </TableCell>
-                        <TableCell>{product.unit || '-'}</TableCell>
-                        <TableCell>
-                          {product.isActive ? (
-                            <Badge variant="default">Активно</Badge>
-                          ) : (
-                            <Badge variant="destructive">Неактивно</Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                        )}
+                      </TableCell>
+                      <TableCell>{product.category}</TableCell>
+                      <TableCell data-testid={`text-product-price-${product.id}`}>
+                        {Number(product.price).toLocaleString('ru-RU')} ₽
+                      </TableCell>
+                      <TableCell>{product.unit || '-'}</TableCell>
+                      <TableCell>
+                        {product.isActive ? (
+                          <Badge variant="default">Активно</Badge>
+                        ) : (
+                          <Badge variant="destructive">Неактивно</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
           </Card>
+
+          {/* Products Pagination */}
+          {totalProductsPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Показано {((productsPage - 1) * itemsPerPage) + 1} - {Math.min(productsPage * itemsPerPage, filteredProducts.length)} из {filteredProducts.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setProductsPage(p => Math.max(1, p - 1))}
+                  disabled={productsPage === 1}
+                  data-testid="button-products-prev-page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Назад
+                </Button>
+                <span className="text-sm">
+                  Страница {productsPage} из {totalProductsPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setProductsPage(p => Math.min(totalProductsPages, p + 1))}
+                  disabled={productsPage === totalProductsPages}
+                  data-testid="button-products-next-page"
+                >
+                  Вперед
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

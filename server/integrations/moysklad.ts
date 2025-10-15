@@ -598,8 +598,6 @@ export async function loadNomenclatureFromMoysklad(credentials: MoySkladCredenti
               isActive: true
             };
             
-            console.log('[МойСклад] Создание товара с данными:', JSON.stringify({ tenantId, name: product.name }));
-            
             if (!existingProduct) {
               // Создаем новый товар в локальной БД
               const createdProduct = await storage.createProduct(productData);
