@@ -262,7 +262,7 @@ export default function ServicesInventory() {
                       </TableCell>
                       <TableCell className="font-medium" data-testid={`text-service-name-${service.id}`}>
                         {service.name}
-                        {service.description && (
+                        {service.description && service.description !== service.name && (
                           <div className="text-sm text-muted-foreground mt-1">
                             {service.description}
                           </div>
@@ -346,7 +346,7 @@ export default function ServicesInventory() {
                       </TableCell>
                       <TableCell className="font-medium" data-testid={`text-product-name-${product.id}`}>
                         {product.name}
-                        {product.description && (
+                        {product.description && product.description !== product.name && (
                           <div className="text-sm text-muted-foreground mt-1">
                             {product.description}
                           </div>
