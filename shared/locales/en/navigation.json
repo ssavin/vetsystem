@@ -6,6 +6,7 @@
     "queue": "Electronic Queue",
     "medicalRecords": "Medical Records",
     "clinicalCases": "Clinical Cases",
+    "hospital": "Hospital/Inpatient",
     "laboratory": "Laboratory",
     "servicesInventory": "Services & Inventory",
     "finance": "Sales",

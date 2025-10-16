@@ -1,4 +1,4 @@
-import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, ClipboardList, FileType, Building2, ListOrdered } from "lucide-react"
+import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, ClipboardList, FileType, Building2, ListOrdered, Bed } from "lucide-react"
 import { Link, useLocation } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTranslation } from "react-i18next"
@@ -50,6 +50,12 @@ const getMenuItems = (t: any) => [
     url: "/clinical-cases",
     icon: ClipboardList,
     module: "medical_records",
+  },
+  {
+    titleKey: "menu.hospital",
+    url: "/hospital",
+    icon: Bed,
+    module: null,
   },
   {
     titleKey: "menu.laboratory",
