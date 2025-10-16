@@ -7947,7 +7947,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(cages);
     } catch (error: any) {
       console.error('Error fetching cages:', error);
-      res.status(500).json({ error: error.message || 'Failed to fetch cages' });
+      res.status(500).json({ error: error.message || 'Не удалось загрузить список клеток' });
     }
   });
 
@@ -7960,7 +7960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { name, status } = req.body;
 
       if (!name) {
-        return res.status(400).json({ error: 'Cage name is required' });
+        return res.status(400).json({ error: 'Требуется название клетки' });
       }
 
       const cage = await storage.createCage({
@@ -7973,7 +7973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(cage);
     } catch (error: any) {
       console.error('Error creating cage:', error);
-      res.status(500).json({ error: error.message || 'Failed to create cage' });
+      res.status(500).json({ error: error.message || 'Не удалось создать клетку' });
     }
   });
 
@@ -7989,10 +7989,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify cage belongs to user's branch
       const cage = await storage.getCage(id);
       if (!cage) {
-        return res.status(404).json({ error: 'Cage not found' });
+        return res.status(404).json({ error: 'Клетка не найдена' });
       }
       if (cage.branchId !== userBranchId) {
-        return res.status(403).json({ error: 'Access denied: Cage belongs to different branch' });
+        return res.status(403).json({ error: 'Доступ запрещен: клетка принадлежит другому филиалу' });
       }
 
       const updates: Partial<{ name: string; status: string }> = {};
@@ -8003,7 +8003,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedCage);
     } catch (error: any) {
       console.error('Error updating cage:', error);
-      res.status(500).json({ error: error.message || 'Failed to update cage' });
+      res.status(500).json({ error: error.message || 'Не удалось обновить клетку' });
     }
   });
 
@@ -8016,25 +8016,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { patientId, cageId } = req.body;
 
       if (!patientId || !cageId) {
-        return res.status(400).json({ error: 'Patient ID and cage ID are required' });
+        return res.status(400).json({ error: 'Требуется ID пациента и клетки' });
       }
 
       // 1. Check if cage is available and belongs to user's branch
       const cage = await storage.getCage(cageId);
       if (!cage) {
-        return res.status(404).json({ error: 'Cage not found' });
+        return res.status(404).json({ error: 'Клетка не найдена' });
       }
       if (cage.branchId !== userBranchId) {
-        return res.status(403).json({ error: 'Access denied: Cage belongs to different branch' });
+        return res.status(403).json({ error: 'Доступ запрещен: клетка принадлежит другому филиалу' });
       }
       if (cage.status !== 'available') {
-        return res.status(400).json({ error: 'Cage is not available' });
+        return res.status(400).json({ error: 'Клетка недоступна' });
       }
 
       // 2. Get patient info for invoice
       const patient = await storage.getPatient(patientId);
       if (!patient) {
-        return res.status(404).json({ error: 'Patient not found' });
+        return res.status(404).json({ error: 'Пациент не найден' });
       }
 
       // 3. Create draft invoice
@@ -8068,7 +8068,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(stay);
     } catch (error: any) {
       console.error('Error creating hospital stay:', error);
-      res.status(500).json({ error: error.message || 'Failed to admit patient' });
+      res.status(500).json({ error: error.message || 'Не удалось госпитализировать пациента' });
     }
   });
 
@@ -8097,7 +8097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(enrichedStays);
     } catch (error: any) {
       console.error('Error fetching hospital stays:', error);
-      res.status(500).json({ error: error.message || 'Failed to fetch hospital stays' });
+      res.status(500).json({ error: error.message || 'Не удалось загрузить данные о госпитализациях' });
     }
   });
 
@@ -8108,12 +8108,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status } = req.body;
 
       if (status !== 'discharged') {
-        return res.status(400).json({ error: 'Only discharge operation is supported' });
+        return res.status(400).json({ error: 'Поддерживается только операция выписки' });
       }
 
       const stay = await storage.getHospitalStay(id);
       if (!stay) {
-        return res.status(404).json({ error: 'Hospital stay not found' });
+        return res.status(404).json({ error: 'Госпитализация не найдена' });
       }
 
       // 1. Update stay status
@@ -8130,7 +8130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedStay);
     } catch (error: any) {
       console.error('Error discharging patient:', error);
-      res.status(500).json({ error: error.message || 'Failed to discharge patient' });
+      res.status(500).json({ error: error.message || 'Не удалось выписать пациента' });
     }
   });
 
@@ -8141,23 +8141,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { serviceId, performerName, notes } = req.body;
 
       if (!serviceId || !performerName) {
-        return res.status(400).json({ error: 'Service ID and performer name are required' });
+        return res.status(400).json({ error: 'Требуется ID услуги и имя исполнителя' });
       }
 
       // 1. Get hospital stay
       const stay = await storage.getHospitalStay(stayId);
       if (!stay) {
-        return res.status(404).json({ error: 'Hospital stay not found' });
+        return res.status(404).json({ error: 'Госпитализация не найдена' });
       }
 
       if (stay.status !== 'active') {
-        return res.status(400).json({ error: 'Can only log procedures for active stays' });
+        return res.status(400).json({ error: 'Можно добавлять процедуры только для активных пациентов' });
       }
 
       // 2. Get service info
       const service = await storage.getService(serviceId);
       if (!service) {
-        return res.status(404).json({ error: 'Service not found' });
+        return res.status(404).json({ error: 'Услуга не найдена' });
       }
 
       // 3. Create treatment log entry
@@ -8189,7 +8189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(log);
     } catch (error: any) {
       console.error('Error logging treatment:', error);
-      res.status(500).json({ error: error.message || 'Failed to log treatment' });
+      res.status(500).json({ error: error.message || 'Не удалось добавить процедуру в журнал' });
     }
   });
 
@@ -8200,7 +8200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const stay = await storage.getHospitalStay(stayId);
       if (!stay) {
-        return res.status(404).json({ error: 'Hospital stay not found' });
+        return res.status(404).json({ error: 'Госпитализация не найдена' });
       }
 
       const logs = await storage.getTreatmentLog(stayId);
@@ -8219,7 +8219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(enrichedLogs);
     } catch (error: any) {
       console.error('Error fetching treatment log:', error);
-      res.status(500).json({ error: error.message || 'Failed to fetch treatment log' });
+      res.status(500).json({ error: error.message || 'Не удалось загрузить журнал процедур' });
     }
   });
 
