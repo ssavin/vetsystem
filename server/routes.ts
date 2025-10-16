@@ -8040,11 +8040,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 3. Create draft invoice
       const invoice = await storage.createInvoice({
         tenantId: req.tenantId!,
-        branchId: userBranchId,
         patientId,
-        status: 'draft',
-        totalAmount: 0,
-        paidAmount: 0
+        subtotal: "0",
+        discount: "0",
+        total: "0",
+        status: 'draft'
       });
 
       // 4. Create hospital stay
