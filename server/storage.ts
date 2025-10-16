@@ -46,6 +46,9 @@ import {
   type PushToken, type InsertPushToken,
   type Conversation, type InsertConversation,
   type Message, type InsertMessage,
+  type Cage, type InsertCage,
+  type HospitalStay, type InsertHospitalStay,
+  type TreatmentLog, type InsertTreatmentLog,
   users, owners, patients, patientOwners, doctors, appointments, 
   queueEntries, queueCalls,
   medicalRecords, medications, services, products, 
@@ -58,7 +61,8 @@ import {
   integrationLogs, subscriptionPlans, clinicSubscriptions,
   subscriptionPayments, billingNotifications, tenants, legalEntities, integrationCredentials,
   clinicalCases, clinicalEncounters, labAnalyses, attachments, documentTemplates,
-  smsVerificationCodes, pushTokens, conversations, messages
+  smsVerificationCodes, pushTokens, conversations, messages,
+  cages, hospitalStays, treatmentLog
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -660,6 +664,26 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(id: string): Promise<Message>;
   markConversationMessagesAsRead(conversationId: string, readerId: string): Promise<void>;
+
+  // === HOSPITAL MODULE (Inpatient/Стационар) ===
+  
+  // Cages methods - управление клетками/боксами
+  getCages(branchId: string): Promise<Cage[]>;
+  getCage(id: string): Promise<Cage | undefined>;
+  createCage(cage: InsertCage): Promise<Cage>;
+  updateCage(id: string, updates: Partial<InsertCage>): Promise<Cage>;
+  deleteCage(id: string): Promise<void>;
+  
+  // Hospital Stays methods - управление пребываниями в стационаре
+  getHospitalStays(branchId: string, status?: string): Promise<HospitalStay[]>;
+  getHospitalStay(id: string): Promise<HospitalStay | undefined>;
+  createHospitalStay(stay: InsertHospitalStay): Promise<HospitalStay>;
+  updateHospitalStay(id: string, updates: Partial<InsertHospitalStay>): Promise<HospitalStay>;
+  getActiveHospitalStays(): Promise<HospitalStay[]>; // For cron job
+  
+  // Treatment Log methods - журнал манипуляций
+  getTreatmentLog(hospitalStayId: string): Promise<TreatmentLog[]>;
+  createTreatmentLog(log: InsertTreatmentLog): Promise<TreatmentLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5958,6 +5982,159 @@ export class DatabaseStorage implements IStorage {
               eq(messages.isRead, false)
             )
           );
+      });
+    });
+  }
+
+  // ========================================
+  // HOSPITAL MODULE (Inpatient/Стационар)
+  // ========================================
+
+  // Cages methods
+  async getCages(branchId: string): Promise<Cage[]> {
+    return withPerformanceLogging('getCages', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(cages)
+          .where(eq(cages.branchId, branchId))
+          .orderBy(cages.name);
+      });
+    });
+  }
+
+  async getCage(id: string): Promise<Cage | undefined> {
+    return withPerformanceLogging('getCage', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [cage] = await dbInstance
+          .select()
+          .from(cages)
+          .where(eq(cages.id, id));
+        return cage;
+      });
+    });
+  }
+
+  async createCage(cage: InsertCage): Promise<Cage> {
+    return withPerformanceLogging('createCage', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newCage] = await dbInstance
+          .insert(cages)
+          .values(cage)
+          .returning();
+        return newCage;
+      });
+    });
+  }
+
+  async updateCage(id: string, updates: Partial<InsertCage>): Promise<Cage> {
+    return withPerformanceLogging('updateCage', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updatedCage] = await dbInstance
+          .update(cages)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(cages.id, id))
+          .returning();
+        return updatedCage;
+      });
+    });
+  }
+
+  async deleteCage(id: string): Promise<void> {
+    return withPerformanceLogging('deleteCage', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(cages).where(eq(cages.id, id));
+      });
+    });
+  }
+
+  // Hospital Stays methods
+  async getHospitalStays(branchId: string, status?: string): Promise<HospitalStay[]> {
+    return withPerformanceLogging('getHospitalStays', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const query = dbInstance
+          .select()
+          .from(hospitalStays)
+          .where(eq(hospitalStays.branchId, branchId));
+        
+        if (status) {
+          return await query.where(eq(hospitalStays.status, status));
+        }
+        
+        return await query.orderBy(desc(hospitalStays.admittedAt));
+      });
+    });
+  }
+
+  async getHospitalStay(id: string): Promise<HospitalStay | undefined> {
+    return withPerformanceLogging('getHospitalStay', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [stay] = await dbInstance
+          .select()
+          .from(hospitalStays)
+          .where(eq(hospitalStays.id, id));
+        return stay;
+      });
+    });
+  }
+
+  async createHospitalStay(stay: InsertHospitalStay): Promise<HospitalStay> {
+    return withPerformanceLogging('createHospitalStay', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newStay] = await dbInstance
+          .insert(hospitalStays)
+          .values(stay)
+          .returning();
+        return newStay;
+      });
+    });
+  }
+
+  async updateHospitalStay(id: string, updates: Partial<InsertHospitalStay>): Promise<HospitalStay> {
+    return withPerformanceLogging('updateHospitalStay', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updatedStay] = await dbInstance
+          .update(hospitalStays)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(hospitalStays.id, id))
+          .returning();
+        return updatedStay;
+      });
+    });
+  }
+
+  async getActiveHospitalStays(): Promise<HospitalStay[]> {
+    return withPerformanceLogging('getActiveHospitalStays', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(hospitalStays)
+          .where(eq(hospitalStays.status, 'active'));
+      });
+    });
+  }
+
+  // Treatment Log methods
+  async getTreatmentLog(hospitalStayId: string): Promise<TreatmentLog[]> {
+    return withPerformanceLogging('getTreatmentLog', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(treatmentLog)
+          .where(eq(treatmentLog.hospitalStayId, hospitalStayId))
+          .orderBy(desc(treatmentLog.performedAt));
+      });
+    });
+  }
+
+  async createTreatmentLog(log: InsertTreatmentLog): Promise<TreatmentLog> {
+    return withPerformanceLogging('createTreatmentLog', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newLog] = await dbInstance
+          .insert(treatmentLog)
+          .values(log)
+          .returning();
+        return newLog;
       });
     });
   }

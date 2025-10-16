@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { startNotificationScheduler } from "./jobs/notification-scheduler";
 import { startQueueCleanupScheduler } from "./jobs/queue-cleanup-scheduler";
 import { startHealthNotificationsScheduler } from "./jobs/health-notifications-scheduler";
+import { startHospitalBillingScheduler } from "./jobs/hospital-billing-scheduler";
 import { tenantResolver } from "./middleware/tenant-resolver";
 import { tenantDbMiddleware } from "./middleware/tenant-db";
 
@@ -82,5 +83,8 @@ app.use((req, res, next) => {
     
     // Запускаем scheduler для health notifications (вакцинации, плановые визиты)
     startHealthNotificationsScheduler();
+    
+    // Запускаем scheduler для ежедневного биллинга стационара
+    startHospitalBillingScheduler();
   });
 })();

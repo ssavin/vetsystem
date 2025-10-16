@@ -7933,6 +7933,296 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // HOSPITAL MODULE (Inpatient/Стационар)
+  // ========================================
+
+  // GET /api/cages - Get all cages for a branch
+  app.get('/api/cages', authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const cages = await storage.getCages(userBranchId);
+      res.json(cages);
+    } catch (error: any) {
+      console.error('Error fetching cages:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch cages' });
+    }
+  });
+
+  // POST /api/cages - Create new cage
+  app.post('/api/cages', authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { name, status } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ error: 'Cage name is required' });
+      }
+
+      const cage = await storage.createCage({
+        tenantId: req.tenantId!,
+        branchId: userBranchId,
+        name,
+        status: status || 'available'
+      });
+
+      res.status(201).json(cage);
+    } catch (error: any) {
+      console.error('Error creating cage:', error);
+      res.status(500).json({ error: error.message || 'Failed to create cage' });
+    }
+  });
+
+  // PUT /api/cages/:id - Update cage
+  app.put('/api/cages/:id', authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { id } = req.params;
+      const { name, status } = req.body;
+
+      // Verify cage belongs to user's branch
+      const cage = await storage.getCage(id);
+      if (!cage) {
+        return res.status(404).json({ error: 'Cage not found' });
+      }
+      if (cage.branchId !== userBranchId) {
+        return res.status(403).json({ error: 'Access denied: Cage belongs to different branch' });
+      }
+
+      const updates: Partial<{ name: string; status: string }> = {};
+      if (name !== undefined) updates.name = name;
+      if (status !== undefined) updates.status = status;
+
+      const updatedCage = await storage.updateCage(id, updates);
+      res.json(updatedCage);
+    } catch (error: any) {
+      console.error('Error updating cage:', error);
+      res.status(500).json({ error: error.message || 'Failed to update cage' });
+    }
+  });
+
+  // POST /api/hospital-stays - Admit patient (госпитализация)
+  app.post('/api/hospital-stays', authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { patientId, cageId } = req.body;
+
+      if (!patientId || !cageId) {
+        return res.status(400).json({ error: 'Patient ID and cage ID are required' });
+      }
+
+      // 1. Check if cage is available and belongs to user's branch
+      const cage = await storage.getCage(cageId);
+      if (!cage) {
+        return res.status(404).json({ error: 'Cage not found' });
+      }
+      if (cage.branchId !== userBranchId) {
+        return res.status(403).json({ error: 'Access denied: Cage belongs to different branch' });
+      }
+      if (cage.status !== 'available') {
+        return res.status(400).json({ error: 'Cage is not available' });
+      }
+
+      // 2. Get patient info for invoice
+      const patient = await storage.getPatient(patientId);
+      if (!patient) {
+        return res.status(404).json({ error: 'Patient not found' });
+      }
+
+      // 3. Create draft invoice
+      const invoice = await storage.createInvoice({
+        tenantId: req.tenantId!,
+        branchId: userBranchId,
+        patientId,
+        status: 'draft',
+        totalAmount: 0,
+        paidAmount: 0
+      });
+
+      // 4. Create hospital stay
+      const stay = await storage.createHospitalStay({
+        tenantId: req.tenantId!,
+        branchId: userBranchId,
+        patientId,
+        cageId,
+        activeInvoiceId: invoice.id,
+        status: 'active'
+      });
+
+      // 5. Mark cage as occupied
+      await storage.updateCage(cageId, { status: 'occupied' });
+
+      // 6. Add first "Daily stay" service to invoice (if configured)
+      // Note: Service ID should be configured in system settings
+      // For now, we'll skip this and let the cron job handle it
+      // or the frontend can specify the service ID
+
+      res.status(201).json(stay);
+    } catch (error: any) {
+      console.error('Error creating hospital stay:', error);
+      res.status(500).json({ error: error.message || 'Failed to admit patient' });
+    }
+  });
+
+  // GET /api/hospital-stays - Get hospital stays
+  app.get('/api/hospital-stays', authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { status } = req.query;
+      const stays = await storage.getHospitalStays(userBranchId, status as string | undefined);
+      
+      // Enrich with patient and cage data
+      const enrichedStays = await Promise.all(
+        stays.map(async (stay) => {
+          const patient = await storage.getPatient(stay.patientId);
+          const cage = await storage.getCage(stay.cageId);
+          return {
+            ...stay,
+            patient: patient ? { id: patient.id, name: patient.name, species: patient.species } : null,
+            cage: cage ? { id: cage.id, name: cage.name } : null
+          };
+        })
+      );
+
+      res.json(enrichedStays);
+    } catch (error: any) {
+      console.error('Error fetching hospital stays:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch hospital stays' });
+    }
+  });
+
+  // PATCH /api/hospital-stays/:id - Discharge patient (выписка)
+  app.patch('/api/hospital-stays/:id', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (status !== 'discharged') {
+        return res.status(400).json({ error: 'Only discharge operation is supported' });
+      }
+
+      const stay = await storage.getHospitalStay(id);
+      if (!stay) {
+        return res.status(404).json({ error: 'Hospital stay not found' });
+      }
+
+      // 1. Update stay status
+      const updatedStay = await storage.updateHospitalStay(id, {
+        status: 'discharged',
+        dischargedAt: new Date()
+      });
+
+      // 2. Free the cage
+      await storage.updateCage(stay.cageId, { status: 'available' });
+
+      // Note: Invoice remains in draft status for final checkout at reception
+
+      res.json(updatedStay);
+    } catch (error: any) {
+      console.error('Error discharging patient:', error);
+      res.status(500).json({ error: error.message || 'Failed to discharge patient' });
+    }
+  });
+
+  // POST /api/hospital-stays/:id/log - Log treatment/procedure
+  app.post('/api/hospital-stays/:stayId/log', authenticateToken, async (req, res) => {
+    try {
+      const { stayId } = req.params;
+      const { serviceId, performerName, notes } = req.body;
+
+      if (!serviceId || !performerName) {
+        return res.status(400).json({ error: 'Service ID and performer name are required' });
+      }
+
+      // 1. Get hospital stay
+      const stay = await storage.getHospitalStay(stayId);
+      if (!stay) {
+        return res.status(404).json({ error: 'Hospital stay not found' });
+      }
+
+      if (stay.status !== 'active') {
+        return res.status(400).json({ error: 'Can only log procedures for active stays' });
+      }
+
+      // 2. Get service info
+      const service = await storage.getService(serviceId);
+      if (!service) {
+        return res.status(404).json({ error: 'Service not found' });
+      }
+
+      // 3. Create treatment log entry
+      const log = await storage.createTreatmentLog({
+        tenantId: req.tenantId!,
+        branchId: stay.branchId,
+        hospitalStayId: stayId,
+        serviceId,
+        performerName,
+        notes: notes || null
+      });
+
+      // 4. Add service to invoice
+      await storage.createInvoiceItem({
+        tenantId: req.tenantId!,
+        branchId: stay.branchId,
+        invoiceId: stay.activeInvoiceId,
+        serviceId,
+        quantity: 1,
+        unitPrice: service.price,
+        total: service.price
+      });
+
+      // 5. Update invoice total
+      const invoiceItems = await storage.getInvoiceItems(stay.activeInvoiceId);
+      const newTotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
+      await storage.updateInvoice(stay.activeInvoiceId, { totalAmount: newTotal });
+
+      res.status(201).json(log);
+    } catch (error: any) {
+      console.error('Error logging treatment:', error);
+      res.status(500).json({ error: error.message || 'Failed to log treatment' });
+    }
+  });
+
+  // GET /api/hospital-stays/:id/log - Get treatment log
+  app.get('/api/hospital-stays/:stayId/log', authenticateToken, async (req, res) => {
+    try {
+      const { stayId } = req.params;
+
+      const stay = await storage.getHospitalStay(stayId);
+      if (!stay) {
+        return res.status(404).json({ error: 'Hospital stay not found' });
+      }
+
+      const logs = await storage.getTreatmentLog(stayId);
+      
+      // Enrich with service info
+      const enrichedLogs = await Promise.all(
+        logs.map(async (log) => {
+          const service = await storage.getService(log.serviceId);
+          return {
+            ...log,
+            service: service ? { id: service.id, name: service.name, price: service.price } : null
+          };
+        })
+      );
+
+      res.json(enrichedLogs);
+    } catch (error: any) {
+      console.error('Error fetching treatment log:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch treatment log' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

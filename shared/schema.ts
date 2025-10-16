@@ -8,7 +8,7 @@ import { z } from "zod";
 export const PATIENT_STATUS = ['healthy', 'sick', 'recovering', 'deceased'] as const;
 export const APPOINTMENT_STATUS = ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'] as const;
 export const MEDICAL_RECORD_STATUS = ['active', 'completed', 'follow_up_required'] as const;
-export const INVOICE_STATUS = ['pending', 'paid', 'overdue', 'cancelled'] as const;
+export const INVOICE_STATUS = ['draft', 'pending', 'paid', 'overdue', 'cancelled'] as const;
 export const INVOICE_ITEM_TYPE = ['service', 'product'] as const;
 export const PATIENT_GENDER = ['male', 'female', 'unknown'] as const;
 export const CLINICAL_CASE_STATUS = ['open', 'closed'] as const;
@@ -2904,6 +2904,98 @@ export type InsertConversation = z.infer<typeof insertConversationSchema>;
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+// ========================================
+// HOSPITAL MODULE (Inpatient/Стационар)
+// ========================================
+
+// Клетки/боксы в стационаре (Cages)
+export const cages = pgTable('cages', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  name: varchar('name', { length: 100 }).notNull(), // "Бокс 3", "VIP-палата"
+  status: varchar('status', { length: 20 }).default('available').notNull(), // available, occupied, maintenance
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('cages_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('cages_branch_idx').on(table.branchId),
+  statusIdx: index('cages_status_idx').on(table.status),
+  statusCheck: check('cages_status_check', sql`${table.status} IN ('available', 'occupied', 'maintenance')`)
+}));
+
+// Пребывания в стационаре (Hospital Stays)
+export const hospitalStays = pgTable('hospital_stays', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  patientId: varchar('patient_id').references(() => patients.id).notNull(),
+  cageId: varchar('cage_id').references(() => cages.id).notNull(),
+  activeInvoiceId: varchar('active_invoice_id').references(() => invoices.id).notNull(), // Ключевая связь для биллинга
+  status: varchar('status', { length: 20 }).default('active').notNull(), // active, discharged
+  admittedAt: timestamp('admitted_at').defaultNow().notNull(),
+  dischargedAt: timestamp('discharged_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('hospital_stays_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('hospital_stays_branch_idx').on(table.branchId),
+  patientIdIdx: index('hospital_stays_patient_idx').on(table.patientId),
+  cageIdIdx: index('hospital_stays_cage_idx').on(table.cageId),
+  statusIdx: index('hospital_stays_status_idx').on(table.status),
+  activeInvoiceIdx: index('hospital_stays_invoice_idx').on(table.activeInvoiceId),
+  statusCheck: check('hospital_stays_status_check', sql`${table.status} IN ('active', 'discharged')`)
+}));
+
+// Журнал манипуляций/процедур (Treatment Log)
+export const treatmentLog = pgTable('treatment_log', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  hospitalStayId: varchar('hospital_stay_id').references(() => hospitalStays.id).notNull(),
+  serviceId: varchar('service_id').references(() => services.id).notNull(), // Оказанная услуга
+  performerName: varchar('performer_name', { length: 255 }).notNull(), // Имя сотрудника
+  performedAt: timestamp('performed_at').defaultNow().notNull(),
+  notes: text('notes'), // Заметки, например "Препарат введен в правую лапу"
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('treatment_log_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('treatment_log_branch_idx').on(table.branchId),
+  hospitalStayIdIdx: index('treatment_log_stay_idx').on(table.hospitalStayId),
+  serviceIdIdx: index('treatment_log_service_idx').on(table.serviceId),
+  performedAtIdx: index('treatment_log_performed_at_idx').on(table.performedAt)
+}));
+
+// Zod schemas для валидации
+export const insertCageSchema = createInsertSchema(cages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+});
+
+export const insertHospitalStaySchema = createInsertSchema(hospitalStays).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+});
+
+export const insertTreatmentLogSchema = createInsertSchema(treatmentLog).omit({
+  id: true,
+  createdAt: true,
+  tenantId: true
+});
+
+export type Cage = typeof cages.$inferSelect;
+export type InsertCage = z.infer<typeof insertCageSchema>;
+
+export type HospitalStay = typeof hospitalStays.$inferSelect;
+export type InsertHospitalStay = z.infer<typeof insertHospitalStaySchema>;
+
+export type TreatmentLog = typeof treatmentLog.$inferSelect;
+export type InsertTreatmentLog = z.infer<typeof insertTreatmentLogSchema>;
 
 // Document Templates schemas and types
 export const insertDocumentTemplateSchema = createInsertSchema(documentTemplates).omit({
