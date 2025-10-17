@@ -8091,7 +8091,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const ownerData = await storage.getOwner(patient.ownerId);
             owner = ownerData ? { 
               id: ownerData.id, 
-              fullName: `${ownerData.lastName || ''} ${ownerData.firstName || ''} ${ownerData.middleName || ''}`.trim(),
+              fullName: ownerData.name || 'Не указан',
               phone: ownerData.phone 
             } : null;
           }
