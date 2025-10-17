@@ -38,6 +38,8 @@ const editInvoiceSchema = z.object({
   discount: z.coerce.number().min(0, "Скидка не может быть отрицательной").default(0),
   notes: z.string().optional(),
   dueDate: z.string().optional(),
+  subtotal: z.number().optional(),
+  total: z.number().optional(),
 })
 
 type EditInvoiceFormData = z.infer<typeof editInvoiceSchema>
@@ -177,11 +179,21 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
     },
   })
 
-  const onSubmit = (data: EditInvoiceFormData) => {
-    updateInvoiceMutation.mutate(data)
-  }
-
   const itemsTotal = invoiceItems.reduce((sum: number, item: any) => sum + parseFloat(item.total || '0'), 0)
+  
+  const onSubmit = (data: EditInvoiceFormData) => {
+    // Пересчитываем итоговую сумму на основе позиций счёта и скидки
+    const discount = data.discount || 0
+    const subtotal = itemsTotal
+    const total = subtotal - discount
+    
+    // Отправляем обновлённые данные вместе с пересчитанным total
+    updateInvoiceMutation.mutate({
+      ...data,
+      subtotal,
+      total,
+    })
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
