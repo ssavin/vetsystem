@@ -103,5 +103,6 @@ Preferred communication style: Simple, everyday language.
 ## Other Integrations
 -   **МойСклад**: One-way inventory sync (МойСклад → VetSystem) for products and services nomenclature, including fiscal receipt creation from VetSystem invoices.
 -   **YooKassa**: Payment gateway (implied by environment variables).
+-   **Dreamkas Start**: Fiscal receipt integration for local cash registers. Features nomenclature synchronization (products/services → Dreamkas), fiscal receipt creation from VetSystem invoices with automatic VAT calculation, and connection testing via device API. Configuration via admin UI with tenant-scoped API tokens and device IDs.
 -   **DADATA**: Data enrichment service (implied by environment variables).
 -   **OpenAI**: AI services (implied by environment variables).
