@@ -4661,6 +4661,247 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // =================== Дримкас (Dreamkas) API ===================
+
+  // POST /api/dreamkas/sync/nomenclature - Синхронизация номенклатуры с Дримкас
+  app.post("/api/dreamkas/sync/nomenclature", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      console.log('[Дримкас] Начинаем синхронизацию номенклатуры...');
+      
+      const tenantId = req.tenantId!;
+      const credentials = await getIntegrationCredentialsOrThrow(tenantId, 'dreamkas');
+      
+      // Получаем товары и услуги из VetSystem
+      const products = await storage.getProducts(true); // только активные
+      const services = await storage.getServices(true); // только активные
+      
+      const dreamkas = await import('./integrations/dreamkas');
+      
+      // Конвертируем товары в формат Дримкас
+      const dreamkasProducts = [
+        ...products.map((p: any) => ({
+          name: p.name,
+          type: 'COUNTABLE' as const,
+          departmentId: 0,
+          quantity: dreamkas.quantityToThousands(p.stock || 0),
+          prices: [{
+            deviceId: parseInt(credentials.deviceId),
+            value: dreamkas.priceToKopecks(p.price)
+          }],
+          tax: dreamkas.convertVatRate(p.vat),
+          isMarked: false
+        })),
+        ...services.map((s: any) => ({
+          name: s.name,
+          type: 'COUNTABLE' as const,
+          departmentId: 0,
+          quantity: 1000, // Услуги всегда 1 шт
+          prices: [{
+            deviceId: parseInt(credentials.deviceId),
+            value: dreamkas.priceToKopecks(s.price)
+          }],
+          tax: dreamkas.convertVatRate(s.vat),
+          isMarked: false
+        }))
+      ];
+      
+      console.log(`[Дримкас] Отправляем ${dreamkasProducts.length} позиций (товары: ${products.length}, услуги: ${services.length})`);
+      
+      // Отправляем массовый запрос
+      const result = await dreamkas.bulkCreateDreamkasProducts(credentials, dreamkasProducts);
+      
+      if (result.success) {
+        // Обновляем external_id и external_system для синхронизированных товаров/услуг
+        if (result.data && Array.isArray(result.data)) {
+          for (let i = 0; i < result.data.length; i++) {
+            const dreamkasItem = result.data[i];
+            if (i < products.length) {
+              // Это товар
+              await storage.updateProduct(products[i].id, {
+                externalId: dreamkasItem.id,
+                externalSystem: 'dreamkas',
+                lastSyncedAt: new Date()
+              });
+            } else {
+              // Это услуга
+              const serviceIndex = i - products.length;
+              await storage.updateService(services[serviceIndex].id, {
+                externalId: dreamkasItem.id,
+                externalSystem: 'dreamkas',
+                lastSyncedAt: new Date()
+              });
+            }
+          }
+        }
+        
+        res.json({
+          success: true,
+          message: `Синхронизация завершена. Загружено: ${dreamkasProducts.length} позиций`,
+          synced: dreamkasProducts.length,
+          products: products.length,
+          services: services.length
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: result.error,
+          message: result.message
+        });
+      }
+    } catch (error: any) {
+      console.error('[Дримкас] Ошибка синхронизации номенклатуры:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'Не удалось синхронизировать номенклатуру с Дримкас'
+      });
+    }
+  });
+
+  // POST /api/receipts/dreamkas - Создание фискального чека через Дримкас
+  app.post("/api/receipts/dreamkas", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
+    try {
+      const { invoiceId, paymentMethod = 'cash' } = req.body;
+      
+      if (!invoiceId) {
+        return res.status(400).json({
+          error: "invoiceId is required",
+          message: "ID счета обязателен для создания фискального чека"
+        });
+      }
+
+      // Получаем данные счета из базы данных
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({
+          error: "Invoice not found",
+          message: "Счет не найден"
+        });
+      }
+
+      // Получаем позиции счета
+      const invoiceItems = await storage.getInvoiceItems(invoiceId);
+      if (!invoiceItems || invoiceItems.length === 0) {
+        return res.status(400).json({
+          error: "No invoice items found",
+          message: "В счете отсутствуют позиции товаров/услуг"
+        });
+      }
+
+      // Get tenant credentials для Дримкас
+      const tenantId = req.tenantId!;
+      const credentials = await getIntegrationCredentialsOrThrow(tenantId, 'dreamkas');
+      
+      const dreamkas = await import('./integrations/dreamkas');
+      
+      // Подготавливаем данные для создания фискального чека
+      const receiptData = {
+        deviceId: parseInt(credentials.deviceId),
+        type: 0 as const, // 0 = приход
+        taxMode: 0, // Упрощенная система налогообложения
+        positions: invoiceItems.map((item: any) => {
+          const price = dreamkas.priceToKopecks(item.price);
+          const quantity = dreamkas.quantityToThousands(item.quantity);
+          const priceSum = Math.round(price * item.quantity);
+          const tax = dreamkas.convertVatRate(item.vatRate);
+          const taxSum = tax > 0 ? Math.round(priceSum * tax / 100) : 0;
+          
+          return {
+            name: item.itemName,
+            quantity,
+            price,
+            priceSum,
+            tax,
+            taxSum
+          };
+        }),
+        payments: [{
+          sum: dreamkas.priceToKopecks(invoice.total),
+          type: paymentMethod === 'cash' ? 0 as const : 1 as const // 0=наличные, 1=безнал
+        }],
+        total: dreamkas.priceToKopecks(invoice.total)
+      };
+
+      // Создаем фискальный чек через Дримкас
+      const result = await dreamkas.createFiscalReceipt(credentials, receiptData);
+      
+      if (result.success) {
+        // Сохраняем ID чека в invoice
+        if (result.data?.id) {
+          await storage.updateInvoice(invoiceId, {
+            fiscalReceiptId: result.data.id,
+            fiscalReceiptUrl: result.data.url || null
+          });
+        }
+        
+        res.json({
+          success: true,
+          message: result.message || "Фискальный чек успешно создан через Дримкас",
+          receiptId: result.data?.id,
+          fiscalReceiptUrl: result.data?.url,
+          invoiceId
+        });
+      } else {
+        res.status(500).json({
+          error: "Failed to create fiscal receipt",
+          message: result.message || "Не удалось создать фискальный чек",
+          invoiceId
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in Dreamkas receipt endpoint:", error);
+      res.status(500).json({ 
+        error: "Failed to process Dreamkas receipt", 
+        message: error.message || 'Не удалось создать фискальный чек через Дримкас'
+      });
+    }
+  });
+
+  // POST /api/dreamkas/test-connection - Тестирование подключения к Дримкас
+  app.post("/api/dreamkas/test-connection", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const tenantId = req.tenantId!;
+      const credentials = await getIntegrationCredentialsOrThrow(tenantId, 'dreamkas');
+      
+      // Простой тест - попробуем создать тестовый товар и сразу удалить
+      const dreamkas = await import('./integrations/dreamkas');
+      
+      const testProduct = {
+        name: 'ТЕСТ - не удалять',
+        type: 'COUNTABLE' as const,
+        departmentId: 0,
+        quantity: 1000,
+        prices: [{
+          deviceId: parseInt(credentials.deviceId),
+          value: 100
+        }],
+        tax: 0 as const,
+        isMarked: false
+      };
+      
+      const result = await dreamkas.createDreamkasProduct(credentials, testProduct);
+      
+      if (result.success) {
+        res.json({
+          success: true,
+          message: 'Подключение к Дримкас установлено успешно'
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: "Connection failed",
+          message: result.message || 'Ошибка подключения к Дримкас'
+        });
+      }
+    } catch (error: any) {
+      console.error("Error testing Dreamkas connection:", error);
+      res.status(500).json({ 
+        error: "Failed to test connection", 
+        message: error.message || 'Не удалось протестировать подключение к Дримкас'
+      });
+    }
+  });
+
   // =============================================
   // ЛОКАЛЬНАЯ ПЕЧАТЬ ФИСКАЛЬНЫХ ЧЕКОВ
   // =============================================
