@@ -61,7 +61,7 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
       status: invoice.status || "pending",
       discount: parseFloat(invoice.discount || "0"),
       notes: invoice.notes || "",
-      dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : "",
+      dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : undefined,
     },
   })
 
@@ -90,14 +90,19 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
         status: invoice.status || "pending",
         discount: parseFloat(invoice.discount || "0"),
         notes: invoice.notes || "",
-        dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : "",
+        dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : undefined,
       })
     }
   }, [invoice, form])
 
   const updateInvoiceMutation = useMutation({
     mutationFn: async (data: EditInvoiceFormData) => {
-      return await apiRequest('PUT', `/api/invoices/${invoice.id}`, data)
+      // Convert empty dueDate string to null
+      const payload = {
+        ...data,
+        dueDate: data.dueDate && data.dueDate.trim() !== '' ? data.dueDate : null,
+      }
+      return await apiRequest('PUT', `/api/invoices/${invoice.id}`, payload)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/invoices'] })
