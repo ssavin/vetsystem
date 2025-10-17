@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText, Edit, Trash2, Eye, CreditCard, Receipt, Printer } from "lucide-react"
 import InvoiceDialog from "@/components/InvoiceDialog"
+import EditInvoiceDialog from "@/components/EditInvoiceDialog"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import { useToast } from "@/hooks/use-toast"
 import { translateSpecies } from "@/lib/utils"
@@ -630,54 +631,11 @@ export default function Finance() {
       
       {/* Диалог редактирования счета */}
       {selectedInvoice && isEditDialogOpen && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => setIsEditDialogOpen(false)}>
-          <div className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="flex flex-col space-y-2 text-center sm:text-left">
-              <h2 className="text-lg font-semibold">Редактирование счета</h2>
-              <p className="text-sm text-muted-foreground">
-                Счет №{selectedInvoice.invoiceNumber?.replace('INV-', '') || selectedInvoice.id}
-              </p>
-            </div>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Редактирование счетов будет доступно в следующей версии системы.
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Пациент</label>
-                  <p className="text-sm">{selectedInvoice.patientName || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Владелец</label>
-                  <p className="text-sm">{selectedInvoice.ownerName || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Статус</label>
-                  <p className="text-sm">
-                    {selectedInvoice.status === 'paid' ? 'Оплачен' : 
-                     selectedInvoice.status === 'pending' ? 'Ожидает оплаты' : 
-                     'Просрочен'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Сумма</label>
-                  <p className="text-sm font-semibold">
-                    {parseFloat(selectedInvoice.total || '0').toLocaleString('ru-RU')} ₽
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setIsEditDialogOpen(false)}
-                data-testid="button-close-edit-dialog"
-              >
-                Закрыть
-              </Button>
-            </div>
-          </div>
-        </div>
+        <EditInvoiceDialog
+          invoice={selectedInvoice}
+          open={isEditDialogOpen}
+          onClose={() => setIsEditDialogOpen(false)}
+        />
       )}
     </div>
   )
