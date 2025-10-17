@@ -11,6 +11,7 @@ import { Search, Plus, Banknote, TrendingUp, AlertCircle, FileText, Edit, Trash2
 import InvoiceDialog from "@/components/InvoiceDialog"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import { useToast } from "@/hooks/use-toast"
+import { translateSpecies } from "@/lib/utils"
 import {
   Tooltip,
   TooltipContent,
@@ -340,14 +341,11 @@ export default function Finance() {
         </CardContent>
       </Card>
 
-      {/* Invoices and Reports Tabs */}
+      {/* Invoices Tab */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="invoices" data-testid="tab-invoices">
             Счета ({filteredInvoices.length})
-          </TabsTrigger>
-          <TabsTrigger value="reports" data-testid="tab-reports">
-            Отчеты
           </TabsTrigger>
         </TabsList>
 
@@ -410,7 +408,7 @@ export default function Finance() {
                             {invoice.patientName || '—'}
                             {invoice.patientSpecies && (
                               <span className="text-xs text-muted-foreground ml-1">
-                                ({invoice.patientSpecies})
+                                ({translateSpecies(invoice.patientSpecies)})
                               </span>
                             )}
                           </TableCell>
@@ -563,49 +561,6 @@ export default function Finance() {
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card className="hover-elevate cursor-pointer">
-              <CardContent className="pt-6">
-                <div className="text-center space-y-2">
-                  <FileText className="h-8 w-8 mx-auto text-muted-foreground" />
-                  <h3 className="font-medium">Отчет по выручке</h3>
-                  <p className="text-sm text-muted-foreground">Детальный отчет по доходам за период</p>
-                  <Button size="sm" data-testid="button-revenue-report">
-                    Сформировать
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="hover-elevate cursor-pointer">
-              <CardContent className="pt-6">
-                <div className="text-center space-y-2">
-                  <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
-                  <h3 className="font-medium">Дебиторская задолженность</h3>
-                  <p className="text-sm text-muted-foreground">Отчет по неоплаченным счетам</p>
-                  <Button size="sm" data-testid="button-debt-report">
-                    Сформировать
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="hover-elevate cursor-pointer">
-              <CardContent className="pt-6">
-                <div className="text-center space-y-2">
-                  <TrendingUp className="h-8 w-8 mx-auto text-muted-foreground" />
-                  <h3 className="font-medium">Аналитика платежей</h3>
-                  <p className="text-sm text-muted-foreground">Статистика по способам оплаты</p>
-                  <Button size="sm" data-testid="button-payment-analytics">
-                    Сформировать
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
       </Tabs>
       
