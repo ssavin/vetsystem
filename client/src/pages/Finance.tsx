@@ -302,7 +302,19 @@ export default function Finance() {
   const handleFiscalReceipt = async (invoiceId: string) => {
     try {
       // Выбираем endpoint в зависимости от настроенной системы печати
-      const endpoint = fiscalReceiptSystem === 'moysklad' ? '/api/receipts/moysklad' : '/api/receipts/yookassa'
+      let endpoint = '/api/receipts/yookassa'
+      let systemName = 'YooKassa'
+      
+      if (fiscalReceiptSystem === 'moysklad') {
+        endpoint = '/api/receipts/moysklad'
+        systemName = 'Мой склад'
+      } else if (fiscalReceiptSystem === 'dreamkas') {
+        endpoint = '/api/receipts/dreamkas'
+        systemName = 'Дримкас'
+      } else if (fiscalReceiptSystem === 'onec') {
+        endpoint = '/api/receipts/onec'
+        systemName = '1С Розница'
+      }
       
       await apiRequest('POST', endpoint, {
         invoiceId,
@@ -311,13 +323,16 @@ export default function Finance() {
         }
       })
       
-      const systemName = fiscalReceiptSystem === 'moysklad' ? 'Мой склад' : 'YooKassa'
       toast({
         title: "Фискальный чек создан",
         description: `Чек был успешно отправлен в ФНС через ${systemName} согласно 54-ФЗ`
       })
     } catch (error: any) {
-      const systemName = fiscalReceiptSystem === 'moysklad' ? 'Мой склад' : 'YooKassa'
+      let systemName = 'YooKassa'
+      if (fiscalReceiptSystem === 'moysklad') systemName = 'Мой склад'
+      else if (fiscalReceiptSystem === 'dreamkas') systemName = 'Дримкас'
+      else if (fiscalReceiptSystem === 'onec') systemName = '1С Розница'
+      
       toast({
         title: "Ошибка создания чека",
         description: error.message || `Не удалось создать фискальный чек через ${systemName}`,

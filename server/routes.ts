@@ -4330,6 +4330,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { testConnection } = await import('./integrations/smsRu.js');
         const result = await testConnection(credentials);
         res.json(result);
+      } else if (provider === 'dreamkas') {
+        // Валидация формата credentials
+        if (!credentials.apiToken || !credentials.deviceId) {
+          return res.status(400).json({ 
+            success: false,
+            message: "Дримкас требует API Token и Device ID" 
+          });
+        }
+        
+        // Простая проверка доступности API
+        try {
+          const response = await fetch(`https://kabinet.dreamkas.ru/api/devices/${credentials.deviceId}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${credentials.apiToken}`,
+            },
+          });
+          
+          if (response.ok) {
+            res.json({ 
+              success: true, 
+              message: "Подключение к Дримкас установлено успешно" 
+            });
+          } else if (response.status === 401 || response.status === 403) {
+            res.json({ 
+              success: false, 
+              message: "Неверный API Token. Проверьте токен в Кабинете Дримкас" 
+            });
+          } else if (response.status === 404) {
+            res.json({ 
+              success: false, 
+              message: "Касса не найдена. Проверьте Device ID в Кабинете Дримкас" 
+            });
+          } else {
+            const errorText = await response.text().catch(() => '');
+            res.json({ 
+              success: false, 
+              message: `Ошибка подключения: HTTP ${response.status}${errorText ? ` - ${errorText}` : ''}` 
+            });
+          }
+        } catch (error: any) {
+          res.json({ 
+            success: false, 
+            message: `Не удалось подключиться к Дримкас: ${error.message}` 
+          });
+        }
       } else {
         return res.status(400).json({ error: "Unknown provider" });
       }
