@@ -8187,16 +8187,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tenantId: req.tenantId!,
         branchId: stay.branchId,
         invoiceId: stay.activeInvoiceId,
-        serviceId,
+        itemType: 'service',
+        itemId: serviceId,
+        itemName: service.name,
         quantity: 1,
-        unitPrice: service.price,
+        price: service.price,
         total: service.price
       });
 
       // 5. Update invoice total
       const invoiceItems = await storage.getInvoiceItems(stay.activeInvoiceId);
-      const newTotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
-      await storage.updateInvoice(stay.activeInvoiceId, { totalAmount: newTotal });
+      const newTotal = invoiceItems.reduce((sum, item) => sum + parseFloat(item.total), 0);
+      await storage.updateInvoice(stay.activeInvoiceId, { total: newTotal });
 
       res.status(201).json(log);
     } catch (error: any) {
