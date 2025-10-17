@@ -303,8 +303,8 @@ export default function Finance() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-finance-title">Финансы и касса</h1>
-          <p className="text-muted-foreground">Управление счетами, платежами и финансовой отчетностью</p>
+          <h1 className="text-3xl font-bold" data-testid="text-finance-title">Продажи</h1>
+          <p className="text-muted-foreground">Управление счетами и касса</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" data-testid="button-cash-register">
