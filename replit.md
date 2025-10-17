@@ -42,13 +42,20 @@ Preferred communication style: Simple, everyday language.
 ## Hospital/Inpatient Module (Стационар)
 -   **Cage Management**: Track and manage hospital cages with real-time availability status (available/occupied/maintenance).
 -   **Patient Admission**: Automated workflow for admitting patients - creates draft invoice, occupies cage, and initializes hospital stay record.
--   **Treatment Logging**: Record all procedures and treatments with automatic invoice item creation.
+-   **Treatment Logging**: 
+    - Record all procedures and treatments with automatic invoice item creation
+    - Delete procedures from treatment log with automatic invoice recalculation
+    - Display owner information (name, phone) and treatment count for active patients
 -   **Automatic Billing**: 
     - Procedures are automatically added to patient invoice upon logging
     - Daily cron job (00:00 UTC) adds "Daily Stay" service charge for all active inpatients
     - Service ID for daily charge configured via system setting: `HOSPITAL_DAILY_SERVICE_ID_{tenantId}_{branchId}`
+    - Invoice recalculation on procedure deletion maintains data integrity
 -   **Security**: Branch-level isolation enforced - users can only access cages and patients within their branch.
--   **Invoice Management**: Hospital stays use draft invoices that remain open until patient discharge, then finalized at reception.
+-   **Invoice Management**: 
+    - Hospital stays use draft invoices that remain open until patient discharge, then finalized at reception
+    - Draft invoices visible in Finance section with "Черновик" badge
+    - Invoice visibility ensures branch isolation via hospital_stays JOIN for multi-branch support
 
 ## Design System
 -   Medical-focused color palette, Inter font, sidebar navigation, mobile-first responsive design, dark/light mode support.
