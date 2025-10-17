@@ -98,68 +98,61 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Редактирование счёта</DialogTitle>
+          <DialogTitle>Редактирование счёта №{invoice.invoiceNumber?.replace('INV-', '') || invoice.id}</DialogTitle>
           <DialogDescription>
-            Счёт №{invoice.invoiceNumber?.replace('INV-', '') || invoice.id}
+            {invoice.patientName} • {invoice.ownerName || 'Владелец не указан'}
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Информация о пациенте (только для просмотра) */}
-            <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-md">
-              <div>
-                <label className="text-sm font-medium">Пациент</label>
-                <p className="text-sm">{invoice.patientName || '—'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Владелец</label>
-                <p className="text-sm">{invoice.ownerName || '—'}</p>
-                {invoice.ownerPhone && (
-                  <p className="text-xs text-muted-foreground">{invoice.ownerPhone}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium">Сумма (без скидки)</label>
-                <p className="text-sm font-semibold">
-                  {parseFloat(invoice.subtotal || invoice.total || '0').toLocaleString('ru-RU')} ₽
-                </p>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Дата создания</label>
-                <p className="text-sm">
-                  {invoice.issueDate ? new Date(invoice.issueDate).toLocaleDateString('ru-RU') : '—'}
-                </p>
-              </div>
-            </div>
-
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
             {/* Редактируемые поля */}
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Статус</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Статус</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-invoice-status">
+                          <SelectValue placeholder="Выберите статус" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="draft">Черновик</SelectItem>
+                        <SelectItem value="pending">Ожидает оплаты</SelectItem>
+                        <SelectItem value="paid">Оплачен</SelectItem>
+                        <SelectItem value="overdue">Просрочен</SelectItem>
+                        <SelectItem value="cancelled">Отменён</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Срок оплаты</FormLabel>
                     <FormControl>
-                      <SelectTrigger data-testid="select-invoice-status">
-                        <SelectValue placeholder="Выберите статус" />
-                      </SelectTrigger>
+                      <Input
+                        type="date"
+                        {...field}
+                        data-testid="input-invoice-due-date"
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="draft">Черновик</SelectItem>
-                      <SelectItem value="pending">Ожидает оплаты</SelectItem>
-                      <SelectItem value="paid">Оплачен</SelectItem>
-                      <SelectItem value="overdue">Просрочен</SelectItem>
-                      <SelectItem value="cancelled">Отменён</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}
@@ -183,31 +176,14 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
 
             <FormField
               control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Срок оплаты</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      {...field}
-                      data-testid="input-invoice-due-date"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="notes"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Заметки</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Дополнительная информация о счёте..."
+                      placeholder="Дополнительная информация..."
+                      rows={3}
                       {...field}
                       data-testid="textarea-invoice-notes"
                     />
@@ -218,21 +194,25 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
             />
 
             {/* Итоговая сумма */}
-            <div className="p-4 bg-primary/5 rounded-md">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Итоговая сумма:</span>
-                <span className="text-xl font-bold">
-                  {(parseFloat(invoice.subtotal || invoice.total || '0') - form.watch('discount')).toLocaleString('ru-RU')} ₽
-                </span>
-              </div>
-              {form.watch('discount') > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Скидка: {form.watch('discount').toLocaleString('ru-RU')} ₽
-                </p>
-              )}
+            <div className="flex justify-between items-center p-3 bg-muted rounded-md">
+              <span className="text-sm font-medium">Итого к оплате:</span>
+              <span className="text-lg font-bold">
+                {(() => {
+                  // Вычисляем итоговую сумму правильно
+                  const subtotal = parseFloat(invoice.subtotal || '0')
+                  const currentDiscount = parseFloat(invoice.discount || '0')
+                  const newDiscount = form.watch('discount')
+                  
+                  // Если есть subtotal, используем его; иначе пересчитываем из total
+                  const baseAmount = subtotal > 0 ? subtotal : (parseFloat(invoice.total || '0') + currentDiscount)
+                  const total = Math.max(0, baseAmount - newDiscount)
+                  
+                  return total.toLocaleString('ru-RU') + ' ₽'
+                })()}
+              </span>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-2">
               <Button
                 type="button"
                 variant="outline"
