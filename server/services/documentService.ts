@@ -75,6 +75,114 @@ export class DocumentService {
   }
 
   /**
+   * Convert number to Russian words
+   */
+  private numberToWords(num: number): string {
+    const units = ['', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'];
+    const teens = ['десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 
+                   'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать'];
+    const tens = ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 
+                  'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'];
+    const hundreds = ['', 'сто', 'двести', 'триста', 'четыреста', 'пятьсот', 
+                      'шестьсот', 'семьсот', 'восемьсот', 'девятьсот'];
+
+    if (num === 0) return 'ноль';
+    
+    const convertUnder1000 = (n: number): string => {
+      let result = '';
+      const h = Math.floor(n / 100);
+      const t = Math.floor((n % 100) / 10);
+      const u = n % 10;
+
+      if (h > 0) result += hundreds[h] + ' ';
+      if (t === 1) {
+        result += teens[u] + ' ';
+      } else {
+        if (t > 0) result += tens[t] + ' ';
+        if (u > 0) result += units[u] + ' ';
+      }
+      
+      return result.trim();
+    };
+
+    const millions = Math.floor(num / 1000000);
+    const thousands = Math.floor((num % 1000000) / 1000);
+    const remainder = num % 1000;
+
+    let result = '';
+
+    if (millions > 0) {
+      result += convertUnder1000(millions) + ' миллион';
+      if (millions % 10 >= 2 && millions % 10 <= 4 && (millions % 100 < 10 || millions % 100 >= 20)) result += 'а';
+      else if (millions % 10 === 0 || millions % 10 >= 5 || (millions % 100 >= 11 && millions % 100 <= 14)) result += 'ов';
+      result += ' ';
+    }
+
+    if (thousands > 0) {
+      let thousandsWord = convertUnder1000(thousands);
+      // Replace for feminine gender - use word boundaries to avoid corrupting other words
+      thousandsWord = thousandsWord.replace(/\bодин\b/g, 'одна').replace(/\bдва\b/g, 'две');
+      result += thousandsWord + ' тысяч';
+      const lastDigit = thousands % 10;
+      const last2Digits = thousands % 100;
+      if (lastDigit === 1 && last2Digits !== 11) result += 'а';
+      else if (lastDigit >= 2 && lastDigit <= 4 && (last2Digits < 10 || last2Digits >= 20)) result += 'и';
+      result += ' ';
+    }
+
+    if (remainder > 0 || (millions === 0 && thousands === 0)) {
+      result += convertUnder1000(remainder);
+    }
+
+    return result.trim();
+  }
+
+  /**
+   * Convert amount to words with currency
+   */
+  private amountToWords(amount: number): string {
+    // Handle kopecks overflow correctly
+    let rubles = Math.floor(amount);
+    let kopecks = Math.round((amount - rubles) * 100);
+    
+    // If kopecks overflow, increment rubles
+    if (kopecks >= 100) {
+      rubles += 1;
+      kopecks = 0;
+    }
+
+    let result = this.numberToWords(rubles);
+    
+    // Add correct word form for rubles
+    const lastDigit = rubles % 10;
+    const last2Digits = rubles % 100;
+    
+    if (lastDigit === 1 && last2Digits !== 11) {
+      result += ' рубль';
+    } else if (lastDigit >= 2 && lastDigit <= 4 && (last2Digits < 10 || last2Digits >= 20)) {
+      result += ' рубля';
+    } else {
+      result += ' рублей';
+    }
+
+    // Add kopecks
+    result += ' ' + String(kopecks).padStart(2, '0') + ' ';
+    
+    const kopLastDigit = kopecks % 10;
+    const kopLast2Digits = kopecks % 100;
+    
+    if (kopLastDigit === 1 && kopLast2Digits !== 11) {
+      result += 'копейка';
+    } else if (kopLastDigit >= 2 && kopLastDigit <= 4 && (kopLast2Digits < 10 || kopLast2Digits >= 20)) {
+      result += 'копейки';
+    } else {
+      result += 'копеек';
+    }
+
+    return result.charAt(0).toUpperCase() + result.slice(1);
+  }
+
+  /**
    * Get clinic information with legal entity requisites
    */
   private async getClinicInfoWithLegalEntity(branchId: string): Promise<any> {
@@ -205,7 +313,7 @@ export class DocumentService {
   /**
    * Build context data for invoice template
    */
-  async buildInvoiceContext(invoiceId: string, tenantId: string, branchId: string): Promise<any> {
+  async buildInvoiceContext(invoiceId: string, tenantId: string, branchId: string, userId?: string): Promise<any> {
     // Fetch invoice with items (storage methods enforce tenant isolation via RLS)
     const invoice = await storage.getInvoice(invoiceId);
     if (!invoice) {
@@ -225,44 +333,86 @@ export class DocumentService {
       throw new Error('Patient not found for invoice');
     }
 
-    // Get primary owner
+    // Get primary owner with full details
     const owners = await storage.getPatientOwners(patient.id);
     const primaryOwner = owners.find(o => o.isPrimary) || owners[0];
     
-    let clientInfo: any = { name: 'Не указан', phone: '' };
+    let clientInfo: any = { name: 'Не указан', phone: '', address: '' };
     if (primaryOwner) {
+      const ownerData = await storage.getOwner(primaryOwner.ownerId);
       clientInfo = {
         name: primaryOwner.name,
-        phone: primaryOwner.phone || ''
+        phone: primaryOwner.phone || '',
+        address: ownerData?.address || ''
       };
     }
 
     // Fetch branch/clinic info with legal entity requisites
     const clinicInfo = await this.getClinicInfoWithLegalEntity(branchId);
 
-    // Map items
-    const mappedItems = items.map((item: any) => ({
-      name: item.itemName,
-      quantity: item.quantity,
-      price: parseFloat(item.price.toString()),
-      total: parseFloat(item.total.toString())
-    }));
+    // Get composer info (user who is generating the document)
+    let composerInfo: any = { name: 'Администратор', position: 'Администратор' };
+    if (userId) {
+      const user = await storage.getUser(userId);
+      if (user) {
+        composerInfo = {
+          name: user.name || 'Администратор',
+          position: user.role === 'doctor' ? 'Ветеринарный врач' : 
+                   user.role === 'admin' ? 'Администратор' : 
+                   user.role === 'superadmin' ? 'Главный администратор' : 'Сотрудник'
+        };
+      }
+    }
+
+    // Map items with VAT calculation
+    let totalVAT = 0;
+    const mappedItems = items.map((item: any) => {
+      const itemPrice = parseFloat(item.price.toString());
+      const itemTotal = parseFloat(item.total.toString());
+      const vatRate = item.vatRate || '20';
+      
+      let itemVAT = 0;
+      if (vatRate === '20') {
+        itemVAT = itemTotal * 0.2 / 1.2;
+      } else if (vatRate === '10') {
+        itemVAT = itemTotal * 0.1 / 1.1;
+      }
+      
+      totalVAT += itemVAT;
+
+      return {
+        name: item.itemName,
+        quantity: item.quantity,
+        price: itemPrice,
+        total: itemTotal,
+        vatRate: vatRate === '0' || vatRate === 'not_applicable' ? 'Без НДС' : `НДС ${vatRate}%`,
+        vat: itemVAT
+      };
+    });
 
     // Calculate totals
     const subtotal = parseFloat(invoice.subtotal.toString());
     const discount = parseFloat((invoice.discount || '0').toString());
     const total = parseFloat(invoice.total.toString());
 
+    // Convert total to words
+    const totalInWords = this.amountToWords(total);
+
     return {
       invoiceNumber: invoice.invoiceNumber,
       date: new Date(invoice.issueDate).toLocaleDateString('ru-RU'),
+      dueDate: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('ru-RU') : null,
       docCreateDate: new Date().toLocaleDateString('ru-RU'),
       clinic: clinicInfo,
       client: clientInfo,
+      composer: composerInfo,
       items: mappedItems,
       subtotal,
       discount,
-      total
+      totalVAT: totalVAT.toFixed(2),
+      total,
+      totalInWords,
+      notes: invoice.notes || ''
     };
   }
 

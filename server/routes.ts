@@ -7314,7 +7314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       switch (templateType) {
         case 'invoice':
-          context = await documentService.buildInvoiceContext(entityId, tenantId, validBranchId);
+          context = await documentService.buildInvoiceContext(entityId, tenantId, validBranchId, user.id);
           break;
         case 'encounter_summary':
           context = await documentService.buildEncounterSummaryContext(entityId, tenantId, validBranchId);

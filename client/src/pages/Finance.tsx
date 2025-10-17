@@ -151,13 +151,69 @@ export default function Finance() {
     }
   }
 
-  const handlePrintInvoice = (invoiceId: string) => {
-    toast({
-      title: "Печать счета",
-      description: `Подготовка к печати счета ${invoiceId}`,
-    })
-    // TODO: Генерация PDF и открытие окна печати
-    window.print()
+  const handlePrintInvoice = async (invoiceId: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      const response = await fetch('/api/documents/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          templateType: 'invoice',
+          entityId: invoiceId,
+          outputFormat: 'pdf'
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate invoice document');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const printWindow = window.open(url, '_blank');
+      
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+          setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+          }, 1000);
+        };
+      } else {
+        // Fallback: if popup blocked, download the file
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `invoice-${invoiceId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        toast({
+          variant: 'destructive',
+          title: 'Всплывающее окно заблокировано',
+          description: 'Счёт скачан. Разрешите всплывающие окна для автоматической печати.'
+        });
+        return;
+      }
+
+      toast({
+        title: "Счёт готов к печати",
+        description: "Документ открыт в новом окне"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Ошибка генерации счёта",
+        description: error.message || "Не удалось создать документ",
+        variant: "destructive"
+      });
+    }
   }
 
   const handleDeleteInvoice = async (invoiceId: string) => {
