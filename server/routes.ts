@@ -8237,6 +8237,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DELETE /api/hospital-stays/:stayId/log/:logId - Delete treatment log entry
+  app.delete('/api/hospital-stays/:stayId/log/:logId', authenticateToken, async (req, res) => {
+    try {
+      const { stayId, logId } = req.params;
+
+      // 1. Get hospital stay
+      const stay = await storage.getHospitalStay(stayId);
+      if (!stay) {
+        return res.status(404).json({ error: 'Госпитализация не найдена' });
+      }
+
+      if (stay.status !== 'active') {
+        return res.status(400).json({ error: 'Можно удалять процедуры только для активных пациентов' });
+      }
+
+      // 2. Get treatment log to find serviceId
+      const logs = await storage.getTreatmentLog(stayId);
+      const logToDelete = logs.find(log => log.id === logId);
+      
+      if (!logToDelete) {
+        return res.status(404).json({ error: 'Процедура не найдена' });
+      }
+
+      // 3. Delete treatment log entry
+      await storage.deleteTreatmentLog(logId);
+
+      // 4. Find and delete corresponding invoice item
+      const invoiceItems = await storage.getInvoiceItems(stay.activeInvoiceId);
+      const itemToDelete = invoiceItems.find(item => 
+        item.itemType === 'service' && item.itemId === logToDelete.serviceId
+      );
+
+      if (itemToDelete) {
+        await storage.deleteInvoiceItem(itemToDelete.id);
+      }
+
+      // 5. Recalculate invoice total
+      const remainingItems = await storage.getInvoiceItems(stay.activeInvoiceId);
+      const newTotal = remainingItems.reduce((sum, item) => sum + parseFloat(item.total), 0);
+      await storage.updateInvoice(stay.activeInvoiceId, { total: newTotal });
+
+      res.status(200).json({ message: 'Процедура успешно удалена' });
+    } catch (error: any) {
+      console.error('Error deleting treatment log:', error);
+      res.status(500).json({ error: error.message || 'Не удалось удалить процедуру' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

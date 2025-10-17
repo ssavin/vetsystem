@@ -684,6 +684,7 @@ export interface IStorage {
   // Treatment Log methods - журнал манипуляций
   getTreatmentLog(hospitalStayId: string): Promise<TreatmentLog[]>;
   createTreatmentLog(log: InsertTreatmentLog): Promise<TreatmentLog>;
+  deleteTreatmentLog(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6135,6 +6136,14 @@ export class DatabaseStorage implements IStorage {
           .values(log)
           .returning();
         return newLog;
+      });
+    });
+  }
+
+  async deleteTreatmentLog(id: string): Promise<void> {
+    return withPerformanceLogging('deleteTreatmentLog', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(treatmentLog).where(eq(treatmentLog.id, id));
       });
     });
   }

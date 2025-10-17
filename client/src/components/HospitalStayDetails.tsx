@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, FileText, DoorOpen } from "lucide-react";
+import { Plus, FileText, DoorOpen, Trash2 } from "lucide-react";
 
 interface HospitalStay {
   id: string;
@@ -157,6 +157,31 @@ export function HospitalStayDetails({ stay, open, onOpenChange }: HospitalStayDe
     }
   });
 
+  const deleteTreatmentMutation = useMutation({
+    mutationFn: async (logId: string) => {
+      const response = await fetch(`/api/hospital-stays/${stay.id}/log/${logId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete treatment');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hospital-stays', stay.id, 'log'] });
+      toast({ title: "Процедура удалена" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Ошибка", 
+        description: error.message || "Не удалось удалить процедуру",
+        variant: "destructive" 
+      });
+    }
+  });
+
   const onSubmit = (data: TreatmentFormValues) => {
     addTreatmentMutation.mutate(data);
   };
@@ -164,6 +189,12 @@ export function HospitalStayDetails({ stay, open, onOpenChange }: HospitalStayDe
   const handleDischarge = () => {
     if (confirm(`Выписать пациента ${stay.patient?.name}? Счёт будет закрыт для оплаты на ресепшене.`)) {
       dischargeMutation.mutate();
+    }
+  };
+
+  const handleDeleteTreatment = (logId: string, serviceName: string) => {
+    if (confirm(`Удалить процедуру "${serviceName}"?`)) {
+      deleteTreatmentMutation.mutate(logId);
     }
   };
 
@@ -235,7 +266,7 @@ export function HospitalStayDetails({ stay, open, onOpenChange }: HospitalStayDe
                   <Card key={log.id}>
                     <CardContent className="py-3">
                       <div className="flex justify-between items-start">
-                        <div className="space-y-1">
+                        <div className="space-y-1 flex-1">
                           <p className="font-medium">{log.service?.name}</p>
                           <p className="text-sm text-muted-foreground">Исполнитель: {log.performerName}</p>
                           {log.notes && (
@@ -245,9 +276,22 @@ export function HospitalStayDetails({ stay, open, onOpenChange }: HospitalStayDe
                             {new Date(log.createdAt).toLocaleString('ru-RU')}
                           </p>
                         </div>
-                        <Badge variant="outline">
-                          {log.service?.price} ₽
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">
+                            {log.service?.price} ₽
+                          </Badge>
+                          {stay.status === 'active' && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleDeleteTreatment(log.id, log.service?.name || 'процедуру')}
+                              disabled={deleteTreatmentMutation.isPending}
+                              data-testid={`button-delete-treatment-${log.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
