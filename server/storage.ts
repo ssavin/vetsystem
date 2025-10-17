@@ -2803,59 +2803,86 @@ export class DatabaseStorage implements IStorage {
   
   // Расширенный метод для получения счетов с данными пациентов и владельцев
   async getInvoicesWithDetails(status: string | undefined, branchId: string) {
-    // 🔒 CRITICAL: Enforce branch isolation via patient join OR hospital stay
-    // For hospital invoices, check branchId via hospital_stays table
-    let query = db.select({
-      id: invoices.id,
-      invoiceNumber: invoices.invoiceNumber,
-      patientId: invoices.patientId,
-      appointmentId: invoices.appointmentId,
-      issueDate: invoices.issueDate,
-      dueDate: invoices.dueDate,
-      subtotal: invoices.subtotal,
-      discount: invoices.discount,
-      total: invoices.total,
-      status: invoices.status,
-      paymentMethod: invoices.paymentMethod,
-      paidDate: invoices.paidDate,
-      paymentId: invoices.paymentId,
-      paymentUrl: invoices.paymentUrl,
-      fiscalReceiptId: invoices.fiscalReceiptId,
-      fiscalReceiptUrl: invoices.fiscalReceiptUrl,
-      notes: invoices.notes,
-      createdAt: invoices.createdAt,
-      updatedAt: invoices.updatedAt,
-      // Данные пациента
-      patientName: patients.name,
-      patientSpecies: patients.species,
-      patientBreed: patients.breed,
-      // Данные владельца
-      ownerName: owners.name,
-      ownerPhone: owners.phone,
-    }).from(invoices)
-      .leftJoin(patients, eq(invoices.patientId, patients.id))
-      .leftJoin(owners, eq(patients.ownerId, owners.id))
-      .leftJoin(hospitalStays, eq(invoices.id, hospitalStays.activeInvoiceId))
-      .where(
-        or(
-          eq(patients.branchId, branchId),
-          eq(hospitalStays.branchId, branchId)
-        )
-      );
-    
-    if (status) {
-      query = query.where(
-        and(
-          or(
-            eq(patients.branchId, branchId),
-            eq(hospitalStays.branchId, branchId)
-          ),
-          eq(invoices.status, status)
-        )
-      );
-    }
-    
-    return await query.orderBy(desc(invoices.issueDate));
+    return withPerformanceLogging('getInvoicesWithDetails', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // 🔒 CRITICAL: Enforce branch isolation via patient join OR hospital stay
+        // Use raw SQL to get owner data from patient_owners table
+        const result = await dbInstance.execute(sql`
+          SELECT 
+            i.id,
+            i.invoice_number,
+            i.patient_id,
+            i.appointment_id,
+            i.issue_date,
+            i.due_date,
+            i.subtotal,
+            i.discount,
+            i.total,
+            i.status,
+            i.payment_method,
+            i.paid_date,
+            i.payment_id,
+            i.payment_url,
+            i.fiscal_receipt_id,
+            i.fiscal_receipt_url,
+            i.notes,
+            i.created_at,
+            i.updated_at,
+            p.name as patient_name,
+            p.species as patient_species,
+            p.breed as patient_breed,
+            COALESCE(
+              (SELECT o.name FROM patient_owners po 
+               JOIN owners o ON po.owner_id = o.id 
+               WHERE po.patient_id = p.id 
+               ORDER BY po.is_primary DESC, po.created_at ASC 
+               LIMIT 1),
+              (SELECT o.name FROM owners o WHERE o.id = p.owner_id)
+            ) as owner_name,
+            COALESCE(
+              (SELECT o.phone FROM patient_owners po 
+               JOIN owners o ON po.owner_id = o.id 
+               WHERE po.patient_id = p.id 
+               ORDER BY po.is_primary DESC, po.created_at ASC 
+               LIMIT 1),
+              (SELECT o.phone FROM owners o WHERE o.id = p.owner_id)
+            ) as owner_phone
+          FROM invoices i
+          LEFT JOIN patients p ON i.patient_id = p.id
+          LEFT JOIN hospital_stays hs ON i.id = hs.active_invoice_id
+          WHERE (p.branch_id = ${branchId} OR hs.branch_id = ${branchId})
+          ${status ? sql`AND i.status = ${status}` : sql``}
+          ORDER BY i.issue_date DESC
+        `);
+        
+        return result.rows.map((row: any) => ({
+          id: row.id,
+          invoiceNumber: row.invoice_number,
+          patientId: row.patient_id,
+          appointmentId: row.appointment_id,
+          issueDate: row.issue_date,
+          dueDate: row.due_date,
+          subtotal: row.subtotal,
+          discount: row.discount,
+          total: row.total,
+          status: row.status,
+          paymentMethod: row.payment_method,
+          paidDate: row.paid_date,
+          paymentId: row.payment_id,
+          paymentUrl: row.payment_url,
+          fiscalReceiptId: row.fiscal_receipt_id,
+          fiscalReceiptUrl: row.fiscal_receipt_url,
+          notes: row.notes,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          patientName: row.patient_name,
+          patientSpecies: row.patient_species,
+          patientBreed: row.patient_breed,
+          ownerName: row.owner_name,
+          ownerPhone: row.owner_phone,
+        }));
+      });
+    });
   }
   
   async getInvoices(status: string | undefined, branchId: string): Promise<Invoice[]> {
