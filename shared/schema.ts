@@ -947,7 +947,7 @@ export const invoices = pgTable("invoices", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
   return {
-    statusCheck: check("invoices_status_check", sql`${table.status} IN ('pending', 'paid', 'overdue', 'cancelled')`),
+    statusCheck: check("invoices_status_check", sql`${table.status} IN ('draft', 'pending', 'paid', 'overdue', 'cancelled')`),
     subtotalCheck: check("invoices_subtotal_check", sql`${table.subtotal} >= 0`),
     discountCheck: check("invoices_discount_check", sql`${table.discount} >= 0`),
     totalCheck: check("invoices_total_check", sql`${table.total} >= 0`),
