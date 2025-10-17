@@ -97,12 +97,7 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
 
   const updateInvoiceMutation = useMutation({
     mutationFn: async (data: EditInvoiceFormData) => {
-      // Convert empty dueDate string to null
-      const payload = {
-        ...data,
-        dueDate: data.dueDate && data.dueDate.trim() !== '' ? data.dueDate : null,
-      }
-      return await apiRequest('PUT', `/api/invoices/${invoice.id}`, payload)
+      return await apiRequest('PUT', `/api/invoices/${invoice.id}`, data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/invoices'] })

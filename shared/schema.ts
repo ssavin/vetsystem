@@ -1744,7 +1744,11 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
   invoiceNumber: z.string().optional(), // Make invoiceNumber optional for auto-generation
   status: z.enum(INVOICE_STATUS).default("pending"),
   issueDate: z.coerce.date().optional(),
-  dueDate: z.coerce.date().optional(),
+  dueDate: z.preprocess((val) => {
+    // Convert empty strings to null/undefined
+    if (val === '' || val === null || val === undefined) return undefined;
+    return val;
+  }, z.coerce.date().optional()),
   subtotal: z.coerce.number().min(0, "Subtotal must be positive").transform(val => val.toString()),
   discount: z.coerce.number().min(0, "Discount cannot be negative").default(0).transform(val => val.toString()),
   total: z.coerce.number().min(0, "Total must be positive").transform(val => val.toString()),
