@@ -61,7 +61,7 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
       status: invoice.status || "pending",
       discount: parseFloat(invoice.discount || "0"),
       notes: invoice.notes || "",
-      dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : undefined,
+      dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : "",
     },
   })
 
@@ -90,7 +90,7 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
         status: invoice.status || "pending",
         discount: parseFloat(invoice.discount || "0"),
         notes: invoice.notes || "",
-        dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : undefined,
+        dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : "",
       })
     }
   }, [invoice, form])
