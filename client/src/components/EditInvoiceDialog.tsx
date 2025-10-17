@@ -350,6 +350,7 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
                     <FormControl>
                       <Input
                         type="date"
+                        min={invoice.issueDate ? new Date(invoice.issueDate).toISOString().split('T')[0] : undefined}
                         {...field}
                         data-testid="input-invoice-due-date"
                       />
