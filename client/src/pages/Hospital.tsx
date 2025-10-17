@@ -38,11 +38,18 @@ interface HospitalStay {
     id: string;
     name: string;
     species: string;
+    ownerId?: string;
+  };
+  owner?: {
+    id: string;
+    fullName: string;
+    phone?: string;
   };
   cage?: {
     id: string;
     name: string;
   };
+  treatmentCount?: number;
 }
 
 const cageFormSchema = z.object({
@@ -411,17 +418,34 @@ function PatientsTab() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Клетка:</p>
-                      <p className="font-medium">{stay.cage?.name || 'Неизвестно'}</p>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Владелец:</p>
+                        <p className="font-medium">{stay.owner?.fullName || 'Не указан'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Телефон:</p>
+                        <p className="font-medium">{stay.owner?.phone || 'Не указан'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Клетка:</p>
+                        <p className="font-medium">{stay.cage?.name || 'Неизвестно'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Поступил:</p>
+                        <p className="font-medium">
+                          {new Date(stay.admittedAt).toLocaleDateString('ru-RU')}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-muted-foreground">Поступил:</p>
-                      <p className="font-medium">
-                        {new Date(stay.admittedAt).toLocaleDateString('ru-RU')}
-                      </p>
-                    </div>
+                    {stay.treatmentCount !== undefined && stay.treatmentCount > 0 && (
+                      <div className="pt-2 border-t">
+                        <Badge variant="secondary" className="text-xs">
+                          Выполнено процедур: {stay.treatmentCount}
+                        </Badge>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -8081,15 +8081,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status } = req.query;
       const stays = await storage.getHospitalStays(userBranchId, status as string | undefined);
       
-      // Enrich with patient and cage data
+      // Enrich with patient, owner, cage, and treatment count
       const enrichedStays = await Promise.all(
         stays.map(async (stay) => {
           const patient = await storage.getPatient(stay.patientId);
           const cage = await storage.getCage(stay.cageId);
+          let owner = null;
+          if (patient?.ownerId) {
+            const ownerData = await storage.getOwner(patient.ownerId);
+            owner = ownerData ? { 
+              id: ownerData.id, 
+              fullName: `${ownerData.lastName || ''} ${ownerData.firstName || ''} ${ownerData.middleName || ''}`.trim(),
+              phone: ownerData.phone 
+            } : null;
+          }
+          const treatmentLog = await storage.getTreatmentLog(stay.id);
           return {
             ...stay,
-            patient: patient ? { id: patient.id, name: patient.name, species: patient.species } : null,
-            cage: cage ? { id: cage.id, name: cage.name } : null
+            patient: patient ? { id: patient.id, name: patient.name, species: patient.species, ownerId: patient.ownerId } : null,
+            owner,
+            cage: cage ? { id: cage.id, name: cage.name } : null,
+            treatmentCount: treatmentLog.length
           };
         })
       );
