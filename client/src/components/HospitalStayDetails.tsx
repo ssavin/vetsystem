@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { translateSpecies } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -189,7 +190,7 @@ export function HospitalStayDetails({ stay, open, onOpenChange }: HospitalStayDe
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Вид</p>
-                  <p className="font-medium">{stay.patient?.species}</p>
+                  <p className="font-medium">{translateSpecies(stay.patient?.species)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Клетка</p>

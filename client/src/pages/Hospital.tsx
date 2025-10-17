@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { translateSpecies } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -404,7 +405,7 @@ function PatientsTab() {
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle>{stay.patient?.name || 'Неизвестный пациент'}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{stay.patient?.species}</p>
+                      <p className="text-sm text-muted-foreground">{translateSpecies(stay.patient?.species)}</p>
                     </div>
                     <Badge variant="default">В стационаре</Badge>
                   </div>

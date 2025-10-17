@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { translateSpecies } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -117,7 +118,7 @@ export function AdmitPatientDialog() {
                     <SelectContent>
                       {patients.map(patient => (
                         <SelectItem key={patient.id} value={patient.id}>
-                          {patient.name} ({patient.species})
+                          {patient.name} ({translateSpecies(patient.species)})
                         </SelectItem>
                       ))}
                     </SelectContent>
