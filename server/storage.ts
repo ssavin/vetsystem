@@ -2803,7 +2803,8 @@ export class DatabaseStorage implements IStorage {
   
   // Расширенный метод для получения счетов с данными пациентов и владельцев
   async getInvoicesWithDetails(status: string | undefined, branchId: string) {
-    // 🔒 CRITICAL: Enforce branch isolation via patient join
+    // 🔒 CRITICAL: Enforce branch isolation via patient join OR hospital stay
+    // For hospital invoices, check branchId via hospital_stays table
     let query = db.select({
       id: invoices.id,
       invoiceNumber: invoices.invoiceNumber,
@@ -2834,10 +2835,24 @@ export class DatabaseStorage implements IStorage {
     }).from(invoices)
       .leftJoin(patients, eq(invoices.patientId, patients.id))
       .leftJoin(owners, eq(patients.ownerId, owners.id))
-      .where(eq(patients.branchId, branchId));
+      .leftJoin(hospitalStays, eq(invoices.id, hospitalStays.activeInvoiceId))
+      .where(
+        or(
+          eq(patients.branchId, branchId),
+          eq(hospitalStays.branchId, branchId)
+        )
+      );
     
     if (status) {
-      query = query.where(and(eq(patients.branchId, branchId), eq(invoices.status, status)));
+      query = query.where(
+        and(
+          or(
+            eq(patients.branchId, branchId),
+            eq(hospitalStays.branchId, branchId)
+          ),
+          eq(invoices.status, status)
+        )
+      );
     }
     
     return await query.orderBy(desc(invoices.issueDate));

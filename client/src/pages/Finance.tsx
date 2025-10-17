@@ -429,10 +429,12 @@ export default function Finance() {
                             <Badge variant={
                               invoice.status === 'paid' ? 'default' : 
                               invoice.status === 'pending' ? 'secondary' : 
+                              invoice.status === 'draft' ? 'outline' :
                               'destructive'
                             }>
                               {invoice.status === 'paid' ? 'Оплачен' : 
                                invoice.status === 'pending' ? 'Ожидает' : 
+                               invoice.status === 'draft' ? 'Черновик' :
                                'Просрочен'}
                             </Badge>
                           </TableCell>
