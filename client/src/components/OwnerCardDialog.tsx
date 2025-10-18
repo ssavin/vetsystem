@@ -15,11 +15,22 @@ import { Phone, Mail, MapPin, User, Pencil, PawPrint, Calendar } from "lucide-re
 import { CallLogsWidget } from "./CallLogsWidget"
 import { useLocation } from "wouter"
 import { Skeleton } from "@/components/ui/skeleton"
+import { translateSpecies } from "@/lib/utils"
 
 interface OwnerCardDialogProps {
   ownerId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+// Translate patient status
+const translateStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'healthy': 'Здоров',
+    'treatment': 'На лечении',
+    'critical': 'Критическое'
+  }
+  return statusMap[status] || status
 }
 
 export function OwnerCardDialog({ ownerId, open, onOpenChange }: OwnerCardDialogProps) {
@@ -169,7 +180,7 @@ export function OwnerCardDialog({ ownerId, open, onOpenChange }: OwnerCardDialog
                           <div>
                             <div className="font-medium">{patient.name}</div>
                             <div className="text-sm text-muted-foreground">
-                              {patient.species} • {patient.breed}
+                              {translateSpecies(patient.species)} • {patient.breed}
                             </div>
                           </div>
                         </div>
@@ -181,7 +192,7 @@ export function OwnerCardDialog({ ownerId, open, onOpenChange }: OwnerCardDialog
                             </div>
                           )}
                           <Badge variant={patient.status === 'critical' ? 'destructive' : 'outline'}>
-                            {patient.status || 'healthy'}
+                            {translateStatus(patient.status || 'healthy')}
                           </Badge>
                         </div>
                       </div>
