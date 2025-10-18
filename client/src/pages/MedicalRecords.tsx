@@ -128,23 +128,17 @@ export default function MedicalRecords() {
   }, [selectedPatientId])
 
   // Fetch medical records with pagination
+  const params = new URLSearchParams({
+    limit: pageSize.toString(),
+    offset: (page * pageSize).toString(),
+    ...(selectedPatientId && { patientId: selectedPatientId })
+  });
+  
   const { data, isLoading, error } = useQuery<{
     records: MedicalRecord[];
     pagination: { total: number; limit: number; offset: number; hasMore: boolean };
   }>({
-    queryKey: ['/api/medical-records', page, selectedPatientId],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        limit: pageSize.toString(),
-        offset: (page * pageSize).toString(),
-        ...(selectedPatientId && { patientId: selectedPatientId })
-      });
-      const response = await fetch(`/api/medical-records?${params}`, {
-        credentials: 'include'
-      });
-      if (!response.ok) throw new Error('Failed to fetch medical records');
-      return response.json();
-    }
+    queryKey: [`/api/medical-records?${params}`],
   })
 
   const medicalRecords = data?.records || []

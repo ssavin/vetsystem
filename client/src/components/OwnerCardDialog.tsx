@@ -210,7 +210,7 @@ export function OwnerCardDialog({ ownerId, open, onOpenChange }: OwnerCardDialog
                 <Phone className="h-5 w-5" />
                 История звонков
               </h3>
-              <CallLogsWidget ownerId={ownerId} compact={false} />
+              <CallLogsWidget ownerId={ownerId} />
             </div>
           </div>
         ) : (
