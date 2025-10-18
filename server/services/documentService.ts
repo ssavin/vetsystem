@@ -705,12 +705,9 @@ export class DocumentService {
       throw new Error('Access denied: Owner belongs to different tenant');
     }
 
-    // Verify branch access through owner's patients
-    // Owner is accessible if they have at least one patient in this branch (or patient with NULL branchId)
-    const ownerPatients = await storage.getPatientsByOwner(ownerId, branchId);
-    if (ownerPatients.length === 0) {
-      throw new Error('Access denied: Owner has no patients in this branch');
-    }
+    // Personal data consent is a tenant-level document, not branch-specific
+    // Owner can sign consent from any branch within their clinic
+    // No need to verify branch access through patients
 
     // Build owner info with all personal data
     const ownerInfo = {
