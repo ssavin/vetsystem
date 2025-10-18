@@ -31,8 +31,8 @@ export const BRANCH_STATUS = ['active', 'inactive', 'maintenance'] as const;
 export const PUSH_TOKEN_PLATFORMS = ['ios', 'android', 'web'] as const;
 
 // Integration and fiscal compliance enums
-export const INTEGRATION_TYPE = ['1c_kassa', 'onec_retail', 'moysklad', 'yookassa', 'honest_sign', 'dreamkas'] as const;
-export const EXTERNAL_SYSTEM = ['moysklad', 'onec', '1c_retail', 'dreamkas', 'manual'] as const;
+export const INTEGRATION_TYPE = ['1c_kassa', 'onec_retail', 'moysklad', 'yookassa', 'honest_sign', 'dreamkas', 'mango'] as const;
+export const EXTERNAL_SYSTEM = ['moysklad', 'onec', '1c_retail', 'dreamkas', 'mango', 'manual'] as const;
 export const INTEGRATION_STATUS = ['active', 'inactive', 'error', 'testing'] as const;
 export const CATALOG_ITEM_TYPE = ['service', 'product', 'medication'] as const;
 export const VAT_RATE = ['0', '10', '20', 'not_applicable'] as const;
@@ -76,6 +76,10 @@ export const QUEUE_PRIORITY = ['normal', 'urgent', 'emergency'] as const;
 // Chat/Conversations enums
 export const CONVERSATION_STATUS = ['open', 'closed_by_client', 'closed_by_staff'] as const;
 export const MESSAGE_SENDER_TYPE = ['client', 'staff'] as const;
+
+// Call log enums
+export const CALL_DIRECTION = ['inbound', 'outbound'] as const;
+export const CALL_STATUS = ['answered', 'missed', 'busy', 'failed', 'no_answer'] as const;
 
 // ========================================
 // MULTI-TENANT ARCHITECTURE
@@ -2705,6 +2709,51 @@ export const messages = pgTable('messages', {
   senderTypeCheck: check('messages_sender_type_check', sql`${table.senderType} IN ('client', 'staff')`)
 }));
 
+// Call Logs (История звонков) - журнал телефонных звонков из Mango Office
+export const callLogs = pgTable('call_logs', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id),
+  
+  // Информация о звонке
+  externalCallId: varchar('external_call_id', { length: 255 }), // ID звонка в Mango Office
+  direction: varchar('direction', { length: 20 }).notNull(), // inbound, outbound
+  status: varchar('status', { length: 30 }).notNull(), // answered, missed, busy, failed, no_answer
+  
+  // Номера телефонов
+  fromNumber: varchar('from_number', { length: 50 }).notNull(), // Номер звонящего
+  toNumber: varchar('to_number', { length: 50 }).notNull(), // Номер получателя
+  
+  // Связь с владельцем (если найден по номеру)
+  ownerId: varchar('owner_id').references(() => owners.id),
+  
+  // Информация о пользователе который принял/совершил звонок
+  userId: varchar('user_id').references(() => users.id),
+  
+  // Детали звонка
+  duration: integer('duration').default(0), // Длительность в секундах
+  recordingUrl: text('recording_url'), // Ссылка на запись разговора
+  startedAt: timestamp('started_at').notNull(), // Время начала звонка
+  answeredAt: timestamp('answered_at'), // Время ответа (если был ответ)
+  endedAt: timestamp('ended_at'), // Время окончания
+  
+  // Дополнительные данные
+  notes: text('notes'), // Заметки о звонке
+  metadata: jsonb('metadata'), // Дополнительная информация от Mango Office
+  
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('call_logs_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('call_logs_branch_idx').on(table.branchId),
+  ownerIdIdx: index('call_logs_owner_idx').on(table.ownerId),
+  userIdIdx: index('call_logs_user_idx').on(table.userId),
+  externalCallIdIdx: index('call_logs_external_call_id_idx').on(table.externalCallId),
+  fromNumberIdx: index('call_logs_from_number_idx').on(table.fromNumber),
+  startedAtIdx: index('call_logs_started_at_idx').on(table.startedAt),
+  directionCheck: check('call_logs_direction_check', sql`${table.direction} IN ('inbound', 'outbound')`),
+  statusCheck: check('call_logs_status_check', sql`${table.status} IN ('answered', 'missed', 'busy', 'failed', 'no_answer')`)
+}));
+
 // === Схемы для валидации ===
 
 export const insertCashRegisterSchema = createInsertSchema(cashRegisters).omit({
@@ -2908,6 +2957,16 @@ export type InsertConversation = z.infer<typeof insertConversationSchema>;
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+// Call Logs schemas and types
+export const insertCallLogSchema = createInsertSchema(callLogs).omit({
+  id: true,
+  createdAt: true,
+  tenantId: true
+});
+
+export type CallLog = typeof callLogs.$inferSelect;
+export type InsertCallLog = z.infer<typeof insertCallLogSchema>;
 
 // ========================================
 // HOSPITAL MODULE (Inpatient/Стационар)
