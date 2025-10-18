@@ -58,7 +58,7 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
       visitDate: new Date(),
       visitType: "",
       patientId: "",
-      doctorId: "",
+      doctorId: undefined,
       appointmentId: null,
       complaints: "",
       diagnosis: "",
@@ -254,7 +254,10 @@ export default function MedicalRecordForm({ trigger, recordToEdit, open: control
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Врач *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value || ""}
+                        >
                           <FormControl>
                             <SelectTrigger data-testid="select-doctor">
                               <SelectValue placeholder="Выберите врача" />
