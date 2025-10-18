@@ -1490,11 +1490,36 @@ export class DatabaseStorage implements IStorage {
   async getPatientsByOwner(ownerId: string, branchId: string): Promise<Patient[]> {
     return withPerformanceLogging('getPatientsByOwner', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        // 🔒 CRITICAL: branchId now mandatory for security
-        return await dbInstance
-          .select()
+        // 🔒 CRITICAL: Use patient_owners junction table for many-to-many relationship
+        const result = await dbInstance
+          .select({
+            id: patients.id,
+            name: patients.name,
+            species: patients.species,
+            breed: patients.breed,
+            birthdate: patients.birthdate,
+            gender: patients.gender,
+            color: patients.color,
+            weight: patients.weight,
+            microchipNumber: patients.microchipNumber,
+            allergies: patients.allergies,
+            chronicConditions: patients.chronicConditions,
+            ownerId: patients.ownerId,
+            tenantId: patients.tenantId,
+            branchId: patients.branchId,
+            createdAt: patients.createdAt,
+            updatedAt: patients.updatedAt,
+          })
           .from(patients)
-          .where(and(eq(patients.ownerId, ownerId), or(eq(patients.branchId, branchId), isNull(patients.branchId))));
+          .innerJoin(patientOwners, eq(patients.id, patientOwners.patientId))
+          .where(
+            and(
+              eq(patientOwners.ownerId, ownerId),
+              or(eq(patients.branchId, branchId), isNull(patients.branchId))
+            )
+          );
+        
+        return result;
       });
     });
   }
