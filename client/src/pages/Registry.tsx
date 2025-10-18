@@ -840,8 +840,7 @@ export default function Registry() {
                           {owner.email ? (
                             <a
                               href={`mailto:${owner.email}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="hover-elevate px-2 py-1 rounded inline-block"
+                              className="hover-elevate px-2 py-1 rounded inline-block text-foreground hover:text-foreground"
                               data-testid={`link-owner-email-${owner.id}`}
                             >
                               {owner.email}
