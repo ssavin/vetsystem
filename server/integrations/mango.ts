@@ -281,3 +281,64 @@ export async function testMangoConnection(credentials: MangoCredentials): Promis
     };
   }
 }
+
+/**
+ * Обрабатывает webhook от Mango Office и создает запись в БД
+ */
+export async function processCallWebhook(payload: any, storage: any) {
+  try {
+    console.log('Processing Mango webhook:', payload);
+
+    // Определяем тип события
+    if (!payload.call_id) {
+      console.warn('Invalid Mango webhook: missing call_id');
+      return null;
+    }
+
+    // Парсим данные звонка
+    const callData = parseMangoCallEvent(payload);
+    
+    // Определяем номер клиента (для входящих - from, для исходящих - to)
+    const customerPhone = callData.direction === 'inbound' 
+      ? callData.fromNumber 
+      : callData.toNumber;
+    
+    // Ищем владельца по номеру телефона
+    const owner = await storage.findOwnerByPhone(customerPhone);
+    
+    // Создаем запись в call_logs
+    const callLog = await storage.createCallLog({
+      id: crypto.randomUUID(),
+      tenantId: payload.tenant_id || '', // Should be extracted from webhook context
+      branchId: payload.branch_id || '', // Should be extracted from webhook context
+      externalCallId: callData.externalCallId,
+      direction: callData.direction,
+      status: callData.status,
+      fromNumber: callData.fromNumber,
+      toNumber: callData.toNumber,
+      ownerId: owner?.id || null,
+      userId: null, // Will be updated when operator is identified
+      startedAt: callData.startedAt,
+      answeredAt: callData.answeredAt,
+      endedAt: callData.endedAt,
+      duration: callData.duration,
+      recordingUrl: null, // Will be updated when recording is available
+      metadata: callData.metadata
+    });
+
+    // Возвращаем данные для WebSocket уведомления
+    return {
+      callLog,
+      owner: owner ? {
+        id: owner.id,
+        name: owner.name,
+        phone: owner.phone
+      } : null,
+      shouldNotify: callData.direction === 'inbound' && !callData.endedAt, // Уведомляем только о входящих звонках
+      extension: payload.to?.extension || null // Номер оператора для маршрутизации уведомления
+    };
+  } catch (error) {
+    console.error('Error processing Mango webhook:', error);
+    throw error;
+  }
+}

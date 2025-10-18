@@ -7,6 +7,7 @@ import { startHealthNotificationsScheduler } from "./jobs/health-notifications-s
 import { startHospitalBillingScheduler } from "./jobs/hospital-billing-scheduler";
 import { tenantResolver } from "./middleware/tenant-resolver";
 import { tenantDbMiddleware } from "./middleware/tenant-db";
+import { setupWebSocketServer } from "./websocket";
 
 const app = express();
 app.use(express.json());
@@ -45,6 +46,9 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  
+  // Setup WebSocket server for real-time notifications
+  setupWebSocketServer(server);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

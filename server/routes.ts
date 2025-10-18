@@ -23,6 +23,7 @@ import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import * as veterinaryAI from './ai/veterinary-ai';
 import * as yookassa from './integrations/yookassa';
+import * as mango from './integrations/mango';
 import { documentService } from './services/documentService';
 import { aiAssistantService, aiCommandSchema } from './services/aiAssistantService';
 import { smsService } from './services/smsService';
@@ -3796,6 +3797,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mango Office webhook for call events
+  app.post("/api/webhooks/mango/call", async (req, res) => {
+    try {
+      const payload = req.body;
+      console.log('Mango Office webhook received:', payload);
+
+      // Validate webhook signature if provided
+      // const signature = req.headers['x-mango-signature'];
+      // if (signature) {
+      //   const tenantId = extractTenantIdFromPayload(payload);
+      //   const credentials = await storage.getIntegrationCredentials(tenantId, 'mango');
+      //   if (!mango.validateSignature(payload, signature, credentials.apiSalt)) {
+      //     return res.status(401).json({ error: 'Invalid signature' });
+      //   }
+      // }
+
+      // Process call event
+      const { broadcastWebSocketMessage } = await import('./websocket');
+      const callData = await mango.processCallWebhook(payload, storage);
+      
+      // Broadcast to connected clients (operators)
+      if (callData) {
+        broadcastWebSocketMessage({
+          type: 'incoming_call',
+          data: callData
+        });
+      }
+
+      res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("Error processing Mango webhook:", error);
+      res.status(500).json({ error: "Webhook processing failed" });
+    }
+  });
+
   // Cancel YooKassa payment
   app.post("/api/payments/yookassa/:paymentId/cancel", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
@@ -4376,6 +4412,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             message: `Не удалось подключиться к Дримкас: ${error.message}` 
           });
         }
+      } else if (provider === 'mango') {
+        // Тест подключения к Mango Office
+        const result = await mango.testMangoConnection(credentials);
+        res.json(result);
       } else {
         return res.status(400).json({ error: "Unknown provider" });
       }
@@ -4386,6 +4426,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to test integration credentials",
         message: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // =================== Call Logs API (Mango Office) ===================
+  
+  // GET /api/call-logs - Get call logs with optional filters
+  app.get("/api/call-logs", authenticateToken, async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      
+      const { ownerId, userId, startDate, endDate } = req.query;
+      
+      const filters: any = { branchId: userBranchId };
+      
+      if (ownerId) filters.ownerId = ownerId as string;
+      if (userId) filters.userId = userId as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      
+      const callLogs = await storage.getCallLogs(filters);
+      res.json(callLogs);
+    } catch (error) {
+      console.error("Error getting call logs:", error);
+      res.status(500).json({ error: "Failed to get call logs" });
+    }
+  });
+  
+  // GET /api/call-logs/:id - Get specific call log
+  app.get("/api/call-logs/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const callLog = await storage.getCallLog(id);
+      
+      if (!callLog) {
+        return res.status(404).json({ error: "Call log not found" });
+      }
+      
+      res.json(callLog);
+    } catch (error) {
+      console.error("Error getting call log:", error);
+      res.status(500).json({ error: "Failed to get call log" });
+    }
+  });
+  
+  // GET /api/owners/:ownerId/call-logs - Get call logs for specific owner
+  app.get("/api/owners/:ownerId/call-logs", authenticateToken, async (req, res) => {
+    try {
+      const { ownerId } = req.params;
+      
+      // Verify owner exists and user has access
+      const owner = await storage.getOwner(ownerId);
+      if (!owner) {
+        return res.status(404).json({ error: "Owner not found" });
+      }
+      
+      const callLogs = await storage.getOwnerCallLogs(ownerId);
+      res.json(callLogs);
+    } catch (error) {
+      console.error("Error getting owner call logs:", error);
+      res.status(500).json({ error: "Failed to get owner call logs" });
     }
   });
 
