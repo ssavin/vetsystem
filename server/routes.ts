@@ -4490,6 +4490,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // GET /api/owners/:ownerId/patients - Get patients for specific owner
+  app.get("/api/owners/:ownerId/patients", authenticateToken, async (req, res) => {
+    try {
+      const { ownerId } = req.params;
+      const userBranchId = req.user?.branchId || '';
+      
+      // Verify owner exists and user has access
+      const owner = await storage.getOwner(ownerId);
+      if (!owner) {
+        return res.status(404).json({ error: "Owner not found" });
+      }
+      
+      // Get all patients for this owner in user's branch
+      const patients = await storage.getPatientsByOwner(ownerId, userBranchId);
+      res.json(patients);
+    } catch (error) {
+      console.error("Error getting owner patients:", error);
+      res.status(500).json({ error: "Failed to get owner patients" });
+    }
+  });
+  
   // POST /api/mango/call - Initiate outbound call via Mango Office
   app.post("/api/mango/call", authenticateToken, async (req, res) => {
     try {
