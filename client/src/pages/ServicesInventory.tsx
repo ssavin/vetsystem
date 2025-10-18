@@ -58,6 +58,11 @@ export default function ServicesInventory() {
     enabled: fiscalReceiptSystem === 'moysklad',
   })
 
+  const { data: dreamkasCreds } = useQuery<IntegrationCredentials>({
+    queryKey: ['/api/integration-credentials/dreamkas'],
+    enabled: fiscalReceiptSystem === 'dreamkas',
+  })
+
   const { data: onecCreds } = useQuery<IntegrationCredentials>({
     queryKey: ['/api/integration-credentials/onec'],
     enabled: fiscalReceiptSystem === 'onec',
@@ -73,6 +78,10 @@ export default function ServicesInventory() {
       } else if (fiscalReceiptSystem === 'moysklad') {
         // Синхронизация с МойСклад
         await apiRequest('POST', '/api/moysklad/nomenclature/sync')
+      } else if (fiscalReceiptSystem === 'dreamkas') {
+        // Синхронизация с Дримкас
+        const response = await apiRequest('POST', '/api/dreamkas/sync/nomenclature')
+        return await response.json()
       } else {
         throw new Error('Не выбрана система для синхронизации номенклатуры')
       }
@@ -80,9 +89,14 @@ export default function ServicesInventory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/services'] })
       queryClient.invalidateQueries({ queryKey: ['/api/products'] })
+      
+      let systemName = 'МойСклад'
+      if (fiscalReceiptSystem === 'onec') systemName = '1С Розница'
+      else if (fiscalReceiptSystem === 'dreamkas') systemName = 'Дримкас'
+      
       toast({
         title: "Синхронизация завершена",
-        description: `Номенклатура успешно загружена из ${fiscalReceiptSystem === 'onec' ? '1С Розница' : 'МойСклад'}`,
+        description: `Номенклатура успешно загружена из ${systemName}`,
       })
     },
     onError: (error: any) => {
@@ -118,12 +132,14 @@ export default function ServicesInventory() {
   const getSystemDisplayName = () => {
     if (fiscalReceiptSystem === 'onec') return '1С Розница'
     if (fiscalReceiptSystem === 'moysklad') return 'МойСклад'
+    if (fiscalReceiptSystem === 'dreamkas') return 'Дримкас'
     return 'не выбрана'
   }
 
   // Check if sync is available - system must be selected AND integration must be configured
   const isSyncAvailable = !isLoadingSettings && (
     (fiscalReceiptSystem === 'moysklad' && moyskladCreds?.isEnabled) ||
+    (fiscalReceiptSystem === 'dreamkas' && dreamkasCreds?.isEnabled) ||
     (fiscalReceiptSystem === 'onec' && onecCreds?.isEnabled)
   )
 
@@ -131,10 +147,13 @@ export default function ServicesInventory() {
   const getSyncWarningMessage = () => {
     if (isLoadingSettings) return null
     if (!fiscalReceiptSystem || fiscalReceiptSystem === 'yookassa') {
-      return 'Для синхронизации номенклатуры выберите систему фискальных чеков (МойСклад или 1С Розница) в настройках'
+      return 'Для синхронизации номенклатуры выберите систему фискальных чеков (МойСклад, Дримкас или 1С Розница) в настройках'
     }
     if (fiscalReceiptSystem === 'moysklad' && !moyskladCreds?.isEnabled) {
       return 'Интеграция с МойСклад не настроена или неактивна. Настройте её в разделе Интеграции'
+    }
+    if (fiscalReceiptSystem === 'dreamkas' && !dreamkasCreds?.isEnabled) {
+      return 'Интеграция с Дримкас не настроена или неактивна. Настройте её в разделе Интеграции'
     }
     if (fiscalReceiptSystem === 'onec' && !onecCreds?.isEnabled) {
       return 'Интеграция с 1С Розница не настроена или неактивна. Настройте её в разделе Интеграции'
