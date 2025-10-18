@@ -1492,24 +1492,7 @@ export class DatabaseStorage implements IStorage {
       return withTenantContext(undefined, async (dbInstance) => {
         // 🔒 CRITICAL: Use patient_owners junction table for many-to-many relationship
         const result = await dbInstance
-          .select({
-            id: patients.id,
-            name: patients.name,
-            species: patients.species,
-            breed: patients.breed,
-            birthdate: patients.birthdate,
-            gender: patients.gender,
-            color: patients.color,
-            weight: patients.weight,
-            microchipNumber: patients.microchipNumber,
-            allergies: patients.allergies,
-            chronicConditions: patients.chronicConditions,
-            ownerId: patients.ownerId,
-            tenantId: patients.tenantId,
-            branchId: patients.branchId,
-            createdAt: patients.createdAt,
-            updatedAt: patients.updatedAt,
-          })
+          .select()
           .from(patients)
           .innerJoin(patientOwners, eq(patients.id, patientOwners.patientId))
           .where(
@@ -1519,7 +1502,8 @@ export class DatabaseStorage implements IStorage {
             )
           );
         
-        return result;
+        // Extract just the patient data from the join result
+        return result.map(row => row.patients);
       });
     });
   }
