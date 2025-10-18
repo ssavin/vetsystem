@@ -1,12 +1,12 @@
-import { WebSocketServer, WebSocket } from 'ws';
-import { IncomingMessage } from 'http';
+import { Server as SocketIOServer, Socket } from 'socket.io';
+import { Server as HTTPServer } from 'http';
+import cookie from 'cookie';
 import { verifyToken } from './middleware/auth';
 
-interface AuthenticatedWebSocket extends WebSocket {
+interface AuthenticatedSocket extends Socket {
   userId?: string;
   tenantId?: string;
   branchId?: string;
-  isAlive?: boolean;
 }
 
 interface WebSocketMessage {
@@ -14,182 +14,173 @@ interface WebSocketMessage {
   data?: any;
 }
 
-const clients = new Set<AuthenticatedWebSocket>();
+let io: SocketIOServer | null = null;
 
-export function setupWebSocketServer(server: any) {
-  const wss = new WebSocketServer({ 
-    server,
-    path: '/ws'
+export function setupWebSocketServer(server: HTTPServer) {
+  io = new SocketIOServer(server, {
+    path: '/ws/socket.io',
+    cors: {
+      origin: true,
+      credentials: true,
+    },
+    transports: ['websocket', 'polling'],
   });
 
-  wss.on('connection', async (ws: AuthenticatedWebSocket, req: IncomingMessage) => {
-    console.log('WebSocket connection attempt');
-
-    // Extract token from query params or headers
-    const url = new URL(req.url || '', `http://${req.headers.host}`);
-    const token = url.searchParams.get('token') || req.headers['sec-websocket-protocol'];
-
-    if (!token) {
-      console.log('WebSocket connection rejected: No token provided');
-      ws.close(1008, 'Authentication required');
-      return;
-    }
-
+  // Authentication middleware
+  io.use(async (socket: AuthenticatedSocket, next) => {
     try {
+      // Try to get token from cookies first
+      const cookieHeader = socket.handshake.headers.cookie;
+      let token: string | undefined;
+
+      if (cookieHeader) {
+        const cookies = cookie.parse(cookieHeader);
+        token = cookies.token;
+      }
+
+      // Fallback to auth header or query param
+      if (!token) {
+        token = socket.handshake.auth.token || socket.handshake.query.token as string;
+      }
+
+      if (!token) {
+        console.log('WebSocket connection rejected: No token provided');
+        return next(new Error('Authentication required'));
+      }
+
       // Verify JWT token
       const decoded = verifyToken(token);
       
       if (!decoded || !decoded.userId || !decoded.tenantId) {
         console.log('WebSocket connection rejected: Invalid token');
-        ws.close(1008, 'Invalid token');
-        return;
+        return next(new Error('Invalid token'));
       }
 
-      // Attach user info to WebSocket
-      ws.userId = decoded.userId;
-      ws.tenantId = decoded.tenantId;
-      ws.branchId = decoded.branchId;
-      ws.isAlive = true;
+      // Attach user info to socket
+      socket.userId = decoded.userId;
+      socket.tenantId = decoded.tenantId;
+      socket.branchId = decoded.branchId;
 
-      clients.add(ws);
-      console.log(`WebSocket authenticated: userId=${ws.userId}, tenantId=${ws.tenantId}, branchId=${ws.branchId}`);
-
-      // Send welcome message
-      ws.send(JSON.stringify({
-        type: 'connected',
-        message: 'Connected to VetSystem real-time notifications'
-      }));
-
-      // Handle incoming messages
-      ws.on('message', (message: string) => {
-        try {
-          const data = JSON.parse(message.toString());
-          console.log('WebSocket message received:', data);
-
-          // Handle ping-pong for connection keepalive
-          if (data.type === 'ping') {
-            ws.send(JSON.stringify({ type: 'pong' }));
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      });
-
-      // Handle pong responses
-      ws.on('pong', () => {
-        ws.isAlive = true;
-      });
-
-      // Handle disconnection
-      ws.on('close', () => {
-        clients.delete(ws);
-        console.log(`WebSocket disconnected: userId=${ws.userId}`);
-      });
-
-      // Handle errors
-      ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
-        clients.delete(ws);
-      });
-
+      console.log(`WebSocket authenticated: userId=${socket.userId}, tenantId=${socket.tenantId}, branchId=${socket.branchId}`);
+      next();
     } catch (error) {
       console.error('WebSocket authentication error:', error);
-      ws.close(1008, 'Authentication failed');
+      next(new Error('Authentication failed'));
     }
   });
 
-  // Setup heartbeat to detect broken connections
-  const heartbeatInterval = setInterval(() => {
-    clients.forEach((ws) => {
-      if (ws.isAlive === false) {
-        clients.delete(ws);
-        return ws.terminate();
-      }
+  io.on('connection', (socket: AuthenticatedSocket) => {
+    console.log(`WebSocket connected: userId=${socket.userId}`);
 
-      ws.isAlive = false;
-      ws.ping();
+    // Join user-specific room
+    if (socket.userId) {
+      socket.join(`user:${socket.userId}`);
+      console.log(`User ${socket.userId} joined room: user:${socket.userId}`);
+    }
+
+    // Join tenant-specific room
+    if (socket.tenantId) {
+      socket.join(`tenant:${socket.tenantId}`);
+    }
+
+    // Join branch-specific room
+    if (socket.tenantId && socket.branchId) {
+      socket.join(`branch:${socket.tenantId}:${socket.branchId}`);
+    }
+
+    // Send welcome message
+    socket.emit('connected', {
+      message: 'Connected to VetSystem real-time notifications',
+      userId: socket.userId,
     });
-  }, 30000); // Check every 30 seconds
 
-  wss.on('close', () => {
-    clearInterval(heartbeatInterval);
+    // SECURITY: No arbitrary room joining allowed
+    // Rooms are auto-managed based on authenticated user/tenant/branch
+    // Clients cannot join other users' rooms
+
+    // Handle disconnect
+    socket.on('disconnect', () => {
+      console.log(`WebSocket disconnected: userId=${socket.userId}`);
+    });
   });
 
-  console.log('WebSocket server initialized on /ws');
-  return wss;
+  console.log('WebSocket server initialized on /ws/socket.io');
+  return io;
 }
 
 // Broadcast message to all connected clients
 export function broadcastWebSocketMessage(message: WebSocketMessage) {
-  const payload = JSON.stringify(message);
-  
-  clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(payload);
-    }
-  });
-  
-  console.log(`Broadcasted message to ${clients.size} clients:`, message.type);
+  if (!io) {
+    console.warn('WebSocket server not initialized');
+    return;
+  }
+
+  io.emit(message.type, message.data);
+  console.log(`Broadcasted message to all clients: ${message.type}`);
 }
 
 // Send message to specific user
 export function sendWebSocketMessageToUser(userId: string, message: WebSocketMessage) {
-  const payload = JSON.stringify(message);
-  let sent = 0;
-  
-  clients.forEach((client) => {
-    if (client.userId === userId && client.readyState === WebSocket.OPEN) {
-      client.send(payload);
-      sent++;
-    }
-  });
-  
-  console.log(`Sent message to ${sent} connections for userId=${userId}:`, message.type);
-  return sent > 0;
+  if (!io) {
+    console.warn('WebSocket server not initialized');
+    return false;
+  }
+
+  io.to(`user:${userId}`).emit(message.type, message.data);
+  console.log(`Sent message to userId=${userId}: ${message.type}`);
+  return true;
 }
 
 // Send message to specific tenant
 export function sendWebSocketMessageToTenant(tenantId: string, message: WebSocketMessage) {
-  const payload = JSON.stringify(message);
-  let sent = 0;
-  
-  clients.forEach((client) => {
-    if (client.tenantId === tenantId && client.readyState === WebSocket.OPEN) {
-      client.send(payload);
-      sent++;
-    }
-  });
-  
-  console.log(`Sent message to ${sent} connections for tenantId=${tenantId}:`, message.type);
-  return sent > 0;
+  if (!io) {
+    console.warn('WebSocket server not initialized');
+    return false;
+  }
+
+  io.to(`tenant:${tenantId}`).emit(message.type, message.data);
+  console.log(`Sent message to tenantId=${tenantId}: ${message.type}`);
+  return true;
 }
 
 // Send message to specific branch
 export function sendWebSocketMessageToBranch(tenantId: string, branchId: string, message: WebSocketMessage) {
-  const payload = JSON.stringify(message);
-  let sent = 0;
-  
-  clients.forEach((client) => {
-    if (client.tenantId === tenantId && client.branchId === branchId && client.readyState === WebSocket.OPEN) {
-      client.send(payload);
-      sent++;
-    }
-  });
-  
-  console.log(`Sent message to ${sent} connections for branchId=${branchId}:`, message.type);
-  return sent > 0;
+  if (!io) {
+    console.warn('WebSocket server not initialized');
+    return false;
+  }
+
+  io.to(`branch:${tenantId}:${branchId}`).emit(message.type, message.data);
+  console.log(`Sent message to branchId=${branchId}: ${message.type}`);
+  return true;
 }
 
 // Get connected clients count
 export function getConnectedClientsCount(): number {
-  return clients.size;
+  if (!io) {
+    return 0;
+  }
+  return io.sockets.sockets.size;
 }
 
 // Get connected users
 export function getConnectedUsers(): Array<{ userId: string; tenantId: string; branchId?: string }> {
-  return Array.from(clients).map(client => ({
-    userId: client.userId!,
-    tenantId: client.tenantId!,
-    branchId: client.branchId
-  }));
+  if (!io) {
+    return [];
+  }
+
+  const users: Array<{ userId: string; tenantId: string; branchId?: string }> = [];
+  
+  io.sockets.sockets.forEach((socket: Socket) => {
+    const authSocket = socket as AuthenticatedSocket;
+    if (authSocket.userId && authSocket.tenantId) {
+      users.push({
+        userId: authSocket.userId,
+        tenantId: authSocket.tenantId,
+        branchId: authSocket.branchId,
+      });
+    }
+  });
+
+  return users;
 }

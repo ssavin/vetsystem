@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 import BranchSelector from "@/components/BranchSelector";
 import TenantSelector from "@/components/TenantSelector";
+import { IncomingCallNotification } from "@/components/IncomingCallNotification";
 
 function AuthenticatedApp() {
   const { user, logout } = useAuth();
@@ -51,6 +52,7 @@ function AuthenticatedApp() {
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+      <IncomingCallNotification />
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1">

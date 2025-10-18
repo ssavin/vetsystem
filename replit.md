@@ -104,5 +104,13 @@ Preferred communication style: Simple, everyday language.
 -   **МойСклад**: One-way inventory sync (МойСклад → VetSystem) for products and services nomenclature, including fiscal receipt creation from VetSystem invoices.
 -   **YooKassa**: Payment gateway (implied by environment variables).
 -   **Dreamkas Start**: Fiscal receipt integration for local cash registers. Features nomenclature synchronization (products/services → Dreamkas), fiscal receipt creation from VetSystem invoices with automatic VAT calculation, and connection testing via device API. Configuration via admin UI with tenant-scoped API tokens and device IDs.
+-   **Mango Office**: Telephony integration with real-time operator notifications and call logging. Features:
+    - **Webhook Handler**: Processes incoming call events (call, summary, recording) with HMAC-SHA256 signature verification for security
+    - **Call Logs**: Stores call metadata (phone, direction, duration, status, recording URL) linked to owners and operators with tenant/branch isolation via RLS
+    - **Real-time Notifications**: WebSocket (Socket.IO) server broadcasts incoming call events to specific operators with owner/patient information
+    - **Auto-Open Client Card**: Frontend automatically displays client information dialog on incoming calls if owner found by phone number
+    - **Call History**: UI component displays call logs in owner card with recording playback support
+    - **Configuration**: Admin UI for API Key and API Salt (VPN Key) with connection testing
+    - **Security**: API credentials stored in integration_credentials table with tenant-scoped access, webhook signature verification, and RLS enforcement
 -   **DADATA**: Data enrichment service (implied by environment variables).
 -   **OpenAI**: AI services (implied by environment variables).
