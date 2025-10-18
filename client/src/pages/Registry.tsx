@@ -34,6 +34,7 @@ import CreateCaseDialog from "@/components/CreateCaseDialog"
 import { PrintDocumentButton } from "@/components/PrintDocumentButton"
 import { AIAssistantWidget } from "@/components/AIAssistantWidget"
 import { CallLogsWidget } from "@/components/CallLogsWidget"
+import { OwnerCardDialog } from "@/components/OwnerCardDialog"
 import { useLocation } from "wouter"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
@@ -124,6 +125,68 @@ function PhoneButton({ phone, patientId }: PhoneButtonProps) {
         <p>Позвонить клиенту</p>
       </TooltipContent>
     </Tooltip>
+  )
+}
+
+// Owner Phone Button component
+interface OwnerPhoneButtonProps {
+  phone: string
+  ownerId: string
+}
+
+function OwnerPhoneButton({ phone, ownerId }: OwnerPhoneButtonProps) {
+  const { toast } = useToast()
+  const [isCalling, setIsCalling] = useState(false)
+
+  const handleCall = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    if (!phone) return
+
+    setIsCalling(true)
+
+    try {
+      const response = await fetch('/api/mango/call', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber: phone })
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Звонок инициирован",
+          description: "Сейчас вам позвонят на ваш внутренний номер",
+        })
+      } else {
+        throw new Error(data.message || data.error || 'Failed to initiate call')
+      }
+    } catch (error: any) {
+      console.log('Mango Office not available, using tel: protocol', error)
+      window.location.href = `tel:${phone}`
+    } finally {
+      setIsCalling(false)
+    }
+  }
+
+  if (!phone) return <span className="text-muted-foreground">—</span>
+
+  return (
+    <Button
+      variant="ghost"
+      onClick={handleCall}
+      disabled={isCalling}
+      data-testid={`button-call-owner-${ownerId}`}
+      className="h-auto p-0 hover:bg-transparent"
+    >
+      <div className="flex items-center gap-1 hover-elevate px-2 py-1 rounded">
+        <Phone className="h-3 w-3" />
+        <span data-testid={`text-owner-phone-${ownerId}`}>{phone}</span>
+      </div>
+    </Button>
   )
 }
 
@@ -316,6 +379,8 @@ export default function Registry() {
   const [ownerToDelete, setOwnerToDelete] = useState<{ id: string, name: string } | null>(null)
   const [ownerToEdit, setOwnerToEdit] = useState<{ id: string, name: string, phone?: string, email?: string, address?: string } | null>(null)
   const [selectedOwnerForCallLogs, setSelectedOwnerForCallLogs] = useState<{ id: string, name: string } | null>(null)
+  const [ownerCardOpen, setOwnerCardOpen] = useState(false)
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null)
   const [patientToDelete, setPatientToDelete] = useState<{ id: string, name: string } | null>(null)
   const [patientToEdit, setPatientToEdit] = useState<any | null>(null)
 
@@ -749,22 +814,42 @@ export default function Registry() {
                     {transformedOwners.map((owner: any) => (
                       <TableRow key={owner.id} className="hover-elevate">
                         <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback>{owner.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="font-medium" data-testid={`text-owner-name-${owner.id}`}>
-                              {owner.name}
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              setSelectedOwnerId(owner.id)
+                              setOwnerCardOpen(true)
+                            }}
+                            data-testid={`button-open-owner-card-${owner.id}`}
+                            className="h-auto p-0 hover:bg-transparent"
+                          >
+                            <div className="flex items-center gap-3 hover-elevate px-2 py-1 rounded">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback>{owner.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div className="font-medium" data-testid={`text-owner-name-${owner.id}`}>
+                                {owner.name}
+                              </div>
                             </div>
-                          </div>
+                          </Button>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            <span data-testid={`text-owner-phone-${owner.id}`}>{owner.phone}</span>
-                          </div>
+                          <OwnerPhoneButton phone={owner.phone} ownerId={owner.id} />
                         </TableCell>
-                        <TableCell data-testid={`text-owner-email-${owner.id}`}>{owner.email}</TableCell>
+                        <TableCell>
+                          {owner.email ? (
+                            <a
+                              href={`mailto:${owner.email}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="hover-elevate px-2 py-1 rounded inline-block"
+                              data-testid={`link-owner-email-${owner.id}`}
+                            >
+                              {owner.email}
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell data-testid={`text-owner-address-${owner.id}`}>{owner.address}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-1 justify-end">
@@ -1029,6 +1114,13 @@ export default function Registry() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Owner Card Dialog */}
+      <OwnerCardDialog 
+        ownerId={selectedOwnerId}
+        open={ownerCardOpen}
+        onOpenChange={setOwnerCardOpen}
+      />
 
       {/* AI Assistant for voice-activated search and actions */}
       <AIAssistantWidget role="admin" />
