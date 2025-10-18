@@ -206,15 +206,19 @@ interface PatientTableRowProps {
   }
   onEdit?: (patient: any) => void
   onDelete?: (patient: { id: string, name: string }) => void
+  onOpenOwnerCard?: (ownerId: string) => void
 }
 
-function PatientTableRow({ patient, onEdit, onDelete }: PatientTableRowProps) {
+function PatientTableRow({ patient, onEdit, onDelete, onOpenOwnerCard }: PatientTableRowProps) {
   const { t } = useTranslation('registry')
   const [, navigate] = useLocation()
 
   const getStatusText = (status: string) => {
     return t(`status.${status}`, { defaultValue: t('status.unknown') })
   }
+
+  // Get primary owner or first owner
+  const primaryOwner = patient.owners?.find(o => o.isPrimary) || patient.owners?.[0]
 
   return (
     <TableRow className="hover-elevate">
@@ -241,10 +245,27 @@ function PatientTableRow({ patient, onEdit, onDelete }: PatientTableRowProps) {
         </div>
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-1">
-          <User className="h-3 w-3" />
-          <span data-testid={`text-owner-${patient.id}`}>{patient.owner}</span>
-        </div>
+        {primaryOwner && onOpenOwnerCard ? (
+          <Button
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenOwnerCard(primaryOwner.id)
+            }}
+            data-testid={`button-open-owner-card-${patient.id}`}
+            className="h-auto p-0 hover:bg-transparent"
+          >
+            <div className="flex items-center gap-1 hover-elevate px-2 py-1 rounded">
+              <User className="h-3 w-3" />
+              <span data-testid={`text-owner-${patient.id}`}>{patient.owner}</span>
+            </div>
+          </Button>
+        ) : (
+          <div className="flex items-center gap-1">
+            <User className="h-3 w-3" />
+            <span data-testid={`text-owner-${patient.id}`}>{patient.owner}</span>
+          </div>
+        )}
       </TableCell>
       <TableCell>
         <PhoneButton phone={patient.ownerPhone} patientId={patient.id} />
@@ -1001,6 +1022,10 @@ export default function Registry() {
                           patient={patient}
                           onEdit={setPatientToEdit}
                           onDelete={setPatientToDelete}
+                          onOpenOwnerCard={(ownerId) => {
+                            setSelectedOwnerId(ownerId)
+                            setOwnerCardOpen(true)
+                          }}
                         />
                       ))}
                     </TableBody>
