@@ -76,18 +76,23 @@ function PhoneButton({ phone, patientId }: PhoneButtonProps) {
 
     try {
       // Try Mango Office first
-      const response = await apiRequest('/api/mango/call', {
+      const response = await fetch('/api/mango/call', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ phoneNumber: phone })
       })
 
-      if (response.success) {
+      const data = await response.json()
+
+      if (response.ok && data.success) {
         toast({
           title: "Звонок инициирован",
           description: "Сейчас вам позвонят на ваш внутренний номер",
         })
       } else {
-        throw new Error(response.message || 'Failed to initiate call')
+        throw new Error(data.message || data.error || 'Failed to initiate call')
       }
     } catch (error: any) {
       // Fallback to browser tel: protocol
