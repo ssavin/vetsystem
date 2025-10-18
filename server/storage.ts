@@ -46,6 +46,7 @@ import {
   type PushToken, type InsertPushToken,
   type Conversation, type InsertConversation,
   type Message, type InsertMessage,
+  type CallLog, type InsertCallLog,
   type Cage, type InsertCage,
   type HospitalStay, type InsertHospitalStay,
   type TreatmentLog, type InsertTreatmentLog,
@@ -61,7 +62,7 @@ import {
   integrationLogs, subscriptionPlans, clinicSubscriptions,
   subscriptionPayments, billingNotifications, tenants, legalEntities, integrationCredentials,
   clinicalCases, clinicalEncounters, labAnalyses, attachments, documentTemplates,
-  smsVerificationCodes, pushTokens, conversations, messages,
+  smsVerificationCodes, pushTokens, conversations, messages, callLogs,
   cages, hospitalStays, treatmentLog
 } from "@shared/schema";
 import { db } from "./db-local";
@@ -664,6 +665,16 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(id: string): Promise<Message>;
   markConversationMessagesAsRead(conversationId: string, readerId: string): Promise<void>;
+
+  // === CALL LOGS (Mango Office Integration) ===
+  
+  // Call logs methods - 🔒 SECURITY: tenantId-aware, branch isolation
+  getCallLogs(filters?: { branchId?: string; ownerId?: string; userId?: string; startDate?: Date; endDate?: Date }): Promise<CallLog[]>;
+  getCallLog(id: string): Promise<CallLog | undefined>;
+  createCallLog(callLog: InsertCallLog): Promise<CallLog>;
+  updateCallLog(id: string, updates: Partial<InsertCallLog>): Promise<CallLog>;
+  getOwnerCallLogs(ownerId: string): Promise<CallLog[]>;
+  findOwnerByPhone(phone: string): Promise<Owner | undefined>;
 
   // === HOSPITAL MODULE (Inpatient/Стационар) ===
   
@@ -6025,6 +6036,115 @@ export class DatabaseStorage implements IStorage {
               eq(messages.isRead, false)
             )
           );
+      });
+    });
+  }
+
+  // ========================================
+  // CALL LOGS (Mango Office Integration)
+  // ========================================
+
+  async getCallLogs(filters?: { branchId?: string; ownerId?: string; userId?: string; startDate?: Date; endDate?: Date }): Promise<CallLog[]> {
+    return withPerformanceLogging('getCallLogs', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = [];
+        
+        if (filters?.branchId) {
+          conditions.push(eq(callLogs.branchId, filters.branchId));
+        }
+        if (filters?.ownerId) {
+          conditions.push(eq(callLogs.ownerId, filters.ownerId));
+        }
+        if (filters?.userId) {
+          conditions.push(eq(callLogs.userId, filters.userId));
+        }
+        if (filters?.startDate) {
+          conditions.push(gte(callLogs.startedAt, filters.startDate));
+        }
+        if (filters?.endDate) {
+          conditions.push(lte(callLogs.startedAt, filters.endDate));
+        }
+        
+        const query = dbInstance
+          .select()
+          .from(callLogs)
+          .orderBy(desc(callLogs.startedAt));
+        
+        if (conditions.length > 0) {
+          return await query.where(and(...conditions));
+        }
+        
+        return await query;
+      });
+    });
+  }
+
+  async getCallLog(id: string): Promise<CallLog | undefined> {
+    return withPerformanceLogging('getCallLog', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [callLog] = await dbInstance
+          .select()
+          .from(callLogs)
+          .where(eq(callLogs.id, id));
+        return callLog;
+      });
+    });
+  }
+
+  async createCallLog(callLog: InsertCallLog): Promise<CallLog> {
+    return withPerformanceLogging('createCallLog', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [newCallLog] = await dbInstance
+          .insert(callLogs)
+          .values(callLog)
+          .returning();
+        return newCallLog;
+      });
+    });
+  }
+
+  async updateCallLog(id: string, updates: Partial<InsertCallLog>): Promise<CallLog> {
+    return withPerformanceLogging('updateCallLog', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updatedCallLog] = await dbInstance
+          .update(callLogs)
+          .set(updates)
+          .where(eq(callLogs.id, id))
+          .returning();
+        return updatedCallLog;
+      });
+    });
+  }
+
+  async getOwnerCallLogs(ownerId: string): Promise<CallLog[]> {
+    return withPerformanceLogging('getOwnerCallLogs', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(callLogs)
+          .where(eq(callLogs.ownerId, ownerId))
+          .orderBy(desc(callLogs.startedAt));
+      });
+    });
+  }
+
+  async findOwnerByPhone(phone: string): Promise<Owner | undefined> {
+    return withPerformanceLogging('findOwnerByPhone', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Очищаем номер от лишних символов для поиска
+        const cleanPhone = phone.replace(/\D/g, '');
+        
+        // Ищем владельца по номеру телефона
+        const [owner] = await dbInstance
+          .select()
+          .from(owners)
+          .where(
+            or(
+              like(owners.phone, `%${cleanPhone}%`),
+              like(owners.phone, `%${phone}%`)
+            )
+          );
+        return owner;
       });
     });
   }
