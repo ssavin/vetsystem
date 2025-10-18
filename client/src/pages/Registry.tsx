@@ -21,12 +21,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Search, Plus, Filter, FileText, Calendar, Phone, User, ClipboardList, Building2, Trash2, Pencil, Printer } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import OwnerRegistrationForm from "@/components/OwnerRegistrationForm"
 import CreateCaseDialog from "@/components/CreateCaseDialog"
 import { PrintDocumentButton } from "@/components/PrintDocumentButton"
 import { AIAssistantWidget } from "@/components/AIAssistantWidget"
+import { CallLogsWidget } from "@/components/CallLogsWidget"
 import { useLocation } from "wouter"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
@@ -235,6 +242,7 @@ export default function Registry() {
   const [pageSize] = useState(50)
   const [ownerToDelete, setOwnerToDelete] = useState<{ id: string, name: string } | null>(null)
   const [ownerToEdit, setOwnerToEdit] = useState<{ id: string, name: string, phone?: string, email?: string, address?: string } | null>(null)
+  const [selectedOwnerForCallLogs, setSelectedOwnerForCallLogs] = useState<{ id: string, name: string } | null>(null)
   const [patientToDelete, setPatientToDelete] = useState<{ id: string, name: string } | null>(null)
   const [patientToEdit, setPatientToEdit] = useState<any | null>(null)
 
@@ -705,6 +713,21 @@ export default function Registry() {
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  onClick={() => setSelectedOwnerForCallLogs({ id: owner.id, name: owner.name })}
+                                  data-testid={`button-view-call-logs-${owner.id}`}
+                                >
+                                  <Phone className="h-3 w-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>История звонков</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
                                   onClick={() => setOwnerToEdit(owner)}
                                   data-testid={`button-edit-owner-${owner.id}`}
                                 >
@@ -919,6 +942,20 @@ export default function Registry() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Call logs dialog */}
+      <Dialog open={!!selectedOwnerForCallLogs} onOpenChange={(open) => !open && setSelectedOwnerForCallLogs(null)}>
+        <DialogContent className="sm:max-w-[600px]" data-testid="dialog-call-logs">
+          <DialogHeader>
+            <DialogTitle>
+              История звонков - {selectedOwnerForCallLogs?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedOwnerForCallLogs && (
+            <CallLogsWidget ownerId={selectedOwnerForCallLogs.id} />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* AI Assistant for voice-activated search and actions */}
       <AIAssistantWidget role="admin" />
