@@ -86,6 +86,11 @@ const dreamkasSchema = z.object({
   deviceId: z.string().min(1, "Device ID обязателен"),
 })
 
+const mangoSchema = z.object({
+  apiKey: z.string().min(1, "API Key обязателен"),
+  apiToken: z.string().min(1, "API Salt (VPN Key) обязателен"),
+})
+
 type MoySkladFormData = z.infer<typeof moyskladSchema>
 type YooKassaFormData = z.infer<typeof yookassaSchema>
 type GalenFormData = z.infer<typeof galenSchema>
@@ -93,6 +98,7 @@ type SmsRuFormData = z.infer<typeof smsruSchema>
 type EmailFormData = z.infer<typeof emailSchema>
 type OneCFormData = z.infer<typeof onecSchema>
 type DreamkasFormData = z.infer<typeof dreamkasSchema>
+type MangoFormData = z.infer<typeof mangoSchema>
 
 interface OneCConfig {
   data: {
@@ -1765,6 +1771,216 @@ function DreamkasIntegrationCard() {
   )
 }
 
+function MangoIntegrationCard() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [showApiToken, setShowApiToken] = useState(false)
+  const { toast } = useToast()
+
+  const { data: integration, isLoading } = useQuery<IntegrationCredential>({
+    queryKey: ['/api/integration-credentials/mango'],
+    retry: false,
+  })
+
+  const form = useForm<MangoFormData>({
+    resolver: zodResolver(mangoSchema),
+    defaultValues: {
+      apiKey: '',
+      apiToken: '',
+    },
+  })
+
+  useEffect(() => {
+    if (integration?.credentials) {
+      form.reset({
+        apiKey: '',
+        apiToken: '',
+      })
+    }
+  }, [integration, form])
+
+  const testMutation = useMutation({
+    mutationFn: async (credentials: Record<string, string>) => {
+      const response = await apiRequest('POST', '/api/integration-credentials/mango/test', { credentials })
+      return await response.json()
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: data.success ? "Успешно" : "Ошибка",
+        description: data.message,
+        variant: data.success ? "default" : "destructive",
+      })
+    },
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: MangoFormData) => {
+      const response = await apiRequest('PUT', '/api/integration-credentials/mango', {
+        credentials: data,
+        isActive: true,
+      })
+      return await response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/integration-credentials/mango'] })
+      toast({
+        title: "Настройки сохранены",
+        description: "Интеграция Mango Office настроена успешно",
+      })
+      setIsOpen(false)
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось сохранить настройки",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const handleTest = () => {
+    const values = form.getValues()
+    testMutation.mutate(values)
+  }
+
+  const onSubmit = (data: MangoFormData) => {
+    saveMutation.mutate(data)
+  }
+
+  return (
+    <Card data-testid="card-integration-mango">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              Mango Office
+              {integration?.isEnabled ? (
+                <Badge variant="default" className="bg-green-600">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Активна
+                </Badge>
+              ) : (
+                <Badge variant="secondary">
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Не настроена
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>Телефония и история звонков</CardDescription>
+          </div>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" data-testid="button-configure-mango">
+                <Settings className="h-4 w-4 mr-2" />
+                Настроить
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Настройка интеграции Mango Office</DialogTitle>
+                <DialogDescription>
+                  Введите данные для подключения к API Mango Office
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="apiKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API Key</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              type={showApiKey ? "text" : "password"}
+                              placeholder="Введите API Key из Кабинета Mango"
+                              data-testid="input-mango-apikey"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowApiKey(!showApiKey)}
+                            >
+                              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="apiToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API Salt (VPN Key)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              type={showApiToken ? "text" : "password"}
+                              placeholder="Введите API Salt из Кабинета Mango"
+                              data-testid="input-mango-apitoken"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowApiToken(!showApiToken)}
+                            >
+                              {showApiToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleTest}
+                      disabled={testMutation.isPending}
+                      data-testid="button-test-mango"
+                    >
+                      {testMutation.isPending ? "Проверка..." : "Тест соединения"}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={saveMutation.isPending}
+                      className="flex-1"
+                      data-testid="button-save-mango"
+                    >
+                      {saveMutation.isPending ? "Сохранение..." : "Сохранить"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      {integration?.isEnabled && (
+        <CardContent>
+          <div className="text-sm text-muted-foreground">
+            <p>Подключено к Mango Office API</p>
+            <p className="text-xs mt-1">Последнее обновление: {new Date(integration.updatedAt).toLocaleString('ru-RU')}</p>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
 export default function IntegrationsSettings() {
   return (
     <div className="space-y-6">
@@ -1780,6 +1996,7 @@ export default function IntegrationsSettings() {
         <YooKassaIntegrationCard />
         <OneCIntegrationCard />
         <DreamkasIntegrationCard />
+        <MangoIntegrationCard />
         <GalenIntegrationCard />
         <SmsRuIntegrationCard />
         <EmailIntegrationCard />
