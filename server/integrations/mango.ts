@@ -283,6 +283,66 @@ export async function testMangoConnection(credentials: MangoCredentials): Promis
 }
 
 /**
+ * Инициирует исходящий звонок через Mango Office API
+ */
+export async function initiateCall(
+  credentials: MangoCredentials,
+  employeeExtension: string,
+  phoneNumber: string
+): Promise<{ success: boolean; message?: string; commandId?: string }> {
+  try {
+    const url = 'https://app.mango-office.ru/vpbx/commands/callback';
+    
+    // Генерируем уникальный ID команды
+    const commandId = `cmd-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    // Формируем данные запроса
+    const data = {
+      command_id: commandId,
+      from: {
+        extension: employeeExtension
+      },
+      to_number: phoneNumber.replace(/[^0-9]/g, '') // Убираем все символы кроме цифр
+    };
+    
+    const json = JSON.stringify(data);
+    const sign = generateMangoSignature(credentials.apiKey, json, credentials.apiToken);
+    
+    // Отправляем POST запрос
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        vpbx_api_key: credentials.apiKey,
+        sign: sign,
+        json: json
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        message: `Ошибка API Mango Office: ${response.status} - ${errorText}`
+      };
+    }
+    
+    return {
+      success: true,
+      commandId: commandId,
+      message: 'Звонок инициирован успешно'
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: `Не удалось инициировать звонок: ${error.message}`
+    };
+  }
+}
+
+/**
  * Обрабатывает webhook от Mango Office и создает запись в БД
  */
 export async function processCallWebhook(payload: any, storage: any) {

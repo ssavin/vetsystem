@@ -50,6 +50,77 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
   }
 }
 
+// Phone button component with Mango Office integration
+interface PhoneButtonProps {
+  phone: string
+  patientId: string
+}
+
+function PhoneButton({ phone, patientId }: PhoneButtonProps) {
+  const { toast } = useToast()
+  const [isCalling, setIsCalling] = useState(false)
+
+  const handleCall = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    if (!phone) {
+      toast({
+        title: "Ошибка",
+        description: "Номер телефона не указан",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setIsCalling(true)
+
+    try {
+      // Try Mango Office first
+      const response = await apiRequest('/api/mango/call', {
+        method: 'POST',
+        body: JSON.stringify({ phoneNumber: phone })
+      })
+
+      if (response.success) {
+        toast({
+          title: "Звонок инициирован",
+          description: "Сейчас вам позвонят на ваш внутренний номер",
+        })
+      } else {
+        throw new Error(response.message || 'Failed to initiate call')
+      }
+    } catch (error: any) {
+      // Fallback to browser tel: protocol
+      console.log('Mango Office not available, using tel: protocol', error)
+      window.location.href = `tel:${phone}`
+    } finally {
+      setIsCalling(false)
+    }
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleCall}
+          disabled={isCalling}
+          data-testid={`button-call-${patientId}`}
+          className="h-auto p-0 hover:bg-transparent"
+        >
+          <div className="flex items-center gap-1 hover-elevate px-2 py-1 rounded">
+            <Phone className="h-3 w-3" />
+            <span data-testid={`text-phone-${patientId}`}>{phone}</span>
+          </div>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>Позвонить клиенту</p>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
 
 interface PatientTableRowProps {
   patient: {
@@ -108,10 +179,7 @@ function PatientTableRow({ patient, onEdit, onDelete }: PatientTableRowProps) {
         </div>
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-1">
-          <Phone className="h-3 w-3" />
-          <span data-testid={`text-phone-${patient.id}`}>{patient.ownerPhone}</span>
-        </div>
+        <PhoneButton phone={patient.ownerPhone} patientId={patient.id} />
       </TableCell>
       <TableCell>
         {patient.lastVisit && (

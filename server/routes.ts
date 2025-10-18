@@ -4489,6 +4489,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to get owner call logs" });
     }
   });
+  
+  // POST /api/mango/call - Initiate outbound call via Mango Office
+  app.post("/api/mango/call", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user!;
+      const { phoneNumber, extension } = req.body;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+      
+      // Get Mango Office credentials
+      const credentials = await storage.getIntegrationCredentials(user.tenantId, 'mango');
+      if (!credentials) {
+        return res.status(404).json({ 
+          error: "Mango Office not configured",
+          useFallback: true 
+        });
+      }
+      
+      // Use provided extension or default to user's extension
+      const employeeExtension = extension || user.extension || '';
+      if (!employeeExtension) {
+        return res.status(400).json({ 
+          error: "Employee extension not configured. Please contact administrator.",
+          useFallback: true
+        });
+      }
+      
+      // Initiate call via Mango Office API
+      const result = await mango.initiateCall(
+        {
+          apiKey: credentials.apiKey,
+          apiToken: credentials.apiSecret // API Salt
+        },
+        employeeExtension,
+        phoneNumber
+      );
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error initiating call:", error);
+      res.status(500).json({ 
+        error: "Failed to initiate call",
+        useFallback: true 
+      });
+    }
+  });
 
   // =================== МойСклад Номенклатура API ===================
   
