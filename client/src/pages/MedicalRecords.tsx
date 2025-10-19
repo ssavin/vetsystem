@@ -11,6 +11,7 @@ import MedicalRecordCard from "@/components/MedicalRecordCard"
 import MedicalRecordForm from "@/components/MedicalRecordForm"
 import AIAssistant from "@/components/AIAssistant"
 import { AIAssistantWidget } from "@/components/AIAssistantWidget"
+import CreateCaseWithSearchDialog from "@/components/CreateCaseWithSearchDialog"
 import type { MedicalRecord } from "@shared/schema"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -308,10 +309,13 @@ export default function MedicalRecords() {
           <h1 className="text-3xl font-bold" data-testid="text-medical-records-title">{t('title')}</h1>
           <p className="text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <MedicalRecordForm 
-          open={isCreateDialogOpen}
-          onOpenChange={setIsCreateDialogOpen}
-        />
+        <div className="flex items-center gap-2">
+          <CreateCaseWithSearchDialog />
+          <MedicalRecordForm 
+            open={isCreateDialogOpen}
+            onOpenChange={setIsCreateDialogOpen}
+          />
+        </div>
       </div>
 
       {selectedPatientName && (
