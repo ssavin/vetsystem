@@ -1,0 +1,87 @@
+ pm2 logs vetsystem --lines 10
+[TAILING] Tailing last 10 lines for [vetsystem] process (change the value with --lines option)
+/root/.pm2/logs/vetsystem-out.log last 10 lines:
+0|vetsyste |
+0|vetsyste | > rest-express@1.0.0 start
+0|vetsyste | > NODE_ENV=production node dist/index.js
+0|vetsyste |
+0|vetsyste | WebSocket server initialized on /ws/socket.io
+0|vetsyste |
+0|vetsyste | > rest-express@1.0.0 start
+0|vetsyste | > NODE_ENV=production node dist/index.js
+0|vetsyste |
+0|vetsyste | WebSocket server initialized on /ws/socket.io
+
+/root/.pm2/logs/vetsystem-error.log last 10 lines:
+0|vetsyste |     at emitErrorNT (node:net:1944:8)
+0|vetsyste |     at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+0|vetsyste |   code: 'EADDRINUSE',
+0|vetsyste |   errno: -98,
+0|vetsyste |   syscall: 'listen',
+0|vetsyste |   address: '0.0.0.0',
+0|vetsyste |   port: 5000
+0|vetsyste | }
+0|vetsyste |
+0|vetsyste | Node.js v20.19.5
+
+0|vetsystem  | > rest-express@1.0.0 start
+0|vetsystem  | > NODE_ENV=production node dist/index.js
+0|vetsystem  | WebSocket server initialized on /ws/socket.io
+0|vetsystem  | node:events:502
+0|vetsystem  |       throw er; // Unhandled 'error' event
+0|vetsystem  |       ^
+0|vetsystem  | Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+0|vetsystem  |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+0|vetsystem  |     at listenInCluster (node:net:1965:12)
+0|vetsystem  |     at doListen (node:net:2139:7)
+0|vetsystem  |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+0|vetsystem  | Emitted 'error' event on Server instance at:
+0|vetsystem  |     at emitErrorNT (node:net:1944:8)
+0|vetsystem  |     at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+0|vetsystem  |   code: 'EADDRINUSE',
+0|vetsystem  |   errno: -98,
+0|vetsystem  |   syscall: 'listen',
+0|vetsystem  |   address: '0.0.0.0',
+0|vetsystem  |   port: 5000
+0|vetsystem  | }
+0|vetsystem  | Node.js v20.19.5
+0|vetsystem  | > rest-express@1.0.0 start
+0|vetsystem  | > NODE_ENV=production node dist/index.js
+0|vetsystem  | WebSocket server initialized on /ws/socket.io
+0|vetsystem  | node:events:502
+0|vetsystem  |       throw er; // Unhandled 'error' event
+0|vetsystem  |       ^
+0|vetsystem  | Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+0|vetsystem  |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+0|vetsystem  |     at listenInCluster (node:net:1965:12)
+0|vetsystem  |     at doListen (node:net:2139:7)
+0|vetsystem  |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+0|vetsystem  | Emitted 'error' event on Server instance at:
+0|vetsystem  |     at emitErrorNT (node:net:1944:8)
+0|vetsystem  |     at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+0|vetsystem  |   code: 'EADDRINUSE',
+0|vetsystem  |   errno: -98,
+0|vetsystem  |   syscall: 'listen',
+0|vetsystem  |   address: '0.0.0.0',
+0|vetsystem  |   port: 5000
+0|vetsystem  | }
+0|vetsystem  | Node.js v20.19.5
+0|vetsystem  | > rest-express@1.0.0 start
+0|vetsystem  | > NODE_ENV=production node dist/index.js
+0|vetsystem  | WebSocket server initialized on /ws/socket.io
+0|vetsystem  | node:events:502
+0|vetsystem  |       throw er; // Unhandled 'error' event
+0|vetsystem  |       ^
+0|vetsystem  | Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+0|vetsystem  |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+0|vetsystem  |     at listenInCluster (node:net:1965:12)
+0|vetsystem  |     at doListen (node:net:2139:7)
+0|vetsystem  |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+0|vetsystem  | Emitted 'error' event on Server instance at:
+0|vetsystem  |     at emitErrorNT (node:net:1944:8)
+0|vetsystem  |     at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+0|vetsystem  |   code: 'EADDRINUSE',
+0|vetsystem  |   errno: -98,
+0|vetsystem  |   syscall: 'listen',
+0|vetsystem  |   address: '0.0.0.0',
+0|vetsystem  |   port: 5000
