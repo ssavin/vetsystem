@@ -173,9 +173,9 @@ export default function EncounterDialog({ caseId, patientName, trigger, encounte
                 <FormItem>
                   <FormLabel>Врач *</FormLabel>
                   <Select 
+                    key={field.value || 'empty'}
                     onValueChange={field.onChange} 
-                    value={field.value || ""} 
-                    defaultValue=""
+                    value={field.value || undefined}
                   >
                     <FormControl>
                       <SelectTrigger data-testid="select-doctor">
@@ -183,12 +183,16 @@ export default function EncounterDialog({ caseId, patientName, trigger, encounte
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {doctors.map((doctor: any) => (
-                        <SelectItem key={doctor.id} value={doctor.id}>
-                          {doctor.name}
-                          {doctor.specialization && ` • ${doctor.specialization}`}
-                        </SelectItem>
-                      ))}
+                      {doctors.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">Врачи не найдены</div>
+                      ) : (
+                        doctors.map((doctor: any) => (
+                          <SelectItem key={doctor.id} value={doctor.id}>
+                            {doctor.name}
+                            {doctor.specialization && ` • ${doctor.specialization}`}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
