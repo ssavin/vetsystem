@@ -24,12 +24,17 @@
 
 ## Способ 1: Восстановление на Replit
 
+⚠️ **ВАЖНО:** Используйте эти команды точно как написано, с указанием всех параметров:
+
 ```bash
-# Из сжатого файла
-gunzip -c backup_20251019_115113.sql.gz | psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE
+# Из сжатого файла (рекомендуется)
+gunzip -c backup_20251019_115113.sql.gz | psql "$DATABASE_URL"
+
+# Или с явными параметрами
+gunzip -c backup_20251019_115113.sql.gz | psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE --no-password
 
 # Из несжатого файла
-psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE < backup_20251019_115113.sql
+psql "$DATABASE_URL" < backup_20251019_115113.sql
 ```
 
 ## Способ 2: Восстановление на локальной PostgreSQL
@@ -81,14 +86,17 @@ SELECT count(*) FROM appointments;
 ## Создание нового backup
 
 ```bash
-# SQL дамп
-pg_dump -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE > backup_$(date +%Y%m%d_%H%M%S).sql
+# SQL дамп (используйте DATABASE_URL - проще всего)
+pg_dump "$DATABASE_URL" > backup_$(date +%Y%m%d_%H%M%S).sql
 
-# Сжатый backup
-pg_dump -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+# Сжатый backup (рекомендуется)
+pg_dump "$DATABASE_URL" | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+
+# Или с явными параметрами
+pg_dump -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE --no-password > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Custom формат (позволяет выборочное восстановление)
-pg_dump -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -Fc > backup_$(date +%Y%m%d_%H%M%S).dump
+pg_dump "$DATABASE_URL" -Fc > backup_$(date +%Y%m%d_%H%M%S).dump
 ```
 
 ## Скачивание файлов
