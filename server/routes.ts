@@ -1785,6 +1785,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export services to Excel (must be before :id route)
+  app.get("/api/services/export", authenticateToken, async (req, res) => {
+    try {
+      const services = await storage.getServices();
+      const XLSX = await import('xlsx');
+
+      // Format services data for export
+      const exportData = services.map(service => ({
+        'Название': service.name,
+        'Категория': service.category,
+        'Цена': Number(service.price),
+        'Длительность (мин)': service.duration || '',
+        'Описание': service.description || '',
+        'Активна': service.isActive ? 'да' : 'нет'
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Услуги');
+
+      // Generate buffer
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      const date = new Date().toISOString().split('T')[0];
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=services_${date}.xlsx`);
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("Error exporting services:", error);
+      res.status(500).json({ error: "Не удалось экспортировать услуги" });
+    }
+  });
+
   app.get("/api/services/:id", async (req, res) => {
     try {
       const service = await storage.getService(req.params.id);
@@ -1992,6 +2025,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error generating template:", error);
       res.status(500).json({ error: "Не удалось создать шаблон" });
+    }
+  });
+
+  // Export products to Excel
+  app.get("/api/products/export", authenticateToken, async (req, res) => {
+    try {
+      const products = await storage.getProducts();
+      const XLSX = await import('xlsx');
+
+      // Format products data for export
+      const exportData = products.map(product => ({
+        'Название': product.name,
+        'Категория': product.category,
+        'Цена': Number(product.price),
+        'Остаток': product.stock,
+        'Мин. остаток': product.minStock,
+        'Единица измерения': product.unit,
+        'Описание': product.description || '',
+        'Артикул': product.article || '',
+        'НДС': product.vat === null ? 'Без НДС' : `НДС ${product.vat}%`,
+        'Единиц в упаковке': product.unitsPerPackage || 1,
+        'Штрихкод': product.barcode || '',
+        'Маркированный': product.isMarked ? 'да' : 'нет',
+        'Тип': product.productType === 'service' ? 'услуга' : 'товар',
+        'Активен': product.isActive ? 'да' : 'нет'
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Товары');
+
+      // Generate buffer
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      const date = new Date().toISOString().split('T')[0];
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=products_${date}.xlsx`);
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("Error exporting products:", error);
+      res.status(500).json({ error: "Не удалось экспортировать товары" });
     }
   });
 

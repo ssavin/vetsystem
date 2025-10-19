@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Search, RefreshCw, Clock, Package, Loader2, ChevronLeft, ChevronRight, FileUp } from "lucide-react"
+import { Search, RefreshCw, Clock, Package, Loader2, ChevronLeft, ChevronRight, FileUp, FileDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { apiRequest } from "@/lib/queryClient"
 import type { Service, Product, SystemSetting, IntegrationCredentials } from "@shared/schema"
@@ -265,6 +265,17 @@ export default function ServicesInventory() {
         </div>
 
         <TabsContent value="services" className="mt-0 space-y-4">
+          <div className="flex justify-end mb-4">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={() => window.open('/api/services/export', '_blank')}
+              data-testid="button-export-services"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              Экспорт услуг в Excel
+            </Button>
+          </div>
           <Card>
             <div className="overflow-auto max-h-[calc(100vh-280px)]">
               <Table>
@@ -351,6 +362,17 @@ export default function ServicesInventory() {
         </TabsContent>
 
         <TabsContent value="products" className="mt-0 space-y-4">
+          <div className="flex justify-end mb-4">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={() => window.open('/api/products/export', '_blank')}
+              data-testid="button-export-products"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              Экспорт товаров в Excel
+            </Button>
+          </div>
           <Card>
             <div className="overflow-auto max-h-[calc(100vh-280px)]">
               <Table>
