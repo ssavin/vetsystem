@@ -16,10 +16,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Search, RefreshCw, Clock, Package, Loader2, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, RefreshCw, Clock, Package, Loader2, ChevronLeft, ChevronRight, FileUp } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { apiRequest } from "@/lib/queryClient"
 import type { Service, Product, SystemSetting, IntegrationCredentials } from "@shared/schema"
+import ProductImportDialog from "@/components/ProductImportDialog"
 
 // Real API data fetching
 
@@ -27,6 +28,7 @@ export default function ServicesInventory() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("services")
   const [showSyncConfirmDialog, setShowSyncConfirmDialog] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const [servicesPage, setServicesPage] = useState(1)
   const [productsPage, setProductsPage] = useState(1)
   const itemsPerPage = 50
@@ -209,20 +211,30 @@ export default function ServicesInventory() {
             </p>
           )}
         </div>
-        <Button 
-          onClick={handleSyncNomenclature}
-          disabled={!isSyncAvailable || syncNomenclatureMutation.isPending}
-          data-testid="button-sync-nomenclature"
-        >
-          {syncNomenclatureMutation.isPending ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : isLoadingSettings ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4 mr-2" />
-          )}
-          {isLoadingSettings ? 'Загрузка...' : 'Загрузить номенклатуру'}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => setShowImportDialog(true)}
+            data-testid="button-import-products"
+          >
+            <FileUp className="h-4 w-4 mr-2" />
+            Импорт из Excel
+          </Button>
+          <Button 
+            onClick={handleSyncNomenclature}
+            disabled={!isSyncAvailable || syncNomenclatureMutation.isPending}
+            data-testid="button-sync-nomenclature"
+          >
+            {syncNomenclatureMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : isLoadingSettings ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            {isLoadingSettings ? 'Загрузка...' : 'Загрузить номенклатуру'}
+          </Button>
+        </div>
       </div>
 
       {/* Services and Products Tabs */}
@@ -455,6 +467,12 @@ export default function ServicesInventory() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Product Import Dialog */}
+      <ProductImportDialog 
+        open={showImportDialog} 
+        onOpenChange={setShowImportDialog}
+      />
     </div>
   )
 }

@@ -1887,6 +1887,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import products from Excel file
+  app.post("/api/products/import", authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Файл не был загружен" });
+      }
+
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet);
+
+      const results = {
+        success: 0,
+        errors: [] as string[]
+      };
+
+      for (let i = 0; i < data.length; i++) {
+        const row: any = data[i];
+        try {
+          // Парсим НДС
+          let vatValue: number | null = null;
+          const vatStr = String(row['НДС'] || '').trim().toLowerCase();
+          if (vatStr && vatStr !== 'без ндс') {
+            const match = vatStr.match(/(\d+)/);
+            if (match) {
+              vatValue = parseInt(match[1]);
+            }
+          }
+
+          const productData = {
+            name: String(row['Название'] || '').trim(),
+            category: String(row['Категория'] || 'Без категории').trim(),
+            price: String(parseFloat(row['Цена'] || '0')),
+            stock: parseInt(row['Остаток'] || '0'),
+            minStock: parseInt(row['Мин. остаток'] || '0'),
+            unit: String(row['Единица измерения'] || 'шт').trim(),
+            description: String(row['Описание'] || '').trim() || undefined,
+            article: String(row['Артикул'] || '').trim() || undefined,
+            vat: vatValue,
+            unitsPerPackage: parseInt(row['Единиц в упаковке'] || '1'),
+            barcode: String(row['Штрихкод'] || '').trim() || undefined,
+            isMarked: String(row['Маркированный'] || 'нет').toLowerCase() === 'да',
+            productType: String(row['Тип'] || 'товар').toLowerCase() === 'услуга' ? 'service' : 'product',
+            isActive: true,
+          };
+
+          // Validate required fields
+          if (!productData.name) {
+            results.errors.push(`Строка ${i + 2}: отсутствует название товара`);
+            continue;
+          }
+
+          await storage.createProduct(productData);
+          results.success++;
+        } catch (error: any) {
+          results.errors.push(`Строка ${i + 2}: ${error.message}`);
+        }
+      }
+
+      res.json(results);
+    } catch (error: any) {
+      console.error("Error importing products:", error);
+      res.status(500).json({ error: error.message || "Не удалось импортировать товары" });
+    }
+  });
+
+  // Download Excel template for product import
+  app.get("/api/products/import/template", async (req, res) => {
+    try {
+      const XLSX = await import('xlsx');
+      
+      // Create template with sample data
+      const templateData = [
+        {
+          'Название': 'Пример товара',
+          'Категория': 'Корма',
+          'Цена': 500,
+          'Остаток': 10,
+          'Мин. остаток': 3,
+          'Единица измерения': 'шт',
+          'Описание': 'Описание товара (необязательно)',
+          'Артикул': 'ART-001',
+          'НДС': 'НДС 20%',
+          'Единиц в упаковке': 1,
+          'Штрихкод': '4607012345678',
+          'Маркированный': 'нет',
+          'Тип': 'товар'
+        }
+      ];
+
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Товары');
+
+      // Generate buffer
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=template_products.xlsx');
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("Error generating template:", error);
+      res.status(500).json({ error: "Не удалось создать шаблон" });
+    }
+  });
+
   app.put("/api/products/:id", validateBody(insertProductSchema.partial()), async (req, res) => {
     try {
       const product = await storage.updateProduct(req.params.id, req.body);
