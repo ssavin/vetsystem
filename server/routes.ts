@@ -2950,6 +2950,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter users with doctor role (show all active doctors regardless of branch)
       const doctors = users
         .filter(u => u.role === 'врач' && u.status === 'active')
+        .sort((a, b) => {
+          // Sort by fullName alphabetically
+          const nameA = a.fullName?.toLowerCase() || '';
+          const nameB = b.fullName?.toLowerCase() || '';
+          return nameA.localeCompare(nameB, 'ru');
+        })
         .map(({ password, ...doctor }) => ({
           id: doctor.id,
           name: doctor.fullName, // fullName exists in User type
