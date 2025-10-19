@@ -3,7 +3,9 @@
 import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = process.env.OPENAI_API_KEY 
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 export interface DiagnosisAnalysis {
   differentialDiagnoses: string[];
@@ -42,6 +44,9 @@ export async function analyzeSymptoms(data: {
   symptoms: string;
   medicalHistory?: string;
 }): Promise<DiagnosisAnalysis> {
+  if (!openai) {
+    throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.');
+  }
   try {
     const prompt = `Вы - опытный ветеринарный врач. Проанализируйте следующие клинические данные и предоставьте дифференциальную диагностику:
 
@@ -103,6 +108,9 @@ export async function generateSOAPNotes(data: {
   diagnosis?: string;
   treatment?: string;
 }): Promise<SOAPAssistance> {
+  if (!openai) {
+    throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.');
+  }
   try {
     const prompt = `Создайте структурированную SOAP заметку на основе следующих данных:
 
@@ -157,6 +165,9 @@ export async function analyzeVeterinaryImage(
   imageType: 'xray' | 'wound' | 'skin' | 'dental' | 'other',
   context: string = ''
 ): Promise<ImageAnalysisResult> {
+  if (!openai) {
+    throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.');
+  }
   try {
     const contextPrompts = {
       xray: 'Проанализируйте рентгеновский снимок на предмет переломов, патологий костей, инородных тел и других аномалий.',
@@ -240,6 +251,9 @@ export async function generateTreatmentPlan(data: {
   warnings: string[];
   dietRecommendations?: string;
 }> {
+  if (!openai) {
+    throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.');
+  }
   try {
     const prompt = `Создайте персонализированный план лечения для животного:
 
@@ -296,6 +310,9 @@ export async function clientChatAssistant(
   question: string,
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
 ): Promise<string> {
+  if (!openai) {
+    throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.');
+  }
   try {
     const messages = [
       {

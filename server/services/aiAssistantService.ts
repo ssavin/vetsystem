@@ -1,9 +1,9 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // Zod schemas for AI assistant commands
 export const aiCommandSchema = z.discriminatedUnion('action', [
@@ -105,6 +105,9 @@ export class AIAssistantService {
     transcript: string,
     role: 'admin' | 'doctor'
   ): Promise<AICommand> {
+    if (!openai) {
+      throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.');
+    }
     try {
       // Use admin prompt for all non-doctor roles (админ, менеджер, руководитель, etc.)
       const systemPrompt = role === 'doctor' ? DOCTOR_SYSTEM_PROMPT : ADMIN_SYSTEM_PROMPT;

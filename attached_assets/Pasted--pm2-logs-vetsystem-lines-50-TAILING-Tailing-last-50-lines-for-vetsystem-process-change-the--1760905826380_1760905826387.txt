@@ -1,0 +1,31 @@
+ pm2 logs vetsystem --lines 50
+[TAILING] Tailing last 50 lines for [vetsystem] process (change the value with --lines option)
+/var/lib/postgresql/.pm2/logs/vetsystem-error.log last 50 lines:
+0|vetsyste |
+0|vetsyste | Node.js v20.19.5
+0|vetsyste | file:///var/www/vetsystem/node_modules/openai/client.mjs:87
+0|vetsyste |             throw new Errors.OpenAIError('Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.');
+0|vetsyste |                   ^
+0|vetsyste |
+0|vetsyste | OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+0|vetsyste |     at new OpenAI (file:///var/www/vetsystem/node_modules/openai/client.mjs:87:19)
+0|vetsyste |     at file:///var/www/vetsystem/dist/index.js:9276:14
+0|vetsyste |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0|vetsyste |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+0|vetsyste |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+0|vetsyste |
+0|vetsyste | Node.js v20.19.5
+0|vetsyste | file:///var/www/vetsystem/node_modules/openai/client.mjs:87
+0|vetsyste |             throw new Errors.OpenAIError('Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.');
+0|vetsyste |                   ^
+0|vetsyste |
+0|vetsyste | OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+0|vetsyste |     at new OpenAI (file:///var/www/vetsystem/node_modules/openai/client.mjs:87:19)
+0|vetsyste |     at file:///var/www/vetsystem/dist/index.js:9276:14
+0|vetsyste |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0|vetsyste |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+0|vetsyste |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+0|vetsyste |
+0|vetsyste | Node.js v20.19.5
+0|vetsyste | file:///var/www/vetsystem/node_modules/openai/client.mjs:87
+0|vetsyste |             throw new Errors.OpenAIError('Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.');
