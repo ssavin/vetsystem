@@ -75,7 +75,7 @@ export default function EncounterDialog({ caseId, patientName, trigger, encounte
   const form = useForm<EncounterFormValues>({
     resolver: zodResolver(encounterSchema),
     defaultValues: {
-      doctorId: encounter?.doctorId || undefined,
+      doctorId: encounter?.doctorId || "",
       anamnesis: encounter?.anamnesis || "",
       diagnosis: encounter?.diagnosis || "",
       treatmentPlan: encounter?.treatmentPlan || "",
@@ -89,7 +89,7 @@ export default function EncounterDialog({ caseId, patientName, trigger, encounte
       if (encounter) {
         // Edit mode - populate with existing data
         form.reset({
-          doctorId: encounter.doctorId || undefined,
+          doctorId: encounter.doctorId || "",
           anamnesis: encounter.anamnesis || "",
           diagnosis: encounter.diagnosis || "",
           treatmentPlan: encounter.treatmentPlan || "",
@@ -98,7 +98,7 @@ export default function EncounterDialog({ caseId, patientName, trigger, encounte
       } else {
         // Create mode - reset to empty form
         form.reset({
-          doctorId: undefined,
+          doctorId: "",
           anamnesis: "",
           diagnosis: "",
           treatmentPlan: "",
@@ -172,7 +172,11 @@ export default function EncounterDialog({ caseId, patientName, trigger, encounte
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Врач *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value || ""} 
+                    defaultValue=""
+                  >
                     <FormControl>
                       <SelectTrigger data-testid="select-doctor">
                         <SelectValue placeholder="Выберите врача" />
