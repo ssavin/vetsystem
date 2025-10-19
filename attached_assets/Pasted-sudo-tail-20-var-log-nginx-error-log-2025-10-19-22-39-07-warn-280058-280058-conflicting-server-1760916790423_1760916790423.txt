@@ -1,0 +1,21 @@
+sudo tail -20 /var/log/nginx/error.log
+2025/10/19 22:39:07 [warn] 280058#280058: conflicting server name "vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 22:39:07 [warn] 280058#280058: conflicting server name "www.vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 22:39:36 [warn] 280670#280670: conflicting server name "vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 22:39:36 [warn] 280670#280670: conflicting server name "www.vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 22:39:36 [notice] 280670#280670: signal process started
+2025/10/19 22:39:37 [warn] 280698#280698: conflicting server name "vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 22:39:37 [warn] 280698#280698: conflicting server name "www.vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 22:39:37 [notice] 280698#280698: signal process started
+2025/10/19 22:46:59 [warn] 289902#289902: conflicting server name "vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 22:46:59 [warn] 289902#289902: conflicting server name "www.vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 22:46:59 [notice] 289902#289902: signal process started
+2025/10/19 23:00:14 [warn] 294046#294046: conflicting server name "vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 23:00:14 [warn] 294046#294046: conflicting server name "www.vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 23:00:25 [warn] 294057#294057: conflicting server name "vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 23:00:25 [warn] 294057#294057: conflicting server name "www.vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 23:00:25 [warn] 294058#294058: conflicting server name "vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 23:00:25 [warn] 294058#294058: conflicting server name "www.vetsystemai.ru" on 0.0.0.0:80, ignored
+2025/10/19 23:05:38 [emerg] 294243#294243: open() "/etc/nginx/sites-enabled/vetsystem" failed (2: No such file or directory) in /etc/nginx/nginx.conf:60
+2025/10/19 23:18:40 [error] 294662#294662: *1 connect() failed (111: Unknown error) while connecting to upstream, client: 179.43.159.226, server: vetsystemai.ru, request: "GET /.git/config HTTP/1.1", upstream: "http://[::1]:5000/.git/config", host: "194.5.78.182"
+2025/10/19 23:31:32 [error] 297856#297856: *1 connect() failed (111: Unknown error) while connecting to upstream, client: 147.185.133.174, server: vetsystemai.ru, request: "GET / HTTP/1.1", upstream: "http://[::1]:5001/", host: "194.5.78.182:80"
