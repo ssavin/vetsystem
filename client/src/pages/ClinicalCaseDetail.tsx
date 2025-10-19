@@ -168,6 +168,20 @@ export default function ClinicalCaseDetail() {
     return doctor ? doctor.name : `Врач не найден (ID: ${doctorId.substring(0, 8)})`
   }
 
+  const translateSpecies = (species: string | undefined) => {
+    if (!species) return ''
+    const translations: Record<string, string> = {
+      'dog': 'Собака',
+      'cat': 'Кошка',
+      'bird': 'Птица',
+      'rabbit': 'Кролик',
+      'rodent': 'Грызун',
+      'reptile': 'Рептилия',
+      'other': 'Другое'
+    }
+    return translations[species.toLowerCase()] || species
+  }
+
   const handleBack = () => {
     navigate('/clinical-cases')
   }
@@ -252,7 +266,7 @@ export default function ClinicalCaseDetail() {
                 {patient?.name || 'Загрузка...'}
               </p>
               <p className="text-sm text-muted-foreground">
-                {patient?.species} {patient?.breed && `• ${patient.breed}`}
+                {translateSpecies(patient?.species)} {patient?.breed && `• ${patient.breed}`}
               </p>
             </div>
             <div>
