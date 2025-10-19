@@ -619,10 +619,15 @@ export const products = pgTable("products", {
   unit: varchar("unit", { length: 50 }).notNull(),
   description: text("description"),
   isActive: boolean("is_active").default(true),
+  // Новые поля товара
+  unitsPerPackage: integer("units_per_package").default(1), // Количество единиц в упаковке
+  barcode: varchar("barcode", { length: 255 }), // Штрихкод
+  isMarked: boolean("is_marked").default(false), // Маркированный товар
+  productType: varchar("product_type", { length: 20 }).default('product'), // 'product' или 'service'
   // МойСклад интеграция (legacy)
   moyskladId: varchar("moysklad_id", { length: 255 }), // ID из МойСклад
   article: varchar("article", { length: 255 }), // Артикул
-  vat: integer("vat").default(20), // НДС
+  vat: integer("vat").default(20), // НДС: null (без НДС), 0, 5, 7, 10, 20
   // Универсальная интеграция с внешними системами
   externalId: varchar("external_id", { length: 255 }), // ID во внешней системе
   externalSystem: varchar("external_system", { length: 50 }), // Система: moysklad, onec, 1c_retail
@@ -1738,6 +1743,10 @@ export const insertProductSchema = createInsertSchema(products).omit({
   price: z.coerce.number().min(0, "Price must be positive").transform(val => val.toString()),
   stock: z.number().int().min(0, "Stock cannot be negative").default(0),
   minStock: z.number().int().min(0, "Min stock cannot be negative").default(0),
+  unitsPerPackage: z.number().int().min(1, "Units per package must be at least 1").default(1),
+  vat: z.number().int().nullable().optional(), // null (без НДС), 0, 5, 7, 10, 20
+  isMarked: z.boolean().default(false),
+  productType: z.enum(['product', 'service']).default('product'),
 });
 
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({
