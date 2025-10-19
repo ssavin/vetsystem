@@ -85,14 +85,26 @@ export default function EncounterDialog({ caseId, patientName, trigger, encounte
 
   // Sync form with encounter data when it changes or dialog opens
   useEffect(() => {
-    if (encounter && open) {
-      form.reset({
-        doctorId: encounter.doctorId || undefined,
-        anamnesis: encounter.anamnesis || "",
-        diagnosis: encounter.diagnosis || "",
-        treatmentPlan: encounter.treatmentPlan || "",
-        notes: encounter.notes || "",
-      })
+    if (open) {
+      if (encounter) {
+        // Edit mode - populate with existing data
+        form.reset({
+          doctorId: encounter.doctorId || undefined,
+          anamnesis: encounter.anamnesis || "",
+          diagnosis: encounter.diagnosis || "",
+          treatmentPlan: encounter.treatmentPlan || "",
+          notes: encounter.notes || "",
+        })
+      } else {
+        // Create mode - reset to empty form
+        form.reset({
+          doctorId: undefined,
+          anamnesis: "",
+          diagnosis: "",
+          treatmentPlan: "",
+          notes: "",
+        })
+      }
     }
   }, [encounter, open, form])
 
