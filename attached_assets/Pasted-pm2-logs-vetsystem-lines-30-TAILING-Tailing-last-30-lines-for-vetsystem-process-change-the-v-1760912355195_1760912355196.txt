@@ -1,0 +1,28 @@
+pm2 logs vetsystem --lines 30
+[TAILING] Tailing last 30 lines for [vetsystem] process (change the value with --lines option)
+/root/.pm2/logs/vetsystem-out.log last 30 lines:
+/root/.pm2/logs/vetsystem-error.log last 30 lines:
+0|vetsyste | Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|vetsyste |     at file:///var/www/vetsystem/dist/index.js:1026:9
+0|vetsyste |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0|vetsyste |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+0|vetsyste | Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite' imported from /var/www/vetsystem/dist/index.js
+0|vetsyste |     at packageResolve (node:internal/modules/esm/resolve:873:9)
+0|vetsyste |     at moduleResolve (node:internal/modules/esm/resolve:946:18)
+0|vetsyste |     at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+0|vetsyste |     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+0|vetsyste |     at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+0|vetsyste |     at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+0|vetsyste |     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+0|vetsyste |     at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+0|vetsyste |   code: 'ERR_MODULE_NOT_FOUND'
+0|vetsyste | }
+0|vetsyste | Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|vetsyste |     at server/db-local.ts (file:///var/www/vetsystem/dist/index.js:3044:13)
+0|vetsyste |     at __init (file:///var/www/vetsystem/dist/index.js:4:56)
+0|vetsyste |     at server/storage.ts (file:///var/www/vetsystem/dist/index.js:3074:5)
+0|vetsyste |     at __init (file:///var/www/vetsystem/dist/index.js:4:56)
+0|vetsyste |     at file:///var/www/vetsystem/dist/index.js:8939:1
+0|vetsyste |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0|vetsyste |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+
