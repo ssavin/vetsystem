@@ -1,22 +1,35 @@
 import { useState, useMemo, useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
+import { useLocation } from "wouter"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Plus, Filter, Calendar, Brain, X, FileText, Edit } from "lucide-react"
+import { Search, Plus, Filter, Calendar, Brain, X, FileText, Edit, FileCheck } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import MedicalRecordCard from "@/components/MedicalRecordCard"
 import MedicalRecordForm from "@/components/MedicalRecordForm"
 import AIAssistant from "@/components/AIAssistant"
 import { AIAssistantWidget } from "@/components/AIAssistantWidget"
-import CreateCaseWithSearchDialog from "@/components/CreateCaseWithSearchDialog"
 import type { MedicalRecord } from "@shared/schema"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { PrintDocumentButton } from "@/components/PrintDocumentButton"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Textarea } from "@/components/ui/textarea"
+import { queryClient, apiRequest } from "@/lib/queryClient"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
@@ -25,6 +38,10 @@ import { ru } from "date-fns/locale"
 
 // Table row component for medical records
 function MedicalRecordTableRow({ record }: { record: any }) {
+  const [, navigate] = useLocation()
+  const [showCreateCaseDialog, setShowCreateCaseDialog] = useState(false)
+  const { toast } = useToast()
+
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'active':
@@ -41,6 +58,40 @@ function MedicalRecordTableRow({ record }: { record: any }) {
 
   const statusConfig = getStatusConfig(record.status || 'active')
 
+  const form = useForm({
+    resolver: zodResolver(z.object({
+      reasonForVisit: z.string().min(10, "Причина визита должна содержать минимум 10 символов"),
+    })),
+    defaultValues: {
+      reasonForVisit: "",
+    },
+  })
+
+  const createCaseMutation = useMutation({
+    mutationFn: async (values: { reasonForVisit: string }) => {
+      const response = await apiRequest('POST', `/api/patients/${record.patientId}/clinical-cases`, values)
+      return await response.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinical-cases'] })
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${record.patientId}/clinical-cases`] })
+      toast({
+        title: "Клинический случай создан",
+        description: `Новый случай для пациента ${record.patientName} успешно создан`,
+      })
+      setShowCreateCaseDialog(false)
+      form.reset()
+      navigate(`/clinical-cases/${data.id}`)
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось создать клинический случай",
+        variant: "destructive",
+      })
+    },
+  })
+
   return (
     <>
       <TableRow className="hover-elevate" data-testid={`row-medical-record-${record.id}`}>
@@ -52,10 +103,21 @@ function MedicalRecordTableRow({ record }: { record: any }) {
         <TableCell className="max-w-xs truncate" title={record.diagnosis || ''}>
           {record.diagnosis || '-'}
         </TableCell>
-        <TableCell>
+        <TableCell className="w-32">
           <Badge className={statusConfig.color} data-testid={`status-record-${record.id}`}>
             {statusConfig.text}
           </Badge>
+        </TableCell>
+        <TableCell className="text-center">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setShowCreateCaseDialog(true)}
+            data-testid={`button-create-case-${record.id}`}
+            title="Создать клинический случай"
+          >
+            <FileText className="h-4 w-4" />
+          </Button>
         </TableCell>
         <TableCell className="text-right">
           <div className="flex gap-1 justify-end">
@@ -82,6 +144,68 @@ function MedicalRecordTableRow({ record }: { record: any }) {
           </div>
         </TableCell>
       </TableRow>
+
+      <Dialog open={showCreateCaseDialog} onOpenChange={setShowCreateCaseDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Создать клинический случай</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-muted-foreground">Пациент:</span>
+                  <div className="font-medium">{record.patientName}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Владелец:</span>
+                  <div className="font-medium">{record.ownerName}</div>
+                </div>
+              </div>
+            </div>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit((values) => createCaseMutation.mutate(values))} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="reasonForVisit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Причина обращения</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Опишите причину обращения..."
+                          className="resize-none"
+                          rows={4}
+                          data-testid="input-reason-for-visit"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCreateCaseDialog(false)}
+                    data-testid="button-cancel-create-case"
+                  >
+                    Отмена
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createCaseMutation.isPending}
+                    data-testid="button-submit-create-case"
+                  >
+                    {createCaseMutation.isPending ? "Создание..." : "Создать"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
@@ -309,13 +433,10 @@ export default function MedicalRecords() {
           <h1 className="text-3xl font-bold" data-testid="text-medical-records-title">{t('title')}</h1>
           <p className="text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <CreateCaseWithSearchDialog />
-          <MedicalRecordForm 
-            open={isCreateDialogOpen}
-            onOpenChange={setIsCreateDialogOpen}
-          />
-        </div>
+        <MedicalRecordForm 
+          open={isCreateDialogOpen}
+          onOpenChange={setIsCreateDialogOpen}
+        />
       </div>
 
       {selectedPatientName && (
@@ -472,6 +593,7 @@ export default function MedicalRecords() {
                     <TableHead>Тип визита</TableHead>
                     <TableHead>Диагноз</TableHead>
                     <TableHead>Статус</TableHead>
+                    <TableHead className="text-center w-16">Случай</TableHead>
                     <TableHead className="text-right">Действия</TableHead>
                   </TableRow>
                 </TableHeader>
