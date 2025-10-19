@@ -2945,12 +2945,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all doctors (users with role 'врач') for clinical forms
   app.get("/api/users/doctors", authenticateToken, async (req, res) => {
     try {
-      const user = (req as any).user;
       const users = await storage.getUsers();
       
-      // Filter users with doctor role and same branch
+      // Filter users with doctor role (show all active doctors regardless of branch)
       const doctors = users
-        .filter(u => u.role === 'врач' && u.branchId === user.branchId && u.status === 'active')
+        .filter(u => u.role === 'врач' && u.status === 'active')
         .map(({ password, ...doctor }) => ({
           id: doctor.id,
           name: doctor.fullName, // fullName exists in User type
