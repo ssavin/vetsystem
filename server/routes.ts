@@ -1797,12 +1797,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Категория': service.category,
         'Цена': Number(service.price),
         'Длительность (мин)': service.duration || '',
-        'Описание': service.description || '',
-        'Активна': service.isActive ? 'да' : 'нет'
+        'Описание': service.description || ''
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Услуги');
 
       // Generate buffer
@@ -1810,7 +1809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const date = new Date().toISOString().split('T')[0];
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=services_${date}.xlsx`);
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''uslugi_${date}.xlsx`);
       res.send(buffer);
     } catch (error: any) {
       console.error("Error exporting services:", error);
@@ -1895,6 +1894,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export products to Excel (must be before :id route)
+  app.get("/api/products/export", authenticateToken, async (req, res) => {
+    try {
+      const products = await storage.getProducts();
+      const XLSX = await import('xlsx');
+
+      // Format products data for export - same format as import template
+      const exportData = products.map(product => ({
+        'Название': product.name,
+        'Категория': product.category,
+        'Цена': Number(product.price),
+        'Остаток': product.stock,
+        'Мин. остаток': product.minStock,
+        'Единица измерения': product.unit,
+        'Описание': product.description || '',
+        'Артикул': product.article || '',
+        'НДС': product.vat === null ? 'Без НДС' : `НДС ${product.vat}%`,
+        'Единиц в упаковке': product.unitsPerPackage || 1,
+        'Штрихкод': product.barcode || '',
+        'Маркированный': product.isMarked ? 'да' : 'нет',
+        'Тип': product.productType === 'service' ? 'услуга' : 'товар'
+      }));
+
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Примеры');
+
+      // Generate buffer
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      const date = new Date().toISOString().split('T')[0];
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''tovary_${date}.xlsx`);
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("Error exporting products:", error);
+      res.status(500).json({ error: "Не удалось экспортировать товары" });
+    }
+  });
+
+  // Download Excel template for product import (must be before :id route)
+  app.get("/api/products/import/template", async (req, res) => {
+    try {
+      const XLSX = await import('xlsx');
+      
+      // Create template with multiple examples and instructions
+      const templateData = [
+        {
+          'Название': 'Корм Royal Canin для собак',
+          'Категория': 'Корма',
+          'Цена': 1500.50,
+          'Остаток': 25,
+          'Мин. остаток': 5,
+          'Единица измерения': 'шт',
+          'Описание': 'Сухой корм для средних пород, 15 кг',
+          'Артикул': 'RC-DOG-15',
+          'НДС': 'НДС 20%',
+          'Единиц в упаковке': 1,
+          'Штрихкод': '3182550402590',
+          'Маркированный': 'нет',
+          'Тип': 'товар'
+        },
+        {
+          'Название': 'Вакцина Нобивак DHPPi',
+          'Категория': 'Вакцины',
+          'Цена': 350,
+          'Остаток': 100,
+          'Мин. остаток': 20,
+          'Единица измерения': 'доза',
+          'Описание': 'Вакцина против чумы, гепатита, парвовируса',
+          'Артикул': 'NOB-DHPPI',
+          'НДС': 'НДС 10%',
+          'Единиц в упаковке': 10,
+          'Штрихкод': '',
+          'Маркированный': 'да',
+          'Тип': 'товар'
+        },
+        {
+          'Название': 'Шампунь ветеринарный',
+          'Категория': 'Средства гигиены',
+          'Цена': 450,
+          'Остаток': 15,
+          'Мин. остаток': 3,
+          'Единица измерения': 'шт',
+          'Описание': '',
+          'Артикул': 'SH-VET-500',
+          'НДС': 'Без НДС',
+          'Единиц в упаковке': 1,
+          'Штрихкод': '4607012345678',
+          'Маркированный': 'нет',
+          'Тип': 'товар'
+        }
+      ];
+
+      // Create instructions sheet
+      const instructions = [
+        { 'Колонка': 'Название', 'Обязательное': 'Да', 'Описание': 'Название товара или услуги', 'Пример': 'Корм Royal Canin' },
+        { 'Колонка': 'Категория', 'Обязательное': 'Нет', 'Описание': 'Категория товара', 'Пример': 'Корма, Вакцины, Препараты' },
+        { 'Колонка': 'Цена', 'Обязательное': 'Да', 'Описание': 'Цена за единицу (число)', 'Пример': '1500.50' },
+        { 'Колонка': 'Остаток', 'Обязательное': 'Нет', 'Описание': 'Текущий остаток (целое число)', 'Пример': '25' },
+        { 'Колонка': 'Мин. остаток', 'Обязательное': 'Нет', 'Описание': 'Минимальный остаток для уведомлений', 'Пример': '5' },
+        { 'Колонка': 'Единица измерения', 'Обязательное': 'Нет', 'Описание': 'Единица измерения товара', 'Пример': 'шт, кг, л, доза, упак' },
+        { 'Колонка': 'Описание', 'Обязательное': 'Нет', 'Описание': 'Подробное описание товара', 'Пример': 'Сухой корм для собак' },
+        { 'Колонка': 'Артикул', 'Обязательное': 'Нет', 'Описание': 'Артикул или код товара', 'Пример': 'RC-DOG-15' },
+        { 'Колонка': 'НДС', 'Обязательное': 'Нет', 'Описание': 'Ставка НДС', 'Пример': 'Без НДС, НДС 0%, НДС 5%, НДС 7%, НДС 10%, НДС 20%' },
+        { 'Колонка': 'Единиц в упаковке', 'Обязательное': 'Нет', 'Описание': 'Количество единиц в упаковке', 'Пример': '1, 10, 20' },
+        { 'Колонка': 'Штрихкод', 'Обязательное': 'Нет', 'Описание': 'Штрихкод товара (EAN-13, EAN-8)', 'Пример': '4607012345678' },
+        { 'Колонка': 'Маркированный', 'Обязательное': 'Нет', 'Описание': 'Требуется маркировка (да/нет)', 'Пример': 'да, нет' },
+        { 'Колонка': 'Тип', 'Обязательное': 'Нет', 'Описание': 'Тип номенклатуры', 'Пример': 'товар, услуга' }
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      
+      // Add examples sheet
+      const examplesSheet = XLSX.utils.json_to_sheet(templateData);
+      XLSX.utils.book_append_sheet(workbook, examplesSheet, 'Примеры');
+      
+      // Add instructions sheet
+      const instructionsSheet = XLSX.utils.json_to_sheet(instructions);
+      XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Инструкция');
+
+      // Generate buffer
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=shablon_import_tovarov.xlsx');
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("Error generating template:", error);
+      res.status(500).json({ error: "Не удалось создать шаблон" });
+    }
+  });
+
   app.get("/api/products/:id", async (req, res) => {
     try {
       const product = await storage.getProduct(req.params.id);
@@ -1929,7 +2061,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const XLSX = await import('xlsx');
       const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-      const sheetName = workbook.SheetNames[0];
+      
+      // Try to find "Примеры" sheet first, otherwise use first sheet
+      let sheetName = workbook.SheetNames.find(name => 
+        name.toLowerCase().includes('пример') || name.toLowerCase().includes('товар')
+      ) || workbook.SheetNames[0];
+      
       const worksheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(worksheet);
 
@@ -1985,87 +2122,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error importing products:", error);
       res.status(500).json({ error: error.message || "Не удалось импортировать товары" });
-    }
-  });
-
-  // Download Excel template for product import
-  app.get("/api/products/import/template", async (req, res) => {
-    try {
-      const XLSX = await import('xlsx');
-      
-      // Create template with sample data
-      const templateData = [
-        {
-          'Название': 'Пример товара',
-          'Категория': 'Корма',
-          'Цена': 500,
-          'Остаток': 10,
-          'Мин. остаток': 3,
-          'Единица измерения': 'шт',
-          'Описание': 'Описание товара (необязательно)',
-          'Артикул': 'ART-001',
-          'НДС': 'НДС 20%',
-          'Единиц в упаковке': 1,
-          'Штрихкод': '4607012345678',
-          'Маркированный': 'нет',
-          'Тип': 'товар'
-        }
-      ];
-
-      const worksheet = XLSX.utils.json_to_sheet(templateData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Товары');
-
-      // Generate buffer
-      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename=template_products.xlsx');
-      res.send(buffer);
-    } catch (error: any) {
-      console.error("Error generating template:", error);
-      res.status(500).json({ error: "Не удалось создать шаблон" });
-    }
-  });
-
-  // Export products to Excel
-  app.get("/api/products/export", authenticateToken, async (req, res) => {
-    try {
-      const products = await storage.getProducts();
-      const XLSX = await import('xlsx');
-
-      // Format products data for export
-      const exportData = products.map(product => ({
-        'Название': product.name,
-        'Категория': product.category,
-        'Цена': Number(product.price),
-        'Остаток': product.stock,
-        'Мин. остаток': product.minStock,
-        'Единица измерения': product.unit,
-        'Описание': product.description || '',
-        'Артикул': product.article || '',
-        'НДС': product.vat === null ? 'Без НДС' : `НДС ${product.vat}%`,
-        'Единиц в упаковке': product.unitsPerPackage || 1,
-        'Штрихкод': product.barcode || '',
-        'Маркированный': product.isMarked ? 'да' : 'нет',
-        'Тип': product.productType === 'service' ? 'услуга' : 'товар',
-        'Активен': product.isActive ? 'да' : 'нет'
-      }));
-
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Товары');
-
-      // Generate buffer
-      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-      const date = new Date().toISOString().split('T')[0];
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=products_${date}.xlsx`);
-      res.send(buffer);
-    } catch (error: any) {
-      console.error("Error exporting products:", error);
-      res.status(500).json({ error: "Не удалось экспортировать товары" });
     }
   });
 
