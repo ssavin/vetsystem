@@ -75,7 +75,7 @@ export default function EncounterDialog({ caseId, patientName, trigger, encounte
   const form = useForm<EncounterFormValues>({
     resolver: zodResolver(encounterSchema),
     defaultValues: {
-      doctorId: encounter?.doctorId || "",
+      doctorId: encounter?.doctorId || undefined,
       anamnesis: encounter?.anamnesis || "",
       diagnosis: encounter?.diagnosis || "",
       treatmentPlan: encounter?.treatmentPlan || "",
@@ -87,7 +87,7 @@ export default function EncounterDialog({ caseId, patientName, trigger, encounte
   useEffect(() => {
     if (encounter && open) {
       form.reset({
-        doctorId: encounter.doctorId || "",
+        doctorId: encounter.doctorId || undefined,
         anamnesis: encounter.anamnesis || "",
         diagnosis: encounter.diagnosis || "",
         treatmentPlan: encounter.treatmentPlan || "",
