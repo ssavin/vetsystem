@@ -70,6 +70,26 @@ Preferred communication style: Simple, everyday language.
 -   **Security**: Tenant isolation via `mobileTenantMiddleware` and RLS.
 -   **Features**: SMS authentication, owner profiles, pet details, medical history, appointment booking, push notifications, real-time chat, medical file access, proactive health notifications.
 
+## Desktop Companion (Electron)
+-   **Purpose**: Offline-capable desktop application for clinic operations when internet is unavailable or unstable.
+-   **Framework**: Electron + React + TypeScript + Vite.
+-   **Local Database**: SQLite for offline data storage (clients, patients, nomenclature, appointments, invoices).
+-   **Synchronization**: 
+    - Bidirectional sync with main server via REST API
+    - API endpoints: `GET /api/sync/initial-data`, `POST /api/sync/upload-changes`
+    - API key authentication via `X-API-Key` header
+    - Automatic sync every minute when online, manual sync available
+    - Conflict resolution with sync_queue table for change tracking
+-   **Features**: 
+    - Client/patient management offline
+    - Appointment scheduling offline
+    - Invoice creation with local nomenclature
+    - Real-time sync status indicator
+    - Automatic retry on network restore
+-   **Distribution**: Windows .exe installer via electron-builder (Mac/Linux support configured).
+-   **Location**: `/vetsystem-companion/` directory.
+-   **Related**: Desktop POS (`/desktop_pos/`) is separate Python/Tkinter app for retail sales with fiscal printer integration.
+
 # External Dependencies
 
 ## Core Framework
