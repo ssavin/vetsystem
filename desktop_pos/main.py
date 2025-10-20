@@ -77,14 +77,14 @@ class VetPOSApp:
         # Верхняя панель с информацией
         self.create_header_panel()
         
+        # Статусная строка (создаём раньше, так как модули обращаются к ней)
+        self.create_status_bar()
+        
         # Боковая панель навигации
         self.create_sidebar()
         
         # Основная рабочая область
         self.create_main_area()
-        
-        # Статусная строка
-        self.create_status_bar()
         
     def create_menu_bar(self):
         """Создание строки меню"""
