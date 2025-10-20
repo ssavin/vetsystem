@@ -8985,6 +8985,212 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== COMPANION APP SYNC API ====================
+  // Middleware to verify Companion API key
+  const verifyCompanionApiKey = (req: any, res: any, next: any) => {
+    const apiKey = req.headers['x-api-key'];
+    const expectedKey = process.env.COMPANION_API_KEY || 'companion-api-key-2025';
+    
+    if (apiKey !== expectedKey) {
+      return res.status(401).json({ error: 'Неверный API ключ' });
+    }
+    
+    next();
+  };
+
+  // GET /api/sync/initial-data - Download initial data for offline work
+  app.get('/api/sync/initial-data', verifyCompanionApiKey, async (req, res) => {
+    try {
+      // Get tenant ID from API key or use default
+      const tenantId = req.query.tenantId as string || '1';
+
+      // Get all clients (owners) for this tenant
+      const clients = await storage.getAllOwners(tenantId);
+      
+      // Get all patients for this tenant
+      const patients = await storage.getAllPatients(tenantId);
+      
+      // Get all services and products (nomenclature) for this tenant
+      const services = await storage.getAllServices(tenantId);
+      const products = await storage.getAllProducts(tenantId);
+      
+      // Combine services and products into nomenclature
+      const nomenclature = [
+        ...services.map(s => ({
+          id: parseInt(s.id),
+          name: s.name,
+          type: 'service' as const,
+          price: parseFloat(s.price),
+          category: s.category || undefined,
+        })),
+        ...products.map(p => ({
+          id: parseInt(p.id),
+          name: p.name,
+          type: 'product' as const,
+          price: parseFloat(p.price),
+          category: p.category || undefined,
+        })),
+      ];
+
+      res.json({
+        clients: clients.map(c => ({
+          id: parseInt(c.id),
+          full_name: c.fullName,
+          phone: c.phone,
+          email: c.email || undefined,
+          address: c.address || undefined,
+        })),
+        patients: patients.map(p => ({
+          id: parseInt(p.id),
+          name: p.name,
+          species: p.species,
+          breed: p.breed || undefined,
+          birth_date: p.birthDate || undefined,
+          gender: p.gender || undefined,
+          client_id: parseInt(p.ownerId),
+        })),
+        nomenclature,
+      });
+
+      console.log(`✓ Sync: Sent initial data to Companion (${clients.length} clients, ${patients.length} patients, ${nomenclature.length} nomenclature)`);
+    } catch (error: any) {
+      console.error('Error in sync/initial-data:', error);
+      res.status(500).json({ error: error.message || 'Ошибка получения данных' });
+    }
+  });
+
+  // POST /api/sync/upload-changes - Upload local changes to server
+  app.post('/api/sync/upload-changes', verifyCompanionApiKey, async (req, res) => {
+    try {
+      const { actions } = req.body;
+      
+      if (!Array.isArray(actions)) {
+        return res.status(400).json({ error: 'Invalid request: actions must be an array' });
+      }
+
+      const tenantId = req.body.tenantId || '1';
+      const branchId = req.body.branchId || '1'; // Default branch
+      const results = [];
+
+      for (const action of actions) {
+        try {
+          const { queue_id, action_type, payload } = action;
+
+          switch (action_type) {
+            case 'create_client': {
+              const ownerId = await storage.createOwner({
+                tenantId,
+                branchId,
+                fullName: payload.full_name,
+                phone: payload.phone,
+                email: payload.email || null,
+                address: payload.address || null,
+              });
+              results.push({
+                queue_id,
+                status: 'success',
+                server_id: parseInt(ownerId),
+              });
+              break;
+            }
+
+            case 'create_patient': {
+              const patientId = await storage.createPatient({
+                tenantId,
+                branchId,
+                ownerId: payload.client_id.toString(),
+                name: payload.name,
+                species: payload.species,
+                breed: payload.breed || null,
+                birthDate: payload.birth_date || null,
+                gender: payload.gender || null,
+              });
+              results.push({
+                queue_id,
+                status: 'success',
+                server_id: parseInt(patientId),
+              });
+              break;
+            }
+
+            case 'create_appointment': {
+              const appointmentId = await storage.createAppointment({
+                tenantId,
+                branchId,
+                patientId: payload.patient_id.toString(),
+                doctorId: null, // Will be assigned later
+                appointmentDate: payload.appointment_date,
+                appointmentTime: payload.appointment_time,
+                status: 'scheduled',
+                notes: payload.notes || null,
+              });
+              results.push({
+                queue_id,
+                status: 'success',
+                server_id: parseInt(appointmentId),
+              });
+              break;
+            }
+
+            case 'create_invoice': {
+              // Create invoice
+              const invoiceId = await storage.createInvoice({
+                tenantId,
+                branchId,
+                patientId: payload.patient_id?.toString() || null,
+                invoiceDate: payload.created_at,
+                total: payload.total_amount,
+                paymentStatus: payload.payment_status,
+              });
+
+              // Create invoice items
+              for (const item of payload.items) {
+                await storage.createInvoiceItem({
+                  tenantId,
+                  branchId,
+                  invoiceId,
+                  itemType: item.type || 'service',
+                  itemId: item.nomenclature_id.toString(),
+                  itemName: item.name,
+                  quantity: item.quantity,
+                  price: item.price,
+                  total: item.total,
+                });
+              }
+
+              results.push({
+                queue_id,
+                status: 'success',
+                server_id: parseInt(invoiceId),
+              });
+              break;
+            }
+
+            default:
+              results.push({
+                queue_id,
+                status: 'error',
+                message: `Unknown action type: ${action_type}`,
+              });
+          }
+        } catch (error: any) {
+          console.error(`Error processing action ${action.queue_id}:`, error);
+          results.push({
+            queue_id: action.queue_id,
+            status: 'error',
+            message: error.message || 'Internal server error',
+          });
+        }
+      }
+
+      console.log(`✓ Sync: Processed ${actions.length} actions from Companion (${results.filter(r => r.status === 'success').length} successful)`);
+      res.json({ results });
+    } catch (error: any) {
+      console.error('Error in sync/upload-changes:', error);
+      res.status(500).json({ error: error.message || 'Ошибка обработки изменений' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

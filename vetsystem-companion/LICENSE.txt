@@ -1,0 +1,15 @@
+VetSystem Companion - End User License Agreement
+
+Copyright (c) 2025 VetSystem
+
+This software is proprietary and confidential. All rights reserved.
+
+This application is designed to work offline with the VetSystem veterinary clinic management system.
+
+By installing and using this software, you agree to:
+1. Use it only for legitimate veterinary clinic operations
+2. Not reverse engineer, decompile, or disassemble the software
+3. Keep your API credentials secure
+4. Comply with all applicable data protection regulations
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.

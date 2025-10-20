@@ -1,0 +1,43 @@
+appId: com.vetsystem.companion
+productName: VetSystem Companion
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - package.json
+  - node_modules/**/*
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ${productName}
+  deleteAppDataOnUninstall: false
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  license: LICENSE.txt
+
+mac:
+  target:
+    - dmg
+  icon: build/icon.icns
+  category: public.app-category.healthcare-fitness
+
+linux:
+  target:
+    - AppImage
+  icon: build/icon.png
+  category: Office
