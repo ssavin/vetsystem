@@ -1,0 +1,80 @@
+ npm install
+npm warn Unknown project config "electron_mirror". This will stop working in the next major version of npm.
+npm warn Unknown project config "electron_builder_binaries_mirror". This will stop working in the next major version of npm.
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 454 packages, and audited 455 packages in 1m
+
+76 packages are looking for funding
+  run `npm fund` for details
+
+3 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+root@5674494:/var/www/vetsystem/vetsystem-companion# npm run dev
+npm warn Unknown project config "electron_mirror". This will stop working in the next major version of npm.
+npm warn Unknown project config "electron_builder_binaries_mirror". This will stop working in the next major version of npm.
+
+> vetsystem-companion@1.0.0 dev
+> concurrently "npm run dev:vite" "npm run dev:electron"
+
+[0] npm warn Unknown env config "electron-mirror". This will stop working in the next major version of npm.
+[0] npm warn Unknown env config "electron-builder-binaries-mirror". This will stop working in the next major version of npm.
+[0] npm warn Unknown project config "electron_mirror". This will stop working in the next major version of npm.
+[0] npm warn Unknown project config "electron_builder_binaries_mirror". This will stop working in the next major version of npm.
+[1] npm warn Unknown env config "electron-mirror". This will stop working in the next major version of npm.
+[1] npm warn Unknown env config "electron-builder-binaries-mirror". This will stop working in the next major version of npm.
+[1] npm warn Unknown project config "electron_mirror". This will stop working in the next major version of npm.
+[1] npm warn Unknown project config "electron_builder_binaries_mirror". This will stop working in the next major version of npm.
+[0]
+[0] > vetsystem-companion@1.0.0 dev:vite
+[0] > vite
+[0]
+[1]
+[1] > vetsystem-companion@1.0.0 dev:electron
+[1] > wait-on http://localhost:5173 && electron .
+[1]
+[0] The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+[0]
+[0]   VITE v5.4.21  ready in 351 ms
+[0]
+[0]   ➜  Local:   http://localhost:5173/
+[0]   ➜  Network: use --host to expose
+[0] vite v5.4.21 building for development...
+[0]
+[0] watching for file changes...
+[0] vite v5.4.21 building for development...
+[0]
+[0] watching for file changes...
+[0]
+[0] build started...
+[0]
+[0] build started...
+[1] /var/www/vetsystem/vetsystem-companion/node_modules/electron/dist/electron: error while loading shared libraries: libatk-1.0.so.0: cannot open shared object file: No such file or directory
+[1] npm run dev:electron exited with code 127
+[0] transforming...
+[0] transforming...
+[0] ✓ 1 modules transformed.
+[0] rendering chunks...
+[0] computing gzip size...
+[0] dist/preload/preload.js  1.73 kB │ gzip: 0.52 kB
+[0] built in 1238ms.
+[0] Browserslist: browsers data (caniuse-lite) is 12 months old. Please run:
+[0]   npx update-browserslist-db@latest
+[0]   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[0]
+[0] warn - The `content` option in your Tailwind CSS configuration is missing or empty.
+[0] warn - Configure your content sources or your generated CSS will be missing styles.
+[0] warn - https://tailwindcss.com/docs/content-configuration
+[0] ✓ 765 modules transformed.
+[0] rendering chunks...
+[0] computing gzip size...
+[0] dist/main/index.js  960.94 kB │ gzip: 199.68 kB
+[0] built in 4731ms.
+[0] /var/www/vetsystem/vetsystem-companion/node_modules/electron/dist/electron: error while loading shared libraries: libatk-1.0.so.0: cannot open shared object file: No such file or directory
+[0] npm run dev:vite exited with code 127
