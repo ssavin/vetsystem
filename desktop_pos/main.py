@@ -44,30 +44,71 @@ class VetPOSApp:
         """Настройка стилей интерфейса"""
         style = ttk.Style()
         
-        # Тема в стиле современных кассовых программ
+        # Тема в стиле VetSystem
         style.theme_use('clam')
         
-        # Цвета в стиле "Мой Склад"
+        # Цветовая палитра VetSystem (медицинская тема)
+        # Primary: hsl(210 85% 45%) = #1976D2
+        # Background: hsl(0 0% 100%) = #FFFFFF
+        # Card: hsl(210 5% 98%) = #F9FAFB
+        # Border: hsl(210 12% 85%) = #D1D9E0
+        
+        # Главный заголовок - синий как в VetSystem
         style.configure('Header.TLabel', 
-                       font=('Segoe UI', 14, 'bold'),
-                       background='#2E7D32',
-                       foreground='white')
+                       font=('Inter', 14, 'bold'),
+                       background='#1976D2',  # VetSystem primary blue
+                       foreground='white',
+                       padding=(20, 10))
         
         style.configure('Title.TLabel',
-                       font=('Segoe UI', 12, 'bold'))
+                       font=('Inter', 12, 'bold'),
+                       foreground='#334155')  # VetSystem foreground
         
         style.configure('Status.TLabel',
-                       font=('Segoe UI', 10),
-                       background='#E3F2FD')
+                       font=('Inter', 10),
+                       background='#F1F5F9',  # VetSystem card background
+                       foreground='#64748B',  # VetSystem muted foreground
+                       padding=(10, 5))
         
-        # Стили для кнопок
+        # Стили для кнопок - в стиле VetSystem
         style.configure('Action.TButton',
-                       font=('Segoe UI', 11, 'bold'),
+                       font=('Inter', 11, 'bold'),
+                       background='#1976D2',
+                       foreground='white',
+                       borderwidth=0,
                        padding=(20, 10))
         
         style.configure('Menu.TButton',
-                       font=('Segoe UI', 10),
+                       font=('Inter', 10),
+                       background='#F1F5F9',
+                       foreground='#334155',
+                       borderwidth=0,
                        padding=(15, 8))
+        
+        # Стиль для вкладок
+        style.configure('TNotebook', background='#FFFFFF', borderwidth=0)
+        style.configure('TNotebook.Tab', 
+                       font=('Inter', 10),
+                       padding=(15, 8),
+                       background='#F1F5F9')
+        
+        # Фреймы
+        style.configure('TFrame', background='#FFFFFF')
+        style.configure('Card.TFrame', background='#F9FAFB', relief='flat')
+        
+        # Таблицы (Treeview)
+        style.configure('Treeview',
+                       font=('Inter', 10),
+                       background='#FFFFFF',
+                       foreground='#334155',
+                       fieldbackground='#FFFFFF',
+                       borderwidth=0)
+        
+        style.configure('Treeview.Heading',
+                       font=('Inter', 10, 'bold'),
+                       background='#F1F5F9',
+                       foreground='#334155',
+                       borderwidth=0)
         
     def create_main_interface(self):
         """Создание основного интерфейса"""
