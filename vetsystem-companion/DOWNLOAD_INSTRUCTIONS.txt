@@ -1,0 +1,74 @@
+ИНСТРУКЦИЯ ПО СКАЧИВАНИЮ И СБОРКЕ
+====================================
+
+ВАРИАНТ 1: Скачать всю папку (РЕКОМЕНДУЕТСЯ)
+---------------------------------------------
+
+1. Удалите старую папку:
+   C:\VetSystem\vetsystem-companion\
+
+2. В Replit Files (левая панель):
+   - Правый клик на папке "vetsystem-companion"
+   - Download as ZIP
+   
+3. Распакуйте архив в C:\VetSystem\
+
+4. Откройте командную строку:
+   cd C:\VetSystem\vetsystem-companion
+   
+5. Запустите тест:
+   node test-dirname.js
+   
+   Если видите "✓ Test passed!" - всё ОК!
+   
+6. Соберите приложение:
+   npm install
+   npm run build:win
+   
+   (Это займёт 5-10 минут)
+
+7. Установщик будет в:
+   release\VetSystem Companion-Setup-1.0.0.exe
+
+
+ВАРИАНТ 2: Заменить только исправленные файлы
+----------------------------------------------
+
+Скачайте из Replit и замените:
+
+1. package.json
+2. src\main\index.ts
+
+Затем:
+   cd C:\VetSystem\vetsystem-companion
+   rmdir /s /q dist
+   rmdir /s /q release
+   npm run build:win
+
+
+ПРОВЕРКА ПЕРЕД СБОРКОЙ
+-----------------------
+
+Запустите: TEST.bat
+
+Если тест не прошёл - значит файлы не обновились.
+Если тест прошёл - можно собирать приложение.
+
+
+ЧТО ДОЛЖНО БЫТЬ В ФАЙЛАХ
+-------------------------
+
+package.json (строка 3-4):
+  "version": "1.0.0",
+  "type": "module",
+  
+src\main\index.ts (строки 1-9):
+  import { app, BrowserWindow, ipcMain } from 'electron';
+  import path from 'path';
+  import { fileURLToPath } from 'url';
+  import { DatabaseManager } from './database';
+  import { SyncService } from './sync-service';
+  import Store from 'electron-store';
+  
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
