@@ -71,6 +71,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('db:create-client', async (_event, client) => {
+    if (!db) throw new Error('Database not initialized');
     const clientId = db.createClient(client);
     
     // Add to sync queue
@@ -85,10 +86,12 @@ function setupIpcHandlers() {
 
   // Database handlers - Patients
   ipcMain.handle('db:get-patients-by-client', async (_event, clientId: number) => {
+    if (!db) throw new Error('Database not initialized');
     return db.getPatientsByClient(clientId);
   });
 
   ipcMain.handle('db:create-patient', async (_event, patient) => {
+    if (!db) throw new Error('Database not initialized');
     const patientId = db.createPatient(patient);
     
     // Add to sync queue
@@ -103,15 +106,18 @@ function setupIpcHandlers() {
 
   // Database handlers - Nomenclature
   ipcMain.handle('db:get-all-nomenclature', async () => {
+    if (!db) throw new Error('Database not initialized');
     return db.getAllNomenclature();
   });
 
   ipcMain.handle('db:search-nomenclature', async (_event, query: string) => {
+    if (!db) throw new Error('Database not initialized');
     return db.searchNomenclature(query);
   });
 
   // Database handlers - Appointments
   ipcMain.handle('db:create-appointment', async (_event, appointment) => {
+    if (!db) throw new Error('Database not initialized');
     const appointmentId = db.createAppointment(appointment);
     
     // Add to sync queue
@@ -125,11 +131,13 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('db:get-recent-appointments', async (_event, limit?: number) => {
+    if (!db) throw new Error('Database not initialized');
     return db.getRecentAppointments(limit);
   });
 
   // Database handlers - Invoices
   ipcMain.handle('db:create-invoice', async (_event, invoice) => {
+    if (!db) throw new Error('Database not initialized');
     const invoiceId = db.createInvoice(invoice);
     
     // Add to sync queue
@@ -143,27 +151,39 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('db:get-recent-invoices', async (_event, limit?: number) => {
+    if (!db) throw new Error('Database not initialized');
     return db.getRecentInvoices(limit);
   });
 
   // Sync handlers
   ipcMain.handle('sync:check-connection', async () => {
+    if (!syncService) throw new Error('Sync service not initialized');
     return await syncService.checkConnection();
   });
 
   ipcMain.handle('sync:download-initial-data', async () => {
+    if (!syncService) throw new Error('Sync service not initialized');
     return await syncService.downloadInitialData();
   });
 
   ipcMain.handle('sync:upload-pending-changes', async () => {
+    if (!syncService) throw new Error('Sync service not initialized');
     return await syncService.uploadPendingChanges();
   });
 
   ipcMain.handle('sync:full-sync', async () => {
+    if (!syncService) throw new Error('Sync service not initialized');
     return await syncService.fullSync();
   });
 
   ipcMain.handle('sync:get-status', async () => {
+    if (!syncService) {
+      return {
+        isOnline: false,
+        pendingCount: 0,
+        isSyncing: false,
+      };
+    }
     return syncService.getStatus();
   });
 }
