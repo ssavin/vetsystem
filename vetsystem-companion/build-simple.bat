@@ -1,44 +1,44 @@
 @echo off
-chcp 65001 >nul
+chcp 1251 >nul
 cls
 echo.
 echo ================================================
-echo VetSystem Companion - Сборка установщика
+echo VetSystem Companion - Build Installer
 echo ================================================
 echo.
 
-echo [1/2] Проверка Node.js...
+echo [1/2] Checking Node.js...
 node --version 2>nul
 if errorlevel 1 (
-    echo ОШИБКА: Node.js не установлен!
-    echo Скачайте с https://nodejs.org/
+    echo ERROR: Node.js is not installed!
+    echo Download from https://nodejs.org/
     pause
     exit /b 1
 )
 echo OK
 echo.
 
-echo [2/2] Сборка установщика...
-echo Это займет 5-10 минут, пожалуйста подождите...
+echo [2/2] Building installer...
+echo This will take 5-10 minutes, please wait...
 echo.
 call npm run build:win
 
 if errorlevel 1 (
     echo.
-    echo ОШИБКА при сборке!
-    echo Проверьте сообщения об ошибках выше.
+    echo BUILD ERROR!
+    echo Check error messages above.
     pause
     exit /b 1
 )
 
 echo.
 echo ================================================
-echo ГОТОВО!
+echo SUCCESS!
 echo ================================================
 echo.
-echo Установщик создан:
+echo Installer created:
 echo release\VetSystem-Companion-Setup-1.0.0.exe
 echo.
-echo Вы можете раздать этот файл клиникам.
+echo You can distribute this file to clinics.
 echo.
 pause
