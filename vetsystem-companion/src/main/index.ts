@@ -47,6 +47,7 @@ function createWindow() {
     // In production, load the built files
     mainWindow.loadFile(path.join(__dirname, '../index.html')).then(() => {
       mainWindow?.show();
+      mainWindow?.webContents.openDevTools(); // Open DevTools for debugging
     }).catch((err) => {
       console.error('Failed to load HTML:', err);
     });
