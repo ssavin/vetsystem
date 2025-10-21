@@ -61,13 +61,16 @@
     ],
     "win": {
       "target": ["nsis"],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "sign": false
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
-    }
+    },
+    "afterSign": null,
+    "forceCodeSigning": false
   }
 }

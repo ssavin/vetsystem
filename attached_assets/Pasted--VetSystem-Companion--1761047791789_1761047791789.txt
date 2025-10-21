@@ -1,0 +1,187 @@
+================================================
+VetSystem Companion - ╨б╨▒╨╛╤А╨║╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╤Й╨╕╨║╨░
+================================================
+
+╨и╨░╨│ 1/3: ╨Я╤А╨╛╨▓╨╡╤А╨║╨░ Node.js...
+v22.20.0
+OK!
+
+╨и╨░╨│ 2/3: ╨г╤Б╤В╨░╨╜╨╛╨▓╨║╨░ ╨╖╨░╨▓╨╕╤Б╨╕╨╝╨╛╤Б╤В╨╡╨╣...
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 520 packages, and audited 521 packages in 58s
+
+91 packages are looking for funding
+  run `npm fund` for details
+
+3 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+OK!
+
+╨и╨░╨│ 3/3: ╨б╨▒╨╛╤А╨║╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╤Й╨╕╨║╨░...
+
+> vetsystem-companion@1.0.0 build:win
+> npm run build -- --win
+
+
+> vetsystem-companion@1.0.0 build
+> tsc && vite build && electron-builder --win
+
+vite v5.4.21 building for production...
+✓ 394 modules transformed.
+dist/index.html                   0.47 kB │ gzip:  0.31 kB
+dist/assets/index-DW0BBNv9.css    1.33 kB │ gzip:  0.67 kB
+dist/assets/index-cuRzQGwa.js   231.73 kB │ gzip: 71.07 kB
+✓ built in 2.37s
+vite v5.4.21 building for production...
+✓ 763 modules transformed.
+dist/main/index.js  728.43 kB │ gzip: 173.00 kB
+✓ built in 2.25s
+vite v5.4.21 building for production...
+✓ 1 modules transformed.
+dist/preload/preload.js  1.27 kB │ gzip: 0.45 kB
+✓ built in 13ms
+  • electron-builder  version=24.13.3 os=10.0.19044
+  • loaded configuration  file=package.json ("build" field)
+  • writing effective config  file=release\builder-effective-config.yaml
+  • rebuilding native dependencies  dependencies=better-sqlite3@9.6.0 platform=win32 arch=x64
+  • install prebuilt binary  name=better-sqlite3 version=9.6.0 platform=win32 arch=x64 napi=
+  • packaging       platform=win32 arch=x64 electron=28.3.3 appOutDir=release\win-unpacked
+  • downloading     url=https://github.com/electron/electron/releases/download/v28.3.3/electron-v28.3.3-win32-x64.zip size=108 MB parts=8
+  • downloaded      url=https://github.com/electron/electron/releases/download/v28.3.3/electron-v28.3.3-win32-x64.zip duration=4.515s
+  • default Electron icon is used  reason=application icon is not set
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=1.326s
+  ⨯ cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+
+    Extracting archive: C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\623453455.7z
+    --
+    Path = C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\623453455.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+
+
+    Sub items Errors: 2
+
+    Archives with Errors: 1
+
+    Sub items Errors: 2
+
+                    errorOut=ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\623453455\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\623453455\darwin\10.12\lib\libssl.dylib
+
+                    command='C:\VetSystem\vetsystem-companion\node_modules\7zip-bin\win\x64\7za.exe' x -bd 'C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\623453455.7z' '-oC:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\623453455'
+                    workingDir=C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign
+  • Above command failed, retrying 3 more times
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=974ms
+  ⨯ cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+
+    Extracting archive: C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\833623859.7z
+    --
+    Path = C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\833623859.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+
+
+    Sub items Errors: 2
+
+    Archives with Errors: 1
+
+    Sub items Errors: 2
+
+                    errorOut=ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\833623859\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\833623859\darwin\10.12\lib\libssl.dylib
+
+                    command='C:\VetSystem\vetsystem-companion\node_modules\7zip-bin\win\x64\7za.exe' x -bd 'C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\833623859.7z' '-oC:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\833623859'
+                    workingDir=C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign
+  • Above command failed, retrying 2 more times
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=878ms
+  ⨯ cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+
+    Extracting archive: C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\325456779.7z
+    --
+    Path = C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\325456779.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+
+
+    Sub items Errors: 2
+
+    Archives with Errors: 1
+
+    Sub items Errors: 2
+
+                    errorOut=ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\325456779\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\325456779\darwin\10.12\lib\libssl.dylib
+
+                    command='C:\VetSystem\vetsystem-companion\node_modules\7zip-bin\win\x64\7za.exe' x -bd 'C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\325456779.7z' '-oC:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\325456779'
+                    workingDir=C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign
+  • Above command failed, retrying 1 more times
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=1.053s
+  ⨯ cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+
+    Extracting archive: C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\438943315.7z
+    --
+    Path = C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\438943315.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+
+
+    Sub items Errors: 2
+
+    Archives with Errors: 1
+
+    Sub items Errors: 2
+
+                    errorOut=ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\438943315\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\438943315\darwin\10.12\lib\libssl.dylib
+
+                    command='C:\VetSystem\vetsystem-companion\node_modules\7zip-bin\win\x64\7za.exe' x -bd 'C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\438943315.7z' '-oC:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\438943315'
+                    workingDir=C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign
+  • Above command failed, retrying 0 more times
+[╨Ю╨и╨Ш╨С╨Ъ╨Р] ╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╤Б╨╛╨▒╤А╨░╤В╤М ╤Г╤Б╤В╨░╨╜╨╛╨▓╤Й╨╕╨║
