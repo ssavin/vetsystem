@@ -48,10 +48,29 @@ function createWindow() {
     log('HTML path: ' + htmlPath);
     log('HTML exists: ' + fs.existsSync(htmlPath));
 
+    // Listen to webContents events
+    mainWindow.webContents.on('did-finish-load', () => {
+      log('WebContents: did-finish-load');
+    });
+
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      log('WebContents: did-fail-load - ' + errorCode + ' - ' + errorDescription);
+    });
+
+    mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      log('Console [' + level + ']: ' + message);
+    });
+
     mainWindow.loadFile(htmlPath).then(() => {
-      log('HTML loaded successfully');
+      log('HTML loaded successfully - calling show()');
       mainWindow?.show();
+      log('Window show() called');
       mainWindow?.webContents.openDevTools();
+      log('DevTools opened');
+      
+      // Force window to front
+      mainWindow?.focus();
+      log('Window focused');
     }).catch((err) => {
       log('ERROR loading HTML: ' + err.message);
       log('Error stack: ' + err.stack);
