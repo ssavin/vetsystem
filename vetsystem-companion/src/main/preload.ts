@@ -1,5 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
-import type { Client, Patient, NomenclatureItem, Appointment, Invoice, SyncStatus } from '@shared/types';
+const { contextBridge, ipcRenderer } = require('electron');
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -31,32 +30,7 @@ contextBridge.exposeInMainWorld('api', {
   uploadPendingChanges: () => ipcRenderer.invoke('sync:upload-pending-changes'),
   fullSync: () => ipcRenderer.invoke('sync:full-sync'),
   getSyncStatus: () => ipcRenderer.invoke('sync:get-status'),
-  onSyncStatusChange: (callback: (status: SyncStatus) => void) => {
+  onSyncStatusChange: (callback) => {
     ipcRenderer.on('sync:status-changed', (_event, status) => callback(status));
   },
 });
-
-// Type definitions for window.api
-declare global {
-  interface Window {
-    api: {
-      getAllClients: () => Promise<Client[]>;
-      searchClients: (query: string) => Promise<Client[]>;
-      createClient: (client: Client) => Promise<number>;
-      getPatientsByClient: (clientId: number) => Promise<Patient[]>;
-      createPatient: (patient: Patient) => Promise<number>;
-      getAllNomenclature: () => Promise<NomenclatureItem[]>;
-      searchNomenclature: (query: string) => Promise<NomenclatureItem[]>;
-      createAppointment: (appointment: Appointment) => Promise<number>;
-      getRecentAppointments: (limit?: number) => Promise<Appointment[]>;
-      createInvoice: (invoice: Invoice) => Promise<number>;
-      getRecentInvoices: (limit?: number) => Promise<Invoice[]>;
-      checkConnection: () => Promise<boolean>;
-      downloadInitialData: () => Promise<void>;
-      uploadPendingChanges: () => Promise<void>;
-      fullSync: () => Promise<void>;
-      getSyncStatus: () => Promise<SyncStatus>;
-      onSyncStatusChange: (callback: (status: SyncStatus) => void) => void;
-    };
-  }
-}
