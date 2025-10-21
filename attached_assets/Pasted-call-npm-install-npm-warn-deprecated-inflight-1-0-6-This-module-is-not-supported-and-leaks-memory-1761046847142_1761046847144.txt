@@ -1,0 +1,51 @@
+call npm install
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 476 packages, and audited 477 packages in 1m
+
+78 packages are looking for funding
+  run `npm fund` for details
+
+5 vulnerabilities (1 low, 4 moderate)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+OK!
+
+╨и╨░╨│ 3/3: ╨б╨▒╨╛╤А╨║╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╤Й╨╕╨║╨░...
+
+> vetsystem-companion@1.0.0 build:win
+> npm run build -- --win
+
+
+> vetsystem-companion@1.0.0 build
+> tsc && vite build && electron-builder --win
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+failed to load config from C:\## Work ##\!!! Код новой программы !!!\Replit\Компаньон\vite.config.ts
+error during build:
+Error: Cannot find module 'esbuild'
+Require stack:
+- C:\## Work ##\!!! Код новой программы !!!\Replit\Компаньон\node_modules\vite-plugin-electron-renderer\dist\index.js
+- C:\## Work ##\!!! Код новой программы !!!\Replit\Компаньон\vite.config.ts
+- C:\## Work ##\!!! Код новой программы !!!\Replit\Компаньон\node_modules\vite\dist\node\chunks\dep-C6uTJdX2.js
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1383:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1025:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1030:22)
+    at Function._load (node:internal/modules/cjs/loader:1192:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+    at Module.<anonymous> (C:\## Work ##\!!! Код новой программы !!!\Replit\Компаньон\node_modules\vite-plugin-electron-renderer\dist\index.js:7:17)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+[╨Ю╨и╨Ш╨С╨Ъ╨Р] ╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╤Б╨╛╨▒╤А╨░╤В╤М ╤Г╤Б╤В╨░╨╜╨╛╨▓╤Й╨╕╨║
