@@ -17,6 +17,8 @@ win:
         - x64
   icon: build/icon.ico
   artifactName: ${productName}-Setup-${version}.${ext}
+  sign: null
+  signingHashAlgorithms: null
 
 nsis:
   oneClick: false
@@ -41,3 +43,5 @@ linux:
     - AppImage
   icon: build/icon.png
   category: Office
+
+forceCodeSigning: false
