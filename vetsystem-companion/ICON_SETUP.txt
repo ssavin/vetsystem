@@ -1,0 +1,56 @@
+КАК ДОБАВИТЬ ИКОНКУ В ПРИЛОЖЕНИЕ
+===================================
+
+Сейчас приложение использует стандартную иконку Electron.
+Чтобы добавить свою иконку:
+
+1. СОЗДАТЬ ИКОНКУ .ICO
+   
+   Онлайн-конвертеры:
+   - https://www.icoconverter.com/
+   - https://convertio.co/ru/png-ico/
+   - https://cloudconvert.com/png-to-ico
+   
+   Требования:
+   - Формат: .ico
+   - Размеры: 256x256 пикселей (или больше)
+   - Рекомендуется: использовать синий цвет (#1976D2) 
+     для соответствия дизайну VetSystem
+
+2. СОХРАНИТЬ ФАЙЛ
+   
+   Сохраните файл как:
+   C:\VetSystem\vetsystem-companion\build\icon.ico
+
+3. ОБНОВИТЬ КОНФИГУРАЦИЮ
+   
+   Откройте файл: electron-builder.yml
+   
+   Найдите секцию "win:" и добавьте строку:
+   
+   win:
+     target:
+       - target: nsis
+         arch:
+           - x64
+     icon: build/icon.ico    ← добавьте эту строку
+     artifactName: ${productName}-Setup-${version}.${ext}
+   
+   В секции "nsis:" добавьте:
+   
+   nsis:
+     oneClick: false
+     allowToChangeInstallationDirectory: true
+     createDesktopShortcut: true
+     createStartMenuShortcut: true
+     shortcutName: ${productName}
+     deleteAppDataOnUninstall: false
+     installerIcon: build/icon.ico        ← добавьте
+     uninstallerIcon: build/icon.ico      ← добавьте
+     installerHeaderIcon: build/icon.ico  ← добавьте
+
+4. ПЕРЕСОБРАТЬ
+   
+   Запустите: build-nosign.bat
+
+ГОТОВО! Теперь приложение будет с вашей иконкой.

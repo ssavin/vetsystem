@@ -15,7 +15,6 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: build/icon.ico
   artifactName: ${productName}-Setup-${version}.${ext}
   sign: null
   signingHashAlgorithms: null
@@ -27,10 +26,6 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: ${productName}
   deleteAppDataOnUninstall: false
-  installerIcon: build/icon.ico
-  uninstallerIcon: build/icon.ico
-  installerHeaderIcon: build/icon.ico
-  license: LICENSE.txt
 
 mac:
   target:
