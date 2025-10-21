@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Route, Switch } from 'wouter';
+import { Route, Switch, useLocation } from 'wouter';
 import type { SyncStatus } from '@shared/types';
 import SyncStatusBar from './components/SyncStatusBar';
 import Sidebar from './components/Sidebar';
@@ -9,11 +9,18 @@ import InvoicesPage from './pages/InvoicesPage';
 import SettingsPage from './pages/SettingsPage';
 
 export default function App() {
+  const [location] = useLocation();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isOnline: false,
     pendingCount: 0,
     isSyncing: false,
   });
+
+  // Debug: log current location
+  useEffect(() => {
+    console.log('Current location:', location);
+    console.log('window.location:', window.location.href);
+  }, [location]);
 
   useEffect(() => {
     // Wait for API to be ready
