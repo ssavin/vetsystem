@@ -5,24 +5,24 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   // Clients
   getAllClients: () => ipcRenderer.invoke('db:get-all-clients'),
-  searchClients: (query: string) => ipcRenderer.invoke('db:search-clients', query),
-  createClient: (client: Client) => ipcRenderer.invoke('db:create-client', client),
+  searchClients: (query) => ipcRenderer.invoke('db:search-clients', query),
+  createClient: (client) => ipcRenderer.invoke('db:create-client', client),
 
   // Patients
-  getPatientsByClient: (clientId: number) => ipcRenderer.invoke('db:get-patients-by-client', clientId),
-  createPatient: (patient: Patient) => ipcRenderer.invoke('db:create-patient', patient),
+  getPatientsByClient: (clientId) => ipcRenderer.invoke('db:get-patients-by-client', clientId),
+  createPatient: (patient) => ipcRenderer.invoke('db:create-patient', patient),
 
   // Nomenclature
   getAllNomenclature: () => ipcRenderer.invoke('db:get-all-nomenclature'),
-  searchNomenclature: (query: string) => ipcRenderer.invoke('db:search-nomenclature', query),
+  searchNomenclature: (query) => ipcRenderer.invoke('db:search-nomenclature', query),
 
   // Appointments
-  createAppointment: (appointment: Appointment) => ipcRenderer.invoke('db:create-appointment', appointment),
-  getRecentAppointments: (limit?: number) => ipcRenderer.invoke('db:get-recent-appointments', limit),
+  createAppointment: (appointment) => ipcRenderer.invoke('db:create-appointment', appointment),
+  getRecentAppointments: (limit) => ipcRenderer.invoke('db:get-recent-appointments', limit),
 
   // Invoices
-  createInvoice: (invoice: Invoice) => ipcRenderer.invoke('db:create-invoice', invoice),
-  getRecentInvoices: (limit?: number) => ipcRenderer.invoke('db:get-recent-invoices', limit),
+  createInvoice: (invoice) => ipcRenderer.invoke('db:create-invoice', invoice),
+  getRecentInvoices: (limit) => ipcRenderer.invoke('db:get-recent-invoices', limit),
 
   // Sync
   checkConnection: () => ipcRenderer.invoke('sync:check-connection'),

@@ -1,0 +1,124 @@
+npm run build:win
+
+> vetsystem-companion@1.0.0 build:win
+> npm run build -- --win
+
+
+> vetsystem-companion@1.0.0 build
+> tsc && vite build && electron-builder --win
+
+src/main/preload.ts:9:26 - error TS2304: Cannot find name 'Client'.
+
+9   createClient: (client: Client) => ipcRenderer.invoke('db:create-client', client),
+                           ~~~~~~
+
+src/main/preload.ts:13:28 - error TS2304: Cannot find name 'Patient'.
+
+13   createPatient: (patient: Patient) => ipcRenderer.invoke('db:create-patient', patient),
+                              ~~~~~~~
+
+src/main/preload.ts:20:36 - error TS2304: Cannot find name 'Appointment'.
+
+20   createAppointment: (appointment: Appointment) => ipcRenderer.invoke('db:create-appointment', appointment),
+                                      ~~~~~~~~~~~
+
+src/main/preload.ts:24:28 - error TS2304: Cannot find name 'Invoice'.
+
+24   createInvoice: (invoice: Invoice) => ipcRenderer.invoke('db:create-invoice', invoice),
+                              ~~~~~~~
+
+src/renderer/App.tsx:20:12 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+20     window.api.getSyncStatus().then(setSyncStatus);
+              ~~~
+
+src/renderer/App.tsx:23:12 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+23     window.api.onSyncStatusChange(setSyncStatus);
+              ~~~
+
+src/renderer/components/SyncStatusBar.tsx:10:20 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+10       await window.api.fullSync();
+                      ~~~
+
+src/renderer/pages/AppointmentsPage.tsx:13:27 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+13     queryFn: () => window.api.getRecentAppointments(100),
+                             ~~~
+
+src/renderer/pages/AppointmentsPage.tsx:18:27 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+18     queryFn: () => window.api.getAllClients(),
+                             ~~~
+
+src/renderer/pages/AppointmentsPage.tsx:23:27 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+23     queryFn: () => window.api.getPatientsByClient(selectedClientId!),
+                             ~~~
+
+src/renderer/pages/AppointmentsPage.tsx:28:54 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+28     mutationFn: (appointment: Appointment) => window.api.createAppointment(appointment),
+                                                        ~~~
+
+src/renderer/pages/ClientsPage.tsx:15:16 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+15       ? window.api.searchClients(searchQuery)
+                  ~~~
+
+src/renderer/pages/ClientsPage.tsx:16:16 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+16       : window.api.getAllClients(),
+                  ~~~
+
+src/renderer/pages/ClientsPage.tsx:22:27 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+22     queryFn: () => window.api.getPatientsByClient(selectedClient!.id!),
+                             ~~~
+
+src/renderer/pages/ClientsPage.tsx:28:44 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+28     mutationFn: (client: Client) => window.api.createClient(client),
+                                              ~~~
+
+src/renderer/pages/ClientsPage.tsx:37:46 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+37     mutationFn: (patient: Patient) => window.api.createPatient(patient),
+                                                ~~~
+
+src/renderer/pages/InvoicesPage.tsx:14:27 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+14     queryFn: () => window.api.getRecentInvoices(100),
+                             ~~~
+
+src/renderer/pages/InvoicesPage.tsx:19:27 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+19     queryFn: () => window.api.getAllClients(),
+                             ~~~
+
+src/renderer/pages/InvoicesPage.tsx:25:16 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+25       ? window.api.searchNomenclature(searchNomenclature)
+                  ~~~
+
+src/renderer/pages/InvoicesPage.tsx:26:16 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+26       : window.api.getAllNomenclature(),
+                  ~~~
+
+src/renderer/pages/InvoicesPage.tsx:30:46 - error TS2339: Property 'api' does not exist on type 'Window & typeof globalThis'.
+
+30     mutationFn: (invoice: Invoice) => window.api.createInvoice(invoice),
+                                                ~~~
+
+
+Found 21 errors in 6 files.
+
+Errors  Files
+     4  src/main/preload.ts:9
+     2  src/renderer/App.tsx:20
+     1  src/renderer/components/SyncStatusBar.tsx:10
+     4  src/renderer/pages/AppointmentsPage.tsx:13
+     5  src/renderer/pages/ClientsPage.tsx:15
+     5  src/renderer/pages/InvoicesPage.tsx:14
