@@ -5,7 +5,7 @@ import { DatabaseManager } from './database';
 import { SyncService } from './sync-service';
 import Store from 'electron-store';
 
-// Get __dirname equivalent in ES modules
+// ES module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
