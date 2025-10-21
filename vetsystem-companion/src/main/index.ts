@@ -166,49 +166,63 @@ function setupIpcHandlers() {
 }
 
 app.whenReady().then(() => {
-  // Initialize database
-  db = new DatabaseManager();
-  console.log('✓ Database initialized');
-
-  // Initialize sync service
-  const serverUrl = store.get('serverUrl') as string;
-  const apiKey = store.get('apiKey') as string;
-  syncService = new SyncService(db, serverUrl, apiKey);
+  console.log('App ready - creating window first');
   
-  // Send sync status updates to renderer
-  syncService.setStatusCallback((status) => {
-    if (mainWindow) {
-      mainWindow.webContents.send('sync:status-changed', status);
-    }
-  });
-
-  console.log('✓ Sync service initialized');
-
-  // Setup IPC handlers
-  setupIpcHandlers();
-  console.log('✓ IPC handlers registered');
-
-  // Create window
+  // Create window FIRST - before anything else
   createWindow();
+  console.log('✓ Window created');
 
-  // Start auto-sync
-  const autoSyncInterval = store.get('autoSyncInterval') as number;
-  syncService.startAutoSync(autoSyncInterval);
-  console.log('✓ Auto-sync started');
+  // Then initialize database and sync in background (non-blocking)
+  setTimeout(() => {
+    try {
+      console.log('Initializing database...');
+      db = new DatabaseManager();
+      console.log('✓ Database initialized');
 
-  // Initial connection check
-  syncService.checkConnection().then((isOnline) => {
-    if (isOnline) {
-      console.log('✓ Server connection established');
-    } else {
-      console.log('⚠ Server offline - working in offline mode');
+      // Initialize sync service
+      const serverUrl = store.get('serverUrl') as string;
+      const apiKey = store.get('apiKey') as string;
+      syncService = new SyncService(db, serverUrl, apiKey);
+      
+      // Send sync status updates to renderer
+      syncService.setStatusCallback((status) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('sync:status-changed', status);
+        }
+      });
+
+      console.log('✓ Sync service initialized');
+
+      // Setup IPC handlers
+      setupIpcHandlers();
+      console.log('✓ IPC handlers registered');
+
+      // DON'T auto-start sync - let user trigger it manually
+      console.log('✓ Ready - sync available but not started automatically');
+
+    } catch (error) {
+      console.error('Error during initialization:', error);
+      // Window is still open, user can see error
     }
-  });
+  }, 100);
 });
 
 app.on('window-all-closed', () => {
-  syncService.stopAutoSync();
-  db.close();
+  if (syncService) {
+    try {
+      syncService.stopAutoSync();
+    } catch (e) {
+      console.error('Error stopping sync:', e);
+    }
+  }
+  
+  if (db) {
+    try {
+      db.close();
+    } catch (e) {
+      console.error('Error closing database:', e);
+    }
+  }
   
   if (process.platform !== 'darwin') {
     app.quit();
