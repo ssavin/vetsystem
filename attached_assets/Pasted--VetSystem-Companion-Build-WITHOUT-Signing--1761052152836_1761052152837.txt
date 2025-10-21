@@ -1,0 +1,138 @@
+
+================================================
+VetSystem Companion - Build WITHOUT Signing
+================================================
+
+Setting environment variables...
+Done
+
+Building installer (5-10 minutes)...
+
+
+> vetsystem-companion@1.0.0 build:win
+> npm run build -- --win
+
+
+> vetsystem-companion@1.0.0 build
+> tsc && vite build && electron-builder --win
+
+vite v5.4.21 building for production...
+✓ 394 modules transformed.
+dist/index.html                   0.47 kB │ gzip:  0.31 kB
+dist/assets/index-DW0BBNv9.css    1.33 kB │ gzip:  0.67 kB
+dist/assets/index-cuRzQGwa.js   231.73 kB │ gzip: 71.07 kB
+✓ built in 2.41s
+vite v5.4.21 building for production...
+✓ 765 modules transformed.
+dist/main/index.js  728.29 kB │ gzip: 172.96 kB
+✓ built in 2.35s
+vite v5.4.21 building for production...
+✓ 1 modules transformed.
+dist/preload/preload.js  1.27 kB │ gzip: 0.45 kB
+✓ built in 13ms
+  • electron-builder  version=24.13.3 os=10.0.19044
+  • loaded configuration  file=package.json ("build" field)
+  • effective config  config=directories:
+  output: release
+  buildResources: build
+appId: com.vetsystem.companion
+productName: VetSystem Companion
+files:
+  - filter:
+      - dist/**/*
+      - package.json
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+  sign: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+afterSign: null
+forceCodeSigning: false
+
+  • writing effective config  file=release\builder-effective-config.yaml
+  • spawning        command=C:\VetSystem\vetsystem-companion\node_modules\app-builder-bin\win\x64\app-builder.exe node-dep-tree --dir C:\VetSystem\vetsystem-companion
+  • unresolved deps  unresolved=pumptar-streammkdirp-classic nodeModuleDir=C:\VetSystem\vetsystem-companion\node_modules round=0
+  • unresolved deps  unresolved=ajv-formatsatomicallydebounce-fndot-propenv-pathsonetimepkg-upjson-schema-typed nodeModuleDir=C:\VetSystem\vetsystem-companion\node_modules round=0
+  • unresolved deps  unresolved=fast-deep-equalfast-urirequire-from-string nodeModuleDir=C:\VetSystem\vetsystem-companion\node_modules round=0
+  • unresolved deps  unresolved=fast-deep-equalfast-urirequire-from-string nodeModuleDir=C:\VetSystem\vetsystem-companion\node_modules round=0
+  • exited          command=app-builder.exe code=0 pid=16684 out=[{"dir":"C:\\VetSystem\\vetsystem-companion\\node_modules","deps":[{"name":"ajv-formats","version":"2.1.1"},{"name":"asynckit","version":"0.4.0"},{"name":"atomically","version":"1.7.0"},{"name":"axios","version":"1.12.2"},{"name":"base64-js","version":"1.5.1"},{"name":"better-sqlite3","version":"9.6.0","hasPrebuildInstall":true},{"name":"bindings","version":"1.5.0"},{"name":"bl","version":"4.1.0"},{"name":"buffer","version":"5.7.1"},{"name":"call-bind-apply-helpers","version":"1.0.2"},{"name":"combined-stream","version":"1.0.8"},{"name":"conf","version":"10.2.0"},{"name":"debounce-fn","version":"4.0.0"},{"name":"decompress-response","version":"6.0.0"},{"name":"deep-extend","version":"0.6.0"},{"name":"delayed-stream","version":"1.0.0"},{"name":"detect-libc","version":"2.1.2"},{"name":"dot-prop","version":"6.0.1"},{"name":"dunder-proto","version":"1.0.1"},{"name":"electron-store","version":"8.2.0"},{"name":"end-of-stream","version":"1.4.5"},{"name":"env-paths","version":"2.2.1"},{"name":"es-define-property","version":"1.0.1"},{"name":"es-errors","version":"1.3.0"},{"name":"es-object-atoms","version":"1.1.1"},{"name":"es-set-tostringtag","version":"2.1.0"},{"name":"expand-template","version":"2.0.3"},{"name":"fast-deep-equal","version":"3.1.3"},{"name":"fast-uri","version":"3.1.0"},{"name":"file-uri-to-path","version":"1.0.0"},{"name":"find-up","version":"3.0.0"},{"name":"follow-redirects","version":"1.15.11"},{"name":"form-data","version":"4.0.4"},{"name":"fs-constants","version":"1.0.0"},{"name":"function-bind","version":"1.1.2"},{"name":"get-intrinsic","version":"1.3.0"},{"name":"get-proto","version":"1.0.1"},{"name":"github-from-package","version":"0.0.0"},{"name":"gopd","version":"1.2.0"},{"name":"has-symbols","version":"1.1.0"},{"name":"has-tostringtag","version":"1.0.2"},{"name":"hasown","version":"2.0.2"},{"name":"ieee754","version":"1.2.1"},{"name":"inherits","version":"2.0.4"},{"name":"ini","version":"1.3.8"},{"name":"is-obj","version":"2.0.0"},{"name":"json-schema-typed","version":"7.0.3"},{"name":"locate-path","version":"3.0.0"},{"name":"math-intrinsics","version":"1.1.0"},{"name":"mime-db","version":"1.52.0"},{"name":"mime-types","version":"2.1.35"},{"name":"mimic-fn","version":"3.1.0"},{"name":"minimist","version":"1.2.8"},{"name":"mkdirp-classic","version":"0.5.3"},{"name":"napi-build-utils","version":"2.0.0","napiVersions":[22310]},{"name":"node-abi","version":"3.78.0"},{"name":"once","version":"1.4.0"},{"name":"onetime","version":"5.1.2"},{"name":"p-limit","version":"2.3.0"},{"name":"p-locate","version":"3.0.0"},{"name":"p-try","version":"2.2.0"},{"name":"path-exists","version":"3.0.0"},{"name":"pkg-up","version":"3.1.0"},{"name":"prebuild-install","version":"7.1.3"},{"name":"proxy-from-env","version":"1.1.0"},{"name":"pump","version":"3.0.3"},{"name":"rc","version":"1.2.8"},{"name":"readable-stream","version":"3.6.2"},{"name":"require-from-string","version":"2.0.2"},{"name":"safe-buffer","version":"5.2.1"},{"name":"simple-concat","version":"1.0.1"},{"name":"simple-get","version":"4.0.1"},{"name":"string_decoder","version":"1.3.0"},{"name":"strip-json-comments","version":"2.0.1"},{"name":"tar-fs","version":"2.1.4"},{"name":"tar-stream","version":"2.2.0"},{"name":"tunnel-agent","version":"0.6.0"},{"name":"type-fest","version":"2.19.0"},{"name":"util-deprecate","version":"1.0.2"},{"name":"wrappy","version":"1.0.2"}]},{"dir":"C:\\VetSystem\\vetsystem-companion\\node_modules\\ajv-formats\\node_modules","deps":[{"name":"ajv","version":"8.17.1"},{"name":"json-schema-traverse","version":"1.0.0"}]},{"dir":"C:\\VetSystem\\vetsystem-companion\\node_modules\\conf\\node_modules","deps":[{"name":"ajv","version":"8.17.1"},{"name":"json-schema-traverse","version":"1.0.0"},{"name":"semver","version":"7.7.3"}]},{"dir":"C:\\VetSystem\\vetsystem-companion\\node_modules\\decompress-response\\node_modules","deps":[{"name":"mimic-response","version":"3.1.0"}]},{"dir":"C:\\VetSystem\\vetsystem-companion\\node_modules\\node-abi\\node_modules","deps":[{"name":"semver","version":"7.7.3"}]},{"dir":"C:\\VetSystem\\vetsystem-companion\\node_modules\\onetime\\node_modules","deps":[{"name":"mimic-fn","version":"2.1.0"}]},{"dir":"C:\\VetSystem\\vetsystem-companion\\node_modules\\tar-fs\\node_modules","deps":[{"name":"chownr","version":"1.1.4"}]}]
+  • spawning        command=C:\VetSystem\vetsystem-companion\node_modules\app-builder-bin\win\x64\app-builder.exe rebuild-node-modules cwd=C:\VetSystem\vetsystem-companion
+  • map async       taskCount=7
+  • map async       taskCount=1
+  • map async       taskCount=3
+  • map async       taskCount=2
+  • map async       taskCount=1
+  • map async       taskCount=1
+  • map async       taskCount=80
+  • map async       taskCount=1
+  • rebuilding native dependencies  dependencies=better-sqlite3@9.6.0 platform=win32 arch=x64
+  • map async       taskCount=1
+  • install prebuilt binary  name=better-sqlite3 version=9.6.0 platform=win32 arch=x64 napi=
+  • execute command  command='C:\Program Files\nodejs\node.exe' 'C:\VetSystem\vetsystem-companion\node_modules\prebuild-install\bin.js' --platform=win32 --arch=x64 --target=28.3.3 --runtime=electron --verbose --force
+                     workingDirectory=C:\VetSystem\vetsystem-companion\node_modules\better-sqlite3
+  • command executed  executable=C:\Program Files\nodejs\node.exe
+                      errorOut=prebuild-install info begin Prebuild-install version 7.1.3
+    prebuild-install warn install prebuilt binaries enforced with --force!
+    prebuild-install warn install prebuilt binaries may be out of date!
+    prebuild-install info looking for local prebuild @ prebuilds\better-sqlite3-v9.6.0-electron-v119-win32-x64.tar.gz
+    prebuild-install info looking for cached prebuild @ C:\Users\IT_Support\AppData\Local\npm-cache\_prebuilds\8d7576-better-sqlite3-v9.6.0-electron-v119-win32-x64.tar.gz
+    prebuild-install info found cached prebuild
+    prebuild-install info unpacking @ C:\Users\IT_Support\AppData\Local\npm-cache\_prebuilds\8d7576-better-sqlite3-v9.6.0-electron-v119-win32-x64.tar.gz
+    prebuild-install info unpack resolved to C:\VetSystem\vetsystem-companion\node_modules\better-sqlite3\build\Release\better_sqlite3.node
+    prebuild-install info install Successfully installed prebuilt binary!
+
+  • all native deps were installed using prebuild-install
+  • exited          command=app-builder.exe code=0 pid=18988
+  • packaging       platform=win32 arch=x64 electron=28.3.3 appOutDir=release\win-unpacked
+  • spawning        command=C:\VetSystem\vetsystem-companion\node_modules\app-builder-bin\win\x64\app-builder.exe unpack-electron --configuration [{"platform":"win32","arch":"x64","version":"28.3.3"}] --output C:\VetSystem\vetsystem-companion\release\win-unpacked --distMacOsAppName Electron.app
+  • map async       taskCount=2
+  • map async       taskCount=1
+  • map async       taskCount=73
+  • exited          command=app-builder.exe code=0 pid=22004
+  • getPublishConfigsForUpdateInfo: no publishConfigs, detect using repository info
+  • spawning        command=C:\VetSystem\vetsystem-companion\node_modules\app-builder-bin\win\x64\app-builder.exe icon --format ico --root C:\VetSystem\vetsystem-companion\build --root C:\VetSystem\vetsystem-companion --out C:\VetSystem\vetsystem-companion\release\.icon-ico --input build/icon.ico
+  • path doesn't exist  path=C:\VetSystem\vetsystem-companion\build\build\icon.ico
+  • path doesn't exist  path=C:\VetSystem\vetsystem-companion\build\icon.ico
+  • path doesn't exist  path=C:\VetSystem\vetsystem-companion\build\icon.ico
+  • path doesn't exist  path=C:\VetSystem\vetsystem-companion\icon.ico
+  • path doesn't exist  path=C:\VetSystem\vetsystem-companion\build\icons
+  • path doesn't exist  path=C:\VetSystem\vetsystem-companion\icons
+  • path doesn't exist  path=C:\VetSystem\vetsystem-companion\build\icon.png
+  • path doesn't exist  path=C:\VetSystem\vetsystem-companion\icon.png
+  • path doesn't exist  path=C:\VetSystem\vetsystem-companion\build\icon.icns
+  • path doesn't exist  path=C:\VetSystem\vetsystem-companion\icon.icns
+  • no icons found, using provided fallback sources
+  • exited          command=app-builder.exe code=0 pid=11556 out={"icons":null,"isFallback":true}
+  • default Electron icon is used  reason=application icon is not set
+  • spawning        command=C:\VetSystem\vetsystem-companion\node_modules\app-builder-bin\win\x64\app-builder.exe rcedit --args ["C:\\VetSystem\\vetsystem-companion\\release\\win-unpacked\\VetSystem Companion.exe","--set-version-string","FileDescription","VetSystem Companion","--set-version-string","ProductName","VetSystem Companion","--set-version-string","LegalCopyright","Copyright © 2025 VetSystem","--set-file-version","1.0.0","--set-product-version","1.0.0.0","--set-version-string","InternalName","VetSystem Companion","--set-version-string","OriginalFilename","","--set-version-string","CompanyName","VetSystem"]
+  • found existing  path=C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0
+  • execute command  command='C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0\rcedit-x64.exe' 'C:\VetSystem\vetsystem-companion\release\win-unpacked\VetSystem Companion.exe' --set-version-string FileDescription 'VetSystem Companion' --set-version-string ProductName 'VetSystem Companion' --set-version-string LegalCopyright 'Copyright © 2025 VetSystem' --set-file-version 1.0.0 --set-product-version 1.0.0.0 --set-version-string InternalName 'VetSystem Companion' --set-version-string OriginalFilename '' --set-version-string CompanyName VetSystem
+                     workingDirectory=
+  • command executed  executable=C:\Users\IT_Support\AppData\Local\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0\rcedit-x64.exe
+  • exited          command=app-builder.exe code=0 pid=24364
+  ⨯ Cannot use 'in' operator to search for 'file' in undefined  failedTask=build stackTrace=TypeError: Cannot use 'in' operator to search for 'file' in undefined
+    at doSign (C:\VetSystem\vetsystem-companion\node_modules\app-builder-lib\src\codeSign\windowsCodeSign.ts:154:70)
+    at sign (C:\VetSystem\vetsystem-companion\node_modules\app-builder-lib\src\codeSign\windowsCodeSign.ts:60:7)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+From previous event:
+    at processImmediate (node:internal/timers:485:21)
+From previous event:
+    at WinPackager.signApp (C:\VetSystem\vetsystem-companion\node_modules\app-builder-lib\src\winPackager.ts:384:27)
+    at WinPackager.doSignAfterPack (C:\VetSystem\vetsystem-companion\node_modules\app-builder-lib\src\platformPackager.ts:336:32)
+    at WinPackager.doPack (C:\VetSystem\vetsystem-companion\node_modules\app-builder-lib\src\platformPackager.ts:321:7)
+    at WinPackager.pack (C:\VetSystem\vetsystem-companion\node_modules\app-builder-lib\src\platformPackager.ts:140:5)
+    at Packager.doBuild (C:\VetSystem\vetsystem-companion\node_modules\app-builder-lib\src\packager.ts:445:9)
+    at executeFinally (C:\VetSystem\vetsystem-companion\node_modules\builder-util\src\promise.ts:12:14)
+    at Packager._build (C:\VetSystem\vetsystem-companion\node_modules\app-builder-lib\src\packager.ts:379:31)
+    at Packager.build (C:\VetSystem\vetsystem-companion\node_modules\app-builder-lib\src\packager.ts:340:12)
+    at executeFinally (C:\VetSystem\vetsystem-companion\node_modules\builder-util\src\promise.ts:12:14)
+
+================================================
+BUILD FAILED
+================================================
+Press any key to continue . . .
