@@ -166,41 +166,43 @@ function setupIpcHandlers() {
 }
 
 app.whenReady().then(() => {
-  console.log('App ready');
+  console.log('App ready - creating window immediately');
   
-  try {
-    console.log('Initializing database...');
-    db = new DatabaseManager();
-    console.log('✓ Database initialized');
-
-    // Initialize sync service
-    const serverUrl = store.get('serverUrl') as string;
-    const apiKey = store.get('apiKey') as string;
-    syncService = new SyncService(db, serverUrl, apiKey);
-    
-    // Send sync status updates to renderer
-    syncService.setStatusCallback((status) => {
-      if (mainWindow) {
-        mainWindow.webContents.send('sync:status-changed', status);
-      }
-    });
-
-    console.log('✓ Sync service initialized');
-
-    // Setup IPC handlers BEFORE window creation
-    setupIpcHandlers();
-    console.log('✓ IPC handlers registered');
-
-  } catch (error) {
-    console.error('Error during initialization:', error);
-  }
-
-  // Create window AFTER services are ready
+  // Create window FIRST
   createWindow();
   console.log('✓ Window created');
 
-  // DON'T auto-start sync - let user trigger it manually
-  console.log('✓ Ready - sync available but not started automatically');
+  // Initialize services asynchronously in background
+  setTimeout(() => {
+    try {
+      console.log('Initializing database...');
+      db = new DatabaseManager();
+      console.log('✓ Database initialized');
+
+      // Initialize sync service
+      const serverUrl = store.get('serverUrl') as string;
+      const apiKey = store.get('apiKey') as string;
+      syncService = new SyncService(db, serverUrl, apiKey);
+      
+      // Send sync status updates to renderer
+      syncService.setStatusCallback((status) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('sync:status-changed', status);
+        }
+      });
+
+      console.log('✓ Sync service initialized');
+
+      // Setup IPC handlers after services are ready
+      setupIpcHandlers();
+      console.log('✓ IPC handlers registered');
+      console.log('✓ All services ready - sync available');
+
+    } catch (error) {
+      console.error('Error during initialization:', error);
+      // Window is still open - user can see the error
+    }
+  }, 500); // Give window time to load first
 });
 
 app.on('window-all-closed', () => {
