@@ -1,8 +1,13 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { DatabaseManager } from './database';
 import { SyncService } from './sync-service';
 import Store from 'electron-store';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Configuration store
 const store = new Store({
