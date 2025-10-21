@@ -12,8 +12,8 @@ const __dirname = path.dirname(__filename);
 // Configuration store
 const store = new Store({
   defaults: {
-    serverUrl: 'https://vetsystemai.ru',
-    apiKey: 'companion-api-key-2025', // Will be configured on first run
+    serverUrl: 'https://163c7f4b-ecd0-4898-bed1-7f874b611cee-00-3qk3u36tdricg.riker.replit.dev',
+    apiKey: 'companion-api-key-2025',
     autoSyncInterval: 60000, // 1 minute
   },
 });
@@ -47,7 +47,6 @@ function createWindow() {
     // In production, load the built files
     mainWindow.loadFile(path.join(__dirname, '../index.html')).then(() => {
       mainWindow?.show();
-      mainWindow?.webContents.openDevTools(); // Open DevTools for debugging
     }).catch((err) => {
       console.error('Failed to load HTML:', err);
     });
