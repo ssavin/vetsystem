@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Route, Switch, useLocation } from 'wouter';
+import { Route, Switch, Router } from 'wouter';
+import { useHashLocation } from 'wouter/use-hash-location';
 import type { SyncStatus } from '@shared/types';
 import SyncStatusBar from './components/SyncStatusBar';
 import Sidebar from './components/Sidebar';
@@ -9,18 +10,11 @@ import InvoicesPage from './pages/InvoicesPage';
 import SettingsPage from './pages/SettingsPage';
 
 export default function App() {
-  const [location] = useLocation();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isOnline: false,
     pendingCount: 0,
     isSyncing: false,
   });
-
-  // Debug: log current location
-  useEffect(() => {
-    console.log('Current location:', location);
-    console.log('window.location:', window.location.href);
-  }, [location]);
 
   useEffect(() => {
     // Wait for API to be ready
@@ -36,28 +30,30 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{ display: 'flex', height: '100vh', flexDirection: 'column' }}>
-      {/* Sync Status Bar */}
-      <SyncStatusBar status={syncStatus} />
+    <Router hook={useHashLocation}>
+      <div style={{ display: 'flex', height: '100vh', flexDirection: 'column' }}>
+        {/* Sync Status Bar */}
+        <SyncStatusBar status={syncStatus} />
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Sidebar Navigation */}
-        <Sidebar />
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          {/* Sidebar Navigation */}
+          <Sidebar />
 
-        {/* Main Content Area */}
-        <main style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
-          <Switch>
-            <Route path="/" component={ClientsPage} />
-            <Route path="/clients" component={ClientsPage} />
-            <Route path="/appointments" component={AppointmentsPage} />
-            <Route path="/invoices" component={InvoicesPage} />
-            <Route path="/settings" component={SettingsPage} />
-            <Route>
-              <div>404 - Страница не найдена</div>
-            </Route>
-          </Switch>
-        </main>
+          {/* Main Content Area */}
+          <main style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+            <Switch>
+              <Route path="/" component={ClientsPage} />
+              <Route path="/clients" component={ClientsPage} />
+              <Route path="/appointments" component={AppointmentsPage} />
+              <Route path="/invoices" component={InvoicesPage} />
+              <Route path="/settings" component={SettingsPage} />
+              <Route>
+                <div>404 - Страница не найдена</div>
+              </Route>
+            </Switch>
+          </main>
+        </div>
       </div>
-    </div>
+    </Router>
   );
 }
