@@ -167,45 +167,41 @@ function setupIpcHandlers() {
 }
 
 app.whenReady().then(() => {
-  console.log('App ready - creating window first');
+  console.log('App ready');
   
-  // Create window FIRST - before anything else
+  try {
+    console.log('Initializing database...');
+    db = new DatabaseManager();
+    console.log('✓ Database initialized');
+
+    // Initialize sync service
+    const serverUrl = store.get('serverUrl') as string;
+    const apiKey = store.get('apiKey') as string;
+    syncService = new SyncService(db, serverUrl, apiKey);
+    
+    // Send sync status updates to renderer
+    syncService.setStatusCallback((status) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('sync:status-changed', status);
+      }
+    });
+
+    console.log('✓ Sync service initialized');
+
+    // Setup IPC handlers BEFORE window creation
+    setupIpcHandlers();
+    console.log('✓ IPC handlers registered');
+
+  } catch (error) {
+    console.error('Error during initialization:', error);
+  }
+
+  // Create window AFTER services are ready
   createWindow();
   console.log('✓ Window created');
 
-  // Then initialize database and sync in background (non-blocking)
-  setTimeout(() => {
-    try {
-      console.log('Initializing database...');
-      db = new DatabaseManager();
-      console.log('✓ Database initialized');
-
-      // Initialize sync service
-      const serverUrl = store.get('serverUrl') as string;
-      const apiKey = store.get('apiKey') as string;
-      syncService = new SyncService(db, serverUrl, apiKey);
-      
-      // Send sync status updates to renderer
-      syncService.setStatusCallback((status) => {
-        if (mainWindow) {
-          mainWindow.webContents.send('sync:status-changed', status);
-        }
-      });
-
-      console.log('✓ Sync service initialized');
-
-      // Setup IPC handlers
-      setupIpcHandlers();
-      console.log('✓ IPC handlers registered');
-
-      // DON'T auto-start sync - let user trigger it manually
-      console.log('✓ Ready - sync available but not started automatically');
-
-    } catch (error) {
-      console.error('Error during initialization:', error);
-      // Window is still open, user can see error
-    }
-  }, 100);
+  // DON'T auto-start sync - let user trigger it manually
+  console.log('✓ Ready - sync available but not started automatically');
 });
 
 app.on('window-all-closed', () => {
