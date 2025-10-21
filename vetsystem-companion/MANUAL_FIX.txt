@@ -1,0 +1,49 @@
+MANUAL FIX: Edit package.json
+================================
+
+Open file: C:\VetSystem\vetsystem-companion\package.json
+
+Find this section (around line 65):
+
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/icon.ico"
+    },
+
+Replace with:
+
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/icon.ico",
+      "sign": false
+    },
+
+Then find this section (around line 70):
+
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+
+Add AFTER it (before the closing }):
+
+    ,
+    "afterSign": null,
+    "forceCodeSigning": false
+
+Final result should look like:
+
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "afterSign": null,
+    "forceCodeSigning": false
+  }
+}
+
+Save the file and run: npm run build:win
