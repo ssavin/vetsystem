@@ -47,6 +47,7 @@ function createWindow() {
     // In production, load the built files
     mainWindow.loadFile(path.join(__dirname, '../index.html')).then(() => {
       mainWindow?.show();
+      mainWindow?.webContents.openDevTools(); // TEMP: для отладки
     }).catch((err) => {
       console.error('Failed to load HTML:', err);
     });
@@ -60,10 +61,12 @@ function createWindow() {
 function setupIpcHandlers() {
   // Database handlers - Clients
   ipcMain.handle('db:get-all-clients', async () => {
+    if (!db) throw new Error('Database not initialized');
     return db.getAllClients();
   });
 
   ipcMain.handle('db:search-clients', async (_event, query: string) => {
+    if (!db) throw new Error('Database not initialized');
     return db.searchClients(query);
   });
 
@@ -172,6 +175,10 @@ app.whenReady().then(() => {
   createWindow();
   console.log('✓ Window created');
 
+  // Setup IPC handlers immediately (will check service readiness inside)
+  setupIpcHandlers();
+  console.log('✓ IPC handlers registered');
+
   // Initialize services asynchronously in background
   setTimeout(() => {
     try {
@@ -192,17 +199,13 @@ app.whenReady().then(() => {
       });
 
       console.log('✓ Sync service initialized');
-
-      // Setup IPC handlers after services are ready
-      setupIpcHandlers();
-      console.log('✓ IPC handlers registered');
       console.log('✓ All services ready - sync available');
 
     } catch (error) {
       console.error('Error during initialization:', error);
       // Window is still open - user can see the error
     }
-  }, 500); // Give window time to load first
+  }, 100); // Quick initialization
 });
 
 app.on('window-all-closed', () => {

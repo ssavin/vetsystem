@@ -16,11 +16,16 @@ export default function App() {
   });
 
   useEffect(() => {
-    // Get initial status
-    window.api.getSyncStatus().then(setSyncStatus);
-
-    // Subscribe to status updates
-    window.api.onSyncStatusChange(setSyncStatus);
+    // Wait for API to be ready
+    const checkApi = () => {
+      if (window.api) {
+        window.api.getSyncStatus().then(setSyncStatus).catch(console.error);
+        window.api.onSyncStatusChange(setSyncStatus);
+      } else {
+        setTimeout(checkApi, 100);
+      }
+    };
+    checkApi();
   }, []);
 
   return (
