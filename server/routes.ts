@@ -137,6 +137,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use('/api/', generalLimiter);
 
+  // ==================== HEALTH CHECK ====================
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   // Configure multer for file uploads with tenant/branch isolation
   const storage_multer = multer.diskStorage({
     destination: async (req, file, cb) => {
@@ -9011,8 +9016,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const patients = await storage.getAllPatients(tenantId);
       
       // Get all services and products (nomenclature) for this tenant
-      const services = await storage.getAllServices(tenantId);
-      const products = await storage.getAllProducts(tenantId);
+      const services = await storage.getServices();
+      const products = await storage.getProducts();
       
       // Combine services and products into nomenclature
       const nomenclature = [
