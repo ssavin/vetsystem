@@ -1,0 +1,47 @@
+
+================================================
+VetSystem Companion - Build Installer
+================================================
+
+[1/2] Checking Node.js...
+v22.20.0
+OK
+
+[2/2] Building installer...
+This will take 5-10 minutes, please wait...
+
+
+> vetsystem-companion@1.0.0 build:win
+> npm run build -- --win
+
+
+> vetsystem-companion@1.0.0 build
+> tsc && vite build && electron-builder --win
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+The project root contains the "#" character (C:/## Work ##/!!! Код новой программы !!!/Replit/Компаньон/vetsystem-companion), which may not work when running Vite. Consider renaming the directory to remove the characters.
+vite v5.4.21 building for production...
+✓ 0 modules transformed.
+The project root contains the "#" character (C:/## Work ##/!!! Код новой программы !!!/Replit/Компаньон/vetsystem-companion), which may not work when running Vite. Consider renaming the directory to remove the characters.
+vite v5.4.21 building for production...
+(node:17980) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/%23%23%20Work%20%23%23/!!!%20%D0%9A%D0%BE%D0%B4%20%D0%BD%D0%BE%D0%B2%D0%BE%D0%B9%20%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B%20!!!/Replit/%D0%9A%D0%BE%D0%BC%D0%BF%D0%B0%D0%BD%D1%8C%D0%BE%D0%BD/vetsystem-companion/postcss.config.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\## Work ##\!!! Код новой программы !!!\Replit\Компаньон\vetsystem-companion\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ 1 modules transformed.
+x Build failed in 500ms
+x Build failed in 549ms
+error during build:
+[vite-plugin-electron] Could not resolve "./database" from "src/main/index.ts"
+file: C:\## Work ##\!!! Код новой программы !!!\Replit\Компаньон\vetsystem-companion\src\main\index.ts
+file: C:\## Work ##\!!! Код новой программы !!!\Replit\Компаньон\vetsystem-companion\src\main\index.ts
+Could not resolve "./database" from "src/main/index.ts"
+file: C:\## Work ##\!!! Код новой программы !!!\Replit\Компаньон\vetsystem-companion\src\main\index.ts
+    at getRollupError (file:///C:/%23%23%20Work%20%23%23/!!!%20%D0%9A%D0%BE%D0%B4%20%D0%BD%D0%BE%D0%B2%D0%BE%D0%B9%20%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B%20!!!/Replit/%D0%9A%D0%BE%D0%BC%D0%BF%D0%B0%D0%BD%D1%8C%D0%BE%D0%BD/vetsystem-companion/node_modules/rollup/dist/es/shared/parseAst.js:401:41)
+    at error (file:///C:/%23%23%20Work%20%23%23/!!!%20%D0%9A%D0%BE%D0%B4%20%D0%BD%D0%BE%D0%B2%D0%BE%D0%B9%20%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B%20!!!/Replit/%D0%9A%D0%BE%D0%BC%D0%BF%D0%B0%D0%BD%D1%8C%D0%BE%D0%BD/vetsystem-companion/node_modules/rollup/dist/es/shared/parseAst.js:397:42)
+    at ModuleLoader.handleInvalidResolvedId (file:///C:/%23%23%20Work%20%23%23/!!!%20%D0%9A%D0%BE%D0%B4%20%D0%BD%D0%BE%D0%B2%D0%BE%D0%B9%20%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B%20!!!/Replit/%D0%9A%D0%BE%D0%BC%D0%BF%D0%B0%D0%BD%D1%8C%D0%BE%D0%BD/vetsystem-companion/node_modules/rollup/dist/es/shared/node-entry.js:21565:24)
+    at file:///C:/%23%23%20Work%20%23%23/!!!%20%D0%9A%D0%BE%D0%B4%20%D0%BD%D0%BE%D0%B2%D0%BE%D0%B9%20%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B%20!!!/Replit/%D0%9A%D0%BE%D0%BC%D0%BF%D0%B0%D0%BD%D1%8C%D0%BE%D0%BD/vetsystem-companion/node_modules/rollup/dist/es/shared/node-entry.js:21525:26
+
+BUILD ERROR!
+Check error messages above.
+Для продолжения нажмите любую клавишу . . .

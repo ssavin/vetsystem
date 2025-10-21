@@ -1,6 +1,7 @@
 {
   "name": "vetsystem-companion",
   "version": "1.0.0",
+  "type": "module",
   "description": "VetSystem Offline Companion - Desktop application for veterinary clinic management",
   "main": "dist/main/index.js",
   "author": "VetSystem",
