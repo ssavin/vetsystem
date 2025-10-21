@@ -28,22 +28,28 @@ function createWindow() {
     height: 900,
     minWidth: 1200,
     minHeight: 700,
+    show: false, // Don't show until ready
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
     },
     title: 'VetSystem Companion',
-    icon: path.join(__dirname, '../../build/icon.png'),
   });
 
   // In development, load from vite server
   if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    mainWindow.loadURL('http://localhost:5173').then(() => {
+      mainWindow?.show();
+      mainWindow?.webContents.openDevTools();
+    });
   } else {
     // In production, load the built files
-    mainWindow.loadFile(path.join(__dirname, '../index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../index.html')).then(() => {
+      mainWindow?.show();
+    }).catch((err) => {
+      console.error('Failed to load HTML:', err);
+    });
   }
 
   mainWindow.on('closed', () => {
