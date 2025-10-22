@@ -9035,13 +9035,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'branchId is required' });
       }
 
-      // Get all clients (owners) for this tenant and branch
+      // Get all clients (owners) for this tenant
+      // NOTE: In VetSystem architecture, clients and patients are shared across all branches
+      // within a tenant. Branch selection is used for appointments and invoices only.
       const allClients = await storage.getAllOwners(tenantId);
-      const clients = allClients; // All clients visible across branches
+      const clients = allClients;
       
-      // Get all patients for this tenant
+      // Get all patients for this tenant (also shared across branches)
       const allPatients = await storage.getAllPatients(tenantId);
-      const patients = allPatients; // All patients visible across branches
+      const patients = allPatients;
       
       // Get all services and products (nomenclature) for this tenant
       const services = await storage.getServices();
