@@ -8,19 +8,20 @@ export default function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const queryClient = useQueryClient();
 
-  // Fetch clients
+  // Fetch clients - ONLY when searching (min 2 chars)
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ['clients', searchQuery],
     queryFn: async () => {
-      const result = searchQuery 
-        ? await window.api.searchClients(searchQuery)
-        : await window.api.getAllClients();
-      console.log(`[ClientsPage] Loaded ${result.length} clients from database`);
-      if (result.length > 0) {
-        console.log(`[ClientsPage] First client:`, result[0]);
+      // Don't load anything if search query is too short
+      if (searchQuery.length < 2) {
+        return [];
       }
+      
+      const result = await window.api.searchClients(searchQuery);
+      console.log(`[ClientsPage] Search "${searchQuery}": found ${result.length} clients`);
       return result;
     },
+    enabled: searchQuery.length >= 2, // Only run query when search is meaningful
   });
 
   // Fetch patients for selected client
@@ -85,21 +86,28 @@ export default function ClientsPage() {
         </button>
       </div>
 
-      {/* Debug info */}
-      <div style={{ padding: '12px', background: '#f0f0f0', marginBottom: '16px', borderRadius: '8px' }}>
-        <strong>Debug:</strong> {isLoading ? 'Загрузка...' : `Найдено клиентов: ${clients.length}`}
-        {clients.length > 0 && <div style={{ fontSize: '12px', marginTop: '4px' }}>Первый клиент: {clients[0].full_name} ({clients[0].phone})</div>}
+      {/* Search - REQUIRED to load clients */}
+      <div style={{ marginBottom: '20px' }}>
+        <input
+          type="text"
+          placeholder="🔍 Введите минимум 2 символа для поиска клиентов..."
+          className="input"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          autoFocus
+          style={{ fontSize: '16px', padding: '12px' }}
+        />
+        {searchQuery.length > 0 && searchQuery.length < 2 && (
+          <div style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
+            ℹ️ Введите минимум 2 символа для поиска
+          </div>
+        )}
+        {searchQuery.length >= 2 && (
+          <div style={{ fontSize: '13px', color: '#2196F3', marginTop: '8px' }}>
+            ✓ Найдено: {clients.length} клиентов
+          </div>
+        )}
       </div>
-
-      {/* Search */}
-      <input
-        type="text"
-        placeholder="Поиск по имени или телефону..."
-        className="input"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        style={{ marginBottom: '20px' }}
-      />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         {/* Clients List */}
@@ -108,7 +116,20 @@ export default function ClientsPage() {
             Список клиентов ({clients.length})
           </h2>
           
-          {isLoading ? (
+          {searchQuery.length < 2 ? (
+            <div style={{ 
+              padding: '40px 20px', 
+              textAlign: 'center', 
+              color: '#999',
+              fontSize: '14px'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+              <div>Введите минимум 2 символа в поиск</div>
+              <div style={{ fontSize: '12px', marginTop: '8px' }}>
+                Это ускоряет работу с большой базой клиентов
+              </div>
+            </div>
+          ) : isLoading ? (
             <div>Загрузка...</div>
           ) : clients.length === 0 ? (
             <div style={{ color: 'var(--text-secondary)' }}>Клиенты не найдены</div>

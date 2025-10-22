@@ -6,6 +6,7 @@ export default function InvoicesPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [items, setItems] = useState<InvoiceItem[]>([]);
+  const [searchClient, setSearchClient] = useState('');
   const [searchNomenclature, setSearchNomenclature] = useState('');
   const queryClient = useQueryClient();
 
@@ -14,16 +15,18 @@ export default function InvoicesPage() {
     queryFn: () => window.api.getRecentInvoices(100),
   });
 
+  // Only load clients when searching (min 2 chars)
   const { data: clients = [] } = useQuery({
-    queryKey: ['clients'],
-    queryFn: () => window.api.getAllClients(),
+    queryKey: ['clients', searchClient],
+    queryFn: () => window.api.searchClients(searchClient),
+    enabled: searchClient.length >= 2,
   });
 
+  // Only load nomenclature when searching (min 2 chars)
   const { data: nomenclature = [] } = useQuery({
     queryKey: ['nomenclature', searchNomenclature],
-    queryFn: () => searchNomenclature
-      ? window.api.searchNomenclature(searchNomenclature)
-      : window.api.getAllNomenclature(),
+    queryFn: () => window.api.searchNomenclature(searchNomenclature),
+    enabled: searchNomenclature.length >= 2,
   });
 
   const createInvoiceMutation = useMutation({
@@ -162,18 +165,60 @@ export default function InvoicesPage() {
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
                   Клиент *
                 </label>
-                <select
+                <input
+                  type="text"
+                  placeholder="🔍 Поиск клиента (мин. 2 символа)..."
                   className="input"
-                  required
-                  onChange={(e) => setSelectedClientId(Number(e.target.value))}
-                >
-                  <option value="">Выберите клиента</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.full_name} ({client.phone})
-                    </option>
-                  ))}
-                </select>
+                  value={searchClient}
+                  onChange={(e) => setSearchClient(e.target.value)}
+                  required={!selectedClientId}
+                />
+                
+                {searchClient.length >= 2 && clients.length > 0 && (
+                  <div style={{
+                    marginTop: '8px',
+                    maxHeight: '200px',
+                    overflow: 'auto',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    background: 'white',
+                  }}>
+                    {clients.map((client) => (
+                      <div
+                        key={client.id}
+                        onClick={() => {
+                          setSelectedClientId(client.id!);
+                          setSearchClient(client.full_name);
+                        }}
+                        style={{
+                          padding: '10px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#F1F5F9'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                      >
+                        <div style={{ fontWeight: '500' }}>{client.full_name}</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                          {client.phone}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {selectedClientId && (
+                  <div style={{ 
+                    marginTop: '8px', 
+                    padding: '8px 12px', 
+                    background: '#E8F5E9', 
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    color: '#2E7D32'
+                  }}>
+                    ✓ Клиент выбран
+                  </div>
+                )}
               </div>
 
               <div>
@@ -182,13 +227,13 @@ export default function InvoicesPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="Поиск..."
+                  placeholder="🔍 Поиск услуг/товаров (мин. 2 символа)..."
                   className="input"
                   value={searchNomenclature}
                   onChange={(e) => setSearchNomenclature(e.target.value)}
                 />
                 
-                {searchNomenclature && (
+                {searchNomenclature.length >= 2 && nomenclature.length > 0 && (
                   <div style={{
                     marginTop: '8px',
                     maxHeight: '200px',
