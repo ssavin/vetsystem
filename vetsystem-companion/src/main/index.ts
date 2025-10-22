@@ -288,6 +288,17 @@ function setupIpcHandlers() {
     }
     return true;
   });
+
+  ipcMain.handle('settings:update-credentials', async (_event, serverUrl: string, apiKey: string) => {
+    log(`IPC: settings:update-credentials called`);
+    store.set('serverUrl', serverUrl);
+    store.set('apiKey', apiKey);
+    if (syncService) {
+      syncService.updateCredentials(serverUrl, apiKey);
+      log(`✓ Updated sync service credentials`);
+    }
+    return true;
+  });
 }
 
 async function initializeServices() {

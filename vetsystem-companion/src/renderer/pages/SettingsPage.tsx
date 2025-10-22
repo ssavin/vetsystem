@@ -77,14 +77,13 @@ export default function SettingsPage() {
     setMessage('');
 
     try {
-      // Save server URL and API key
-      await window.api.setSetting('serverUrl', serverUrl);
-      await window.api.setSetting('apiKey', apiKey);
+      // Update credentials (this will also update syncService's axios instance)
+      await window.api.updateCredentials(serverUrl, apiKey);
       
       // Update branch (this will also update syncService.branchId)
       await window.api.updateBranch(branchId, branchName);
       
-      setMessage('✅ Настройки сохранены. Синхронизация будет использовать выбранный филиал.');
+      setMessage('✅ Настройки сохранены. Изменения применены без перезапуска приложения.');
     } catch (error: any) {
       console.error('Failed to save settings:', error);
       setMessage('❌ Ошибка сохранения: ' + (error.message || 'Неизвестная ошибка'));

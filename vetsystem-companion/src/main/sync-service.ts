@@ -41,6 +41,19 @@ export class SyncService {
     this.branchId = branchId;
   }
 
+  updateCredentials(serverUrl: string, apiKey: string) {
+    // Recreate axios instance with new credentials
+    this.apiClient = axios.create({
+      baseURL: serverUrl,
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
+    });
+    console.log('✓ SyncService credentials updated:', { serverUrl, apiKey });
+  }
+
   setStatusCallback(callback: (status: SyncStatus) => void) {
     this.statusCallback = callback;
   }
