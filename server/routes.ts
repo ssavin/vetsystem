@@ -9003,6 +9003,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // POST /api/sync/login - Authenticate user for Companion app
+  app.post('/api/sync/login', verifyCompanionApiKey, async (req, res) => {
+    try {
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+      }
+
+      // Find user by username
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ error: 'Неверный логин или пароль' });
+      }
+
+      // Verify password
+      const bcrypt = await import('bcryptjs');
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: 'Неверный логин или пароль' });
+      }
+
+      // Return user data (without password)
+      res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          fullName: user.fullName,
+          role: user.role,
+          branchId: user.branchId,
+          tenantId: user.tenantId,
+        },
+      });
+
+      console.log(`✓ Sync: User ${username} authenticated successfully`);
+    } catch (error: any) {
+      console.error('Error in sync/login:', error);
+      res.status(500).json({ error: error.message || 'Ошибка аутентификации' });
+    }
+  });
+
   // GET /api/sync/branches - Get list of branches for selection in Companion
   app.get('/api/sync/branches', verifyCompanionApiKey, async (req, res) => {
     try {

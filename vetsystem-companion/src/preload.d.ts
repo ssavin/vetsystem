@@ -32,6 +32,16 @@ declare global {
       fetchBranches: (serverUrl?: string, apiKey?: string) => Promise<{ id: string; name: string; address?: string }[]>;
       updateBranch: (branchId: string, branchName: string) => Promise<boolean>;
       updateCredentials: (serverUrl: string, apiKey: string) => Promise<boolean>;
+      login: (username: string, password: string) => Promise<{
+        id: string;
+        username: string;
+        fullName: string;
+        role: string;
+        branchId: string;
+        tenantId: string;
+      }>;
+      logout: () => Promise<boolean>;
+      getCurrentUser: () => Promise<any>;
     };
     electron: {
       ipcRenderer: {

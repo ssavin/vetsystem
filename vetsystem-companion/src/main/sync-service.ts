@@ -54,6 +54,20 @@ export class SyncService {
     console.log('✓ SyncService credentials updated:', { serverUrl, apiKey });
   }
 
+  // Login user
+  async login(username: string, password: string): Promise<any> {
+    try {
+      const response = await this.apiClient.post('/api/sync/login', {
+        username,
+        password,
+      });
+      return response.data.user;
+    } catch (error: any) {
+      console.error('Login failed:', error);
+      throw new Error(error.response?.data?.error || error.message || 'Ошибка входа');
+    }
+  }
+
   setStatusCallback(callback: (status: SyncStatus) => void) {
     this.statusCallback = callback;
   }

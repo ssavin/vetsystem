@@ -2,9 +2,11 @@ import type { SyncStatus } from '@shared/types';
 
 interface Props {
   status: SyncStatus;
+  onLogout: () => void;
+  currentUser: any;
 }
 
-export default function SyncStatusBar({ status }: Props) {
+export default function SyncStatusBar({ status, onLogout, currentUser }: Props) {
   const handleSync = async () => {
     try {
       await window.api.fullSync();
@@ -44,6 +46,16 @@ export default function SyncStatusBar({ status }: Props) {
         <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
           VetSystem Companion
         </h1>
+        {currentUser && (
+          <div style={{
+            fontSize: '14px',
+            opacity: 0.9,
+            borderLeft: '1px solid rgba(255,255,255,0.3)',
+            paddingLeft: '12px',
+          }}>
+            {currentUser.fullName || currentUser.username}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -78,6 +90,7 @@ export default function SyncStatusBar({ status }: Props) {
             padding: '6px 16px',
             fontSize: '13px',
           }}
+          data-testid="button-sync"
         >
           {status.isSyncing ? (
             <>
@@ -87,6 +100,21 @@ export default function SyncStatusBar({ status }: Props) {
           ) : (
             '↻ Синхронизировать'
           )}
+        </button>
+
+        <button
+          onClick={onLogout}
+          className="btn"
+          style={{
+            background: 'rgba(255,255,255,0.1)',
+            color: 'white',
+            border: '1px solid rgba(255,255,255,0.3)',
+            padding: '6px 16px',
+            fontSize: '13px',
+          }}
+          data-testid="button-logout"
+        >
+          Выйти
         </button>
       </div>
     </div>

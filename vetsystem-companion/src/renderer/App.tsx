@@ -8,13 +8,37 @@ import ClientsPage from './pages/ClientsPage';
 import AppointmentsPage from './pages/AppointmentsPage';
 import InvoicesPage from './pages/InvoicesPage';
 import SettingsPage from './pages/SettingsPage';
+import LoginPage from './pages/LoginPage';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isOnline: false,
     pendingCount: 0,
     isSyncing: false,
   });
+
+  useEffect(() => {
+    // Check authentication status on mount
+    const checkAuth = async () => {
+      if (!window.api) {
+        setTimeout(checkAuth, 100);
+        return;
+      }
+
+      try {
+        const user = await window.api.getCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error('Failed to check auth:', error);
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     // Wait for API to be ready
@@ -36,11 +60,52 @@ export default function App() {
     }
   }, []);
 
+  const handleLoginSuccess = async () => {
+    try {
+      const user = await window.api.getCurrentUser();
+      setCurrentUser(user);
+    } catch (error) {
+      console.error('Failed to get current user after login:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await window.api.logout();
+      setCurrentUser(null);
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    }
+  };
+
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        backgroundColor: 'var(--background)',
+      }}>
+        <div style={{ fontSize: '16px', color: 'var(--text-secondary)' }}>
+          Загрузка...
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Show main app if authenticated
   return (
     <Router hook={useHashLocation}>
       <div style={{ display: 'flex', height: '100vh', flexDirection: 'column' }}>
         {/* Sync Status Bar */}
-        <SyncStatusBar status={syncStatus} />
+        <SyncStatusBar status={syncStatus} onLogout={handleLogout} currentUser={currentUser} />
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Sidebar Navigation */}

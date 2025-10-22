@@ -23,6 +23,7 @@ const store = new Store({
     branchId: '', // Selected branch ID
     branchName: '', // Selected branch name
     autoSyncInterval: 60000, // 1 minute
+    authenticatedUser: null, // Current authenticated user
   },
 });
 
@@ -298,6 +299,33 @@ function setupIpcHandlers() {
       log(`✓ Updated sync service credentials`);
     }
     return true;
+  });
+
+  // Authentication handlers
+  ipcMain.handle('auth:login', async (_event, username: string, password: string) => {
+    log(`IPC: auth:login called for user: ${username}`);
+    if (!syncService) {
+      throw new Error('Sync service not initialized');
+    }
+    try {
+      const user = await syncService.login(username, password);
+      store.set('authenticatedUser', user);
+      log(`✓ User ${username} authenticated successfully`);
+      return user;
+    } catch (error: any) {
+      log('Login error:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('auth:logout', async () => {
+    log('IPC: auth:logout called');
+    store.set('authenticatedUser', null);
+    return true;
+  });
+
+  ipcMain.handle('auth:get-current-user', async () => {
+    return store.get('authenticatedUser');
   });
 }
 

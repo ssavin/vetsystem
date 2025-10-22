@@ -41,6 +41,11 @@ contextBridge.exposeInMainWorld('api', {
   fetchBranches: (serverUrl, apiKey) => ipcRenderer.invoke('settings:fetch-branches', serverUrl, apiKey),
   updateBranch: (branchId, branchName) => ipcRenderer.invoke('settings:update-branch', branchId, branchName),
   updateCredentials: (serverUrl, apiKey) => ipcRenderer.invoke('settings:update-credentials', serverUrl, apiKey),
+
+  // Authentication
+  login: (username, password) => ipcRenderer.invoke('auth:login', username, password),
+  logout: () => ipcRenderer.invoke('auth:logout'),
+  getCurrentUser: () => ipcRenderer.invoke('auth:get-current-user'),
 });
 
 // Expose electron APIs for direct IPC access (for logging)
