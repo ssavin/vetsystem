@@ -1,13 +1,10 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { DatabaseManager } from './database';
 import { SyncService } from './sync-service';
 import Store from 'electron-store';
 
-// ES module __dirname equivalent
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const isDev = process.env.NODE_ENV === 'development';
 
 // Configuration store
 const store = new Store({
@@ -40,6 +37,13 @@ function logError(...args: any[]) {
 }
 
 function createWindow() {
+  // Get paths AFTER app is ready
+  const appPath = app.getAppPath();
+  const preloadPath = path.join(appPath, 'dist/preload/preload.js');
+  
+  console.log('[STARTUP] App path:', appPath);
+  console.log('[STARTUP] Preload path:', preloadPath);
+  
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -47,7 +51,7 @@ function createWindow() {
     minHeight: 700,
     show: false, // Don't show until ready
     webPreferences: {
-      preload: path.join(__dirname, '../preload/preload.js'),
+      preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
     },
@@ -55,18 +59,21 @@ function createWindow() {
   });
 
   // In development, load from vite server
-  if (process.env.NODE_ENV === 'development') {
+  if (isDev) {
     mainWindow.loadURL('http://localhost:5173').then(() => {
       mainWindow?.show();
       mainWindow?.webContents.openDevTools();
     });
   } else {
     // In production, load the built files
-    mainWindow.loadFile(path.join(__dirname, '../index.html')).then(() => {
+    const htmlPath = path.join(appPath, 'dist/index.html');
+    console.log('[STARTUP] Loading HTML from:', htmlPath);
+    mainWindow.loadFile(htmlPath).then(() => {
       mainWindow?.show();
       mainWindow?.webContents.openDevTools(); // TEMP: для отладки
     }).catch((err) => {
       console.error('Failed to load HTML:', err);
+      console.error('Attempted path:', htmlPath);
     });
   }
 
