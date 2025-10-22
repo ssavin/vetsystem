@@ -37,7 +37,7 @@ export default function SettingsPage() {
 
   const loadBranches = async () => {
     if (!serverUrl || !apiKey) {
-      setMessage('Сначала укажите URL сервера и API ключ');
+      setMessage('❌ Сначала укажите URL сервера и API ключ');
       return;
     }
 
@@ -45,8 +45,8 @@ export default function SettingsPage() {
     setMessage('');
     
     try {
-      // Use IPC to fetch branches through main process
-      const fetchedBranches = await window.api.fetchBranches();
+      // Use IPC to fetch branches through main process with current credentials
+      const fetchedBranches = await window.api.fetchBranches(serverUrl, apiKey);
       setBranches(fetchedBranches || []);
       setMessage('✅ Филиалы загружены успешно');
     } catch (error: any) {

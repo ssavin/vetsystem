@@ -58,10 +58,22 @@ export class SyncService {
     this.statusCallback = callback;
   }
 
-  // Fetch list of branches from server
-  async fetchBranches(): Promise<{ id: string; name: string; address?: string }[]> {
+  // Fetch list of branches from server (optionally with temporary credentials)
+  async fetchBranches(tempServerUrl?: string, tempApiKey?: string): Promise<{ id: string; name: string; address?: string }[]> {
     try {
-      const response = await this.apiClient.get('/api/sync/branches');
+      // If temporary credentials provided, create a temporary axios client
+      const client = (tempServerUrl && tempApiKey) 
+        ? axios.create({
+            baseURL: tempServerUrl,
+            headers: {
+              'X-API-Key': tempApiKey,
+              'Content-Type': 'application/json',
+            },
+            timeout: 30000,
+          })
+        : this.apiClient;
+
+      const response = await client.get('/api/sync/branches');
       return response.data.branches || [];
     } catch (error: any) {
       console.error('Failed to fetch branches:', error);

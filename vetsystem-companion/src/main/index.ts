@@ -263,13 +263,13 @@ function setupIpcHandlers() {
     };
   });
 
-  ipcMain.handle('settings:fetch-branches', async () => {
-    log('IPC: settings:fetch-branches called');
+  ipcMain.handle('settings:fetch-branches', async (_event, serverUrl?: string, apiKey?: string) => {
+    log('IPC: settings:fetch-branches called', { serverUrl, apiKey: apiKey ? '***' : undefined });
     if (!syncService) {
       throw new Error('Sync service not initialized');
     }
     try {
-      const branches = await syncService.fetchBranches();
+      const branches = await syncService.fetchBranches(serverUrl, apiKey);
       log(`Fetched ${branches.length} branches`);
       return branches;
     } catch (error: any) {

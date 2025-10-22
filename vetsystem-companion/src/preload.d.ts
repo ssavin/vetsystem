@@ -29,7 +29,7 @@ declare global {
         branchName: string;
         autoSyncInterval: number;
       }>;
-      fetchBranches: () => Promise<{ id: string; name: string; address?: string }[]>;
+      fetchBranches: (serverUrl?: string, apiKey?: string) => Promise<{ id: string; name: string; address?: string }[]>;
       updateBranch: (branchId: string, branchName: string) => Promise<boolean>;
       updateCredentials: (serverUrl: string, apiKey: string) => Promise<boolean>;
     };
