@@ -33,6 +33,11 @@ contextBridge.exposeInMainWorld('api', {
   onSyncStatusChange: (callback) => {
     ipcRenderer.on('sync:status-changed', (_event, status) => callback(status));
   },
+
+  // Settings
+  getSetting: (key) => ipcRenderer.invoke('settings:get', key),
+  setSetting: (key, value) => ipcRenderer.invoke('settings:set', key, value),
+  getAllSettings: () => ipcRenderer.invoke('settings:get-all'),
 });
 
 // Expose electron APIs for direct IPC access (for logging)

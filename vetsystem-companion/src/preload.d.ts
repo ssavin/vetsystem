@@ -20,6 +20,15 @@ declare global {
       fullSync: () => Promise<void>;
       getSyncStatus: () => Promise<SyncStatus>;
       onSyncStatusChange: (callback: (status: SyncStatus) => void) => void;
+      getSetting: (key: string) => Promise<any>;
+      setSetting: (key: string, value: any) => Promise<boolean>;
+      getAllSettings: () => Promise<{
+        serverUrl: string;
+        apiKey: string;
+        branchId: string;
+        branchName: string;
+        autoSyncInterval: number;
+      }>;
     };
     electron: {
       ipcRenderer: {

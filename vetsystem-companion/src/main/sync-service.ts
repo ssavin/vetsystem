@@ -22,9 +22,11 @@ export class SyncService {
     isSyncing: false,
   };
   private statusCallback?: (status: SyncStatus) => void;
+  private branchId: string = '';
 
-  constructor(db: DatabaseManager, serverUrl: string, apiKey: string) {
+  constructor(db: DatabaseManager, serverUrl: string, apiKey: string, branchId?: string) {
     this.db = db;
+    this.branchId = branchId || '';
     this.apiClient = axios.create({
       baseURL: serverUrl,
       headers: {
@@ -33,6 +35,10 @@ export class SyncService {
       },
       timeout: 30000,
     });
+  }
+
+  setBranchId(branchId: string) {
+    this.branchId = branchId;
   }
 
   setStatusCallback(callback: (status: SyncStatus) => void) {
@@ -70,10 +76,18 @@ export class SyncService {
     console.log('Starting initial data download...');
     console.log('Server URL:', this.apiClient.defaults.baseURL);
     console.log('API Key:', this.apiClient.defaults.headers['X-API-Key']);
+    console.log('Branch ID:', this.branchId);
+
+    if (!this.branchId) {
+      throw new Error('Branch ID not set. Please select a branch in Settings.');
+    }
+
     this.updateStatus({ isSyncing: true });
 
     try {
-      const response = await this.apiClient.get<InitialSyncData>('/api/sync/initial-data');
+      const response = await this.apiClient.get<InitialSyncData>('/api/sync/initial-data', {
+        params: { branchId: this.branchId },
+      });
       const { clients, patients, nomenclature } = response.data;
 
       console.log(`Downloaded: ${clients.length} clients, ${patients.length} patients, ${nomenclature.length} nomenclature items`);

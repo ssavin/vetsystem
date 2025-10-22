@@ -18,8 +18,10 @@ const isDev = process.env.NODE_ENV === 'development';
 // Configuration store
 const store = new Store({
   defaults: {
-    serverUrl: 'https://163c7f4b-ecd0-4898-bed1-7f874b611cee-00-3qk3u36tdricg.riker.replit.dev',
+    serverUrl: 'https://vetsystemai.ru',
     apiKey: 'companion-api-key-2025',
+    branchId: '', // Selected branch ID
+    branchName: '', // Selected branch name
     autoSyncInterval: 60000, // 1 minute
   },
 });
@@ -240,6 +242,26 @@ function setupIpcHandlers() {
     }
     return syncService.getStatus();
   });
+
+  // Settings handlers
+  ipcMain.handle('settings:get', async (_event, key: string) => {
+    return store.get(key);
+  });
+
+  ipcMain.handle('settings:set', async (_event, key: string, value: any) => {
+    store.set(key, value);
+    return true;
+  });
+
+  ipcMain.handle('settings:get-all', async () => {
+    return {
+      serverUrl: store.get('serverUrl'),
+      apiKey: store.get('apiKey'),
+      branchId: store.get('branchId'),
+      branchName: store.get('branchName'),
+      autoSyncInterval: store.get('autoSyncInterval'),
+    };
+  });
 }
 
 async function initializeServices() {
@@ -251,9 +273,10 @@ async function initializeServices() {
     // Initialize sync service
     const serverUrl = store.get('serverUrl') as string;
     const apiKey = store.get('apiKey') as string;
-    log('Sync service config:', { serverUrl, apiKey });
+    const branchId = store.get('branchId') as string;
+    log('Sync service config:', { serverUrl, apiKey, branchId });
     
-    syncService = new SyncService(db, serverUrl, apiKey);
+    syncService = new SyncService(db, serverUrl, apiKey, branchId);
     
     // Send sync status updates to renderer
     syncService.setStatusCallback((status) => {

@@ -1,8 +1,100 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+interface Branch {
+  id: string;
+  name: string;
+  address?: string;
+}
 
 export default function SettingsPage() {
-  const [serverUrl, setServerUrl] = useState('https://vetsystemai.ru');
-  const [apiKey, setApiKey] = useState('companion-api-key-2025');
+  const [serverUrl, setServerUrl] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [branchId, setBranchId] = useState('');
+  const [branchName, setBranchName] = useState('');
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    if (!window.api) return;
+    
+    try {
+      const settings = await window.api.getAllSettings();
+      setServerUrl(settings.serverUrl || 'https://vetsystemai.ru');
+      setApiKey(settings.apiKey || 'companion-api-key-2025');
+      setBranchId(settings.branchId || '');
+      setBranchName(settings.branchName || '');
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
+
+  const loadBranches = async () => {
+    if (!serverUrl || !apiKey) {
+      setMessage('Сначала укажите URL сервера и API ключ');
+      return;
+    }
+
+    setIsLoadingBranches(true);
+    setMessage('');
+    
+    try {
+      const response = await axios.get(`${serverUrl}/api/sync/branches`, {
+        headers: {
+          'X-API-Key': apiKey,
+        },
+      });
+      
+      setBranches(response.data.branches || []);
+      setMessage('Филиалы загружены успешно');
+    } catch (error: any) {
+      console.error('Failed to load branches:', error);
+      setMessage('Ошибка загрузки филиалов: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsLoadingBranches(false);
+    }
+  };
+
+  const handleBranchSelect = (branch: Branch) => {
+    setBranchId(branch.id);
+    setBranchName(branch.name);
+  };
+
+  const handleSave = async () => {
+    if (!serverUrl || !apiKey) {
+      setMessage('Заполните все обязательные поля');
+      return;
+    }
+
+    if (!branchId) {
+      setMessage('Выберите филиал');
+      return;
+    }
+
+    setIsSaving(true);
+    setMessage('');
+
+    try {
+      await window.api.setSetting('serverUrl', serverUrl);
+      await window.api.setSetting('apiKey', apiKey);
+      await window.api.setSetting('branchId', branchId);
+      await window.api.setSetting('branchName', branchName);
+      
+      setMessage('✅ Настройки сохранены. Перезапустите приложение для применения изменений.');
+    } catch (error: any) {
+      console.error('Failed to save settings:', error);
+      setMessage('❌ Ошибка сохранения: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div style={{ maxWidth: '800px' }}>
@@ -18,7 +110,7 @@ export default function SettingsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
-              URL сервера
+              URL сервера *
             </label>
             <input
               type="url"
@@ -26,6 +118,7 @@ export default function SettingsPage() {
               value={serverUrl}
               onChange={(e) => setServerUrl(e.target.value)}
               placeholder="https://vetsystemai.ru"
+              data-testid="input-server-url"
             />
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
               Адрес основного сервера VetSystem
@@ -34,27 +127,97 @@ export default function SettingsPage() {
 
           <div>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
-              API ключ
+              API ключ *
             </label>
             <input
               type="password"
               className="input"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
+              placeholder="companion-api-key-2025"
+              data-testid="input-api-key"
             />
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
               Ключ для авторизации запросов к серверу
             </div>
           </div>
 
+          <div>
+            <button
+              className="btn btn-secondary"
+              onClick={loadBranches}
+              disabled={isLoadingBranches || !serverUrl || !apiKey}
+              data-testid="button-load-branches"
+            >
+              {isLoadingBranches ? 'Загрузка...' : 'Загрузить филиалы'}
+            </button>
+          </div>
+
+          {branches.length > 0 && (
+            <div>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
+                Выберите филиал *
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {branches.map((branch) => (
+                  <label
+                    key={branch.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '12px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      backgroundColor: branchId === branch.id ? 'var(--primary-bg)' : 'transparent',
+                    }}
+                    data-testid={`branch-option-${branch.id}`}
+                  >
+                    <input
+                      type="radio"
+                      name="branch"
+                      value={branch.id}
+                      checked={branchId === branch.id}
+                      onChange={() => handleBranchSelect(branch)}
+                      style={{ marginRight: '12px' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '500' }}>{branch.name}</div>
+                      {branch.address && (
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                          {branch.address}
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {message && (
+            <div
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                backgroundColor: message.startsWith('✅') ? '#d4edda' : message.startsWith('❌') ? '#f8d7da' : '#d1ecf1',
+                color: message.startsWith('✅') ? '#155724' : message.startsWith('❌') ? '#721c24' : '#0c5460',
+              }}
+              data-testid="text-message"
+            >
+              {message}
+            </div>
+          )}
+
           <button
             className="btn btn-primary"
             style={{ alignSelf: 'flex-start' }}
-            onClick={() => {
-              alert('Настройки сохранены (функция в разработке)');
-            }}
+            onClick={handleSave}
+            disabled={isSaving || !serverUrl || !apiKey || !branchId}
+            data-testid="button-save-settings"
           >
-            Сохранить
+            {isSaving ? 'Сохранение...' : 'Сохранить'}
           </button>
         </div>
       </div>
