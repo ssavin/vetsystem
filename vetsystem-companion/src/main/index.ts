@@ -380,20 +380,42 @@ function setupIpcHandlers() {
   });
 }
 
-async function initializeServices() {
+app.whenReady().then(async () => {
+  console.log('[STARTUP] App ready - initializing services FIRST');
+  
+  // Initialize services BEFORE creating window
   try {
-    log('Initializing database...');
+    console.log('[STARTUP] Initializing database...');
     db = new DatabaseManager();
-    log('✓ Database initialized');
+    console.log('[STARTUP] ✓ Database initialized');
 
     // Initialize sync service
     const serverUrl = store.get('serverUrl') as string;
     const apiKey = store.get('apiKey') as string;
     const branchId = store.get('branchId') as string;
-    log('Sync service config:', { serverUrl, apiKey, branchId });
+    console.log('[STARTUP] Sync service config:', { serverUrl, apiKey, branchId });
     
-    syncService = new SyncService(db, serverUrl, apiKey, branchId, log);
-    
+    syncService = new SyncService(db, serverUrl, apiKey, branchId, console.log);
+    console.log('[STARTUP] ✓ Sync service initialized');
+    console.log('[STARTUP] ✓ All services ready');
+  } catch (error: any) {
+    console.error('[STARTUP] ❌ Service initialization failed:', error.message);
+    console.error('[STARTUP] Stack trace:', error.stack);
+    // Continue anyway to show error in UI
+  }
+
+  // Setup IPC handlers after services are ready
+  setupIpcHandlers();
+  console.log('[STARTUP] IPC handlers registered');
+  
+  // NOW create and show window - services are ready!
+  createWindow();
+  console.log('[STARTUP] Window created and shown');
+
+  // Wait a bit then set up logging and status callback
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  if (syncService && mainWindow) {
     // Send sync status updates to renderer
     syncService.setStatusCallback((status) => {
       if (mainWindow) {
@@ -401,45 +423,9 @@ async function initializeServices() {
       }
     });
 
-    log('✓ Sync service initialized');
-    log('✓ All services ready - sync available');
-    
-    // Test connection immediately
+    // Test connection
     const isOnline = await syncService.checkConnection();
-    log('Initial connection test:', isOnline ? 'ONLINE' : 'OFFLINE');
-
-  } catch (error: any) {
-    logError('CRITICAL: Error during initialization:', error.message);
-    logError('Stack:', error.stack);
-    // Re-throw to prevent app from continuing in broken state
-    throw error;
-  }
-}
-
-app.whenReady().then(async () => {
-  console.log('[STARTUP] App ready - creating window');
-  
-  // Create window FIRST
-  createWindow();
-  console.log('[STARTUP] Window created');
-
-  // Setup IPC handlers immediately (will check service readiness inside)
-  setupIpcHandlers();
-  console.log('[STARTUP] IPC handlers registered');
-
-  // Wait for renderer to be ready and subscribe to logs
-  console.log('[STARTUP] Waiting for renderer to be ready...');
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  log('✅ Renderer ready - starting service initialization');
-
-  // Initialize services
-  try {
-    await initializeServices();
-  } catch (error: any) {
-    logError('❌ App initialization failed:', error.message);
-    logError('Stack trace:', error.stack);
-    // Keep window open so user can see the error
+    console.log('[STARTUP] Initial connection test:', isOnline ? 'ONLINE' : 'OFFLINE');
   }
 });
 
