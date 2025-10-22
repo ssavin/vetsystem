@@ -27,6 +27,13 @@ export default function App() {
       }
     };
     checkApi();
+    
+    // Listen for main process logs
+    if (window.electron) {
+      window.electron.ipcRenderer.on('main-log', (_event: any, message: string) => {
+        console.log(`[MAIN PROCESS] ${message}`);
+      });
+    }
   }, []);
 
   return (

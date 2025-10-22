@@ -22,6 +22,23 @@ let mainWindow: BrowserWindow | null = null;
 let db: DatabaseManager;
 let syncService: SyncService;
 
+// Forward main process logs to renderer
+function log(...args: any[]) {
+  const message = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  console.log('[MAIN]', ...args);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('main-log', message);
+  }
+}
+
+function logError(...args: any[]) {
+  const message = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  console.error('[MAIN ERROR]', ...args);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('main-log', '❌ ERROR: ' + message);
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -173,26 +190,26 @@ function setupIpcHandlers() {
 
   ipcMain.handle('sync:full-sync', async () => {
     try {
-      console.log('IPC: sync:full-sync called');
-      console.log('syncService ready:', !!syncService);
-      console.log('db ready:', !!db);
+      log('IPC: sync:full-sync called');
+      log('syncService ready:', !!syncService);
+      log('db ready:', !!db);
       
       if (!syncService) {
-        console.error('ERROR: Sync service not initialized');
-        throw new Error('Sync service not initialized');
+        logError('ERROR: Sync service not initialized');
+        throw new Error('Sync service not initialized. Please restart the application.');
       }
       if (!db) {
-        console.error('ERROR: Database not initialized');
-        throw new Error('Database not initialized');
+        logError('ERROR: Database not initialized');
+        throw new Error('Database not initialized. Please restart the application.');
       }
       
-      console.log('Starting full sync...');
+      log('Starting full sync...');
       await syncService.fullSync();
-      console.log('Full sync completed successfully');
+      log('Full sync completed successfully');
       return { success: true };
     } catch (error: any) {
-      console.error('IPC sync:full-sync error:', error);
-      console.error('Error stack:', error.stack);
+      logError('IPC sync:full-sync error:', error.message);
+      logError('Error stack:', error.stack);
       throw error;
     }
   });
@@ -211,14 +228,14 @@ function setupIpcHandlers() {
 
 async function initializeServices() {
   try {
-    console.log('Initializing database...');
+    log('Initializing database...');
     db = new DatabaseManager();
-    console.log('✓ Database initialized');
+    log('✓ Database initialized');
 
     // Initialize sync service
     const serverUrl = store.get('serverUrl') as string;
     const apiKey = store.get('apiKey') as string;
-    console.log('Sync service config:', { serverUrl, apiKey });
+    log('Sync service config:', { serverUrl, apiKey });
     
     syncService = new SyncService(db, serverUrl, apiKey);
     
@@ -229,31 +246,39 @@ async function initializeServices() {
       }
     });
 
-    console.log('✓ Sync service initialized');
-    console.log('✓ All services ready - sync available');
+    log('✓ Sync service initialized');
+    log('✓ All services ready - sync available');
     
     // Test connection immediately
     const isOnline = await syncService.checkConnection();
-    console.log('Initial connection test:', isOnline ? 'ONLINE' : 'OFFLINE');
+    log('Initial connection test:', isOnline ? 'ONLINE' : 'OFFLINE');
 
-  } catch (error) {
-    console.error('Error during initialization:', error);
+  } catch (error: any) {
+    logError('CRITICAL: Error during initialization:', error.message);
+    logError('Stack:', error.stack);
+    // Re-throw to prevent app from continuing in broken state
+    throw error;
   }
 }
 
 app.whenReady().then(async () => {
-  console.log('App ready - creating window immediately');
+  log('App ready - creating window immediately');
   
   // Create window FIRST
   createWindow();
-  console.log('✓ Window created');
+  log('✓ Window created');
 
   // Setup IPC handlers immediately (will check service readiness inside)
   setupIpcHandlers();
-  console.log('✓ IPC handlers registered');
+  log('✓ IPC handlers registered');
 
   // Initialize services
-  await initializeServices();
+  try {
+    await initializeServices();
+  } catch (error: any) {
+    logError('App initialization failed:', error.message);
+    // Keep window open so user can see the error
+  }
 });
 
 app.on('window-all-closed', () => {

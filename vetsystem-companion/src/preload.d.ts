@@ -21,6 +21,11 @@ declare global {
       getSyncStatus: () => Promise<SyncStatus>;
       onSyncStatusChange: (callback: (status: SyncStatus) => void) => void;
     };
+    electron: {
+      ipcRenderer: {
+        on: (channel: string, callback: (event: any, ...args: any[]) => void) => void;
+      };
+    };
   }
 }
 

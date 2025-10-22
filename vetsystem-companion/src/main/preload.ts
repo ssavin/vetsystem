@@ -34,3 +34,16 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('sync:status-changed', (_event, status) => callback(status));
   },
 });
+
+// Expose electron APIs for direct IPC access (for logging)
+contextBridge.exposeInMainWorld('electron', {
+  ipcRenderer: {
+    on: (channel, callback) => {
+      // Whitelist channels
+      const validChannels = ['main-log', 'sync:status-changed'];
+      if (validChannels.includes(channel)) {
+        ipcRenderer.on(channel, callback);
+      }
+    },
+  },
+});
