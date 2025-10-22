@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 export default function AppointmentsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [searchClient, setSearchClient] = useState('');
   const queryClient = useQueryClient();
 
   const { data: appointments = [], isLoading } = useQuery({
@@ -13,9 +14,11 @@ export default function AppointmentsPage() {
     queryFn: () => window.api.getRecentAppointments(100),
   });
 
+  // Only load clients when searching (min 2 chars)
   const { data: clients = [] } = useQuery({
-    queryKey: ['clients'],
-    queryFn: () => window.api.getAllClients(),
+    queryKey: ['clients', searchClient],
+    queryFn: () => window.api.searchClients(searchClient),
+    enabled: searchClient.length >= 2,
   });
 
   const { data: patients = [] } = useQuery({
@@ -120,19 +123,60 @@ export default function AppointmentsPage() {
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
                   Клиент *
                 </label>
-                <select
-                  name="client_id"
+                <input
+                  type="text"
+                  placeholder="🔍 Поиск клиента (мин. 2 символа)..."
                   className="input"
-                  required
-                  onChange={(e) => setSelectedClientId(Number(e.target.value))}
-                >
-                  <option value="">Выберите клиента</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.full_name} ({client.phone})
-                    </option>
-                  ))}
-                </select>
+                  value={searchClient}
+                  onChange={(e) => setSearchClient(e.target.value)}
+                  required={!selectedClientId}
+                />
+                
+                {searchClient.length >= 2 && clients.length > 0 && (
+                  <div style={{
+                    marginTop: '8px',
+                    maxHeight: '200px',
+                    overflow: 'auto',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    background: 'white',
+                  }}>
+                    {clients.map((client) => (
+                      <div
+                        key={client.id}
+                        onClick={() => {
+                          setSelectedClientId(client.id!);
+                          setSearchClient(client.full_name);
+                        }}
+                        style={{
+                          padding: '10px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#F1F5F9'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                      >
+                        <div style={{ fontWeight: '500' }}>{client.full_name}</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                          {client.phone}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {selectedClientId && (
+                  <div style={{ 
+                    marginTop: '8px', 
+                    padding: '8px 12px', 
+                    background: '#E8F5E9', 
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    color: '#2E7D32'
+                  }}>
+                    ✓ Клиент выбран
+                  </div>
+                )}
               </div>
 
               {selectedClientId && (
