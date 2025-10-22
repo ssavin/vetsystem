@@ -180,6 +180,9 @@ export class SyncService {
       console.log(`[SYNC] Verification: ${savedCount} clients in database after sync`);
       
       console.log(`Batch upserting ${patients.length} patients to local database...`);
+      if (patients.length > 0) {
+        console.log(`[SYNC] First patient sample:`, JSON.stringify(patients[0]));
+      }
       const startPatients = Date.now();
       const patientResults = this.db.batchUpsertPatientsFromServer(patients);
       const patientsTime = Date.now() - startPatients;

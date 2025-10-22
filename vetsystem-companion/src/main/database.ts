@@ -127,9 +127,14 @@ export class DatabaseManager {
   }
 
   searchClients(query: string): Client[] {
-    return this.db.prepare(
+    const clients = this.db.prepare(
       'SELECT * FROM clients WHERE full_name LIKE ? OR phone LIKE ? ORDER BY full_name'
     ).all(`%${query}%`, `%${query}%`) as Client[];
+    console.log(`[DB] searchClients("${query}"): found ${clients.length} clients`);
+    if (clients.length > 0) {
+      console.log(`[DB] First client: id=${clients[0].id}, server_id=${clients[0].server_id}, name=${clients[0].full_name}`);
+    }
+    return clients;
   }
 
   createClient(client: Client): number {
@@ -194,7 +199,9 @@ export class DatabaseManager {
 
   // Patients
   getPatientsByClient(clientId: number): Patient[] {
-    return this.db.prepare('SELECT * FROM patients WHERE client_id = ?').all(clientId) as Patient[];
+    const patients = this.db.prepare('SELECT * FROM patients WHERE client_id = ?').all(clientId) as Patient[];
+    console.log(`[DB] getPatientsByClient(${clientId}): found ${patients.length} patients`);
+    return patients;
   }
 
   createPatient(patient: Patient): number {
@@ -213,9 +220,11 @@ export class DatabaseManager {
     // Build owner_id lookup map for fast access
     const ownerMap = new Map<string, number>();
     const owners = this.db.prepare('SELECT id, server_id FROM clients WHERE server_id IS NOT NULL').all() as any[];
+    console.log(`[DB] Building owner map: ${owners.length} clients with server_id`);
     for (const owner of owners) {
       ownerMap.set(owner.server_id, owner.id);
     }
+    console.log(`[DB] Owner map built with ${ownerMap.size} entries`);
 
     // Use transaction for batch insert
     const transaction = this.db.transaction((patientsList: any[]) => {
