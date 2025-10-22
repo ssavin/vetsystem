@@ -74,11 +74,19 @@ Preferred communication style: Simple, everyday language.
 -   **Purpose**: Offline-capable desktop application for clinic operations when internet is unavailable or unstable.
 -   **Framework**: Electron + React + TypeScript + Vite.
 -   **Local Database**: SQLite for offline data storage (clients, patients, nomenclature, appointments, invoices).
+-   **Authentication**:
+    - User login with username/password synchronized with main server
+    - API endpoint: `POST /api/sync/login` with bcrypt password verification
+    - User credentials stored in electron-store, checked on app startup
+    - LoginPage enforces authentication before app access
+    - Logout functionality clears stored credentials
+    - SyncStatusBar displays current user info and logout button
 -   **Synchronization**: 
     - Bidirectional sync with main server via REST API
-    - API endpoints: `GET /api/sync/branches`, `GET /api/sync/initial-data`, `POST /api/sync/upload-changes`
-    - API key authentication via `X-API-Key` header
+    - API endpoints: `POST /api/sync/login`, `GET /api/sync/branches`, `GET /api/sync/initial-data`, `POST /api/sync/upload-changes`
+    - API key authentication via `X-API-Key` header for Companion identification
     - Branch selection in settings for data filtering (clients/patients shared across branches by design)
+    - Nomenclature (services/products) filtered by selected branch
     - Automatic sync every minute when online, manual sync available
     - Conflict resolution with sync_queue table for change tracking
 -   **Settings Management**:
@@ -87,9 +95,10 @@ Preferred communication style: Simple, everyday language.
     - IPC-based settings handlers for secure credential updates
     - Immediate application of settings changes without restart via SyncService.updateCredentials()
 -   **Features**: 
+    - User authentication with main server credentials
     - Client/patient management offline
     - Appointment scheduling offline
-    - Invoice creation with local nomenclature
+    - Invoice creation with local nomenclature (synced from server by branch)
     - Real-time sync status indicator
     - Automatic retry on network restore
 -   **Distribution**: Windows .exe installer via electron-builder (Mac/Linux support configured).
