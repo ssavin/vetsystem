@@ -1,0 +1,39 @@
+[MAIN PROCESS] ✅ Renderer ready - starting service initialization
+index-Dn3XoV1q.js:48 [MAIN PROCESS] Initializing database...
+index-Dn3XoV1q.js:48 [MAIN PROCESS] ✓ Database initialized
+index-Dn3XoV1q.js:48 [MAIN PROCESS] Sync service config: {"serverUrl":"https://163c7f4b-ecd0-4898-bed1-7f874b611cee-00-3qk3u36tdricg.riker.replit.dev","apiKey":"companion-api-key-2025","branchId":""}
+index-Dn3XoV1q.js:48 [MAIN PROCESS] ✓ Sync service initialized
+index-Dn3XoV1q.js:48 [MAIN PROCESS] ✓ All services ready - sync available
+index-Dn3XoV1q.js:48 [MAIN PROCESS] Initial connection test: ONLINE
+index-Dn3XoV1q.js:48 [MAIN PROCESS] IPC: auth:login called for user: admin
+index-Dn3XoV1q.js:48 [MAIN PROCESS] About to call syncService.login()...
+index-Dn3XoV1q.js:48 [MAIN PROCESS] syncService.login() returned: {"id":"1e62a7c8-b942-4506-bf1d-8e0385f632b2","username":"admin","fullName":"Системный Администратор","role":"администратор","branchId":"f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed","tenantId":"default-tenant-001"}
+index-Dn3XoV1q.js:48 [MAIN PROCESS] Received user data: {"id":"1e62a7c8-b942-4506-bf1d-8e0385f632b2","username":"admin","fullName":"Системный Администратор","role":"администратор","branchId":"f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed","tenantId":"default-tenant-001"}
+index-Dn3XoV1q.js:48 [MAIN PROCESS] Cleaned user data: {"id":"1e62a7c8-b942-4506-bf1d-8e0385f632b2","username":"admin","fullName":"Системный Администратор","role":"администратор","branchId":"f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed","tenantId":"default-tenant-001"}
+index-Dn3XoV1q.js:48 [MAIN PROCESS] ✓ User admin authenticated successfully
+index-Dn3XoV1q.js:48 Login successful: {id: '1e62a7c8-b942-4506-bf1d-8e0385f632b2', username: 'admin', fullName: 'Системный Администратор', role: 'администратор', branchId: 'f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed', …}
+index-Dn3XoV1q.js:48 [MAIN PROCESS] IPC: sync:full-sync called
+index-Dn3XoV1q.js:48 [MAIN PROCESS] syncService ready: true
+index-Dn3XoV1q.js:48 [MAIN PROCESS] db ready: true
+index-Dn3XoV1q.js:48 [MAIN PROCESS] Starting full sync...
+index-Dn3XoV1q.js:48 [MAIN PROCESS] ❌ ERROR: IPC sync:full-sync error: Branch ID not set. Please select a branch in Settings.
+index-Dn3XoV1q.js:48 [MAIN PROCESS] ❌ ERROR: Error stack: Error: Branch ID not set. Please select a branch in Settings.
+    at Gc.downloadInitialData (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:15048:13)
+    at Gc.fullSync (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:15117:51)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:15246:42
+    at async WebContents.<anonymous> (node:electron/js2c/browser_init:2:77963)
+index-Dn3XoV1q.js:48 Sync failed: Error: Error invoking remote method 'sync:full-sync': Error: Branch ID not set. Please select a branch in Settings.
+r @ index-Dn3XoV1q.js:48
+await in r (async)
+lp @ index-Dn3XoV1q.js:37
+ap @ index-Dn3XoV1q.js:37
+up @ index-Dn3XoV1q.js:37
+vu @ index-Dn3XoV1q.js:37
+Wd @ index-Dn3XoV1q.js:37
+(anonymous) @ index-Dn3XoV1q.js:37
+Oa @ index-Dn3XoV1q.js:40
+ud @ index-Dn3XoV1q.js:37
+Sl @ index-Dn3XoV1q.js:37
+na @ index-Dn3XoV1q.js:37
+Pp @ index-Dn3XoV1q.js:37
