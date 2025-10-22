@@ -26,7 +26,7 @@ interface StoreSchema {
 
 const store = new Store<StoreSchema>({
   defaults: {
-    serverUrl: 'https://vetsystemai.ru',
+    serverUrl: 'https://163c7f4b-ecd0-4898-bed1-7f874b611cee-00-3qk3u36tdricg.riker.replit.dev',
     apiKey: 'companion-api-key-2025',
     branchId: '', // Selected branch ID
     branchName: '', // Selected branch name
