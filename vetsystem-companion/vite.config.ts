@@ -13,6 +13,11 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist/main',
+            rollupOptions: {
+              output: {
+                format: 'cjs',
+              },
+            },
           },
         },
       },
@@ -24,6 +29,11 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist/preload',
+            rollupOptions: {
+              output: {
+                format: 'cjs',
+              },
+            },
           },
         },
       },
