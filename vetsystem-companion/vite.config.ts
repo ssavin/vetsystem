@@ -14,6 +14,7 @@ export default defineConfig({
           build: {
             outDir: 'dist/main',
             rollupOptions: {
+              external: ['better-sqlite3', 'electron', 'electron-store'],
               output: {
                 format: 'cjs',
               },
@@ -30,6 +31,7 @@ export default defineConfig({
           build: {
             outDir: 'dist/preload',
             rollupOptions: {
+              external: ['electron'],
               output: {
                 format: 'cjs',
               },

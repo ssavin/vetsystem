@@ -1,0 +1,18 @@
+[MAIN PROCESS] ✅ Renderer ready - starting service initialization
+index-DfwDc6z2.js:48 [MAIN PROCESS] Initializing database...
+index-DfwDc6z2.js:48 [MAIN PROCESS] ❌ ERROR: CRITICAL: Error during initialization: Could not dynamically require "C:\Program Files\VetSystem Companion\resources\app.asar\build\better_sqlite3.node". Please configure the dynamicRequireTargets or/and ignoreDynamicRequires option of @rollup/plugin-commonjs appropriately for this require call to work.
+index-DfwDc6z2.js:48 [MAIN PROCESS] ❌ ERROR: Stack: Error: Could not dynamically require "C:\Program Files\VetSystem Companion\resources\app.asar\build\better_sqlite3.node". Please configure the dynamicRequireTargets or/and ignoreDynamicRequires option of @rollup/plugin-commonjs appropriately for this require call to work.
+    at od (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:24:9)
+    at u (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:114:46)
+    at new We (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:516:39)
+    at new Ph (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:549:15)
+    at oN (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:26238:42)
+    at file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:26252:11
+index-DfwDc6z2.js:48 [MAIN PROCESS] ❌ ERROR: ❌ App initialization failed: Could not dynamically require "C:\Program Files\VetSystem Companion\resources\app.asar\build\better_sqlite3.node". Please configure the dynamicRequireTargets or/and ignoreDynamicRequires option of @rollup/plugin-commonjs appropriately for this require call to work.
+index-DfwDc6z2.js:48 [MAIN PROCESS] ❌ ERROR: Stack trace: Error: Could not dynamically require "C:\Program Files\VetSystem Companion\resources\app.asar\build\better_sqlite3.node". Please configure the dynamicRequireTargets or/and ignoreDynamicRequires option of @rollup/plugin-commonjs appropriately for this require call to work.
+    at od (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:24:9)
+    at u (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:114:46)
+    at new We (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:516:39)
+    at new Ph (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:549:15)
+    at oN (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:26238:42)
+    at file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:26252:11
