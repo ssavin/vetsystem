@@ -74,7 +74,7 @@ Preferred communication style: Simple, everyday language.
 -   **Purpose**: Offline-capable desktop application for clinic operations when internet is unavailable or unstable.
 -   **Framework**: Electron + React + TypeScript + Vite.
 -   **Build System**: esbuild for main process, Vite for renderer process, electron-builder for distribution.
--   **Local Database**: SQLite for offline data storage (clients, patients, nomenclature, appointments, invoices).
+-   **Local Database**: SQLite for offline data storage (clients, patients, nomenclature, appointments, invoices). Uses server_id field to map server records with INSERT OR REPLACE for conflict-free sync.
 -   **Authentication** (✅ Working):
     - User login with username/password synchronized with main server
     - **LoginPage**: Identical to main web app with inline branch selection dropdown (only difference: "Companion" label)

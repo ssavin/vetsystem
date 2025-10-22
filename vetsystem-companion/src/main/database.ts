@@ -27,6 +27,7 @@ export class DatabaseManager {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS clients (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        server_id TEXT UNIQUE,
         full_name TEXT NOT NULL,
         phone TEXT NOT NULL,
         email TEXT,
@@ -40,12 +41,14 @@ export class DatabaseManager {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS patients (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        server_id TEXT UNIQUE,
         name TEXT NOT NULL,
         species TEXT NOT NULL,
         breed TEXT,
         birth_date TEXT,
         gender TEXT,
         client_id INTEGER NOT NULL,
+        owner_server_id TEXT,
         synced INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (client_id) REFERENCES clients(id)
@@ -132,6 +135,19 @@ export class DatabaseManager {
     return result.lastInsertRowid as number;
   }
 
+  // Upsert client from server (sync)
+  upsertClientFromServer(client: any): void {
+    this.db.prepare(
+      'INSERT OR REPLACE INTO clients (server_id, full_name, phone, email, address, synced) VALUES (?, ?, ?, ?, ?, 1)'
+    ).run(
+      client.id,
+      client.fullName || client.full_name,
+      client.phone,
+      client.email || null,
+      client.address || null
+    );
+  }
+
   // Patients
   getPatientsByClient(clientId: number): Patient[] {
     return this.db.prepare('SELECT * FROM patients WHERE client_id = ?').all(clientId) as Patient[];
@@ -143,6 +159,32 @@ export class DatabaseManager {
     ).run(patient.name, patient.species, patient.breed || null, patient.birth_date || null, patient.gender || null, patient.client_id);
     
     return result.lastInsertRowid as number;
+  }
+
+  // Upsert patient from server (sync)
+  upsertPatientFromServer(patient: any): void {
+    // First find local client_id by server_id
+    const client = this.db.prepare(
+      'SELECT id FROM clients WHERE server_id = ?'
+    ).get(patient.ownerId) as any;
+
+    if (!client) {
+      console.warn(`Cannot sync patient ${patient.id}: owner ${patient.ownerId} not found locally`);
+      return;
+    }
+
+    this.db.prepare(
+      'INSERT OR REPLACE INTO patients (server_id, name, species, breed, birth_date, gender, client_id, owner_server_id, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)'
+    ).run(
+      patient.id,
+      patient.name,
+      patient.species,
+      patient.breed || null,
+      patient.birthDate || patient.birth_date || null,
+      patient.gender || null,
+      client.id,
+      patient.ownerId
+    );
   }
 
   // Nomenclature
