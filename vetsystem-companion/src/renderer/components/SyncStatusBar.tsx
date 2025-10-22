@@ -7,6 +7,8 @@ interface Props {
 }
 
 export default function SyncStatusBar({ status, onLogout, currentUser }: Props) {
+  const isElectron = !!(window.api && window.electron);
+  
   const handleSync = async () => {
     try {
       await window.api.fullSync();
@@ -46,6 +48,17 @@ export default function SyncStatusBar({ status, onLogout, currentUser }: Props) 
         <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
           VetSystem Companion
         </h1>
+        {!isElectron && (
+          <span style={{
+            fontSize: '12px',
+            background: '#FF5722',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontWeight: 'bold',
+          }}>
+            ⚠️ WEB MODE (НЕ ELECTRON!)
+          </span>
+        )}
         {currentUser && (
           <div style={{
             fontSize: '14px',

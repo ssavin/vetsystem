@@ -106,7 +106,10 @@ function setupIpcHandlers() {
   ipcMain.handle('db:get-all-clients', async () => {
     if (!db) throw new Error('Database not initialized');
     const clients = db.getAllClients();
-    console.log(`[IPC] getAllClients returned ${clients.length} clients`);
+    log(`[IPC] getAllClients returned ${clients.length} clients`);
+    if (clients.length > 0) {
+      log(`[IPC] First client:`, clients[0]);
+    }
     return clients;
   });
 
