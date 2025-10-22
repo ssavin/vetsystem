@@ -388,7 +388,7 @@ async function initializeServices() {
     const branchId = store.get('branchId') as string;
     log('Sync service config:', { serverUrl, apiKey, branchId });
     
-    syncService = new SyncService(db, serverUrl, apiKey, branchId);
+    syncService = new SyncService(db, serverUrl, apiKey, branchId, log);
     
     // Send sync status updates to renderer
     syncService.setStatusCallback((status) => {

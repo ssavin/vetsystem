@@ -23,6 +23,7 @@
       "@shared/*": ["./src/shared/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/renderer/**/*", "src/shared/**/*"],
+  "exclude": ["src/main/**/*", "src/preload/**/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

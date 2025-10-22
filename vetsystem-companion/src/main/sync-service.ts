@@ -23,10 +23,12 @@ export class SyncService {
   };
   private statusCallback?: (status: SyncStatus) => void;
   private branchId: string = '';
+  private log: (message: string, ...args: any[]) => void;
 
-  constructor(db: DatabaseManager, serverUrl: string, apiKey: string, branchId?: string) {
+  constructor(db: DatabaseManager, serverUrl: string, apiKey: string, branchId?: string, logFn?: (message: string, ...args: any[]) => void) {
     this.db = db;
     this.branchId = branchId || '';
+    this.log = logFn || console.log;
     this.apiClient = axios.create({
       baseURL: serverUrl,
       headers: {
@@ -57,31 +59,30 @@ export class SyncService {
   // Login user
   async login(username: string, password: string): Promise<any> {
     try {
-      // Use console.log - it will be captured and forwarded via IPC
-      console.log('[SyncService.login] Attempting login for user:', username);
-      console.log('[SyncService.login] API client baseURL:', this.apiClient.defaults.baseURL);
-      console.log('[SyncService.login] API key configured:', !!this.apiClient.defaults.headers['X-API-Key']);
+      this.log('[SyncService.login] Attempting login for user:', username);
+      this.log('[SyncService.login] API client baseURL:', this.apiClient.defaults.baseURL);
+      this.log('[SyncService.login] API key configured:', !!this.apiClient.defaults.headers['X-API-Key']);
       
       const response = await this.apiClient.post('/api/sync/login', {
         username,
         password,
       });
       
-      console.log('[SyncService.login] Response status:', response.status);
-      console.log('[SyncService.login] Response data:', JSON.stringify(response.data));
+      this.log('[SyncService.login] Response status:', response.status);
+      this.log('[SyncService.login] Response data:', JSON.stringify(response.data));
       
       if (!response.data || !response.data.user) {
-        console.error('[SyncService.login] No user data in response, full response:', JSON.stringify(response.data));
+        this.log('[SyncService.login] ERROR: No user data in response, full response:', JSON.stringify(response.data));
         throw new Error('Сервер не вернул данные пользователя');
       }
       
-      console.log('[SyncService.login] Success! User:', response.data.user.username);
+      this.log('[SyncService.login] Success! User:', response.data.user.username);
       return response.data.user;
     } catch (error: any) {
-      console.error('[SyncService.login] Login failed - error:', error.message);
-      console.error('[SyncService.login] Error response data:', JSON.stringify(error.response?.data));
-      console.error('[SyncService.login] Error status:', error.response?.status);
-      console.error('[SyncService.login] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      this.log('[SyncService.login] Login failed - error:', error.message);
+      this.log('[SyncService.login] Error response data:', JSON.stringify(error.response?.data));
+      this.log('[SyncService.login] Error status:', error.response?.status);
+      this.log('[SyncService.login] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       throw new Error(error.response?.data?.error || error.message || 'Ошибка входа');
     }
   }

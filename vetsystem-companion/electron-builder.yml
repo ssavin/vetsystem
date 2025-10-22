@@ -19,8 +19,6 @@ win:
       arch:
         - x64
   artifactName: ${productName}-Setup-${version}.${ext}
-  sign: null
-  signingHashAlgorithms: null
 
 nsis:
   oneClick: false
