@@ -76,10 +76,16 @@ Preferred communication style: Simple, everyday language.
 -   **Local Database**: SQLite for offline data storage (clients, patients, nomenclature, appointments, invoices).
 -   **Synchronization**: 
     - Bidirectional sync with main server via REST API
-    - API endpoints: `GET /api/sync/initial-data`, `POST /api/sync/upload-changes`
+    - API endpoints: `GET /api/sync/branches`, `GET /api/sync/initial-data`, `POST /api/sync/upload-changes`
     - API key authentication via `X-API-Key` header
+    - Branch selection in settings for data filtering (clients/patients shared across branches by design)
     - Automatic sync every minute when online, manual sync available
     - Conflict resolution with sync_queue table for change tracking
+-   **Settings Management**:
+    - Server URL and API key configuration with live credential testing
+    - Branch selection: fetch branches from server, select target branch without restart
+    - IPC-based settings handlers for secure credential updates
+    - Immediate application of settings changes without restart via SyncService.updateCredentials()
 -   **Features**: 
     - Client/patient management offline
     - Appointment scheduling offline
