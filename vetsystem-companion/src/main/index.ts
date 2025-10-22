@@ -315,8 +315,12 @@ function setupIpcHandlers() {
       throw new Error('Sync service not initialized');
     }
     try {
+      log('About to call syncService.login()...');
       const user = await syncService.login(username, password);
+      log('syncService.login() returned:', JSON.stringify(user));
+      
       if (!user) {
+        log('ERROR: user is null/undefined');
         throw new Error('Login failed: no user data returned');
       }
       log('Received user data:', JSON.stringify(user));
@@ -335,7 +339,9 @@ function setupIpcHandlers() {
       log(`✓ User ${username} authenticated successfully`);
       return cleanUser;
     } catch (error: any) {
-      log('Login error:', error);
+      log('Login error:', JSON.stringify(error));
+      log('Login error message:', error.message);
+      log('Login error stack:', error.stack);
       throw error;
     }
   });
