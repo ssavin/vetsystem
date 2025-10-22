@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('api', {
   getSetting: (key) => ipcRenderer.invoke('settings:get', key),
   setSetting: (key, value) => ipcRenderer.invoke('settings:set', key, value),
   getAllSettings: () => ipcRenderer.invoke('settings:get-all'),
+  fetchBranches: () => ipcRenderer.invoke('settings:fetch-branches'),
+  updateBranch: (branchId, branchName) => ipcRenderer.invoke('settings:update-branch', branchId, branchName),
 });
 
 // Expose electron APIs for direct IPC access (for logging)

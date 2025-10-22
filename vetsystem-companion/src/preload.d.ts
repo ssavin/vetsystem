@@ -29,6 +29,8 @@ declare global {
         branchName: string;
         autoSyncInterval: number;
       }>;
+      fetchBranches: () => Promise<{ id: string; name: string; address?: string }[]>;
+      updateBranch: (branchId: string, branchName: string) => Promise<boolean>;
     };
     electron: {
       ipcRenderer: {

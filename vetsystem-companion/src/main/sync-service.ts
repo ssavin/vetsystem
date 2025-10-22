@@ -45,6 +45,17 @@ export class SyncService {
     this.statusCallback = callback;
   }
 
+  // Fetch list of branches from server
+  async fetchBranches(): Promise<{ id: string; name: string; address?: string }[]> {
+    try {
+      const response = await this.apiClient.get('/api/sync/branches');
+      return response.data.branches || [];
+    } catch (error: any) {
+      console.error('Failed to fetch branches:', error);
+      throw new Error(error.response?.data?.error || error.message || 'Failed to fetch branches');
+    }
+  }
+
   private updateStatus(updates: Partial<SyncStatus>) {
     this.currentStatus = { ...this.currentStatus, ...updates };
     if (this.statusCallback) {

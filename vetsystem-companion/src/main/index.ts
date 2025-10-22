@@ -262,6 +262,32 @@ function setupIpcHandlers() {
       autoSyncInterval: store.get('autoSyncInterval'),
     };
   });
+
+  ipcMain.handle('settings:fetch-branches', async () => {
+    log('IPC: settings:fetch-branches called');
+    if (!syncService) {
+      throw new Error('Sync service not initialized');
+    }
+    try {
+      const branches = await syncService.fetchBranches();
+      log(`Fetched ${branches.length} branches`);
+      return branches;
+    } catch (error: any) {
+      log('Error fetching branches:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('settings:update-branch', async (_event, branchId: string, branchName: string) => {
+    log(`IPC: settings:update-branch called with branchId=${branchId}`);
+    store.set('branchId', branchId);
+    store.set('branchName', branchName);
+    if (syncService) {
+      syncService.setBranchId(branchId);
+      log(`✓ Updated sync service branchId to ${branchId}`);
+    }
+    return true;
+  });
 }
 
 async function initializeServices() {
