@@ -15,15 +15,22 @@ if (typeof __dirname === 'undefined') {
 
 const isDev = process.env.NODE_ENV === 'development';
 
-// Configuration store
-const store = new Store({
+// Configuration store interface
+interface StoreSchema {
+  serverUrl: string;
+  apiKey: string;
+  branchId: string;
+  branchName: string;
+  autoSyncInterval: number;
+}
+
+const store = new Store<StoreSchema>({
   defaults: {
     serverUrl: 'https://vetsystemai.ru',
     apiKey: 'companion-api-key-2025',
     branchId: '', // Selected branch ID
     branchName: '', // Selected branch name
     autoSyncInterval: 60000, // 1 minute
-    // authenticatedUser is not in defaults - use has/get/set/delete methods
   },
 });
 
@@ -309,9 +316,24 @@ function setupIpcHandlers() {
     }
     try {
       const user = await syncService.login(username, password);
-      store.set('authenticatedUser', user);
+      if (!user) {
+        throw new Error('Login failed: no user data returned');
+      }
+      log('Received user data:', JSON.stringify(user));
+      // Clean user object - remove any null/undefined values
+      const cleanUser = Object.fromEntries(
+        Object.entries(user).filter(([_, v]) => v != null)
+      );
+      log('Cleaned user data:', JSON.stringify(cleanUser));
+      // Use a separate file for user data to avoid electron-store constraints
+      const fs = await import('fs');
+      const path = await import('path');
+      const { app } = await import('electron');
+      const userDataPath = app.getPath('userData');
+      const authFilePath = path.join(userDataPath, 'authenticated-user.json');
+      fs.writeFileSync(authFilePath, JSON.stringify(cleanUser));
       log(`✓ User ${username} authenticated successfully`);
-      return user;
+      return cleanUser;
     } catch (error: any) {
       log('Login error:', error);
       throw error;
@@ -320,12 +342,31 @@ function setupIpcHandlers() {
 
   ipcMain.handle('auth:logout', async () => {
     log('IPC: auth:logout called');
-    store.delete('authenticatedUser');
+    const fs = await import('fs');
+    const path = await import('path');
+    const { app } = await import('electron');
+    const userDataPath = app.getPath('userData');
+    const authFilePath = path.join(userDataPath, 'authenticated-user.json');
+    try {
+      fs.unlinkSync(authFilePath);
+    } catch (e) {
+      // File might not exist, ignore
+    }
     return true;
   });
 
   ipcMain.handle('auth:get-current-user', async () => {
-    return store.get('authenticatedUser');
+    const fs = await import('fs');
+    const path = await import('path');
+    const { app } = await import('electron');
+    const userDataPath = app.getPath('userData');
+    const authFilePath = path.join(userDataPath, 'authenticated-user.json');
+    try {
+      const data = fs.readFileSync(authFilePath, 'utf-8');
+      return JSON.parse(data);
+    } catch (e) {
+      return null;
+    }
   });
 }
 
