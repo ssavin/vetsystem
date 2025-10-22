@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [
     react(),
   ],
+  base: './', // Use relative paths for Electron
   build: {
     outDir: 'dist/renderer',
   },
