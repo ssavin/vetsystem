@@ -73,14 +73,16 @@ Preferred communication style: Simple, everyday language.
 ## Desktop Companion (Electron)
 -   **Purpose**: Offline-capable desktop application for clinic operations when internet is unavailable or unstable.
 -   **Framework**: Electron + React + TypeScript + Vite.
+-   **Build System**: esbuild for main process, Vite for renderer process, electron-builder for distribution.
 -   **Local Database**: SQLite for offline data storage (clients, patients, nomenclature, appointments, invoices).
--   **Authentication**:
+-   **Authentication** (✅ Working):
     - User login with username/password synchronized with main server
     - API endpoint: `POST /api/sync/login` with bcrypt password verification
-    - User credentials stored in electron-store, checked on app startup
+    - User credentials stored in separate JSON file (authenticated-user.json) to avoid electron-store null value limitations
     - LoginPage enforces authentication before app access
     - Logout functionality clears stored credentials
     - SyncStatusBar displays current user info and logout button
+    - Logging: IPC-based log forwarding from main process to renderer for debugging
 -   **Synchronization**: 
     - Bidirectional sync with main server via REST API
     - API endpoints: `POST /api/sync/login`, `GET /api/sync/branches`, `GET /api/sync/initial-data`, `POST /api/sync/upload-changes`
