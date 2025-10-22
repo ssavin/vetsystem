@@ -262,21 +262,28 @@ async function initializeServices() {
 }
 
 app.whenReady().then(async () => {
-  log('App ready - creating window immediately');
+  console.log('[STARTUP] App ready - creating window');
   
   // Create window FIRST
   createWindow();
-  log('✓ Window created');
+  console.log('[STARTUP] Window created');
 
   // Setup IPC handlers immediately (will check service readiness inside)
   setupIpcHandlers();
-  log('✓ IPC handlers registered');
+  console.log('[STARTUP] IPC handlers registered');
+
+  // Wait for renderer to be ready and subscribe to logs
+  console.log('[STARTUP] Waiting for renderer to be ready...');
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  log('✅ Renderer ready - starting service initialization');
 
   // Initialize services
   try {
     await initializeServices();
   } catch (error: any) {
-    logError('App initialization failed:', error.message);
+    logError('❌ App initialization failed:', error.message);
+    logError('Stack trace:', error.stack);
     // Keep window open so user can see the error
   }
 });
