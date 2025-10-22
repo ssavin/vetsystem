@@ -9003,17 +9003,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // GET /api/sync/branches - Get list of branches for selection in Companion
+  app.get('/api/sync/branches', verifyCompanionApiKey, async (req, res) => {
+    try {
+      const tenantId = req.query.tenantId as string || '1';
+      const branches = await storage.getActiveBranches();
+      
+      res.json({
+        branches: branches.map(b => ({
+          id: b.id,
+          name: b.name,
+          address: b.address || undefined,
+        })),
+      });
+
+      console.log(`✓ Sync: Sent ${branches.length} branches to Companion`);
+    } catch (error: any) {
+      console.error('Error in sync/branches:', error);
+      res.status(500).json({ error: error.message || 'Ошибка получения филиалов' });
+    }
+  });
+
   // GET /api/sync/initial-data - Download initial data for offline work
   app.get('/api/sync/initial-data', verifyCompanionApiKey, async (req, res) => {
     try {
-      // Get tenant ID from API key or use default
+      // Get tenant ID and branch ID from query params
       const tenantId = req.query.tenantId as string || '1';
+      const branchId = req.query.branchId as string;
 
-      // Get all clients (owners) for this tenant
-      const clients = await storage.getAllOwners(tenantId);
+      if (!branchId) {
+        return res.status(400).json({ error: 'branchId is required' });
+      }
+
+      // Get all clients (owners) for this tenant and branch
+      const allClients = await storage.getAllOwners(tenantId);
+      const clients = allClients; // All clients visible across branches
       
       // Get all patients for this tenant
-      const patients = await storage.getAllPatients(tenantId);
+      const allPatients = await storage.getAllPatients(tenantId);
+      const patients = allPatients; // All patients visible across branches
       
       // Get all services and products (nomenclature) for this tenant
       const services = await storage.getServices();
