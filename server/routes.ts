@@ -9079,11 +9079,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all clients (owners) for this tenant
       // NOTE: In VetSystem architecture, clients and patients are shared across all branches
       // within a tenant. Branch selection is used for appointments and invoices only.
-      const allClients = await storage.getAllOwners(tenantId);
+      const allClients = await storage.getAllOwners(999999, 0);  // Get ALL owners (no limit)
       const clients = allClients;
       
       // Get all patients for this tenant (also shared across branches)
-      const allPatients = await storage.getAllPatients(tenantId);
+      const allPatients = await storage.getAllPatients(999999, 0);  // Get ALL patients (no limit)
       const patients = allPatients;
       
       // Get all services and products (nomenclature) for this tenant
@@ -9110,20 +9110,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         clients: clients.map(c => ({
-          id: parseInt(c.id),
-          full_name: c.fullName,
+          id: c.id,
+          fullName: c.fullName,
           phone: c.phone,
           email: c.email || undefined,
           address: c.address || undefined,
         })),
         patients: patients.map(p => ({
-          id: parseInt(p.id),
+          id: p.id,
           name: p.name,
           species: p.species,
           breed: p.breed || undefined,
-          birth_date: p.birthDate || undefined,
+          birthDate: p.birthDate || undefined,
           gender: p.gender || undefined,
-          client_id: parseInt(p.ownerId),
+          ownerId: p.ownerId,
         })),
         nomenclature,
       });

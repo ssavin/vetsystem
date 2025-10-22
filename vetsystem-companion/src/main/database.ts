@@ -136,12 +136,11 @@ export class DatabaseManager {
   }
 
   // Upsert client from server (sync)
-  upsertClientFromServer(client: any): void {
+  upsertClientFromServer(client: any): boolean {
     // Skip clients without required fields
     const fullName = client.fullName || client.full_name;
     if (!fullName || !client.phone) {
-      console.warn(`Skipping client ${client.id}: missing required fields (name: ${!!fullName}, phone: ${!!client.phone})`);
-      return;
+      return false;
     }
 
     this.db.prepare(
@@ -153,6 +152,8 @@ export class DatabaseManager {
       client.email || null,
       client.address || null
     );
+    
+    return true;
   }
 
   // Patients
@@ -169,11 +170,10 @@ export class DatabaseManager {
   }
 
   // Upsert patient from server (sync)
-  upsertPatientFromServer(patient: any): void {
+  upsertPatientFromServer(patient: any): boolean {
     // Skip patients without required fields
     if (!patient.name || !patient.species) {
-      console.warn(`Skipping patient ${patient.id}: missing required fields (name: ${!!patient.name}, species: ${!!patient.species})`);
-      return;
+      return false;
     }
 
     // First find local client_id by server_id
@@ -182,8 +182,7 @@ export class DatabaseManager {
     ).get(patient.ownerId) as any;
 
     if (!client) {
-      console.warn(`Cannot sync patient ${patient.id}: owner ${patient.ownerId} not found locally`);
-      return;
+      return false;
     }
 
     this.db.prepare(
@@ -198,6 +197,8 @@ export class DatabaseManager {
       client.id,
       patient.ownerId
     );
+    
+    return true;
   }
 
   // Nomenclature

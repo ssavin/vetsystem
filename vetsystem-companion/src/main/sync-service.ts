@@ -165,15 +165,31 @@ export class SyncService {
       this.db.replaceAllNomenclature(nomenclature);
 
       // Save clients and patients to local database using upsert
-      console.log('Upserting clients to local database...');
+      console.log(`Upserting ${clients.length} clients to local database...`);
+      let clientsSaved = 0;
+      let clientsSkipped = 0;
       for (const client of clients) {
-        this.db.upsertClientFromServer(client);
+        const result = this.db.upsertClientFromServer(client);
+        if (result) {
+          clientsSaved++;
+        } else {
+          clientsSkipped++;
+        }
       }
+      console.log(`✓ Clients sync complete: ${clientsSaved} saved, ${clientsSkipped} skipped`);
       
-      console.log('Upserting patients to local database...');
+      console.log(`Upserting ${patients.length} patients to local database...`);
+      let patientsSaved = 0;
+      let patientsSkipped = 0;
       for (const patient of patients) {
-        this.db.upsertPatientFromServer(patient);
+        const result = this.db.upsertPatientFromServer(patient);
+        if (result) {
+          patientsSaved++;
+        } else {
+          patientsSkipped++;
+        }
       }
+      console.log(`✓ Patients sync complete: ${patientsSaved} saved, ${patientsSkipped} skipped`);
 
       this.updateStatus({
         lastSync: new Date().toISOString(),
