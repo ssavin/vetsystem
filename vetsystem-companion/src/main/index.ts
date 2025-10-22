@@ -23,7 +23,7 @@ const store = new Store({
     branchId: '', // Selected branch ID
     branchName: '', // Selected branch name
     autoSyncInterval: 60000, // 1 minute
-    authenticatedUser: null, // Current authenticated user
+    // authenticatedUser is not in defaults - use has/get/set/delete methods
   },
 });
 
@@ -320,7 +320,7 @@ function setupIpcHandlers() {
 
   ipcMain.handle('auth:logout', async () => {
     log('IPC: auth:logout called');
-    store.set('authenticatedUser', null);
+    store.delete('authenticatedUser');
     return true;
   });
 
