@@ -324,6 +324,15 @@ function setupIpcHandlers() {
         throw new Error('Login failed: no user data returned');
       }
       log('Received user data:', JSON.stringify(user));
+      
+      // Set branch ID from user data
+      if (user.branchId) {
+        log(`Setting branch ID from user: ${user.branchId}`);
+        syncService.setBranchId(user.branchId);
+        store.set('branchId', user.branchId);
+        log('✓ Branch ID set successfully');
+      }
+      
       // Clean user object - remove any null/undefined values
       const cleanUser = Object.fromEntries(
         Object.entries(user).filter(([_, v]) => v != null)

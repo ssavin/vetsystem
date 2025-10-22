@@ -30,6 +30,13 @@ export default function App() {
       try {
         const user = await window.api.getCurrentUser();
         setCurrentUser(user);
+        
+        // Trigger initial data sync if user is already logged in
+        if (user) {
+          console.log('User already logged in, starting data sync...');
+          await window.api.downloadInitialData();
+          console.log('Data sync completed');
+        }
       } catch (error) {
         console.error('Failed to check auth:', error);
       } finally {
@@ -64,8 +71,13 @@ export default function App() {
     try {
       const user = await window.api.getCurrentUser();
       setCurrentUser(user);
+      
+      // Trigger initial data sync after successful login
+      console.log('Starting initial data sync...');
+      await window.api.downloadInitialData();
+      console.log('Initial data sync completed');
     } catch (error) {
-      console.error('Failed to get current user after login:', error);
+      console.error('Failed to get current user or sync data after login:', error);
     }
   };
 

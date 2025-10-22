@@ -164,9 +164,25 @@ export class SyncService {
       // Replace nomenclature completely (price list changes frequently)
       this.db.replaceAllNomenclature(nomenclature);
 
-      // TODO: Merge clients and patients (don't overwrite local changes)
-      // For now, we'll skip clients/patients sync to avoid data loss
-      // In production, implement smart merge logic
+      // Save clients and patients to local database
+      // Note: This replaces all local data. In production, implement smart merge logic.
+      console.log('Saving clients to local database...');
+      for (const client of clients) {
+        try {
+          this.db.createClient(client);
+        } catch (error: any) {
+          console.log(`Client ${client.id} may already exist, skipping...`);
+        }
+      }
+      
+      console.log('Saving patients to local database...');
+      for (const patient of patients) {
+        try {
+          this.db.createPatient(patient);
+        } catch (error: any) {
+          console.log(`Patient ${patient.id} may already exist, skipping...`);
+        }
+      }
 
       this.updateStatus({
         lastSync: new Date().toISOString(),
