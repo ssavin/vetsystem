@@ -57,13 +57,27 @@ export class SyncService {
   // Login user
   async login(username: string, password: string): Promise<any> {
     try {
+      console.log('SyncService.login: Attempting login for user:', username);
+      console.log('SyncService.login: API client baseURL:', this.apiClient.defaults.baseURL);
+      
       const response = await this.apiClient.post('/api/sync/login', {
         username,
         password,
       });
+      
+      console.log('SyncService.login: Response status:', response.status);
+      console.log('SyncService.login: Response data:', JSON.stringify(response.data));
+      
+      if (!response.data || !response.data.user) {
+        console.error('SyncService.login: No user data in response');
+        throw new Error('Сервер не вернул данные пользователя');
+      }
+      
       return response.data.user;
     } catch (error: any) {
-      console.error('Login failed:', error);
+      console.error('SyncService.login: Login failed:', error);
+      console.error('SyncService.login: Error response:', error.response?.data);
+      console.error('SyncService.login: Error status:', error.response?.status);
       throw new Error(error.response?.data?.error || error.message || 'Ошибка входа');
     }
   }
