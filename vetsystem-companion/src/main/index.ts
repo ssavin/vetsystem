@@ -1,8 +1,17 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { DatabaseManager } from './database';
 import { SyncService } from './sync-service';
 import Store from 'electron-store';
+
+// Polyfill __filename and __dirname for ES modules compiled to CJS
+if (typeof __filename === 'undefined') {
+  global.__filename = fileURLToPath(import.meta.url);
+}
+if (typeof __dirname === 'undefined') {
+  global.__dirname = path.dirname(global.__filename);
+}
 
 const isDev = process.env.NODE_ENV === 'development';
 

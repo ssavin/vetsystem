@@ -1,7 +1,16 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { app } from 'electron';
 import type { Client, Patient, NomenclatureItem, Appointment, Invoice, SyncQueueItem } from '@shared/types';
+
+// Polyfill __filename and __dirname for ES modules compiled to CJS
+if (typeof __filename === 'undefined') {
+  global.__filename = fileURLToPath(import.meta.url);
+}
+if (typeof __dirname === 'undefined') {
+  global.__dirname = path.dirname(global.__filename);
+}
 
 export class DatabaseManager {
   private db: Database.Database;

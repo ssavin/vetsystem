@@ -1,6 +1,16 @@
 import axios, { AxiosInstance } from 'axios';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { DatabaseManager } from './database';
 import type { InitialSyncData, SyncUploadRequest, SyncUploadResponse, SyncStatus } from '@shared/types';
+
+// Polyfill __filename and __dirname for ES modules compiled to CJS
+if (typeof __filename === 'undefined') {
+  global.__filename = fileURLToPath(import.meta.url);
+}
+if (typeof __dirname === 'undefined') {
+  global.__dirname = path.dirname(global.__filename);
+}
 
 export class SyncService {
   private db: DatabaseManager;
