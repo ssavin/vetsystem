@@ -145,20 +145,31 @@ export class DatabaseManager {
     // Skip clients without required fields
     const fullName = client.fullName || client.full_name;
     if (!fullName || !client.phone) {
+      console.log(`[DB] Skipping client - missing required fields:`, { 
+        id: client.id, 
+        fullName, 
+        phone: client.phone,
+        hasFullName: !!client.fullName,
+        hasFull_name: !!client.full_name
+      });
       return false;
     }
 
-    this.db.prepare(
-      'INSERT OR REPLACE INTO clients (server_id, full_name, phone, email, address, synced) VALUES (?, ?, ?, ?, ?, 1)'
-    ).run(
-      client.id,
-      fullName,
-      client.phone,
-      client.email || null,
-      client.address || null
-    );
-    
-    return true;
+    try {
+      this.db.prepare(
+        'INSERT OR REPLACE INTO clients (server_id, full_name, phone, email, address, synced) VALUES (?, ?, ?, ?, ?, 1)'
+      ).run(
+        client.id,
+        fullName,
+        client.phone,
+        client.email || null,
+        client.address || null
+      );
+      return true;
+    } catch (error) {
+      console.error(`[DB] Error upserting client ${client.id}:`, error);
+      return false;
+    }
   }
 
   // Patients

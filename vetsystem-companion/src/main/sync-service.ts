@@ -166,6 +166,10 @@ export class SyncService {
 
       // Save clients and patients to local database using upsert
       console.log(`Upserting ${clients.length} clients to local database...`);
+      if (clients.length > 0) {
+        console.log(`[SYNC] First client sample:`, JSON.stringify(clients[0]));
+      }
+      
       let clientsSaved = 0;
       let clientsSkipped = 0;
       for (const client of clients) {
@@ -177,6 +181,10 @@ export class SyncService {
         }
       }
       console.log(`✓ Clients sync complete: ${clientsSaved} saved, ${clientsSkipped} skipped`);
+      
+      // Verify data was saved
+      const savedCount = this.db.getAllClients().length;
+      console.log(`[SYNC] Verification: ${savedCount} clients in database after sync`);
       
       console.log(`Upserting ${patients.length} patients to local database...`);
       let patientsSaved = 0;

@@ -9111,7 +9111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         clients: clients.map(c => ({
           id: c.id,
-          fullName: c.fullName,
+          fullName: c.name, // Map name -> fullName for Companion
           phone: c.phone,
           email: c.email || undefined,
           address: c.address || undefined,
