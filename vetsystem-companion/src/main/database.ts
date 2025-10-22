@@ -118,7 +118,12 @@ export class DatabaseManager {
 
   // Clients
   getAllClients(): Client[] {
-    return this.db.prepare('SELECT * FROM clients ORDER BY full_name').all() as Client[];
+    const clients = this.db.prepare('SELECT * FROM clients ORDER BY full_name').all() as Client[];
+    console.log(`[DB] getAllClients: found ${clients.length} clients in database`);
+    if (clients.length > 0) {
+      console.log(`[DB] First client sample:`, JSON.stringify(clients[0]));
+    }
+    return clients;
   }
 
   searchClients(query: string): Client[] {
