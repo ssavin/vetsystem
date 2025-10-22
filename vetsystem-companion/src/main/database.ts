@@ -137,11 +137,18 @@ export class DatabaseManager {
 
   // Upsert client from server (sync)
   upsertClientFromServer(client: any): void {
+    // Skip clients without required fields
+    const fullName = client.fullName || client.full_name;
+    if (!fullName || !client.phone) {
+      console.warn(`Skipping client ${client.id}: missing required fields (name: ${!!fullName}, phone: ${!!client.phone})`);
+      return;
+    }
+
     this.db.prepare(
       'INSERT OR REPLACE INTO clients (server_id, full_name, phone, email, address, synced) VALUES (?, ?, ?, ?, ?, 1)'
     ).run(
       client.id,
-      client.fullName || client.full_name,
+      fullName,
       client.phone,
       client.email || null,
       client.address || null
@@ -163,6 +170,12 @@ export class DatabaseManager {
 
   // Upsert patient from server (sync)
   upsertPatientFromServer(patient: any): void {
+    // Skip patients without required fields
+    if (!patient.name || !patient.species) {
+      console.warn(`Skipping patient ${patient.id}: missing required fields (name: ${!!patient.name}, species: ${!!patient.species})`);
+      return;
+    }
+
     // First find local client_id by server_id
     const client = this.db.prepare(
       'SELECT id FROM clients WHERE server_id = ?'
