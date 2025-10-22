@@ -12,7 +12,8 @@
     "dev:vite": "vite",
     "dev:electron": "wait-on http://localhost:5173 && electron .",
     "build:main": "esbuild src/main/index.ts --bundle --platform=node --outfile=dist/main/index.js --external:electron --external:better-sqlite3 --external:electron-store --external:axios --format=esm --target=node18",
-    "build": "npm run build:main && vite build && npx electron-builder",
+    "build:preload": "esbuild src/main/preload.ts --bundle --platform=node --outfile=dist/preload/preload.js --external:electron --format=cjs --target=node18",
+    "build": "npm run build:main && npm run build:preload && vite build && npx electron-builder",
     "build:win": "npm run build -- --win",
     "build:mac": "npm run build -- --mac",
     "build:linux": "npm run build -- --linux"

@@ -85,7 +85,7 @@ function createWindow() {
     });
   } else {
     // In production, load the built files
-    const htmlPath = path.join(appPath, 'dist/index.html');
+    const htmlPath = path.join(appPath, 'dist/renderer/index.html');
     console.log('[STARTUP] Loading HTML from:', htmlPath);
     mainWindow.loadFile(htmlPath).then(() => {
       mainWindow?.show();
