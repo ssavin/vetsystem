@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 
 interface Branch {
   id: string;
@@ -46,17 +45,13 @@ export default function SettingsPage() {
     setMessage('');
     
     try {
-      const response = await axios.get(`${serverUrl}/api/sync/branches`, {
-        headers: {
-          'X-API-Key': apiKey,
-        },
-      });
-      
-      setBranches(response.data.branches || []);
-      setMessage('Филиалы загружены успешно');
+      // Use IPC to fetch branches through main process
+      const fetchedBranches = await window.api.fetchBranches();
+      setBranches(fetchedBranches || []);
+      setMessage('✅ Филиалы загружены успешно');
     } catch (error: any) {
       console.error('Failed to load branches:', error);
-      setMessage('Ошибка загрузки филиалов: ' + (error.response?.data?.error || error.message));
+      setMessage('❌ Ошибка загрузки филиалов: ' + (error.message || 'Неизвестная ошибка'));
     } finally {
       setIsLoadingBranches(false);
     }
@@ -69,12 +64,12 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     if (!serverUrl || !apiKey) {
-      setMessage('Заполните все обязательные поля');
+      setMessage('❌ Заполните все обязательные поля');
       return;
     }
 
     if (!branchId) {
-      setMessage('Выберите филиал');
+      setMessage('❌ Выберите филиал');
       return;
     }
 
@@ -82,15 +77,17 @@ export default function SettingsPage() {
     setMessage('');
 
     try {
+      // Save server URL and API key
       await window.api.setSetting('serverUrl', serverUrl);
       await window.api.setSetting('apiKey', apiKey);
-      await window.api.setSetting('branchId', branchId);
-      await window.api.setSetting('branchName', branchName);
       
-      setMessage('✅ Настройки сохранены. Перезапустите приложение для применения изменений.');
+      // Update branch (this will also update syncService.branchId)
+      await window.api.updateBranch(branchId, branchName);
+      
+      setMessage('✅ Настройки сохранены. Синхронизация будет использовать выбранный филиал.');
     } catch (error: any) {
       console.error('Failed to save settings:', error);
-      setMessage('❌ Ошибка сохранения: ' + error.message);
+      setMessage('❌ Ошибка сохранения: ' + (error.message || 'Неизвестная ошибка'));
     } finally {
       setIsSaving(false);
     }
