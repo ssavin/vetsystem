@@ -241,6 +241,21 @@ export class SyncService {
       for (const result of response.data.results) {
         if (result.status === 'success') {
           this.db.updateSyncItemStatus(result.queue_id, 'success');
+          
+          // Update server_id in local tables if available
+          if (result.server_id && result.local_id) {
+            const queueItem = pendingItems.find(item => item.id === result.queue_id);
+            if (queueItem) {
+              if (queueItem.action_type === 'create_client') {
+                this.db.updateClientServerId(result.local_id, result.server_id);
+                console.log(`✓ Mapped client ${result.local_id} -> ${result.server_id}`);
+              } else if (queueItem.action_type === 'create_patient') {
+                this.db.updatePatientServerId(result.local_id, result.server_id);
+                console.log(`✓ Mapped patient ${result.local_id} -> ${result.server_id}`);
+              }
+            }
+          }
+          
           console.log(`✓ Synced queue item ${result.queue_id}`);
         } else {
           this.db.updateSyncItemStatus(result.queue_id, 'error', result.message);

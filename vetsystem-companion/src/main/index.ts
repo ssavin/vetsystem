@@ -119,10 +119,16 @@ function setupIpcHandlers() {
     if (!db) throw new Error('Database not initialized');
     const clientId = db.createClient(client);
     
-    // Add to sync queue
+    // Add to sync queue with local_id for mapping
     db.addToSyncQueue({
       action_type: 'create_client',
-      payload: { ...client, local_id: clientId },
+      payload: { 
+        full_name: client.full_name,
+        phone: client.phone,
+        email: client.email,
+        address: client.address,
+        local_id: clientId,
+      },
       status: 'pending',
     });
 
@@ -139,10 +145,22 @@ function setupIpcHandlers() {
     if (!db) throw new Error('Database not initialized');
     const patientId = db.createPatient(patient);
     
-    // Add to sync queue
+    // Get owner's server_id for sync
+    const ownerServerId = db.getClientServerId(patient.client_id);
+    
+    // Add to sync queue with server_id mapping
     db.addToSyncQueue({
       action_type: 'create_patient',
-      payload: { ...patient, local_id: patientId },
+      payload: { 
+        name: patient.name,
+        species: patient.species,
+        breed: patient.breed,
+        birth_date: patient.birth_date,
+        gender: patient.gender,
+        client_id: patient.client_id,
+        owner_server_id: ownerServerId, // Use server_id for sync
+        local_id: patientId,
+      },
       status: 'pending',
     });
 

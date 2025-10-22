@@ -309,6 +309,26 @@ export class DatabaseManager {
     return result.count;
   }
 
+  // Update server_id after successful sync
+  updateClientServerId(localId: number, serverId: string): void {
+    this.db.prepare('UPDATE clients SET server_id = ? WHERE id = ?').run(serverId, localId);
+  }
+
+  updatePatientServerId(localId: number, serverId: string): void {
+    this.db.prepare('UPDATE patients SET server_id = ? WHERE id = ?').run(serverId, localId);
+  }
+
+  // Get server_id by local id
+  getClientServerId(localId: number): string | null {
+    const result = this.db.prepare('SELECT server_id FROM clients WHERE id = ?').get(localId) as any;
+    return result?.server_id || null;
+  }
+
+  getPatientServerId(localId: number): string | null {
+    const result = this.db.prepare('SELECT server_id FROM patients WHERE id = ?').get(localId) as any;
+    return result?.server_id || null;
+  }
+
   close() {
     this.db.close();
   }

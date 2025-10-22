@@ -9157,7 +9157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const ownerId = await storage.createOwner({
                 tenantId,
                 branchId,
-                fullName: payload.full_name,
+                name: payload.full_name, // Map full_name -> name
                 phone: payload.phone,
                 email: payload.email || null,
                 address: payload.address || null,
@@ -9165,16 +9165,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               results.push({
                 queue_id,
                 status: 'success',
-                server_id: parseInt(ownerId),
+                server_id: ownerId, // Already a UUID string
+                local_id: payload.local_id,
               });
               break;
             }
 
             case 'create_patient': {
+              // Find server_id for owner from previous results or payload
+              const ownerServerId = payload.owner_server_id || payload.client_id;
+              
               const patientId = await storage.createPatient({
                 tenantId,
                 branchId,
-                ownerId: payload.client_id.toString(),
+                ownerId: ownerServerId.toString(),
                 name: payload.name,
                 species: payload.species,
                 breed: payload.breed || null,
@@ -9184,60 +9188,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
               results.push({
                 queue_id,
                 status: 'success',
-                server_id: parseInt(patientId),
+                server_id: patientId, // Already a UUID string
+                local_id: payload.local_id,
               });
               break;
             }
 
             case 'create_appointment': {
+              const patientServerId = payload.patient_server_id || payload.patient_id;
+              
               const appointmentId = await storage.createAppointment({
                 tenantId,
                 branchId,
-                patientId: payload.patient_id.toString(),
+                patientId: patientServerId.toString(),
                 doctorId: null, // Will be assigned later
-                appointmentDate: payload.appointment_date,
-                appointmentTime: payload.appointment_time,
+                appointmentDate: new Date(payload.appointment_date + ' ' + payload.appointment_time),
+                duration: 30, // Default duration
+                appointmentType: 'consultation',
                 status: 'scheduled',
                 notes: payload.notes || null,
               });
               results.push({
                 queue_id,
                 status: 'success',
-                server_id: parseInt(appointmentId),
+                server_id: appointmentId, // Already a UUID string
+                local_id: payload.local_id,
               });
               break;
             }
 
             case 'create_invoice': {
-              // Create invoice
+              const patientServerId = payload.patient_server_id || payload.patient_id;
+              
+              // Create invoice with proper field mapping
               const invoiceId = await storage.createInvoice({
                 tenantId,
                 branchId,
-                patientId: payload.patient_id?.toString() || null,
-                invoiceDate: payload.created_at,
-                total: payload.total_amount,
-                paymentStatus: payload.payment_status,
+                patientId: patientServerId?.toString() || null,
+                issueDate: new Date(payload.created_at || Date.now()),
+                dueDate: new Date(payload.created_at || Date.now()),
+                subtotal: payload.total_amount.toString(),
+                discount: '0.00',
+                total: payload.total_amount.toString(),
+                status: payload.payment_status === 'paid' ? 'paid' : 'pending',
+                notes: payload.notes || '',
               });
 
               // Create invoice items
-              for (const item of payload.items) {
-                await storage.createInvoiceItem({
-                  tenantId,
-                  branchId,
-                  invoiceId,
-                  itemType: item.type || 'service',
-                  itemId: item.nomenclature_id.toString(),
-                  itemName: item.name,
-                  quantity: item.quantity,
-                  price: item.price,
-                  total: item.total,
-                });
+              if (payload.items && Array.isArray(payload.items)) {
+                for (const item of payload.items) {
+                  await storage.createInvoiceItem({
+                    invoiceId,
+                    productId: item.type === 'product' ? item.nomenclature_id.toString() : null,
+                    serviceId: item.type === 'service' ? item.nomenclature_id.toString() : null,
+                    itemName: item.name,
+                    quantity: item.quantity,
+                    price: item.price.toString(),
+                    total: item.total.toString(),
+                  });
+                }
               }
 
               results.push({
                 queue_id,
                 status: 'success',
-                server_id: parseInt(invoiceId),
+                server_id: invoiceId, // Already a UUID string
+                local_id: payload.local_id,
               });
               break;
             }
