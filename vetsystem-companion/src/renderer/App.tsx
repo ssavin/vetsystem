@@ -9,10 +9,12 @@ import AppointmentsPage from './pages/AppointmentsPage';
 import InvoicesPage from './pages/InvoicesPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
+import BranchSelectionPage from './pages/BranchSelectionPage';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [needsBranchSelection, setNeedsBranchSelection] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isOnline: false,
     pendingCount: 0,
@@ -72,12 +74,29 @@ export default function App() {
       const user = await window.api.getCurrentUser();
       setCurrentUser(user);
       
-      // Trigger initial data sync after successful login
+      // Show branch selection instead of auto-syncing
+      setNeedsBranchSelection(true);
+    } catch (error) {
+      console.error('Failed to get current user after login:', error);
+    }
+  };
+
+  const handleBranchSelected = async (branchId: string, branchName: string) => {
+    try {
+      console.log('Branch selected:', branchId, branchName);
+      
+      // Update branch in settings
+      await window.api.updateBranch(branchId, branchName);
+      
+      // Trigger initial data sync with selected branch
       console.log('Starting initial data sync...');
       await window.api.downloadInitialData();
       console.log('Initial data sync completed');
+      
+      // Hide branch selection screen
+      setNeedsBranchSelection(false);
     } catch (error) {
-      console.error('Failed to get current user or sync data after login:', error);
+      console.error('Failed to sync data after branch selection:', error);
     }
   };
 
@@ -110,6 +129,11 @@ export default function App() {
   // Show login page if not authenticated
   if (!currentUser) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Show branch selection after login
+  if (needsBranchSelection) {
+    return <BranchSelectionPage onBranchSelected={handleBranchSelected} />;
   }
 
   // Show main app if authenticated
