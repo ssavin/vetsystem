@@ -38,10 +38,18 @@ export class SyncService {
 
   async checkConnection(): Promise<boolean> {
     try {
-      await this.apiClient.get('/api/health');
+      console.log('Checking connection to:', this.apiClient.defaults.baseURL);
+      const response = await this.apiClient.get('/api/health');
+      console.log('Connection successful:', response.data);
       this.updateStatus({ isOnline: true });
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Connection failed:', error.message);
+      console.error('Error details:', {
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       this.updateStatus({ isOnline: false });
       return false;
     }
@@ -50,6 +58,8 @@ export class SyncService {
   // Download initial data from server (TOP-DOWN sync)
   async downloadInitialData(): Promise<void> {
     console.log('Starting initial data download...');
+    console.log('Server URL:', this.apiClient.defaults.baseURL);
+    console.log('API Key:', this.apiClient.defaults.headers['X-API-Key']);
     this.updateStatus({ isSyncing: true });
 
     try {
@@ -71,8 +81,14 @@ export class SyncService {
       });
 
       console.log('Initial data download completed');
-    } catch (error) {
-      console.error('Failed to download initial data:', error);
+    } catch (error: any) {
+      console.error('Failed to download initial data:', error.message);
+      console.error('Error details:', {
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url
+      });
       this.updateStatus({ isSyncing: false });
       throw error;
     }
