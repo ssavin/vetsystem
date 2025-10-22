@@ -77,20 +77,23 @@ Preferred communication style: Simple, everyday language.
 -   **Local Database**: SQLite for offline data storage (clients, patients, nomenclature, appointments, invoices).
 -   **Authentication** (✅ Working):
     - User login with username/password synchronized with main server
+    - **LoginPage**: Identical to main web app with inline branch selection dropdown (only difference: "Companion" label)
+    - Branch selection integrated into login screen - user selects clinic branch before authentication
     - API endpoint: `POST /api/sync/login` with bcrypt password verification
     - User credentials stored in separate JSON file (authenticated-user.json) to avoid electron-store null value limitations
-    - LoginPage enforces authentication before app access
     - Logout functionality clears stored credentials
     - SyncStatusBar displays current user info and logout button
     - Logging: IPC-based log forwarding from main process to renderer for debugging
+    - Services initialized before window creation to ensure sync service readiness
 -   **Synchronization**: 
     - Bidirectional sync with main server via REST API
     - API endpoints: `POST /api/sync/login`, `GET /api/sync/branches`, `GET /api/sync/initial-data`, `POST /api/sync/upload-changes`
     - API key authentication via `X-API-Key` header for Companion identification
-    - Branch selection in settings for data filtering (clients/patients shared across branches by design)
+    - Branch selection on login page for data filtering (clients/patients shared across branches by design)
     - Nomenclature (services/products) filtered by selected branch
     - Automatic sync every minute when online, manual sync available
     - Conflict resolution with sync_queue table for change tracking
+    - Safe data updates using `INSERT OR REPLACE` to prevent constraint violations
 -   **Settings Management**:
     - Server URL and API key configuration with live credential testing
     - Branch selection: fetch branches from server, select target branch without restart

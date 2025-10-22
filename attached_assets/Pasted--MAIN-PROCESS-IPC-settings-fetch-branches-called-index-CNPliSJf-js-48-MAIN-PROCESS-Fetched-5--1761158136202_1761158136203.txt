@@ -1,0 +1,62 @@
+[MAIN PROCESS] IPC: settings:fetch-branches called {}
+index-CNPliSJf.js:48 [MAIN PROCESS] Fetched 5 branches
+index-CNPliSJf.js:48 [MAIN PROCESS] IPC: auth:login called for user: admin
+index-CNPliSJf.js:48 [MAIN PROCESS] About to call syncService.login()...
+index-CNPliSJf.js:48 [MAIN PROCESS] syncService.login() returned: {"id":"1e62a7c8-b942-4506-bf1d-8e0385f632b2","username":"admin","fullName":"Системный Администратор","role":"администратор","branchId":"f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed","tenantId":"default-tenant-001"}
+index-CNPliSJf.js:48 [MAIN PROCESS] Received user data: {"id":"1e62a7c8-b942-4506-bf1d-8e0385f632b2","username":"admin","fullName":"Системный Администратор","role":"администратор","branchId":"f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed","tenantId":"default-tenant-001"}
+index-CNPliSJf.js:48 [MAIN PROCESS] Cleaned user data: {"id":"1e62a7c8-b942-4506-bf1d-8e0385f632b2","username":"admin","fullName":"Системный Администратор","role":"администратор","branchId":"f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed","tenantId":"default-tenant-001"}
+index-CNPliSJf.js:48 [MAIN PROCESS] ✓ User admin authenticated successfully
+index-CNPliSJf.js:48 Login successful: {id: '1e62a7c8-b942-4506-bf1d-8e0385f632b2', username: 'admin', fullName: 'Системный Администратор', role: 'администратор', branchId: 'f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed', …}
+index-CNPliSJf.js:48 [MAIN PROCESS] IPC: settings:update-branch called with branchId=4360ed52-9417-4ce1-b9ea-6543898d162a
+index-CNPliSJf.js:48 [MAIN PROCESS] ✓ Updated sync service branchId to 4360ed52-9417-4ce1-b9ea-6543898d162a
+index-CNPliSJf.js:48 Starting initial data sync...
+index-CNPliSJf.js:48 Failed to sync data after login: Error: Error invoking remote method 'sync:download-initial-data': SqliteError: UNIQUE constraint failed: nomenclature.id
+l @ index-CNPliSJf.js:48
+await in l (async)
+c @ index-CNPliSJf.js:48
+await in c (async)
+lp @ index-CNPliSJf.js:37
+ap @ index-CNPliSJf.js:37
+up @ index-CNPliSJf.js:37
+vu @ index-CNPliSJf.js:37
+Wd @ index-CNPliSJf.js:37
+(anonymous) @ index-CNPliSJf.js:37
+Oa @ index-CNPliSJf.js:40
+ud @ index-CNPliSJf.js:37
+Sl @ index-CNPliSJf.js:37
+na @ index-CNPliSJf.js:37
+Pp @ index-CNPliSJf.js:37
+index-CNPliSJf.js:48 [MAIN PROCESS] IPC: settings:fetch-branches called {"serverUrl":"https://163c7f4b-ecd0-4898-bed1-7f874b611cee-00-3qk3u36tdricg.riker.replit.dev","apiKey":"***"}
+index-CNPliSJf.js:48 [MAIN PROCESS] Fetched 5 branches
+index-CNPliSJf.js:48 [MAIN PROCESS] IPC: settings:update-credentials called
+index-CNPliSJf.js:48 [MAIN PROCESS] ✓ Updated sync service credentials
+index-CNPliSJf.js:48 [MAIN PROCESS] IPC: settings:update-branch called with branchId=280fcff4-2e1c-43d7-8ae5-6a48d288e518
+index-CNPliSJf.js:48 [MAIN PROCESS] ✓ Updated sync service branchId to 280fcff4-2e1c-43d7-8ae5-6a48d288e518
+index-CNPliSJf.js:48 [MAIN PROCESS] IPC: sync:full-sync called
+index-CNPliSJf.js:48 [MAIN PROCESS] syncService ready: true
+index-CNPliSJf.js:48 [MAIN PROCESS] db ready: true
+index-CNPliSJf.js:48 [MAIN PROCESS] Starting full sync...
+index-CNPliSJf.js:48 Sync failed: Error: Error invoking remote method 'sync:full-sync': SqliteError: UNIQUE constraint failed: nomenclature.id
+r @ index-CNPliSJf.js:48
+await in r (async)
+lp @ index-CNPliSJf.js:37
+ap @ index-CNPliSJf.js:37
+up @ index-CNPliSJf.js:37
+vu @ index-CNPliSJf.js:37
+Wd @ index-CNPliSJf.js:37
+(anonymous) @ index-CNPliSJf.js:37
+Oa @ index-CNPliSJf.js:40
+ud @ index-CNPliSJf.js:37
+Sl @ index-CNPliSJf.js:37
+na @ index-CNPliSJf.js:37
+Pp @ index-CNPliSJf.js:37
+index-CNPliSJf.js:48 [MAIN PROCESS] ❌ ERROR: IPC sync:full-sync error: UNIQUE constraint failed: nomenclature.id
+index-CNPliSJf.js:48 [MAIN PROCESS] ❌ ERROR: Error stack: SqliteError: UNIQUE constraint failed: nomenclature.id
+    at file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:144:16
+    at sqliteTransaction (C:\Program Files\VetSystem Companion\resources\app.asar\node_modules\better-sqlite3\lib\methods\transaction.js:65:24)
+    at DatabaseManager.replaceAllNomenclature (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:147:5)
+    at SyncService.downloadInitialData (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:356:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SyncService.fullSync (file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:466:5)
+    at async file:///C:/Program%20Files/VetSystem%20Companion/resources/app.asar/dist/main/index.js:659:7
+    at async WebContents.<anonymous> (node:electron/js2c/browser_init:2:77960)

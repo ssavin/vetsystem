@@ -158,9 +158,9 @@ export class DatabaseManager {
 
   replaceAllNomenclature(items: NomenclatureItem[]) {
     const transaction = this.db.transaction(() => {
-      this.db.prepare('DELETE FROM nomenclature').run();
+      // Use INSERT OR REPLACE to handle existing IDs
       const insert = this.db.prepare(
-        'INSERT INTO nomenclature (id, name, type, price, category) VALUES (?, ?, ?, ?, ?)'
+        'INSERT OR REPLACE INTO nomenclature (id, name, type, price, category, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
       );
       for (const item of items) {
         insert.run(item.id, item.name, item.type, item.price, item.category || null);
