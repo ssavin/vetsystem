@@ -1,0 +1,17 @@
+[MAIN PROCESS] IPC: settings:fetch-branches called {}
+index-S7jS-Lwo.js:48 [MAIN PROCESS] Fetched 5 branches
+index-S7jS-Lwo.js:48 [MAIN PROCESS] IPC: auth:login called for user: admin
+index-S7jS-Lwo.js:48 [MAIN PROCESS] About to call syncService.login()...
+index-S7jS-Lwo.js:48 [MAIN PROCESS] syncService.login() returned: {"id":"1e62a7c8-b942-4506-bf1d-8e0385f632b2","username":"admin","fullName":"Системный Администратор","role":"администратор","branchId":"f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed","tenantId":"default-tenant-001"}
+index-S7jS-Lwo.js:48 [MAIN PROCESS] Received user data: {"id":"1e62a7c8-b942-4506-bf1d-8e0385f632b2","username":"admin","fullName":"Системный Администратор","role":"администратор","branchId":"f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed","tenantId":"default-tenant-001"}
+index-S7jS-Lwo.js:48 [MAIN PROCESS] Cleaned user data: {"id":"1e62a7c8-b942-4506-bf1d-8e0385f632b2","username":"admin","fullName":"Системный Администратор","role":"администратор","branchId":"f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed","tenantId":"default-tenant-001"}
+index-S7jS-Lwo.js:48 [MAIN PROCESS] ✓ User admin authenticated successfully
+index-S7jS-Lwo.js:48 Login successful: {id: '1e62a7c8-b942-4506-bf1d-8e0385f632b2', username: 'admin', fullName: 'Системный Администратор', role: 'администратор', branchId: 'f9c369e8-9f58-4195-bd8e-a5bc4a03a3ed', …}
+index-S7jS-Lwo.js:48 [MAIN PROCESS] IPC: settings:update-branch called with branchId=280fcff4-2e1c-43d7-8ae5-6a48d288e518
+index-S7jS-Lwo.js:48 [MAIN PROCESS] ✓ Updated sync service branchId to 280fcff4-2e1c-43d7-8ae5-6a48d288e518
+index-S7jS-Lwo.js:48 Starting initial data sync...
+index-S7jS-Lwo.js:48 [MAIN PROCESS] [IPC] getAllClients returned 0 clients
+index-S7jS-Lwo.js:48 [ClientsPage] Loaded 0 clients from database
+index-S7jS-Lwo.js:48 Initial data sync completed
+index-S7jS-Lwo.js:48 [MAIN PROCESS] [IPC] getAllClients returned 61974 clients
+index-S7jS-Lwo.js:48 [MAIN PROCESS] [IPC] First client: {"id":45147,"server_id":"ba05cf37-3f1b-496f-9ed5-ecdbafbc49aa","full_name":"(Юркин) Попова Анна Денисовна","phone":"+79778984008","email":"bazuka66-66@mail.ru","address":"Ул Лобачевского д 96","synced":1,"created_at":"2025-10-22 21:08:12"}

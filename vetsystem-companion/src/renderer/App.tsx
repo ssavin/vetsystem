@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Route, Switch, Router } from 'wouter';
 import { useHashLocation } from 'wouter/use-hash-location';
+import { useQueryClient } from '@tanstack/react-query';
 import type { SyncStatus } from '@shared/types';
 import SyncStatusBar from './components/SyncStatusBar';
 import Sidebar from './components/Sidebar';
@@ -11,6 +12,7 @@ import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 
 export default function App() {
+  const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
@@ -36,6 +38,11 @@ export default function App() {
           console.log('User already logged in, starting data sync...');
           await window.api.downloadInitialData();
           console.log('Data sync completed');
+          
+          // CRITICAL: Invalidate cache after sync to refresh UI
+          queryClient.invalidateQueries({ queryKey: ['clients'] });
+          queryClient.invalidateQueries({ queryKey: ['patients'] });
+          console.log('Cache invalidated - UI should refresh');
         }
       } catch (error) {
         console.error('Failed to check auth:', error);
@@ -80,6 +87,11 @@ export default function App() {
       console.log('Starting initial data sync...');
       await window.api.downloadInitialData();
       console.log('Initial data sync completed');
+      
+      // CRITICAL: Invalidate cache after sync to refresh UI
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      console.log('Cache invalidated - UI should refresh');
     } catch (error) {
       console.error('Failed to sync data after login:', error);
     }
