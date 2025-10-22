@@ -11,9 +11,16 @@ export default function ClientsPage() {
   // Fetch clients
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ['clients', searchQuery],
-    queryFn: () => searchQuery 
-      ? window.api.searchClients(searchQuery)
-      : window.api.getAllClients(),
+    queryFn: async () => {
+      const result = searchQuery 
+        ? await window.api.searchClients(searchQuery)
+        : await window.api.getAllClients();
+      console.log(`[ClientsPage] Loaded ${result.length} clients from database`);
+      if (result.length > 0) {
+        console.log(`[ClientsPage] First client:`, result[0]);
+      }
+      return result;
+    },
   });
 
   // Fetch patients for selected client
@@ -76,6 +83,12 @@ export default function ClientsPage() {
         <button onClick={() => setShowAddClient(true)} className="btn btn-primary">
           + Добавить клиента
         </button>
+      </div>
+
+      {/* Debug info */}
+      <div style={{ padding: '12px', background: '#f0f0f0', marginBottom: '16px', borderRadius: '8px' }}>
+        <strong>Debug:</strong> {isLoading ? 'Загрузка...' : `Найдено клиентов: ${clients.length}`}
+        {clients.length > 0 && <div style={{ fontSize: '12px', marginTop: '4px' }}>Первый клиент: {clients[0].full_name} ({clients[0].phone})</div>}
       </div>
 
       {/* Search */}
