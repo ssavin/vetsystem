@@ -140,34 +140,54 @@ export class DatabaseManager {
     return result.lastInsertRowid as number;
   }
 
-  // Upsert client from server (sync)
+  // Batch upsert clients from server (OPTIMIZED!)
+  batchUpsertClientsFromServer(clients: any[]): { saved: number; skipped: number } {
+    let saved = 0;
+    let skipped = 0;
+
+    // Use transaction for batch insert - MUCH faster!
+    const transaction = this.db.transaction((clientsList: any[]) => {
+      const stmt = this.db.prepare(
+        'INSERT OR REPLACE INTO clients (server_id, full_name, phone, email, address, synced) VALUES (?, ?, ?, ?, ?, 1)'
+      );
+      
+      for (const client of clientsList) {
+        const fullName = client.fullName || client.full_name;
+        if (!fullName || !client.phone) {
+          skipped++;
+          continue;
+        }
+        
+        try {
+          stmt.run(
+            client.id,
+            fullName,
+            client.phone,
+            client.email || null,
+            client.address || null
+          );
+          saved++;
+        } catch (error) {
+          skipped++;
+        }
+      }
+    });
+
+    transaction(clients);
+    return { saved, skipped };
+  }
+
+  // Legacy single upsert (kept for compatibility)
   upsertClientFromServer(client: any): boolean {
-    // Skip clients without required fields
     const fullName = client.fullName || client.full_name;
-    if (!fullName || !client.phone) {
-      console.log(`[DB] Skipping client - missing required fields:`, { 
-        id: client.id, 
-        fullName, 
-        phone: client.phone,
-        hasFullName: !!client.fullName,
-        hasFull_name: !!client.full_name
-      });
-      return false;
-    }
+    if (!fullName || !client.phone) return false;
 
     try {
       this.db.prepare(
         'INSERT OR REPLACE INTO clients (server_id, full_name, phone, email, address, synced) VALUES (?, ?, ?, ?, ?, 1)'
-      ).run(
-        client.id,
-        fullName,
-        client.phone,
-        client.email || null,
-        client.address || null
-      );
+      ).run(client.id, fullName, client.phone, client.email || null, client.address || null);
       return true;
     } catch (error) {
-      console.error(`[DB] Error upserting client ${client.id}:`, error);
       return false;
     }
   }
@@ -185,36 +205,72 @@ export class DatabaseManager {
     return result.lastInsertRowid as number;
   }
 
-  // Upsert patient from server (sync)
+  // Batch upsert patients from server (OPTIMIZED!)
+  batchUpsertPatientsFromServer(patients: any[]): { saved: number; skipped: number } {
+    let saved = 0;
+    let skipped = 0;
+
+    // Build owner_id lookup map for fast access
+    const ownerMap = new Map<string, number>();
+    const owners = this.db.prepare('SELECT id, server_id FROM clients WHERE server_id IS NOT NULL').all() as any[];
+    for (const owner of owners) {
+      ownerMap.set(owner.server_id, owner.id);
+    }
+
+    // Use transaction for batch insert
+    const transaction = this.db.transaction((patientsList: any[]) => {
+      const stmt = this.db.prepare(
+        'INSERT OR REPLACE INTO patients (server_id, name, species, breed, birth_date, gender, client_id, owner_server_id, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)'
+      );
+      
+      for (const patient of patientsList) {
+        if (!patient.name || !patient.species) {
+          skipped++;
+          continue;
+        }
+
+        const clientId = ownerMap.get(patient.ownerId);
+        if (!clientId) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          stmt.run(
+            patient.id,
+            patient.name,
+            patient.species,
+            patient.breed || null,
+            patient.birthDate || patient.birth_date || null,
+            patient.gender || null,
+            clientId,
+            patient.ownerId
+          );
+          saved++;
+        } catch (error) {
+          skipped++;
+        }
+      }
+    });
+
+    transaction(patients);
+    return { saved, skipped };
+  }
+
+  // Legacy single upsert (kept for compatibility)
   upsertPatientFromServer(patient: any): boolean {
-    // Skip patients without required fields
-    if (!patient.name || !patient.species) {
+    if (!patient.name || !patient.species) return false;
+    const client = this.db.prepare('SELECT id FROM clients WHERE server_id = ?').get(patient.ownerId) as any;
+    if (!client) return false;
+
+    try {
+      this.db.prepare(
+        'INSERT OR REPLACE INTO patients (server_id, name, species, breed, birth_date, gender, client_id, owner_server_id, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)'
+      ).run(patient.id, patient.name, patient.species, patient.breed || null, patient.birthDate || patient.birth_date || null, patient.gender || null, client.id, patient.ownerId);
+      return true;
+    } catch (error) {
       return false;
     }
-
-    // First find local client_id by server_id
-    const client = this.db.prepare(
-      'SELECT id FROM clients WHERE server_id = ?'
-    ).get(patient.ownerId) as any;
-
-    if (!client) {
-      return false;
-    }
-
-    this.db.prepare(
-      'INSERT OR REPLACE INTO patients (server_id, name, species, breed, birth_date, gender, client_id, owner_server_id, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)'
-    ).run(
-      patient.id,
-      patient.name,
-      patient.species,
-      patient.breed || null,
-      patient.birthDate || patient.birth_date || null,
-      patient.gender || null,
-      client.id,
-      patient.ownerId
-    );
-    
-    return true;
   }
 
   // Nomenclature

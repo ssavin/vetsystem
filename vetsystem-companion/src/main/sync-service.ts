@@ -164,40 +164,26 @@ export class SyncService {
       // Replace nomenclature completely (price list changes frequently)
       this.db.replaceAllNomenclature(nomenclature);
 
-      // Save clients and patients to local database using upsert
-      console.log(`Upserting ${clients.length} clients to local database...`);
+      // Save clients and patients to local database using BATCH upsert
+      console.log(`Batch upserting ${clients.length} clients to local database...`);
       if (clients.length > 0) {
         console.log(`[SYNC] First client sample:`, JSON.stringify(clients[0]));
       }
       
-      let clientsSaved = 0;
-      let clientsSkipped = 0;
-      for (const client of clients) {
-        const result = this.db.upsertClientFromServer(client);
-        if (result) {
-          clientsSaved++;
-        } else {
-          clientsSkipped++;
-        }
-      }
-      console.log(`✓ Clients sync complete: ${clientsSaved} saved, ${clientsSkipped} skipped`);
+      const startClients = Date.now();
+      const clientResults = this.db.batchUpsertClientsFromServer(clients);
+      const clientsTime = Date.now() - startClients;
+      console.log(`✓ Clients sync complete: ${clientResults.saved} saved, ${clientResults.skipped} skipped in ${clientsTime}ms`);
       
       // Verify data was saved
       const savedCount = this.db.getAllClients().length;
       console.log(`[SYNC] Verification: ${savedCount} clients in database after sync`);
       
-      console.log(`Upserting ${patients.length} patients to local database...`);
-      let patientsSaved = 0;
-      let patientsSkipped = 0;
-      for (const patient of patients) {
-        const result = this.db.upsertPatientFromServer(patient);
-        if (result) {
-          patientsSaved++;
-        } else {
-          patientsSkipped++;
-        }
-      }
-      console.log(`✓ Patients sync complete: ${patientsSaved} saved, ${patientsSkipped} skipped`);
+      console.log(`Batch upserting ${patients.length} patients to local database...`);
+      const startPatients = Date.now();
+      const patientResults = this.db.batchUpsertPatientsFromServer(patients);
+      const patientsTime = Date.now() - startPatients;
+      console.log(`✓ Patients sync complete: ${patientResults.saved} saved, ${patientResults.skipped} skipped in ${patientsTime}ms`);
 
       this.updateStatus({
         lastSync: new Date().toISOString(),
