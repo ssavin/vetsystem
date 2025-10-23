@@ -232,14 +232,24 @@ export class DatabaseManager {
         'INSERT OR REPLACE INTO patients (server_id, name, species, breed, birth_date, gender, client_id, owner_server_id, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)'
       );
       
-      for (const patient of patientsList) {
+      let noNameCount = 0;
+      let noOwnerCount = 0;
+      
+      for (let i = 0; i < patientsList.length; i++) {
+        const patient = patientsList[i];
+        
         if (!patient.name || !patient.species) {
+          noNameCount++;
           skipped++;
           continue;
         }
 
         const clientId = ownerMap.get(patient.ownerId);
         if (!clientId) {
+          noOwnerCount++;
+          if (noOwnerCount <= 3) {
+            console.log(`[DB] Patient #${i} SKIPPED: ownerId="${patient.ownerId}" not found in ownerMap. Patient:`, JSON.stringify(patient).substring(0, 200));
+          }
           skipped++;
           continue;
         }
@@ -263,6 +273,11 @@ export class DatabaseManager {
     });
 
     transaction(patients);
+    
+    if (skipped > 0) {
+      console.log(`[DB] Patients skipped breakdown: ${noNameCount} without name/species, ${noOwnerCount} with unknown ownerId`);
+    }
+    
     return { saved, skipped };
   }
 
