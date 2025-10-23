@@ -9116,15 +9116,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: c.email || undefined,
           address: c.address || undefined,
         })),
-        patients: patients.map(p => ({
-          id: p.id,
-          name: p.name,
-          species: p.species,
-          breed: p.breed || undefined,
-          birthDate: p.birthDate || undefined,
-          gender: p.gender || undefined,
-          ownerId: p.ownerId,
-        })),
+        patients: patients.map(p => {
+          // Extract primary owner ID from owners array (new architecture)
+          let primaryOwnerId = p.ownerId; // Legacy fallback
+          if (p.owners && Array.isArray(p.owners) && p.owners.length > 0) {
+            // Find primary owner or take first owner
+            const primaryOwner = p.owners.find((o: any) => o.isPrimary) || p.owners[0];
+            primaryOwnerId = primaryOwner?.id || primaryOwnerId;
+          }
+          
+          return {
+            id: p.id,
+            name: p.name,
+            species: p.species,
+            breed: p.breed || undefined,
+            birthDate: p.birthDate || undefined,
+            gender: p.gender || undefined,
+            ownerId: primaryOwnerId,
+          };
+        }),
         nomenclature,
       });
 

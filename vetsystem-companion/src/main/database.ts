@@ -216,6 +216,8 @@ export class DatabaseManager {
   batchUpsertPatientsFromServer(patients: any[]): { saved: number; skipped: number } {
     let saved = 0;
     let skipped = 0;
+    let noNameCount = 0;
+    let noOwnerCount = 0;
 
     // Build owner_id lookup map for fast access
     const ownerMap = new Map<string, number>();
@@ -231,9 +233,6 @@ export class DatabaseManager {
       const stmt = this.db.prepare(
         'INSERT OR REPLACE INTO patients (server_id, name, species, breed, birth_date, gender, client_id, owner_server_id, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)'
       );
-      
-      let noNameCount = 0;
-      let noOwnerCount = 0;
       
       for (let i = 0; i < patientsList.length; i++) {
         const patient = patientsList[i];
