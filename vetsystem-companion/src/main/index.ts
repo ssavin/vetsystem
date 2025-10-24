@@ -420,6 +420,11 @@ app.whenReady().then(async () => {
     
     syncService = new SyncService(db, serverUrl, apiKey, branchId, console.log);
     console.log('[STARTUP] ✓ Sync service initialized');
+    
+    // Start automatic sync every 60 seconds (1 minute)
+    syncService.startAutoSync(60000);
+    console.log('[STARTUP] ✓ Auto-sync started (interval: 60s)');
+    
     console.log('[STARTUP] ✓ All services ready');
   } catch (error: any) {
     console.error('[STARTUP] ❌ Service initialization failed:', error.message);

@@ -86,14 +86,18 @@ Preferred communication style: Simple, everyday language.
     - Logging: IPC-based log forwarding from main process to renderer for debugging
     - Services initialized before window creation to ensure sync service readiness
 -   **Synchronization**: 
-    - Bidirectional sync with main server via REST API
+    - **Bidirectional sync** with main server via REST API (fully automated)
     - API endpoints: `POST /api/sync/login`, `GET /api/sync/branches`, `GET /api/sync/initial-data`, `POST /api/sync/upload-changes`
     - API key authentication via `X-API-Key` header for Companion identification
     - Branch selection on login page for data filtering (clients/patients shared across branches by design)
     - Nomenclature (services/products) filtered by selected branch
-    - Automatic sync every minute when online, manual sync available
+    - **Automatic sync every 60 seconds (1 minute)** - uploads pending changes when online
+    - Manual sync button available (↻ Синхронизировать) for immediate sync
+    - Local changes tracked in sync_queue table (pending → success/error)
+    - Supports offline: clients, patients, appointments, **invoices** creation
     - Conflict resolution with sync_queue table for change tracking
     - Safe data updates using `INSERT OR REPLACE` to prevent constraint violations
+    - Real-time sync status in UI (pending count, online/offline, syncing indicator)
 -   **Settings Management**:
     - Server URL and API key configuration with live credential testing
     - Branch selection: fetch branches from server, select target branch without restart
