@@ -401,6 +401,128 @@ function setupIpcHandlers() {
       return null;
     }
   });
+
+  // Fiscal Printer handlers
+  ipcMain.handle('printer:print-receipt', async (_event, printerModel: string, port: string, receiptData: any) => {
+    log(`[PRINTER] Printing receipt on ${printerModel} (${port})`);
+    
+    try {
+      const { execFile } = await import('child_process');
+      const { promisify } = await import('util');
+      const execFileAsync = promisify(execFile);
+      
+      // Path to Python script
+      const pythonScript = path.join(__dirname, '..', '..', 'fiscal_printer', 'printer.py');
+      const receiptJson = JSON.stringify(receiptData);
+      
+      log(`[PRINTER] Executing: python ${pythonScript} ${printerModel} ${port}`);
+      
+      // Execute Python script
+      const { stdout, stderr } = await execFileAsync('python', [
+        pythonScript,
+        printerModel,
+        port,
+        receiptJson
+      ], { timeout: 30000 });
+      
+      if (stderr) {
+        logError(`[PRINTER] stderr: ${stderr}`);
+      }
+      
+      log(`[PRINTER] stdout: ${stdout}`);
+      
+      // Parse result
+      const result = JSON.parse(stdout);
+      log(`[PRINTER] Result:`, result);
+      
+      return result;
+    } catch (error: any) {
+      logError(`[PRINTER] Error:`, error);
+      return {
+        success: false,
+        error: error.message,
+        message: `Ошибка печати: ${error.message}`
+      };
+    }
+  });
+
+  ipcMain.handle('printer:test-connection', async (_event, port: string) => {
+    log(`[PRINTER] Testing connection on ${port}`);
+    
+    try {
+      const { execFile } = await import('child_process');
+      const { promisify } = await import('util');
+      const execFileAsync = promisify(execFile);
+      
+      // Simple test: try to open the port
+      const testScript = `
+import serial
+import json
+try:
+    ser = serial.Serial('${port}', 115200, timeout=1)
+    ser.close()
+    print(json.dumps({"success": True, "message": "Порт ${port} доступен"}))
+except Exception as e:
+    print(json.dumps({"success": False, "error": str(e), "message": f"Ошибка подключения: {e}"}))
+`;
+      
+      const { stdout, stderr } = await execFileAsync('python', ['-c', testScript], { timeout: 5000 });
+      
+      if (stderr) {
+        logError(`[PRINTER] Test stderr: ${stderr}`);
+      }
+      
+      const result = JSON.parse(stdout);
+      log(`[PRINTER] Test result:`, result);
+      
+      return result;
+    } catch (error: any) {
+      logError(`[PRINTER] Test error:`, error);
+      return {
+        success: false,
+        error: error.message,
+        message: `Ошибка тестирования: ${error.message}`
+      };
+    }
+  });
+
+  ipcMain.handle('printer:list-ports', async () => {
+    log(`[PRINTER] Listing available COM ports`);
+    
+    try {
+      const { execFile } = await import('child_process');
+      const { promisify } = await import('util');
+      const execFileAsync = promisify(execFile);
+      
+      const listScript = `
+import serial.tools.list_ports
+import json
+ports = []
+for port in serial.tools.list_ports.comports():
+    ports.append({"device": port.device, "description": port.description})
+print(json.dumps({"success": True, "ports": ports}))
+`;
+      
+      const { stdout, stderr } = await execFileAsync('python', ['-c', listScript], { timeout: 5000 });
+      
+      if (stderr) {
+        logError(`[PRINTER] List stderr: ${stderr}`);
+      }
+      
+      const result = JSON.parse(stdout);
+      log(`[PRINTER] Available ports:`, result);
+      
+      return result;
+    } catch (error: any) {
+      logError(`[PRINTER] List error:`, error);
+      return {
+        success: false,
+        error: error.message,
+        message: `Ошибка получения списка портов: ${error.message}`,
+        ports: []
+      };
+    }
+  });
 }
 
 app.whenReady().then(async () => {

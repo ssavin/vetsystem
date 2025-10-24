@@ -46,6 +46,11 @@ contextBridge.exposeInMainWorld('api', {
   login: (username, password) => ipcRenderer.invoke('auth:login', username, password),
   logout: () => ipcRenderer.invoke('auth:logout'),
   getCurrentUser: () => ipcRenderer.invoke('auth:get-current-user'),
+
+  // Fiscal Printer
+  printReceipt: (printerModel, port, receiptData) => ipcRenderer.invoke('printer:print-receipt', printerModel, port, receiptData),
+  testPrinterConnection: (port) => ipcRenderer.invoke('printer:test-connection', port),
+  listComPorts: () => ipcRenderer.invoke('printer:list-ports'),
 });
 
 // Expose electron APIs for direct IPC access (for logging)
