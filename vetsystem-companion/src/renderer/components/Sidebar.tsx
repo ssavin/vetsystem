@@ -4,6 +4,7 @@ const menuItems = [
   { path: '/clients', label: 'Клиенты', icon: '👥' },
   { path: '/appointments', label: 'Записи на прием', icon: '📅' },
   { path: '/invoices', label: 'Счета', icon: '💰' },
+  { path: '/printer-settings', label: 'Принтер', icon: '🖨️' },
   { path: '/settings', label: 'Настройки', icon: '⚙️' },
 ];
 

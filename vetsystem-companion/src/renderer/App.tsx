@@ -9,6 +9,7 @@ import ClientsPage from './pages/ClientsPage';
 import AppointmentsPage from './pages/AppointmentsPage';
 import InvoicesPage from './pages/InvoicesPage';
 import SettingsPage from './pages/SettingsPage';
+import PrinterSettingsPage from './pages/PrinterSettingsPage';
 import LoginPage from './pages/LoginPage';
 
 export default function App() {
@@ -147,6 +148,7 @@ export default function App() {
               <Route path="/appointments" component={AppointmentsPage} />
               <Route path="/invoices" component={InvoicesPage} />
               <Route path="/settings" component={SettingsPage} />
+              <Route path="/printer-settings" component={PrinterSettingsPage} />
               <Route>
                 <div>404 - Страница не найдена</div>
               </Route>

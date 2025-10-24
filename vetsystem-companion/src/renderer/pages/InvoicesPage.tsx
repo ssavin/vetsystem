@@ -8,6 +8,7 @@ export default function InvoicesPage() {
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [searchClient, setSearchClient] = useState('');
   const [searchNomenclature, setSearchNomenclature] = useState('');
+  const [printingInvoiceId, setPrintingInvoiceId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const { data: invoices = [], isLoading } = useQuery({
@@ -78,6 +79,44 @@ export default function InvoicesPage() {
     });
   };
 
+  const handlePrintReceipt = async (invoice: Invoice) => {
+    setPrintingInvoiceId(invoice.id!);
+    try {
+      // Get printer settings
+      const printerModel = await window.api.getSetting('printerModel');
+      const printerPort = await window.api.getSetting('printerPort');
+      
+      if (!printerModel || !printerPort) {
+        alert('Настройте принтер в разделе Настройки → Настройки принтера');
+        return;
+      }
+
+      // Prepare receipt data
+      const receiptData = {
+        items: invoice.items.map(item => ({
+          name: item.name,
+          price: parseFloat(item.price.toString()),
+          quantity: item.quantity
+        })),
+        payment_method: invoice.payment_status === 'paid' ? 'cash' : 'card',
+        total: parseFloat(invoice.total_amount.toString())
+      };
+
+      // Print receipt
+      const result = await window.api.printReceipt(printerModel, printerPort, receiptData);
+      
+      if (result.success) {
+        alert('✓ Чек успешно напечатан');
+      } else {
+        alert(`❌ Ошибка печати: ${result.message || result.error}`);
+      }
+    } catch (error: any) {
+      alert(`❌ Ошибка: ${error.message}`);
+    } finally {
+      setPrintingInvoiceId(null);
+    }
+  };
+
   return (
     <div style={{ maxWidth: '1000px' }}>
       <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -103,17 +142,18 @@ export default function InvoicesPage() {
                 <th style={{ padding: '12px', textAlign: 'left' }}>Позиций</th>
                 <th style={{ padding: '12px', textAlign: 'right' }}>Сумма</th>
                 <th style={{ padding: '12px', textAlign: 'left' }}>Статус</th>
+                <th style={{ padding: '12px', textAlign: 'center' }}>Действия</th>
               </tr>
             </thead>
             <tbody>
               {invoices.map((invoice) => (
                 <tr key={invoice.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '12px' }}>#{invoice.id}</td>
+                  <td style={{ padding: '12px' }} data-testid={`text-invoice-number-${invoice.id}`}>#{invoice.id}</td>
                   <td style={{ padding: '12px' }}>
                     {new Date(invoice.created_at).toLocaleDateString('ru-RU')}
                   </td>
                   <td style={{ padding: '12px' }}>{invoice.items.length}</td>
-                  <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600' }}>
+                  <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600' }} data-testid={`text-invoice-total-${invoice.id}`}>
                     {invoice.total_amount.toFixed(2)} ₽
                   </td>
                   <td style={{ padding: '12px' }}>
@@ -126,6 +166,26 @@ export default function InvoicesPage() {
                     }}>
                       {invoice.payment_status === 'paid' ? 'Оплачен' : 'Ожидает оплаты'}
                     </span>
+                  </td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                    <button
+                      onClick={() => handlePrintReceipt(invoice)}
+                      disabled={printingInvoiceId === invoice.id}
+                      className="btn btn-sm"
+                      data-testid={`button-print-receipt-${invoice.id}`}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '13px',
+                        background: 'var(--primary)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: printingInvoiceId === invoice.id ? 'not-allowed' : 'pointer',
+                        opacity: printingInvoiceId === invoice.id ? 0.6 : 1,
+                      }}
+                    >
+                      {printingInvoiceId === invoice.id ? '⏳ Печать...' : '🖨️ Печать'}
+                    </button>
                   </td>
                 </tr>
               ))}
