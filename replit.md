@@ -158,3 +158,21 @@ Preferred communication style: Simple, everyday language.
     - **Security**: API credentials stored in integration_credentials table with tenant-scoped access, webhook signature verification, and RLS enforcement
 -   **DADATA**: Data enrichment service (implied by environment variables).
 -   **OpenAI**: AI services (implied by environment variables).
+
+## Vetais Legacy Database (External)
+Внешняя база данных старой системы Vetais для миграции данных и ручных SQL-запросов.
+-   **Host:** 45.128.206.134
+-   **Port:** 5454
+-   **Database:** vetais_alisavet
+-   **User:** postgres
+-   **Password:** ASPI6rin
+-   **Ключевые таблицы:**
+    - `file_clients` - клиенты (kod_kado = ID, nazev_kado = ФИО)
+    - `file_patients` - пациенты (id_majitele = ID владельца)
+    - `accounts_headers` - счета (client_id, client_name - денормализованное ФИО)
+    - `accounts_items` - позиции счетов
+-   **Скрипт миграции:** `scripts/migrate-vetais-batch.ts`
+-   **Подключение через psql:**
+    ```bash
+    PGPASSWORD='ASPI6rin' psql -h 45.128.206.134 -p 5454 -U postgres -d vetais_alisavet
+    ```
