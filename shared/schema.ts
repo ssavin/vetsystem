@@ -81,6 +81,14 @@ export const MESSAGE_SENDER_TYPE = ['client', 'staff'] as const;
 export const CALL_DIRECTION = ['inbound', 'outbound'] as const;
 export const CALL_STATUS = ['answered', 'missed', 'busy', 'failed', 'no_answer'] as const;
 
+// CRM enums
+export const CLIENT_SEGMENT = ['new', 'regular', 'vip', 'lost', 'at_risk'] as const;
+export const INTERACTION_TYPE = ['call', 'sms', 'email', 'push', 'visit', 'note', 'complaint', 'feedback'] as const;
+export const REMINDER_TYPE = ['vaccination', 'deworming', 'flea_tick', 'checkup', 'surgery_followup', 'dental', 'custom'] as const;
+export const REMINDER_STATUS = ['pending', 'sent', 'acknowledged', 'completed', 'cancelled'] as const;
+export const CAMPAIGN_STATUS = ['draft', 'scheduled', 'running', 'completed', 'paused', 'cancelled'] as const;
+export const CAMPAIGN_CHANNEL = ['sms', 'email', 'push'] as const;
+
 // ========================================
 // MULTI-TENANT ARCHITECTURE
 // ========================================
@@ -329,6 +337,19 @@ export const owners = pgTable("owners", {
   
   branchId: varchar("branch_id").references(() => branches.id),
   vetaisId: varchar("vetais_id", { length: 50 }), // Vetais client ID for migration tracking
+  
+  // CRM fields
+  segment: varchar("segment", { length: 20 }).default("new"), // Client segment: new, regular, vip, lost, at_risk
+  totalSpent: decimal("total_spent", { precision: 12, scale: 2 }).default("0"), // Lifetime value
+  visitCount: integer("visit_count").default(0), // Total visits
+  lastVisitAt: timestamp("last_visit_at"), // Last visit date
+  firstVisitAt: timestamp("first_visit_at"), // First visit date (for tenure)
+  averageCheck: decimal("average_check", { precision: 10, scale: 2 }).default("0"), // Average invoice amount
+  smsOptIn: boolean("sms_opt_in").default(true), // SMS marketing consent
+  emailOptIn: boolean("email_opt_in").default(true), // Email marketing consent
+  pushOptIn: boolean("push_opt_in").default(true), // Push notification consent
+  notes: text("notes"), // Internal CRM notes
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -341,6 +362,8 @@ export const owners = pgTable("owners", {
     createdAtIdx: index("owners_created_at_idx").on(table.createdAt),
     tenantPhoneIdx: index("owners_tenant_phone_idx").on(table.tenantId, table.phone), // Search within tenant
     vetaisIdIdx: index("owners_vetais_id_idx").on(table.vetaisId), // Index for migration lookups
+    segmentIdx: index("owners_segment_idx").on(table.segment), // CRM segment index
+    lastVisitIdx: index("owners_last_visit_idx").on(table.lastVisitAt), // For churn detection
   };
 });
 
@@ -3484,3 +3507,203 @@ export type InsertDicomSeries = z.infer<typeof insertDicomSeriesSchema>;
 
 export type DicomInstance = typeof dicomInstances.$inferSelect;
 export type InsertDicomInstance = z.infer<typeof insertDicomInstanceSchema>;
+
+// ========================================
+// CRM SYSTEM
+// ========================================
+
+// Client Interactions - история всех взаимодействий с клиентом
+export const clientInteractions = pgTable('client_interactions', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id),
+  
+  ownerId: varchar('owner_id').references(() => owners.id).notNull(),
+  userId: varchar('user_id').references(() => users.id), // Staff member who made the interaction
+  
+  type: varchar('type', { length: 20 }).notNull(), // call, sms, email, push, visit, note, complaint, feedback
+  channel: varchar('channel', { length: 20 }), // inbound, outbound
+  subject: varchar('subject', { length: 255 }),
+  content: text('content'), // Message content or notes
+  
+  // For linked entities
+  appointmentId: varchar('appointment_id').references(() => appointments.id),
+  invoiceId: varchar('invoice_id').references(() => invoices.id),
+  campaignId: varchar('campaign_id'),
+  
+  // Metadata
+  metadata: jsonb('metadata'), // Additional data (call duration, delivery status, etc.)
+  
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('client_interactions_tenant_idx').on(table.tenantId),
+  ownerIdIdx: index('client_interactions_owner_idx').on(table.ownerId),
+  typeIdx: index('client_interactions_type_idx').on(table.type),
+  createdAtIdx: index('client_interactions_created_idx').on(table.createdAt),
+  branchIdIdx: index('client_interactions_branch_idx').on(table.branchId)
+}));
+
+// Health Reminders - напоминания о вакцинации/обработках
+export const healthReminders = pgTable('health_reminders', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id),
+  
+  patientId: varchar('patient_id').references(() => patients.id).notNull(),
+  ownerId: varchar('owner_id').references(() => owners.id).notNull(),
+  
+  type: varchar('type', { length: 30 }).notNull(), // vaccination, deworming, flea_tick, checkup, surgery_followup, dental, custom
+  title: varchar('title', { length: 255 }).notNull(), // E.g., "Вакцинация от бешенства"
+  description: text('description'),
+  
+  dueDate: date('due_date').notNull(), // When the reminder is due
+  status: varchar('status', { length: 20 }).default('pending'), // pending, sent, acknowledged, completed, cancelled
+  
+  // Notification settings
+  notifyDaysBefore: integer('notify_days_before').default(7), // Days before to send reminder
+  notifyVia: text('notify_via').array(), // ['sms', 'push', 'email']
+  
+  // Tracking
+  sentAt: timestamp('sent_at'), // When notification was sent
+  acknowledgedAt: timestamp('acknowledged_at'), // When client acknowledged
+  completedAt: timestamp('completed_at'), // When the action was completed
+  
+  // Link to source record if applicable
+  medicalRecordId: varchar('medical_record_id').references(() => medicalRecords.id),
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('health_reminders_tenant_idx').on(table.tenantId),
+  patientIdIdx: index('health_reminders_patient_idx').on(table.patientId),
+  ownerIdIdx: index('health_reminders_owner_idx').on(table.ownerId),
+  statusIdx: index('health_reminders_status_idx').on(table.status),
+  dueDateIdx: index('health_reminders_due_date_idx').on(table.dueDate),
+  typeIdx: index('health_reminders_type_idx').on(table.type)
+}));
+
+// Marketing Campaigns - маркетинговые рассылки
+export const marketingCampaigns = pgTable('marketing_campaigns', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id), // null = all branches
+  
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  
+  channel: varchar('channel', { length: 20 }).notNull(), // sms, email, push
+  status: varchar('status', { length: 20 }).default('draft'), // draft, scheduled, running, completed, paused, cancelled
+  
+  // Targeting
+  targetSegments: text('target_segments').array(), // ['vip', 'regular', 'lost']
+  targetFilters: jsonb('target_filters'), // Additional filters (last visit > 30 days, etc.)
+  
+  // Content
+  subject: varchar('subject', { length: 255 }), // For email
+  content: text('content').notNull(), // Message template with placeholders
+  
+  // Scheduling
+  scheduledAt: timestamp('scheduled_at'), // When to send
+  startedAt: timestamp('started_at'), // When campaign started
+  completedAt: timestamp('completed_at'), // When campaign finished
+  
+  // Stats
+  totalRecipients: integer('total_recipients').default(0),
+  sentCount: integer('sent_count').default(0),
+  deliveredCount: integer('delivered_count').default(0),
+  failedCount: integer('failed_count').default(0),
+  openedCount: integer('opened_count').default(0), // For email
+  clickedCount: integer('clicked_count').default(0), // For email with links
+  
+  createdBy: varchar('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('marketing_campaigns_tenant_idx').on(table.tenantId),
+  statusIdx: index('marketing_campaigns_status_idx').on(table.status),
+  channelIdx: index('marketing_campaigns_channel_idx').on(table.channel),
+  scheduledAtIdx: index('marketing_campaigns_scheduled_idx').on(table.scheduledAt)
+}));
+
+// Campaign Recipients - получатели рассылки
+export const campaignRecipients = pgTable('campaign_recipients', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar('campaign_id').references(() => marketingCampaigns.id).notNull(),
+  ownerId: varchar('owner_id').references(() => owners.id).notNull(),
+  
+  status: varchar('status', { length: 20 }).default('pending'), // pending, sent, delivered, failed, opened, clicked
+  sentAt: timestamp('sent_at'),
+  deliveredAt: timestamp('delivered_at'),
+  openedAt: timestamp('opened_at'),
+  clickedAt: timestamp('clicked_at'),
+  failureReason: text('failure_reason'),
+  
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  campaignIdIdx: index('campaign_recipients_campaign_idx').on(table.campaignId),
+  ownerIdIdx: index('campaign_recipients_owner_idx').on(table.ownerId),
+  statusIdx: index('campaign_recipients_status_idx').on(table.status)
+}));
+
+// Zod schemas for CRM
+export const insertClientInteractionSchema = createInsertSchema(clientInteractions).omit({
+  id: true,
+  createdAt: true,
+  tenantId: true
+}).extend({
+  type: z.enum(INTERACTION_TYPE),
+  ownerId: z.string().min(1, 'ID владельца обязателен')
+});
+
+export const insertHealthReminderSchema = createInsertSchema(healthReminders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+}).extend({
+  type: z.enum(REMINDER_TYPE),
+  status: z.enum(REMINDER_STATUS).default('pending'),
+  patientId: z.string().min(1, 'ID пациента обязателен'),
+  ownerId: z.string().min(1, 'ID владельца обязателен'),
+  dueDate: z.string().or(z.date()),
+  notifyVia: z.array(z.enum(CAMPAIGN_CHANNEL)).default(['sms', 'push'])
+});
+
+export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true,
+  totalRecipients: true,
+  sentCount: true,
+  deliveredCount: true,
+  failedCount: true,
+  openedCount: true,
+  clickedCount: true,
+  startedAt: true,
+  completedAt: true
+}).extend({
+  channel: z.enum(CAMPAIGN_CHANNEL),
+  status: z.enum(CAMPAIGN_STATUS).default('draft'),
+  name: z.string().min(2, 'Название кампании обязательно'),
+  content: z.string().min(1, 'Текст сообщения обязателен'),
+  targetSegments: z.array(z.enum(CLIENT_SEGMENT)).default(['regular', 'vip'])
+});
+
+export const insertCampaignRecipientSchema = createInsertSchema(campaignRecipients).omit({
+  id: true,
+  createdAt: true
+});
+
+// CRM Types
+export type ClientInteraction = typeof clientInteractions.$inferSelect;
+export type InsertClientInteraction = z.infer<typeof insertClientInteractionSchema>;
+
+export type HealthReminder = typeof healthReminders.$inferSelect;
+export type InsertHealthReminder = z.infer<typeof insertHealthReminderSchema>;
+
+export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
+export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
+
+export type CampaignRecipient = typeof campaignRecipients.$inferSelect;
+export type InsertCampaignRecipient = z.infer<typeof insertCampaignRecipientSchema>;
