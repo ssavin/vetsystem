@@ -3078,3 +3078,202 @@ export const insertDocumentTemplateSchema = createInsertSchema(documentTemplates
 
 export type DocumentTemplate = typeof documentTemplates.$inferSelect;
 export type InsertDocumentTemplate = z.infer<typeof insertDocumentTemplateSchema>;
+
+// ========================================
+// LABORATORY INTEGRATIONS
+// ========================================
+
+// External Laboratory Integration Types
+export const EXTERNAL_LAB_TYPE = ['vet_union', 'chance_bio', 'other'] as const;
+export const LAB_INTEGRATION_STATUS = ['active', 'inactive', 'testing', 'error'] as const;
+export const ANALYZER_CONNECTION_TYPE = ['serial', 'tcp_ip'] as const;
+export const ANALYZER_PROTOCOL = ['astm_lis2a2', 'hl7', 'custom'] as const;
+export const ANALYZER_STATUS = ['online', 'offline', 'error', 'maintenance'] as const;
+export const LAB_IMPORT_STATUS = ['pending', 'processing', 'completed', 'failed'] as const;
+
+// External Laboratory Integrations - настройки подключения к внешним лабораториям
+export const externalLabIntegrations = pgTable('external_lab_integrations', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id),
+  
+  labType: varchar('lab_type', { length: 50 }).notNull(), // vet_union, chance_bio, other
+  labName: varchar('lab_name', { length: 255 }).notNull(), // Название лаборатории
+  
+  apiUrl: text('api_url'), // URL API лаборатории
+  apiKey: text('api_key'), // API ключ (зашифрованный)
+  apiSecret: text('api_secret'), // API секрет (зашифрованный)
+  clientId: varchar('client_id', { length: 255 }), // ID клиента в системе лаборатории
+  contractNumber: varchar('contract_number', { length: 100 }), // Номер договора
+  
+  email: varchar('email', { length: 255 }), // Email для получения результатов
+  phone: varchar('phone', { length: 50 }), // Телефон для связи
+  contactPerson: varchar('contact_person', { length: 255 }), // Контактное лицо
+  
+  autoImportEnabled: boolean('auto_import_enabled').default(false), // Автоматический импорт результатов
+  importSchedule: varchar('import_schedule', { length: 50 }), // Расписание импорта (cron формат)
+  webhookUrl: text('webhook_url'), // URL для получения webhook уведомлений
+  webhookSecret: text('webhook_secret'), // Секрет для верификации webhook
+  
+  status: varchar('status', { length: 20 }).default('inactive'),
+  lastSyncAt: timestamp('last_sync_at'),
+  lastError: text('last_error'),
+  
+  settings: jsonb('settings'), // Дополнительные настройки
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('ext_lab_integrations_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('ext_lab_integrations_branch_idx').on(table.branchId),
+  labTypeIdx: index('ext_lab_integrations_type_idx').on(table.labType),
+  statusIdx: index('ext_lab_integrations_status_idx').on(table.status),
+  labTypeCheck: check('ext_lab_integrations_type_check', sql`${table.labType} IN ('vet_union', 'chance_bio', 'other')`),
+  statusCheck: check('ext_lab_integrations_status_check', sql`${table.status} IN ('active', 'inactive', 'testing', 'error')`)
+}));
+
+// Laboratory Analyzers - подключенные анализаторы крови/мочи
+export const labAnalyzers = pgTable('lab_analyzers', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  
+  name: varchar('name', { length: 255 }).notNull(), // Название анализатора
+  manufacturer: varchar('manufacturer', { length: 255 }), // Производитель
+  model: varchar('model', { length: 255 }), // Модель
+  serialNumber: varchar('serial_number', { length: 100 }), // Серийный номер
+  analyzerType: varchar('analyzer_type', { length: 50 }), // hematology, chemistry, urine, coagulation
+  
+  connectionType: varchar('connection_type', { length: 20 }).default('serial'), // serial, tcp_ip
+  protocol: varchar('protocol', { length: 50 }).default('astm_lis2a2'), // astm_lis2a2, hl7, custom
+  
+  // Настройки COM-порта
+  comPort: varchar('com_port', { length: 20 }), // COM1, COM2, etc.
+  baudRate: integer('baud_rate').default(9600),
+  dataBits: integer('data_bits').default(8),
+  parity: varchar('parity', { length: 10 }).default('none'), // none, odd, even
+  stopBits: varchar('stop_bits', { length: 10 }).default('1'), // 1, 1.5, 2
+  
+  // Настройки TCP/IP
+  ipAddress: varchar('ip_address', { length: 45 }),
+  port: integer('port'),
+  
+  // Маппинг тестов
+  testMapping: jsonb('test_mapping'), // Сопоставление кодов тестов анализатора с системой
+  
+  status: varchar('status', { length: 20 }).default('offline'), // online, offline, error, maintenance
+  lastHeartbeat: timestamp('last_heartbeat'),
+  lastError: text('last_error'),
+  
+  autoReceive: boolean('auto_receive').default(true), // Автоматически принимать результаты
+  requireConfirmation: boolean('require_confirmation').default(false), // Требовать подтверждение результатов
+  
+  settings: jsonb('settings'), // Дополнительные настройки
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('lab_analyzers_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('lab_analyzers_branch_idx').on(table.branchId),
+  statusIdx: index('lab_analyzers_status_idx').on(table.status),
+  connectionTypeCheck: check('lab_analyzers_conn_type_check', sql`${table.connectionType} IN ('serial', 'tcp_ip')`),
+  protocolCheck: check('lab_analyzers_protocol_check', sql`${table.protocol} IN ('astm_lis2a2', 'hl7', 'custom')`),
+  statusCheck: check('lab_analyzers_status_check', sql`${table.status} IN ('online', 'offline', 'error', 'maintenance')`)
+}));
+
+// Lab Result Imports - импортированные результаты из лабораторий и анализаторов
+export const labResultImports = pgTable('lab_result_imports', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  
+  source: varchar('source', { length: 50 }).notNull(), // external_lab, analyzer, manual_file
+  externalLabId: varchar('external_lab_id').references(() => externalLabIntegrations.id),
+  analyzerId: varchar('analyzer_id').references(() => labAnalyzers.id),
+  
+  labOrderId: varchar('lab_order_id').references(() => labOrders.id), // Связь с заказом на анализ
+  patientId: varchar('patient_id').references(() => patients.id),
+  
+  externalOrderNumber: varchar('external_order_number', { length: 100 }), // Номер заказа в лаборатории
+  sampleId: varchar('sample_id', { length: 100 }), // ID пробы
+  
+  rawData: text('raw_data'), // Сырые данные (ASTM, JSON, XML)
+  parsedData: jsonb('parsed_data'), // Распарсенные данные
+  
+  fileName: varchar('file_name', { length: 255 }), // Имя файла (для ручного импорта)
+  fileUrl: text('file_url'), // Путь к файлу
+  
+  status: varchar('status', { length: 20 }).default('pending'), // pending, processing, completed, failed
+  errorMessage: text('error_message'),
+  
+  processedBy: varchar('processed_by').references(() => users.id),
+  processedAt: timestamp('processed_at'),
+  
+  resultsCreated: integer('results_created').default(0), // Количество созданных результатов
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('lab_result_imports_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('lab_result_imports_branch_idx').on(table.branchId),
+  sourceIdx: index('lab_result_imports_source_idx').on(table.source),
+  statusIdx: index('lab_result_imports_status_idx').on(table.status),
+  labOrderIdIdx: index('lab_result_imports_order_idx').on(table.labOrderId),
+  patientIdIdx: index('lab_result_imports_patient_idx').on(table.patientId),
+  externalLabIdIdx: index('lab_result_imports_ext_lab_idx').on(table.externalLabId),
+  analyzerIdIdx: index('lab_result_imports_analyzer_idx').on(table.analyzerId),
+  statusCheck: check('lab_result_imports_status_check', sql`${table.status} IN ('pending', 'processing', 'completed', 'failed')`)
+}));
+
+// Zod schemas for lab integrations
+export const insertExternalLabIntegrationSchema = createInsertSchema(externalLabIntegrations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+}).extend({
+  labType: z.enum(EXTERNAL_LAB_TYPE),
+  status: z.enum(LAB_INTEGRATION_STATUS).default('inactive'),
+  labName: z.string().min(2, 'Название лаборатории обязательно'),
+  email: z.string().email('Неверный формат email').optional().or(z.literal('')),
+  autoImportEnabled: z.boolean().default(false)
+});
+
+export const insertLabAnalyzerSchema = createInsertSchema(labAnalyzers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+}).extend({
+  connectionType: z.enum(ANALYZER_CONNECTION_TYPE).default('serial'),
+  protocol: z.enum(ANALYZER_PROTOCOL).default('astm_lis2a2'),
+  status: z.enum(ANALYZER_STATUS).default('offline'),
+  name: z.string().min(2, 'Название анализатора обязательно'),
+  baudRate: z.number().int().default(9600),
+  dataBits: z.number().int().default(8),
+  parity: z.enum(['none', 'odd', 'even']).default('none'),
+  stopBits: z.enum(['1', '1.5', '2']).default('1'),
+  port: z.number().int().min(1).max(65535).optional(),
+  autoReceive: z.boolean().default(true),
+  requireConfirmation: z.boolean().default(false)
+});
+
+export const insertLabResultImportSchema = createInsertSchema(labResultImports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+}).extend({
+  status: z.enum(LAB_IMPORT_STATUS).default('pending'),
+  source: z.enum(['external_lab', 'analyzer', 'manual_file'])
+});
+
+// Types for lab integrations
+export type ExternalLabIntegration = typeof externalLabIntegrations.$inferSelect;
+export type InsertExternalLabIntegration = z.infer<typeof insertExternalLabIntegrationSchema>;
+
+export type LabAnalyzer = typeof labAnalyzers.$inferSelect;
+export type InsertLabAnalyzer = z.infer<typeof insertLabAnalyzerSchema>;
+
+export type LabResultImport = typeof labResultImports.$inferSelect;
+export type InsertLabResultImport = z.infer<typeof insertLabResultImportSchema>;
