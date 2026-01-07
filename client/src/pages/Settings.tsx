@@ -61,7 +61,8 @@ import {
   XCircle,
   Search,
   Users,
-  FileText
+  FileText,
+  TestTube
 } from "lucide-react"
 import { useState, useMemo, useEffect, useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -74,6 +75,7 @@ import { insertUserSchema, updateUserSchema, User, USER_ROLES, Branch, SystemSet
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
 import IntegrationsSettings from "@/components/IntegrationsSettings"
+import LabIntegrationsSettings from "@/components/LabIntegrationsSettings"
 import { useAuth } from "@/contexts/AuthContext"
 import LegalEntities from "./LegalEntities"
 import DocumentTemplates from "./DocumentTemplates"
@@ -942,6 +944,10 @@ export default function Settings() {
           <TabsTrigger value="templates" data-testid="tab-document-templates">
             <FileText className="h-4 w-4 mr-2" />
             Шаблоны документов
+          </TabsTrigger>
+          <TabsTrigger value="lab-integrations" data-testid="tab-lab-integrations">
+            <TestTube className="h-4 w-4 mr-2" />
+            Лаборатории
           </TabsTrigger>
         </TabsList>
 
@@ -2689,6 +2695,10 @@ export default function Settings() {
         {/* Document Templates Tab */}
         <TabsContent value="templates">
           <DocumentTemplates />
+        </TabsContent>
+
+        <TabsContent value="lab-integrations">
+          <LabIntegrationsSettings />
         </TabsContent>
       </Tabs>
     </div>

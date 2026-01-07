@@ -74,6 +74,7 @@ import { pool } from "./db-local";
 import { eq, like, and, or, desc, asc, sql, gte, lte, lt, gt, isNull, isNotNull, ilike, inArray, exists, type SQL } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
+import { encrypt, decrypt } from "./services/encryption";
 import { AsyncLocalStorage } from 'async_hooks';
 
 // ID generation utility
@@ -706,6 +707,7 @@ export interface IStorage {
   // External Lab Integrations - Vet Union, Шанс Био, etc.
   getExternalLabIntegrations(tenantId: string, branchId?: string): Promise<ExternalLabIntegration[]>;
   getExternalLabIntegration(id: string): Promise<ExternalLabIntegration | undefined>;
+  getExternalLabIntegrationDecrypted(id: string): Promise<(ExternalLabIntegration & { decryptedApiKey?: string | null; decryptedApiSecret?: string | null }) | undefined>;
   createExternalLabIntegration(integration: InsertExternalLabIntegration & { tenantId: string }): Promise<ExternalLabIntegration>;
   updateExternalLabIntegration(id: string, updates: Partial<InsertExternalLabIntegration>): Promise<ExternalLabIntegration>;
   deleteExternalLabIntegration(id: string): Promise<void>;
@@ -6380,12 +6382,56 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  // Get integration with decrypted credentials for internal use (API calls to labs)
+  async getExternalLabIntegrationDecrypted(id: string): Promise<(ExternalLabIntegration & { decryptedApiKey?: string | null; decryptedApiSecret?: string | null }) | undefined> {
+    return withPerformanceLogging('getExternalLabIntegrationDecrypted', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [integration] = await dbInstance
+          .select()
+          .from(externalLabIntegrations)
+          .where(eq(externalLabIntegrations.id, id));
+        
+        if (!integration) return undefined;
+        
+        // Decrypt credentials for internal use
+        let decryptedApiKey: string | null = null;
+        let decryptedApiSecret: string | null = null;
+        
+        try {
+          if (integration.apiKey) {
+            decryptedApiKey = decrypt(integration.apiKey);
+          }
+          if (integration.apiSecret) {
+            decryptedApiSecret = decrypt(integration.apiSecret);
+          }
+        } catch (e) {
+          // Legacy unencrypted data - use as-is
+          decryptedApiKey = integration.apiKey;
+          decryptedApiSecret = integration.apiSecret;
+        }
+        
+        return {
+          ...integration,
+          decryptedApiKey,
+          decryptedApiSecret
+        };
+      });
+    });
+  }
+
   async createExternalLabIntegration(integration: InsertExternalLabIntegration & { tenantId: string }): Promise<ExternalLabIntegration> {
     return withPerformanceLogging('createExternalLabIntegration', async () => {
       return withTenantContext(integration.tenantId, async (dbInstance) => {
+        // Encrypt sensitive credentials before storing
+        const encryptedIntegration = {
+          ...integration,
+          apiKey: integration.apiKey ? encrypt(integration.apiKey) : null,
+          apiSecret: integration.apiSecret ? encrypt(integration.apiSecret) : null,
+        };
+        
         const [newIntegration] = await dbInstance
           .insert(externalLabIntegrations)
-          .values(integration)
+          .values(encryptedIntegration)
           .returning();
         return newIntegration;
       });
@@ -6395,9 +6441,25 @@ export class DatabaseStorage implements IStorage {
   async updateExternalLabIntegration(id: string, updates: Partial<InsertExternalLabIntegration>): Promise<ExternalLabIntegration> {
     return withPerformanceLogging('updateExternalLabIntegration', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
+        // Build update object dynamically, excluding undefined values
+        // This preserves credentials when they are not explicitly provided
+        const updateData: Record<string, any> = { updatedAt: new Date() };
+        
+        for (const [key, value] of Object.entries(updates)) {
+          // Only include fields that have defined values
+          if (value !== undefined) {
+            // Encrypt sensitive credentials
+            if ((key === 'apiKey' || key === 'apiSecret') && value) {
+              updateData[key] = encrypt(value as string);
+            } else {
+              updateData[key] = value;
+            }
+          }
+        }
+        
         const [updated] = await dbInstance
           .update(externalLabIntegrations)
-          .set({ ...updates, updatedAt: new Date() })
+          .set(updateData)
           .where(eq(externalLabIntegrations.id, id))
           .returning();
         return updated;

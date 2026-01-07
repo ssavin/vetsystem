@@ -9345,6 +9345,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // === EXTERNAL LAB INTEGRATIONS ===
 
+  // Import decrypt for lab integrations
+  const { decrypt: decryptCredential } = await import('./services/encryption');
+  
+  // Helper function to mask credentials (operates on plaintext)
+  const maskCredential = (value: string | null): string | null => {
+    if (!value || value.length < 4) return value ? '****' : null;
+    return value.substring(0, 2) + '****' + value.substring(value.length - 2);
+  };
+
+  // Helper to decrypt and then sanitize lab integration response
+  // Decrypts stored credentials, then masks them for API response
+  // NEVER returns ciphertext - on any error, returns null or masked placeholder
+  const sanitizeLabIntegration = (integration: any) => {
+    // Track if credentials exist (before any processing)
+    const hasApiKey = !!integration.apiKey;
+    const hasApiSecret = !!integration.apiSecret;
+    
+    // Decrypt credentials to get plaintext for masking
+    let maskedApiKey: string | null = null;
+    let maskedApiSecret: string | null = null;
+    
+    // Try to decrypt apiKey
+    if (hasApiKey) {
+      try {
+        const decrypted = decryptCredential(integration.apiKey);
+        maskedApiKey = decrypted ? maskCredential(decrypted) : '****';
+      } catch (e) {
+        // Decryption failed - show placeholder, never ciphertext
+        maskedApiKey = '********';
+      }
+    }
+    
+    // Try to decrypt apiSecret
+    if (hasApiSecret) {
+      try {
+        const decrypted = decryptCredential(integration.apiSecret);
+        maskedApiSecret = decrypted ? maskCredential(decrypted) : '****';
+      } catch (e) {
+        // Decryption failed - show placeholder, never ciphertext
+        maskedApiSecret = '********';
+      }
+    }
+    
+    return {
+      ...integration,
+      apiKey: maskedApiKey,
+      apiSecret: maskedApiSecret,
+      hasCredentials: hasApiKey || hasApiSecret
+    };
+  };
+
   // GET /api/lab-integrations/external - Получить все интеграции с внешними лабораториями
   app.get("/api/lab-integrations/external", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
@@ -9353,7 +9404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const branchId = req.query.branchId as string | undefined;
       
       const integrations = await storage.getExternalLabIntegrations(tenantId, branchId);
-      res.json(integrations);
+      res.json(integrations.map(sanitizeLabIntegration));
     } catch (error: any) {
       console.error("Error fetching external lab integrations:", error);
       res.status(500).json({ error: "Failed to fetch lab integrations", message: error.message });
@@ -9367,7 +9418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!integration) {
         return res.status(404).json({ error: "Integration not found" });
       }
-      res.json(integration);
+      res.json(sanitizeLabIntegration(integration));
     } catch (error: any) {
       console.error("Error fetching external lab integration:", error);
       res.status(500).json({ error: "Failed to fetch lab integration", message: error.message });
@@ -9386,7 +9437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const integration = await storage.createExternalLabIntegration(integrationData);
-      res.status(201).json(integration);
+      res.status(201).json(sanitizeLabIntegration(integration));
     } catch (error: any) {
       console.error("Error creating external lab integration:", error);
       res.status(500).json({ error: "Failed to create lab integration", message: error.message });
@@ -9396,8 +9447,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PUT /api/lab-integrations/external/:id - Обновить интеграцию
   app.put("/api/lab-integrations/external/:id", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
     try {
-      const integration = await storage.updateExternalLabIntegration(req.params.id, req.body);
-      res.json(integration);
+      const updateData = { ...req.body };
+      // Don't update credentials if:
+      // - masked value is sent back (contains '****')
+      // - empty string is sent (user left field blank to preserve existing)
+      // - undefined/null
+      if (!updateData.apiKey || updateData.apiKey.includes('****') || updateData.apiKey.trim() === '') {
+        delete updateData.apiKey;
+      }
+      if (!updateData.apiSecret || updateData.apiSecret.includes('****') || updateData.apiSecret.trim() === '') {
+        delete updateData.apiSecret;
+      }
+      
+      const integration = await storage.updateExternalLabIntegration(req.params.id, updateData);
+      res.json(sanitizeLabIntegration(integration));
     } catch (error: any) {
       console.error("Error updating external lab integration:", error);
       res.status(500).json({ error: "Failed to update lab integration", message: error.message });
