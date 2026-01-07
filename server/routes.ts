@@ -9339,6 +9339,243 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // LABORATORY INTEGRATIONS API
+  // ============================================
+
+  // === EXTERNAL LAB INTEGRATIONS ===
+
+  // GET /api/lab-integrations/external - Получить все интеграции с внешними лабораториями
+  app.get("/api/lab-integrations/external", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      const branchId = req.query.branchId as string | undefined;
+      
+      const integrations = await storage.getExternalLabIntegrations(tenantId, branchId);
+      res.json(integrations);
+    } catch (error: any) {
+      console.error("Error fetching external lab integrations:", error);
+      res.status(500).json({ error: "Failed to fetch lab integrations", message: error.message });
+    }
+  });
+
+  // GET /api/lab-integrations/external/:id - Получить интеграцию по ID
+  app.get("/api/lab-integrations/external/:id", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const integration = await storage.getExternalLabIntegration(req.params.id);
+      if (!integration) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+      res.json(integration);
+    } catch (error: any) {
+      console.error("Error fetching external lab integration:", error);
+      res.status(500).json({ error: "Failed to fetch lab integration", message: error.message });
+    }
+  });
+
+  // POST /api/lab-integrations/external - Создать интеграцию с лабораторией
+  app.post("/api/lab-integrations/external", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      
+      const integrationData = {
+        ...req.body,
+        tenantId
+      };
+      
+      const integration = await storage.createExternalLabIntegration(integrationData);
+      res.status(201).json(integration);
+    } catch (error: any) {
+      console.error("Error creating external lab integration:", error);
+      res.status(500).json({ error: "Failed to create lab integration", message: error.message });
+    }
+  });
+
+  // PUT /api/lab-integrations/external/:id - Обновить интеграцию
+  app.put("/api/lab-integrations/external/:id", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const integration = await storage.updateExternalLabIntegration(req.params.id, req.body);
+      res.json(integration);
+    } catch (error: any) {
+      console.error("Error updating external lab integration:", error);
+      res.status(500).json({ error: "Failed to update lab integration", message: error.message });
+    }
+  });
+
+  // DELETE /api/lab-integrations/external/:id - Удалить интеграцию
+  app.delete("/api/lab-integrations/external/:id", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      await storage.deleteExternalLabIntegration(req.params.id);
+      res.json({ success: true, message: "Integration deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting external lab integration:", error);
+      res.status(500).json({ error: "Failed to delete lab integration", message: error.message });
+    }
+  });
+
+  // === LAB ANALYZERS ===
+
+  // GET /api/lab-integrations/analyzers - Получить все анализаторы
+  app.get("/api/lab-integrations/analyzers", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      const branchId = user.branchId;
+      
+      if (!branchId) {
+        return res.status(400).json({ error: "Branch ID required" });
+      }
+      
+      const analyzers = await storage.getLabAnalyzers(tenantId, branchId);
+      res.json(analyzers);
+    } catch (error: any) {
+      console.error("Error fetching lab analyzers:", error);
+      res.status(500).json({ error: "Failed to fetch analyzers", message: error.message });
+    }
+  });
+
+  // GET /api/lab-integrations/analyzers/:id - Получить анализатор по ID
+  app.get("/api/lab-integrations/analyzers/:id", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const analyzer = await storage.getLabAnalyzer(req.params.id);
+      if (!analyzer) {
+        return res.status(404).json({ error: "Analyzer not found" });
+      }
+      res.json(analyzer);
+    } catch (error: any) {
+      console.error("Error fetching lab analyzer:", error);
+      res.status(500).json({ error: "Failed to fetch analyzer", message: error.message });
+    }
+  });
+
+  // POST /api/lab-integrations/analyzers - Добавить новый анализатор
+  app.post("/api/lab-integrations/analyzers", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      
+      const analyzerData = {
+        ...req.body,
+        tenantId
+      };
+      
+      const analyzer = await storage.createLabAnalyzer(analyzerData);
+      res.status(201).json(analyzer);
+    } catch (error: any) {
+      console.error("Error creating lab analyzer:", error);
+      res.status(500).json({ error: "Failed to create analyzer", message: error.message });
+    }
+  });
+
+  // PUT /api/lab-integrations/analyzers/:id - Обновить анализатор
+  app.put("/api/lab-integrations/analyzers/:id", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const analyzer = await storage.updateLabAnalyzer(req.params.id, req.body);
+      res.json(analyzer);
+    } catch (error: any) {
+      console.error("Error updating lab analyzer:", error);
+      res.status(500).json({ error: "Failed to update analyzer", message: error.message });
+    }
+  });
+
+  // DELETE /api/lab-integrations/analyzers/:id - Удалить анализатор
+  app.delete("/api/lab-integrations/analyzers/:id", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      await storage.deleteLabAnalyzer(req.params.id);
+      res.json({ success: true, message: "Analyzer deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting lab analyzer:", error);
+      res.status(500).json({ error: "Failed to delete analyzer", message: error.message });
+    }
+  });
+
+  // PATCH /api/lab-integrations/analyzers/:id/status - Обновить статус анализатора
+  app.patch("/api/lab-integrations/analyzers/:id/status", authenticateToken, async (req, res) => {
+    try {
+      const { status, error } = req.body;
+      await storage.updateLabAnalyzerStatus(req.params.id, status, error);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error updating analyzer status:", error);
+      res.status(500).json({ error: "Failed to update status", message: error.message });
+    }
+  });
+
+  // === LAB RESULT IMPORTS ===
+
+  // GET /api/lab-integrations/imports - Получить историю импорта результатов
+  app.get("/api/lab-integrations/imports", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      const branchId = user.branchId;
+      
+      if (!branchId) {
+        return res.status(400).json({ error: "Branch ID required" });
+      }
+      
+      const filters = {
+        status: req.query.status as string | undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 50
+      };
+      
+      const imports = await storage.getLabResultImports(tenantId, branchId, filters);
+      res.json(imports);
+    } catch (error: any) {
+      console.error("Error fetching lab result imports:", error);
+      res.status(500).json({ error: "Failed to fetch imports", message: error.message });
+    }
+  });
+
+  // POST /api/lab-integrations/imports - Создать запись импорта (для ручной загрузки файлов)
+  app.post("/api/lab-integrations/imports", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      const branchId = user.branchId;
+      
+      if (!branchId) {
+        return res.status(400).json({ error: "Branch ID required" });
+      }
+      
+      const importData = {
+        ...req.body,
+        tenantId,
+        branchId
+      };
+      
+      const result = await storage.createLabResultImport(importData);
+      res.status(201).json(result);
+    } catch (error: any) {
+      console.error("Error creating lab result import:", error);
+      res.status(500).json({ error: "Failed to create import", message: error.message });
+    }
+  });
+
+  // PUT /api/lab-integrations/imports/:id - Обновить статус импорта
+  app.put("/api/lab-integrations/imports/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const result = await storage.updateLabResultImport(req.params.id, req.body);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error updating lab result import:", error);
+      res.status(500).json({ error: "Failed to update import", message: error.message });
+    }
+  });
+
+  // DELETE /api/lab-integrations/imports/:id - Удалить запись импорта
+  app.delete("/api/lab-integrations/imports/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      await storage.deleteLabResultImport(req.params.id);
+      res.json({ success: true, message: "Import record deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting lab result import:", error);
+      res.status(500).json({ error: "Failed to delete import", message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

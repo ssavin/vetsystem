@@ -50,6 +50,9 @@ import {
   type Cage, type InsertCage,
   type HospitalStay, type InsertHospitalStay,
   type TreatmentLog, type InsertTreatmentLog,
+  type ExternalLabIntegration, type InsertExternalLabIntegration,
+  type LabAnalyzer, type InsertLabAnalyzer,
+  type LabResultImport, type InsertLabResultImport,
   users, owners, patients, patientOwners, doctors, appointments, 
   queueEntries, queueCalls,
   medicalRecords, medications, services, products, 
@@ -63,7 +66,8 @@ import {
   subscriptionPayments, billingNotifications, tenants, legalEntities, integrationCredentials,
   clinicalCases, clinicalEncounters, labAnalyses, attachments, documentTemplates,
   smsVerificationCodes, pushTokens, conversations, messages, callLogs,
-  cages, hospitalStays, treatmentLog
+  cages, hospitalStays, treatmentLog,
+  externalLabIntegrations, labAnalyzers, labResultImports
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -696,6 +700,30 @@ export interface IStorage {
   getTreatmentLog(hospitalStayId: string): Promise<TreatmentLog[]>;
   createTreatmentLog(log: InsertTreatmentLog): Promise<TreatmentLog>;
   deleteTreatmentLog(id: string): Promise<void>;
+
+  // === LABORATORY INTEGRATIONS ===
+  
+  // External Lab Integrations - Vet Union, Шанс Био, etc.
+  getExternalLabIntegrations(tenantId: string, branchId?: string): Promise<ExternalLabIntegration[]>;
+  getExternalLabIntegration(id: string): Promise<ExternalLabIntegration | undefined>;
+  createExternalLabIntegration(integration: InsertExternalLabIntegration & { tenantId: string }): Promise<ExternalLabIntegration>;
+  updateExternalLabIntegration(id: string, updates: Partial<InsertExternalLabIntegration>): Promise<ExternalLabIntegration>;
+  deleteExternalLabIntegration(id: string): Promise<void>;
+  
+  // Lab Analyzers - подключенные анализаторы крови/мочи
+  getLabAnalyzers(tenantId: string, branchId: string): Promise<LabAnalyzer[]>;
+  getLabAnalyzer(id: string): Promise<LabAnalyzer | undefined>;
+  createLabAnalyzer(analyzer: InsertLabAnalyzer & { tenantId: string }): Promise<LabAnalyzer>;
+  updateLabAnalyzer(id: string, updates: Partial<InsertLabAnalyzer>): Promise<LabAnalyzer>;
+  deleteLabAnalyzer(id: string): Promise<void>;
+  updateLabAnalyzerStatus(id: string, status: string, error?: string): Promise<void>;
+  
+  // Lab Result Imports - импорт результатов
+  getLabResultImports(tenantId: string, branchId: string, filters?: { status?: string; limit?: number }): Promise<LabResultImport[]>;
+  getLabResultImport(id: string): Promise<LabResultImport | undefined>;
+  createLabResultImport(importData: InsertLabResultImport & { tenantId: string }): Promise<LabResultImport>;
+  updateLabResultImport(id: string, updates: Partial<InsertLabResultImport>): Promise<LabResultImport>;
+  deleteLabResultImport(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6315,6 +6343,222 @@ export class DatabaseStorage implements IStorage {
     return withPerformanceLogging('deleteTreatmentLog', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         await dbInstance.delete(treatmentLog).where(eq(treatmentLog.id, id));
+      });
+    });
+  }
+
+  // ========================================
+  // LABORATORY INTEGRATIONS
+  // ========================================
+
+  // External Lab Integrations methods
+  async getExternalLabIntegrations(tenantId: string, branchId?: string): Promise<ExternalLabIntegration[]> {
+    return withPerformanceLogging('getExternalLabIntegrations', async () => {
+      return withTenantContext(tenantId, async (dbInstance) => {
+        const conditions = [eq(externalLabIntegrations.tenantId, tenantId)];
+        if (branchId) {
+          conditions.push(eq(externalLabIntegrations.branchId, branchId));
+        }
+        return await dbInstance
+          .select()
+          .from(externalLabIntegrations)
+          .where(and(...conditions))
+          .orderBy(desc(externalLabIntegrations.createdAt));
+      });
+    });
+  }
+
+  async getExternalLabIntegration(id: string): Promise<ExternalLabIntegration | undefined> {
+    return withPerformanceLogging('getExternalLabIntegration', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [integration] = await dbInstance
+          .select()
+          .from(externalLabIntegrations)
+          .where(eq(externalLabIntegrations.id, id));
+        return integration;
+      });
+    });
+  }
+
+  async createExternalLabIntegration(integration: InsertExternalLabIntegration & { tenantId: string }): Promise<ExternalLabIntegration> {
+    return withPerformanceLogging('createExternalLabIntegration', async () => {
+      return withTenantContext(integration.tenantId, async (dbInstance) => {
+        const [newIntegration] = await dbInstance
+          .insert(externalLabIntegrations)
+          .values(integration)
+          .returning();
+        return newIntegration;
+      });
+    });
+  }
+
+  async updateExternalLabIntegration(id: string, updates: Partial<InsertExternalLabIntegration>): Promise<ExternalLabIntegration> {
+    return withPerformanceLogging('updateExternalLabIntegration', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(externalLabIntegrations)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(externalLabIntegrations.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async deleteExternalLabIntegration(id: string): Promise<void> {
+    return withPerformanceLogging('deleteExternalLabIntegration', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(externalLabIntegrations).where(eq(externalLabIntegrations.id, id));
+      });
+    });
+  }
+
+  // Lab Analyzers methods
+  async getLabAnalyzers(tenantId: string, branchId: string): Promise<LabAnalyzer[]> {
+    return withPerformanceLogging('getLabAnalyzers', async () => {
+      return withTenantContext(tenantId, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(labAnalyzers)
+          .where(and(
+            eq(labAnalyzers.tenantId, tenantId),
+            eq(labAnalyzers.branchId, branchId)
+          ))
+          .orderBy(desc(labAnalyzers.createdAt));
+      });
+    });
+  }
+
+  async getLabAnalyzer(id: string): Promise<LabAnalyzer | undefined> {
+    return withPerformanceLogging('getLabAnalyzer', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [analyzer] = await dbInstance
+          .select()
+          .from(labAnalyzers)
+          .where(eq(labAnalyzers.id, id));
+        return analyzer;
+      });
+    });
+  }
+
+  async createLabAnalyzer(analyzer: InsertLabAnalyzer & { tenantId: string }): Promise<LabAnalyzer> {
+    return withPerformanceLogging('createLabAnalyzer', async () => {
+      return withTenantContext(analyzer.tenantId, async (dbInstance) => {
+        const [newAnalyzer] = await dbInstance
+          .insert(labAnalyzers)
+          .values(analyzer)
+          .returning();
+        return newAnalyzer;
+      });
+    });
+  }
+
+  async updateLabAnalyzer(id: string, updates: Partial<InsertLabAnalyzer>): Promise<LabAnalyzer> {
+    return withPerformanceLogging('updateLabAnalyzer', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(labAnalyzers)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(labAnalyzers.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async deleteLabAnalyzer(id: string): Promise<void> {
+    return withPerformanceLogging('deleteLabAnalyzer', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(labAnalyzers).where(eq(labAnalyzers.id, id));
+      });
+    });
+  }
+
+  async updateLabAnalyzerStatus(id: string, status: string, error?: string): Promise<void> {
+    return withPerformanceLogging('updateLabAnalyzerStatus', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance
+          .update(labAnalyzers)
+          .set({ 
+            status, 
+            lastError: error || null,
+            lastHeartbeat: new Date(),
+            updatedAt: new Date() 
+          })
+          .where(eq(labAnalyzers.id, id));
+      });
+    });
+  }
+
+  // Lab Result Imports methods
+  async getLabResultImports(tenantId: string, branchId: string, filters?: { status?: string; limit?: number }): Promise<LabResultImport[]> {
+    return withPerformanceLogging('getLabResultImports', async () => {
+      return withTenantContext(tenantId, async (dbInstance) => {
+        const conditions = [
+          eq(labResultImports.tenantId, tenantId),
+          eq(labResultImports.branchId, branchId)
+        ];
+        
+        if (filters?.status) {
+          conditions.push(eq(labResultImports.status, filters.status));
+        }
+        
+        let query = dbInstance
+          .select()
+          .from(labResultImports)
+          .where(and(...conditions))
+          .orderBy(desc(labResultImports.createdAt));
+        
+        if (filters?.limit) {
+          query = query.limit(filters.limit) as any;
+        }
+        
+        return await query;
+      });
+    });
+  }
+
+  async getLabResultImport(id: string): Promise<LabResultImport | undefined> {
+    return withPerformanceLogging('getLabResultImport', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [result] = await dbInstance
+          .select()
+          .from(labResultImports)
+          .where(eq(labResultImports.id, id));
+        return result;
+      });
+    });
+  }
+
+  async createLabResultImport(importData: InsertLabResultImport & { tenantId: string }): Promise<LabResultImport> {
+    return withPerformanceLogging('createLabResultImport', async () => {
+      return withTenantContext(importData.tenantId, async (dbInstance) => {
+        const [newImport] = await dbInstance
+          .insert(labResultImports)
+          .values(importData)
+          .returning();
+        return newImport;
+      });
+    });
+  }
+
+  async updateLabResultImport(id: string, updates: Partial<InsertLabResultImport>): Promise<LabResultImport> {
+    return withPerformanceLogging('updateLabResultImport', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(labResultImports)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(labResultImports.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async deleteLabResultImport(id: string): Promise<void> {
+    return withPerformanceLogging('deleteLabResultImport', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(labResultImports).where(eq(labResultImports.id, id));
       });
     });
   }
