@@ -9293,6 +9293,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // PUBLIC API - Demo Requests (Landing Page)
+  // ============================================
+
+  const demoRequestSchema = z.object({
+    fullName: z.string().min(2),
+    clinicName: z.string().min(2),
+    phone: z.string().min(10),
+    email: z.string().email(),
+    city: z.string().optional(),
+    branchCount: z.string().optional(),
+    currentSystem: z.string().optional(),
+    comment: z.string().optional(),
+    consent: z.boolean().refine(val => val === true),
+  });
+
+  app.post("/api/demo-requests", async (req, res) => {
+    try {
+      const data = demoRequestSchema.parse(req.body);
+      
+      // Log the demo request
+      console.log("📝 New demo request received:", {
+        fullName: data.fullName,
+        clinicName: data.clinicName,
+        phone: data.phone,
+        email: data.email,
+        city: data.city,
+        branchCount: data.branchCount,
+        currentSystem: data.currentSystem,
+        timestamp: new Date().toISOString(),
+      });
+
+      // TODO: Save to database, send email notification, integrate with CRM
+      // For now, just log and return success
+
+      res.json({ success: true, message: "Заявка успешно отправлена" });
+    } catch (error: any) {
+      console.error("Error processing demo request:", error);
+      if (error.name === "ZodError") {
+        res.status(400).json({ error: "Неверные данные формы" });
+      } else {
+        res.status(500).json({ error: "Ошибка обработки заявки" });
+      }
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

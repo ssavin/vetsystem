@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,7 +7,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import TopNavbar from "@/components/TopNavbar";
 import TopHeader from "@/components/TopHeader";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import LandingLayout from "@/layouts/LandingLayout";
 import "./i18n";
+
 import DashboardPage from "@/pages/Dashboard";
 import Registry from "@/pages/Registry";
 import Schedule from "@/pages/Schedule";
@@ -36,6 +38,25 @@ import Hospital from "@/pages/Hospital";
 import NotFound from "@/pages/not-found";
 import { IncomingCallNotification } from "@/components/IncomingCallNotification";
 
+import LandingHome from "@/pages/landing/LandingHome";
+import LandingFeatures from "@/pages/landing/LandingFeatures";
+import LandingPricing from "@/pages/landing/LandingPricing";
+import LandingDemo from "@/pages/landing/LandingDemo";
+import LandingIntegrations from "@/pages/landing/LandingIntegrations";
+import PetOwnerLogin from "@/pages/landing/PetOwnerLogin";
+
+const PUBLIC_ROUTES = [
+  "/",
+  "/features",
+  "/pricing",
+  "/demo",
+  "/integrations",
+  "/pet-owners/login",
+  "/login",
+  "/privacy",
+  "/terms",
+];
+
 function AuthenticatedApp() {
   return (
     <>
@@ -45,7 +66,8 @@ function AuthenticatedApp() {
         <TopNavbar />
         <main className="flex-1 overflow-auto">
           <Switch>
-            <Route path="/" component={DashboardPage} />
+            <Route path="/app" component={DashboardPage} />
+            <Route path="/app/dashboard" component={DashboardPage} />
             <Route path="/registry" component={Registry} />
             <Route path="/schedule" component={Schedule} />
             <Route path="/medical-records" component={MedicalRecords} />
@@ -77,9 +99,42 @@ function AuthenticatedApp() {
   );
 }
 
+function PublicPages() {
+  return (
+    <LandingLayout>
+      <Switch>
+        <Route path="/" component={LandingHome} />
+        <Route path="/features" component={LandingFeatures} />
+        <Route path="/pricing" component={LandingPricing} />
+        <Route path="/demo" component={LandingDemo} />
+        <Route path="/integrations" component={LandingIntegrations} />
+        <Route path="/pet-owners/login" component={PetOwnerLogin} />
+        <Route component={NotFound} />
+      </Switch>
+    </LandingLayout>
+  );
+}
+
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [location] = useLocation();
   
+  const isPublicRoute = PUBLIC_ROUTES.some(route => 
+    location === route || location.startsWith("/pet-owners/")
+  );
+
+  if (isPublicRoute && location !== "/login") {
+    return <PublicPages />;
+  }
+
+  if (location === "/login") {
+    if (isAuthenticated) {
+      window.location.href = "/registry";
+      return null;
+    }
+    return <Login />;
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
