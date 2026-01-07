@@ -35,6 +35,7 @@ import DocumentTemplates from "@/pages/DocumentTemplates";
 import Queue from "@/pages/Queue";
 import QueueDisplay from "@/pages/QueueDisplay";
 import Hospital from "@/pages/Hospital";
+import Analytics from "@/pages/Analytics";
 import NotFound from "@/pages/not-found";
 import { IncomingCallNotification } from "@/components/IncomingCallNotification";
 
@@ -91,6 +92,7 @@ function AuthenticatedApp() {
             <Route path="/queue/display" component={QueueDisplay} />
             <Route path="/queue" component={Queue} />
             <Route path="/hospital" component={Hospital} />
+            <Route path="/analytics" component={Analytics} />
             <Route component={NotFound} />
           </Switch>
         </main>

@@ -1924,22 +1924,55 @@ export class DatabaseStorage implements IStorage {
   // Appointment methods - 🔒 SECURITY: branchId mandatory for PHI isolation
   async getAppointments(date: Date | undefined, branchId: string): Promise<any[]> {
     return withPerformanceLogging(`getAppointments${date ? '(filtered)' : '(all)'}`, async () => {
-      if (date) {
-        const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-        const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-        
-        // 🔒 CRITICAL: Build query with branch filtering if provided
-        let whereConditions = [
-          gte(appointments.appointmentDate, startOfDay),
-          lte(appointments.appointmentDate, endOfDay)
-        ];
-        
-        // 🔒 Add branch isolation if branchId provided
-        if (branchId) {
-          whereConditions.push(eq(appointments.branchId, branchId));
+      return withTenantContext(undefined, async (dbInstance) => {
+        if (date) {
+          const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+          const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+          
+          // 🔒 CRITICAL: Build query with branch filtering if provided
+          let whereConditions = [
+            gte(appointments.appointmentDate, startOfDay),
+            lte(appointments.appointmentDate, endOfDay)
+          ];
+          
+          // 🔒 Add branch isolation if branchId provided
+          if (branchId) {
+            whereConditions.push(eq(appointments.branchId, branchId));
+          }
+          
+          return await dbInstance.select({
+            // Appointment fields
+            id: appointments.id,
+            patientId: appointments.patientId,
+            doctorId: appointments.doctorId,
+            appointmentDate: appointments.appointmentDate,
+            duration: appointments.duration,
+            appointmentType: appointments.appointmentType,
+            status: appointments.status,
+            notes: appointments.notes,
+            createdAt: appointments.createdAt,
+            updatedAt: appointments.updatedAt,
+            // Doctor fields
+            doctorName: doctors.name,
+            doctorSpecialization: doctors.specialization,
+            // Patient fields
+            patientName: patients.name,
+            patientSpecies: patients.species,
+            patientBreed: patients.breed,
+            // Owner fields
+            ownerName: owners.name,
+            ownerPhone: owners.phone,
+          })
+            .from(appointments)
+            .leftJoin(doctors, eq(appointments.doctorId, doctors.id))
+            .leftJoin(patients, eq(appointments.patientId, patients.id))
+            .leftJoin(owners, eq(patients.ownerId, owners.id))
+            .where(and(...whereConditions))
+            .orderBy(appointments.appointmentDate);
         }
         
-        return await db.select({
+        // 🔒 CRITICAL: For all appointments, enforce branch isolation if branchId provided
+        let query = dbInstance.select({
           // Appointment fields
           id: appointments.id,
           patientId: appointments.patientId,
@@ -1965,45 +1998,14 @@ export class DatabaseStorage implements IStorage {
           .from(appointments)
           .leftJoin(doctors, eq(appointments.doctorId, doctors.id))
           .leftJoin(patients, eq(appointments.patientId, patients.id))
-          .leftJoin(owners, eq(patients.ownerId, owners.id))
-          .where(and(...whereConditions))
-          .orderBy(appointments.appointmentDate);
-      }
-      
-      // 🔒 CRITICAL: For all appointments, enforce branch isolation if branchId provided
-      let query = db.select({
-        // Appointment fields
-        id: appointments.id,
-        patientId: appointments.patientId,
-        doctorId: appointments.doctorId,
-        appointmentDate: appointments.appointmentDate,
-        duration: appointments.duration,
-        appointmentType: appointments.appointmentType,
-        status: appointments.status,
-        notes: appointments.notes,
-        createdAt: appointments.createdAt,
-        updatedAt: appointments.updatedAt,
-        // Doctor fields
-        doctorName: doctors.name,
-        doctorSpecialization: doctors.specialization,
-        // Patient fields
-        patientName: patients.name,
-        patientSpecies: patients.species,
-        patientBreed: patients.breed,
-        // Owner fields
-        ownerName: owners.name,
-        ownerPhone: owners.phone,
-      })
-        .from(appointments)
-        .leftJoin(doctors, eq(appointments.doctorId, doctors.id))
-        .leftJoin(patients, eq(appointments.patientId, patients.id))
-        .leftJoin(owners, eq(patients.ownerId, owners.id));
+          .leftJoin(owners, eq(patients.ownerId, owners.id));
+          
+        if (branchId) {
+          query = query.where(eq(appointments.branchId, branchId));
+        }
         
-      if (branchId) {
-        query = query.where(eq(appointments.branchId, branchId));
-      }
-      
-      return await query.orderBy(appointments.appointmentDate);
+        return await query.orderBy(appointments.appointmentDate);
+      });
     });
   }
 

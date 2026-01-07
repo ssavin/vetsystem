@@ -79,6 +79,14 @@ const getMenuItems = (t: any) => [
     managerOnly: true,
   },
   {
+    titleKey: "menu.analytics",
+    title: "Аналитика",
+    url: "/analytics",
+    icon: BarChart3,
+    module: "reports",
+    managerOnly: true,
+  },
+  {
     titleKey: "menu.settings",
     title: "Настройки",
     url: "/settings",

@@ -2446,6 +2446,400 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // === ANALYTICS ROUTES ===
+
+  // Doctor KPIs - average bill, appointment count, revenue
+  app.get("/api/analytics/doctor-kpis", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const end = endDate ? new Date(endDate as string) : new Date();
+
+      // Get all doctors for the branch
+      const doctors = await storage.getDoctors(user.branchId);
+      
+      // Get all completed appointments in date range
+      const allAppointments = await storage.getAppointments(undefined, user.branchId);
+      const completedAppointments = allAppointments.filter((a: any) => 
+        a.status === 'completed' && 
+        new Date(a.appointmentDate) >= start && 
+        new Date(a.appointmentDate) <= end
+      );
+
+      // Get paid invoices in date range
+      const paidInvoices = await storage.getInvoices('paid', user.branchId);
+      const filteredInvoices = paidInvoices.filter((inv: any) => 
+        new Date(inv.paidDate || inv.issueDate) >= start && 
+        new Date(inv.paidDate || inv.issueDate) <= end
+      );
+
+      // Calculate KPIs per doctor
+      const doctorKpis = await Promise.all(doctors.map(async (doctor: any) => {
+        const doctorAppointments = completedAppointments.filter((a: any) => a.doctorId === doctor.id);
+        const appointmentIds = doctorAppointments.map((a: any) => a.id);
+        
+        // Find invoices linked to this doctor's appointments
+        const doctorInvoices = filteredInvoices.filter((inv: any) => 
+          appointmentIds.includes(inv.appointmentId)
+        );
+        
+        const totalRevenue = doctorInvoices.reduce((sum: number, inv: any) => 
+          sum + parseFloat(inv.total || '0'), 0
+        );
+        const appointmentCount = doctorAppointments.length;
+        const averageBill = appointmentCount > 0 ? totalRevenue / appointmentCount : 0;
+
+        // Calculate trend (compare with previous period)
+        const periodLength = end.getTime() - start.getTime();
+        const prevStart = new Date(start.getTime() - periodLength);
+        const prevAppointments = allAppointments.filter((a: any) => 
+          a.doctorId === doctor.id &&
+          a.status === 'completed' && 
+          new Date(a.appointmentDate) >= prevStart && 
+          new Date(a.appointmentDate) < start
+        );
+        const trend = prevAppointments.length > 0 
+          ? ((appointmentCount - prevAppointments.length) / prevAppointments.length) * 100 
+          : 0;
+
+        return {
+          doctorId: doctor.id,
+          doctorName: doctor.name,
+          specialization: doctor.specialization,
+          appointmentCount,
+          totalRevenue,
+          averageBill: Math.round(averageBill * 100) / 100,
+          trend: Math.round(trend * 10) / 10,
+          uniquePatients: new Set(doctorAppointments.map((a: any) => a.patientId)).size
+        };
+      }));
+
+      // Sort by revenue descending
+      doctorKpis.sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+      res.json({
+        period: { start: start.toISOString(), end: end.toISOString() },
+        doctors: doctorKpis,
+        totals: {
+          totalAppointments: completedAppointments.length,
+          totalRevenue: doctorKpis.reduce((sum, d) => sum + d.totalRevenue, 0),
+          averageBill: doctorKpis.length > 0 
+            ? Math.round(doctorKpis.reduce((sum, d) => sum + d.averageBill, 0) / doctorKpis.length * 100) / 100 
+            : 0
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching doctor KPIs:", error);
+      res.status(500).json({ error: "Failed to fetch doctor KPIs" });
+    }
+  });
+
+  // Workload Forecasting - predict future appointment load
+  app.get("/api/analytics/workload-forecast", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { days = 14 } = req.query;
+      const forecastDays = Math.min(parseInt(days as string) || 14, 30);
+
+      // Get historical appointments (last 90 days)
+      const historicalStart = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const allAppointments = await storage.getAppointments(undefined, user.branchId);
+      const historicalAppointments = allAppointments.filter((a: any) => 
+        new Date(a.appointmentDate) >= historicalStart
+      );
+
+      // Calculate average appointments per day of week
+      const dayOfWeekStats: { [key: number]: number[] } = {};
+      for (let i = 0; i < 7; i++) dayOfWeekStats[i] = [];
+
+      historicalAppointments.forEach((a: any) => {
+        const date = new Date(a.appointmentDate);
+        const dayOfWeek = date.getDay();
+        const dateKey = date.toISOString().split('T')[0];
+        
+        if (!dayOfWeekStats[dayOfWeek].includes(dateKey)) {
+          dayOfWeekStats[dayOfWeek].push(dateKey);
+        }
+      });
+
+      // Count appointments per day
+      const dailyCounts: { [key: string]: number } = {};
+      historicalAppointments.forEach((a: any) => {
+        const dateKey = new Date(a.appointmentDate).toISOString().split('T')[0];
+        dailyCounts[dateKey] = (dailyCounts[dateKey] || 0) + 1;
+      });
+
+      // Calculate day-of-week averages
+      const dayAverages: { [key: number]: number } = {};
+      for (let i = 0; i < 7; i++) {
+        const daysOfThisType = Object.keys(dailyCounts).filter(d => new Date(d).getDay() === i);
+        const total = daysOfThisType.reduce((sum, d) => sum + dailyCounts[d], 0);
+        dayAverages[i] = daysOfThisType.length > 0 ? total / daysOfThisType.length : 0;
+      }
+
+      // Get already scheduled appointments for forecast period
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const scheduledAppointments = allAppointments.filter((a: any) => 
+        new Date(a.appointmentDate) >= today && 
+        (a.status === 'scheduled' || a.status === 'confirmed')
+      );
+
+      const scheduledCounts: { [key: string]: number } = {};
+      scheduledAppointments.forEach((a: any) => {
+        const dateKey = new Date(a.appointmentDate).toISOString().split('T')[0];
+        scheduledCounts[dateKey] = (scheduledCounts[dateKey] || 0) + 1;
+      });
+
+      // Generate forecast
+      const forecast = [];
+      for (let i = 0; i < forecastDays; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() + i);
+        const dateKey = date.toISOString().split('T')[0];
+        const dayOfWeek = date.getDay();
+        
+        const predicted = Math.round(dayAverages[dayOfWeek] * 10) / 10;
+        const scheduled = scheduledCounts[dateKey] || 0;
+        const capacity = 20; // Default daily capacity, could be configurable
+
+        forecast.push({
+          date: dateKey,
+          dayOfWeek: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][dayOfWeek],
+          predicted,
+          scheduled,
+          available: Math.max(0, capacity - scheduled),
+          utilizationPercent: Math.round((scheduled / capacity) * 100),
+          capacityWarning: scheduled >= capacity * 0.9
+        });
+      }
+
+      // Calculate busy hours pattern
+      const hourlyPattern: { [key: number]: number } = {};
+      for (let h = 8; h <= 20; h++) hourlyPattern[h] = 0;
+      
+      historicalAppointments.forEach((a: any) => {
+        const hour = new Date(a.appointmentDate).getHours();
+        if (hour >= 8 && hour <= 20) {
+          hourlyPattern[hour]++;
+        }
+      });
+
+      const totalHourly = Object.values(hourlyPattern).reduce((a, b) => a + b, 0);
+      const peakHours = Object.entries(hourlyPattern)
+        .map(([hour, count]) => ({ 
+          hour: parseInt(hour), 
+          percentage: totalHourly > 0 ? Math.round((count / totalHourly) * 100) : 0 
+        }))
+        .sort((a, b) => b.percentage - a.percentage)
+        .slice(0, 5);
+
+      res.json({
+        forecast,
+        insights: {
+          busiestDays: Object.entries(dayAverages)
+            .map(([day, avg]) => ({ day: parseInt(day), average: Math.round(avg * 10) / 10 }))
+            .sort((a, b) => b.average - a.average),
+          peakHours,
+          upcomingCapacityWarnings: forecast.filter(f => f.capacityWarning).length
+        }
+      });
+    } catch (error) {
+      console.error("Error generating workload forecast:", error);
+      res.status(500).json({ error: "Failed to generate workload forecast" });
+    }
+  });
+
+  // Customer Churn Analysis - identify at-risk clients
+  app.get("/api/analytics/churn-analysis", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { inactiveDays = 180 } = req.query;
+      const inactiveThreshold = parseInt(inactiveDays as string) || 180;
+      const now = new Date();
+      const thresholdDate = new Date(now.getTime() - inactiveThreshold * 24 * 60 * 60 * 1000);
+      const warningDate = new Date(now.getTime() - (inactiveThreshold / 2) * 24 * 60 * 60 * 1000);
+
+      // Get all owners with their last visit info (branchId filters through patient relationships)
+      const owners = await storage.getOwners(user.branchId);
+      const allAppointments = await storage.getAppointments(undefined, user.branchId);
+
+      // Group appointments by owner (via patient)
+      const patients = await storage.getPatients(undefined, undefined, user.branchId);
+      const patientOwnerMap: { [patientId: string]: string } = {};
+      patients.forEach((p: any) => {
+        patientOwnerMap[p.id] = p.ownerId;
+      });
+
+      const ownerLastVisit: { [ownerId: string]: Date } = {};
+      const ownerVisitCount: { [ownerId: string]: number } = {};
+      const ownerRevenue: { [ownerId: string]: number } = {};
+
+      allAppointments.forEach((a: any) => {
+        const ownerId = patientOwnerMap[a.patientId];
+        if (!ownerId) return;
+        
+        const appointmentDate = new Date(a.appointmentDate);
+        if (!ownerLastVisit[ownerId] || appointmentDate > ownerLastVisit[ownerId]) {
+          ownerLastVisit[ownerId] = appointmentDate;
+        }
+        ownerVisitCount[ownerId] = (ownerVisitCount[ownerId] || 0) + 1;
+      });
+
+      // Get invoice data for revenue per owner
+      const paidInvoices = await storage.getInvoices('paid', user.branchId);
+      paidInvoices.forEach((inv: any) => {
+        const ownerId = patientOwnerMap[inv.patientId];
+        if (!ownerId) return;
+        ownerRevenue[ownerId] = (ownerRevenue[ownerId] || 0) + parseFloat(inv.total || '0');
+      });
+
+      // Categorize owners
+      const churned: any[] = [];
+      const atRisk: any[] = [];
+      const active: any[] = [];
+
+      owners.forEach((owner: any) => {
+        const lastVisit = ownerLastVisit[owner.id];
+        const visitCount = ownerVisitCount[owner.id] || 0;
+        const revenue = ownerRevenue[owner.id] || 0;
+        const daysSinceLastVisit = lastVisit 
+          ? Math.floor((now.getTime() - lastVisit.getTime()) / (24 * 60 * 60 * 1000))
+          : null;
+
+        const ownerData = {
+          id: owner.id,
+          name: owner.name,
+          phone: owner.phone,
+          email: owner.email,
+          lastVisit: lastVisit?.toISOString() || null,
+          daysSinceLastVisit,
+          visitCount,
+          lifetimeRevenue: Math.round(revenue * 100) / 100,
+          riskScore: 0
+        };
+
+        if (!lastVisit || lastVisit < thresholdDate) {
+          ownerData.riskScore = 100;
+          churned.push(ownerData);
+        } else if (lastVisit < warningDate) {
+          ownerData.riskScore = Math.round(((now.getTime() - lastVisit.getTime()) / (inactiveThreshold * 24 * 60 * 60 * 1000)) * 100);
+          atRisk.push(ownerData);
+        } else {
+          ownerData.riskScore = Math.round(((now.getTime() - lastVisit.getTime()) / (inactiveThreshold * 24 * 60 * 60 * 1000)) * 100);
+          active.push(ownerData);
+        }
+      });
+
+      // Sort by revenue (high-value churned clients first)
+      churned.sort((a, b) => b.lifetimeRevenue - a.lifetimeRevenue);
+      atRisk.sort((a, b) => b.lifetimeRevenue - a.lifetimeRevenue);
+
+      // Calculate churn metrics
+      const totalClients = owners.length;
+      const churnedCount = churned.length;
+      const atRiskCount = atRisk.length;
+      const churnRate = totalClients > 0 ? Math.round((churnedCount / totalClients) * 100 * 10) / 10 : 0;
+      const atRiskRate = totalClients > 0 ? Math.round((atRiskCount / totalClients) * 100 * 10) / 10 : 0;
+      
+      const lostRevenue = churned.reduce((sum, c) => sum + c.lifetimeRevenue, 0);
+      const atRiskRevenue = atRisk.reduce((sum, c) => sum + c.lifetimeRevenue, 0);
+
+      res.json({
+        summary: {
+          totalClients,
+          activeClients: active.length,
+          atRiskClients: atRiskCount,
+          churnedClients: churnedCount,
+          churnRate,
+          atRiskRate,
+          lostRevenue: Math.round(lostRevenue * 100) / 100,
+          atRiskRevenue: Math.round(atRiskRevenue * 100) / 100,
+          inactiveThresholdDays: inactiveThreshold
+        },
+        churned: churned.slice(0, 50), // Top 50 by revenue
+        atRisk: atRisk.slice(0, 50),
+        recentlyActive: active
+          .filter(a => a.daysSinceLastVisit !== null && a.daysSinceLastVisit <= 30)
+          .sort((a, b) => (a.daysSinceLastVisit || 0) - (b.daysSinceLastVisit || 0))
+          .slice(0, 20)
+      });
+    } catch (error) {
+      console.error("Error analyzing churn:", error);
+      res.status(500).json({ error: "Failed to analyze customer churn" });
+    }
+  });
+
+  // Revenue trends over time
+  app.get("/api/analytics/revenue-trends", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+
+      const { period = 'monthly', months = 12 } = req.query;
+      const monthCount = Math.min(parseInt(months as string) || 12, 24);
+      
+      const paidInvoices = await storage.getInvoices('paid', user.branchId);
+      const now = new Date();
+      
+      // Group by month
+      const monthlyData: { [key: string]: { revenue: number; count: number } } = {};
+      
+      for (let i = 0; i < monthCount; i++) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        monthlyData[key] = { revenue: 0, count: 0 };
+      }
+
+      paidInvoices.forEach((inv: any) => {
+        const date = new Date(inv.paidDate || inv.issueDate);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (monthlyData[key]) {
+          monthlyData[key].revenue += parseFloat(inv.total || '0');
+          monthlyData[key].count++;
+        }
+      });
+
+      const trends = Object.entries(monthlyData)
+        .map(([month, data]) => ({
+          month,
+          revenue: Math.round(data.revenue * 100) / 100,
+          invoiceCount: data.count,
+          averageInvoice: data.count > 0 ? Math.round((data.revenue / data.count) * 100) / 100 : 0
+        }))
+        .sort((a, b) => a.month.localeCompare(b.month));
+
+      // Calculate growth
+      const current = trends[trends.length - 1]?.revenue || 0;
+      const previous = trends[trends.length - 2]?.revenue || 0;
+      const growth = previous > 0 ? Math.round(((current - previous) / previous) * 100 * 10) / 10 : 0;
+
+      res.json({
+        trends,
+        summary: {
+          totalRevenue: trends.reduce((sum, t) => sum + t.revenue, 0),
+          averageMonthly: Math.round(trends.reduce((sum, t) => sum + t.revenue, 0) / trends.length * 100) / 100,
+          growthPercent: growth,
+          bestMonth: trends.reduce((best, t) => t.revenue > best.revenue ? t : best, trends[0])
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching revenue trends:", error);
+      res.status(500).json({ error: "Failed to fetch revenue trends" });
+    }
+  });
+
   // AUTHENTICATION ROUTES  
   // Get active branches for login selection
   app.get("/api/branches/active", async (req, res) => {
