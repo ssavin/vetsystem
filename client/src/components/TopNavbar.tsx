@@ -1,4 +1,4 @@
-import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, ClipboardList, ListOrdered, Bed } from "lucide-react"
+import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, ClipboardList, ListOrdered, Bed, UserCog } from "lucide-react"
 import { Link, useLocation } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTranslation } from "react-i18next"
@@ -84,6 +84,14 @@ const getMenuItems = (t: any) => [
     url: "/analytics",
     icon: BarChart3,
     module: "reports",
+    managerOnly: true,
+  },
+  {
+    titleKey: "menu.crm",
+    title: "CRM",
+    url: "/crm",
+    icon: UserCog,
+    module: "owners",
     managerOnly: true,
   },
   {
