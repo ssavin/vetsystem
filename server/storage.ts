@@ -72,7 +72,12 @@ import {
   type DicomDevice, type InsertDicomDevice,
   type DicomStudy, type InsertDicomStudy,
   type DicomSeries, type InsertDicomSeries,
-  type DicomInstance, type InsertDicomInstance
+  type DicomInstance, type InsertDicomInstance,
+  type ClientInteraction, type InsertClientInteraction,
+  type HealthReminder, type InsertHealthReminder,
+  type MarketingCampaign, type InsertMarketingCampaign,
+  type CampaignRecipient, type InsertCampaignRecipient,
+  clientInteractions, healthReminders, marketingCampaigns, campaignRecipients
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -6930,6 +6935,327 @@ export class DatabaseStorage implements IStorage {
     return withPerformanceLogging('deleteDicomInstance', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         await dbInstance.delete(dicomInstances).where(eq(dicomInstances.id, id));
+      });
+    });
+  }
+
+  // ========================================
+  // CRM METHODS
+  // ========================================
+
+  // Client Interactions
+  async getClientInteractions(ownerId: string, limit: number = 50): Promise<ClientInteraction[]> {
+    return withPerformanceLogging('getClientInteractions', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(clientInteractions)
+          .where(eq(clientInteractions.ownerId, ownerId))
+          .orderBy(desc(clientInteractions.createdAt))
+          .limit(limit);
+      });
+    });
+  }
+
+  async createClientInteraction(interaction: InsertClientInteraction & { tenantId: string }): Promise<ClientInteraction> {
+    return withPerformanceLogging('createClientInteraction', async () => {
+      return withTenantContext(interaction.tenantId, async (dbInstance) => {
+        const [newInteraction] = await dbInstance
+          .insert(clientInteractions)
+          .values(interaction)
+          .returning();
+        return newInteraction;
+      });
+    });
+  }
+
+  // Health Reminders
+  async getHealthReminders(filters: { patientId?: string; ownerId?: string; status?: string; dueDateFrom?: Date; dueDateTo?: Date }): Promise<HealthReminder[]> {
+    return withPerformanceLogging('getHealthReminders', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = [];
+        if (filters.patientId) conditions.push(eq(healthReminders.patientId, filters.patientId));
+        if (filters.ownerId) conditions.push(eq(healthReminders.ownerId, filters.ownerId));
+        if (filters.status) conditions.push(eq(healthReminders.status, filters.status));
+        if (filters.dueDateFrom) conditions.push(gte(healthReminders.dueDate, filters.dueDateFrom.toISOString().split('T')[0]));
+        if (filters.dueDateTo) conditions.push(lte(healthReminders.dueDate, filters.dueDateTo.toISOString().split('T')[0]));
+
+        return await dbInstance
+          .select()
+          .from(healthReminders)
+          .where(conditions.length > 0 ? and(...conditions) : undefined)
+          .orderBy(asc(healthReminders.dueDate));
+      });
+    });
+  }
+
+  async getUpcomingReminders(days: number = 7): Promise<HealthReminder[]> {
+    return withPerformanceLogging('getUpcomingReminders', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const today = new Date();
+        const futureDate = new Date();
+        futureDate.setDate(today.getDate() + days);
+
+        return await dbInstance
+          .select()
+          .from(healthReminders)
+          .where(and(
+            eq(healthReminders.status, 'pending'),
+            gte(healthReminders.dueDate, today.toISOString().split('T')[0]),
+            lte(healthReminders.dueDate, futureDate.toISOString().split('T')[0])
+          ))
+          .orderBy(asc(healthReminders.dueDate));
+      });
+    });
+  }
+
+  async createHealthReminder(reminder: InsertHealthReminder & { tenantId: string }): Promise<HealthReminder> {
+    return withPerformanceLogging('createHealthReminder', async () => {
+      return withTenantContext(reminder.tenantId, async (dbInstance) => {
+        const [newReminder] = await dbInstance
+          .insert(healthReminders)
+          .values(reminder)
+          .returning();
+        return newReminder;
+      });
+    });
+  }
+
+  async updateHealthReminder(id: string, updates: Partial<InsertHealthReminder>): Promise<HealthReminder> {
+    return withPerformanceLogging('updateHealthReminder', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(healthReminders)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(healthReminders.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  // Marketing Campaigns
+  async getMarketingCampaigns(filters?: { status?: string; channel?: string }): Promise<MarketingCampaign[]> {
+    return withPerformanceLogging('getMarketingCampaigns', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = [];
+        if (filters?.status) conditions.push(eq(marketingCampaigns.status, filters.status));
+        if (filters?.channel) conditions.push(eq(marketingCampaigns.channel, filters.channel));
+
+        return await dbInstance
+          .select()
+          .from(marketingCampaigns)
+          .where(conditions.length > 0 ? and(...conditions) : undefined)
+          .orderBy(desc(marketingCampaigns.createdAt));
+      });
+    });
+  }
+
+  async getMarketingCampaign(id: string): Promise<MarketingCampaign | undefined> {
+    return withPerformanceLogging('getMarketingCampaign', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [campaign] = await dbInstance
+          .select()
+          .from(marketingCampaigns)
+          .where(eq(marketingCampaigns.id, id));
+        return campaign;
+      });
+    });
+  }
+
+  async createMarketingCampaign(campaign: InsertMarketingCampaign & { tenantId: string }): Promise<MarketingCampaign> {
+    return withPerformanceLogging('createMarketingCampaign', async () => {
+      return withTenantContext(campaign.tenantId, async (dbInstance) => {
+        const [newCampaign] = await dbInstance
+          .insert(marketingCampaigns)
+          .values(campaign)
+          .returning();
+        return newCampaign;
+      });
+    });
+  }
+
+  async updateMarketingCampaign(id: string, updates: Partial<InsertMarketingCampaign>): Promise<MarketingCampaign> {
+    return withPerformanceLogging('updateMarketingCampaign', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(marketingCampaigns)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(marketingCampaigns.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  // Campaign Recipients
+  async getCampaignRecipients(campaignId: string): Promise<CampaignRecipient[]> {
+    return withPerformanceLogging('getCampaignRecipients', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(campaignRecipients)
+          .where(eq(campaignRecipients.campaignId, campaignId));
+      });
+    });
+  }
+
+  async addCampaignRecipients(campaignId: string, ownerIds: string[]): Promise<void> {
+    return withPerformanceLogging('addCampaignRecipients', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const values = ownerIds.map(ownerId => ({
+          campaignId,
+          ownerId,
+          status: 'pending'
+        }));
+        await dbInstance.insert(campaignRecipients).values(values);
+      });
+    });
+  }
+
+  async updateCampaignRecipient(id: string, updates: Partial<CampaignRecipient>): Promise<CampaignRecipient> {
+    return withPerformanceLogging('updateCampaignRecipient', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(campaignRecipients)
+          .set(updates)
+          .where(eq(campaignRecipients.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  // Client Segmentation
+  async getOwnersBySegment(segment: string): Promise<Owner[]> {
+    return withPerformanceLogging('getOwnersBySegment', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(owners)
+          .where(eq(owners.segment, segment));
+      });
+    });
+  }
+
+  async getOwnersForCampaign(filters: { segments?: string[]; smsOptIn?: boolean; emailOptIn?: boolean; pushOptIn?: boolean }): Promise<Owner[]> {
+    return withPerformanceLogging('getOwnersForCampaign', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = [];
+        if (filters.segments && filters.segments.length > 0) {
+          conditions.push(inArray(owners.segment, filters.segments));
+        }
+        if (filters.smsOptIn !== undefined) conditions.push(eq(owners.smsOptIn, filters.smsOptIn));
+        if (filters.emailOptIn !== undefined) conditions.push(eq(owners.emailOptIn, filters.emailOptIn));
+        if (filters.pushOptIn !== undefined) conditions.push(eq(owners.pushOptIn, filters.pushOptIn));
+
+        return await dbInstance
+          .select()
+          .from(owners)
+          .where(conditions.length > 0 ? and(...conditions) : undefined);
+      });
+    });
+  }
+
+  async updateOwnerSegment(id: string, segment: string): Promise<Owner> {
+    return withPerformanceLogging('updateOwnerSegment', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(owners)
+          .set({ segment, updatedAt: new Date() })
+          .where(eq(owners.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async updateOwnerCRMMetrics(id: string, metrics: { totalSpent?: string; visitCount?: number; lastVisitAt?: Date; firstVisitAt?: Date; averageCheck?: string }): Promise<Owner> {
+    return withPerformanceLogging('updateOwnerCRMMetrics', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(owners)
+          .set({ ...metrics, updatedAt: new Date() })
+          .where(eq(owners.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async getSegmentStats(): Promise<{ segment: string; count: number }[]> {
+    return withPerformanceLogging('getSegmentStats', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const result = await dbInstance
+          .select({
+            segment: owners.segment,
+            count: sql<number>`count(*)::int`
+          })
+          .from(owners)
+          .groupBy(owners.segment);
+        return result.map(r => ({ segment: r.segment || 'new', count: r.count }));
+      });
+    });
+  }
+
+  async recalculateClientSegments(): Promise<{ updated: number }> {
+    return withPerformanceLogging('recalculateClientSegments', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        let updatedCount = 0;
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        const oneYearAgo = new Date();
+        oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+
+        // VIP: totalSpent > 50000 OR visitCount >= 10
+        const vipResult = await dbInstance.execute(sql`
+          UPDATE owners SET segment = 'vip', updated_at = now()
+          WHERE (CAST(total_spent AS numeric) > 50000 OR visit_count >= 10)
+          AND segment != 'vip'
+        `);
+        updatedCount += (vipResult as any).rowCount || 0;
+
+        // Regular: visitCount >= 3 AND lastVisit within 90 days
+        const regularResult = await dbInstance.execute(sql`
+          UPDATE owners SET segment = 'regular', updated_at = now()
+          WHERE visit_count >= 3
+          AND last_visit_at >= ${ninetyDaysAgo}
+          AND CAST(total_spent AS numeric) <= 50000
+          AND visit_count < 10
+          AND segment NOT IN ('vip')
+        `);
+        updatedCount += (regularResult as any).rowCount || 0;
+
+        // At Risk: regular/VIP who haven't visited in 30-90 days
+        const atRiskResult = await dbInstance.execute(sql`
+          UPDATE owners SET segment = 'at_risk', updated_at = now()
+          WHERE visit_count >= 2
+          AND last_visit_at < ${thirtyDaysAgo}
+          AND last_visit_at >= ${ninetyDaysAgo}
+          AND segment IN ('regular', 'vip')
+        `);
+        updatedCount += (atRiskResult as any).rowCount || 0;
+
+        // Lost: haven't visited in over 90 days
+        const lostResult = await dbInstance.execute(sql`
+          UPDATE owners SET segment = 'lost', updated_at = now()
+          WHERE last_visit_at < ${ninetyDaysAgo}
+          AND segment NOT IN ('new', 'lost')
+        `);
+        updatedCount += (lostResult as any).rowCount || 0;
+
+        // New: first visit within 30 days OR never visited
+        const newResult = await dbInstance.execute(sql`
+          UPDATE owners SET segment = 'new', updated_at = now()
+          WHERE (first_visit_at >= ${thirtyDaysAgo} OR first_visit_at IS NULL)
+          AND visit_count <= 1
+          AND segment NOT IN ('new')
+        `);
+        updatedCount += (newResult as any).rowCount || 0;
+
+        return { updated: updatedCount };
       });
     });
   }

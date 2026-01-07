@@ -10409,6 +10409,209 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // CRM SYSTEM ROUTES
+  // ========================================
+
+  // Client Interactions
+  app.get("/api/crm/interactions/:ownerId", authenticateToken, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const interactions = await storage.getClientInteractions(req.params.ownerId, limit);
+      res.json(interactions);
+    } catch (error: any) {
+      console.error("Error fetching interactions:", error);
+      res.status(500).json({ error: "Failed to fetch interactions", message: error.message });
+    }
+  });
+
+  app.post("/api/crm/interactions", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const interaction = await storage.createClientInteraction({
+        ...req.body,
+        tenantId: user.tenantId,
+        branchId: user.branchId,
+        userId: user.id
+      });
+      res.status(201).json(interaction);
+    } catch (error: any) {
+      console.error("Error creating interaction:", error);
+      res.status(500).json({ error: "Failed to create interaction", message: error.message });
+    }
+  });
+
+  // Health Reminders
+  app.get("/api/crm/reminders", authenticateToken, async (req, res) => {
+    try {
+      const filters: any = {};
+      if (req.query.patientId) filters.patientId = req.query.patientId;
+      if (req.query.ownerId) filters.ownerId = req.query.ownerId;
+      if (req.query.status) filters.status = req.query.status;
+      if (req.query.dueDateFrom) filters.dueDateFrom = new Date(req.query.dueDateFrom as string);
+      if (req.query.dueDateTo) filters.dueDateTo = new Date(req.query.dueDateTo as string);
+
+      const reminders = await storage.getHealthReminders(filters);
+      res.json(reminders);
+    } catch (error: any) {
+      console.error("Error fetching reminders:", error);
+      res.status(500).json({ error: "Failed to fetch reminders", message: error.message });
+    }
+  });
+
+  app.get("/api/crm/reminders/upcoming", authenticateToken, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 7;
+      const reminders = await storage.getUpcomingReminders(days);
+      res.json(reminders);
+    } catch (error: any) {
+      console.error("Error fetching upcoming reminders:", error);
+      res.status(500).json({ error: "Failed to fetch reminders", message: error.message });
+    }
+  });
+
+  app.post("/api/crm/reminders", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const reminder = await storage.createHealthReminder({
+        ...req.body,
+        tenantId: user.tenantId,
+        branchId: user.branchId
+      });
+      res.status(201).json(reminder);
+    } catch (error: any) {
+      console.error("Error creating reminder:", error);
+      res.status(500).json({ error: "Failed to create reminder", message: error.message });
+    }
+  });
+
+  app.patch("/api/crm/reminders/:id", authenticateToken, async (req, res) => {
+    try {
+      const reminder = await storage.updateHealthReminder(req.params.id, req.body);
+      res.json(reminder);
+    } catch (error: any) {
+      console.error("Error updating reminder:", error);
+      res.status(500).json({ error: "Failed to update reminder", message: error.message });
+    }
+  });
+
+  // Marketing Campaigns
+  app.get("/api/crm/campaigns", authenticateToken, async (req, res) => {
+    try {
+      const filters: any = {};
+      if (req.query.status) filters.status = req.query.status;
+      if (req.query.channel) filters.channel = req.query.channel;
+      const campaigns = await storage.getMarketingCampaigns(filters);
+      res.json(campaigns);
+    } catch (error: any) {
+      console.error("Error fetching campaigns:", error);
+      res.status(500).json({ error: "Failed to fetch campaigns", message: error.message });
+    }
+  });
+
+  app.get("/api/crm/campaigns/:id", authenticateToken, async (req, res) => {
+    try {
+      const campaign = await storage.getMarketingCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      res.json(campaign);
+    } catch (error: any) {
+      console.error("Error fetching campaign:", error);
+      res.status(500).json({ error: "Failed to fetch campaign", message: error.message });
+    }
+  });
+
+  app.post("/api/crm/campaigns", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const campaign = await storage.createMarketingCampaign({
+        ...req.body,
+        tenantId: user.tenantId,
+        createdBy: user.id
+      });
+      res.status(201).json(campaign);
+    } catch (error: any) {
+      console.error("Error creating campaign:", error);
+      res.status(500).json({ error: "Failed to create campaign", message: error.message });
+    }
+  });
+
+  app.patch("/api/crm/campaigns/:id", authenticateToken, async (req, res) => {
+    try {
+      const campaign = await storage.updateMarketingCampaign(req.params.id, req.body);
+      res.json(campaign);
+    } catch (error: any) {
+      console.error("Error updating campaign:", error);
+      res.status(500).json({ error: "Failed to update campaign", message: error.message });
+    }
+  });
+
+  // Campaign Recipients
+  app.get("/api/crm/campaigns/:id/recipients", authenticateToken, async (req, res) => {
+    try {
+      const recipients = await storage.getCampaignRecipients(req.params.id);
+      res.json(recipients);
+    } catch (error: any) {
+      console.error("Error fetching recipients:", error);
+      res.status(500).json({ error: "Failed to fetch recipients", message: error.message });
+    }
+  });
+
+  app.post("/api/crm/campaigns/:id/recipients", authenticateToken, async (req, res) => {
+    try {
+      const { ownerIds } = req.body;
+      await storage.addCampaignRecipients(req.params.id, ownerIds);
+      res.status(201).json({ success: true, count: ownerIds.length });
+    } catch (error: any) {
+      console.error("Error adding recipients:", error);
+      res.status(500).json({ error: "Failed to add recipients", message: error.message });
+    }
+  });
+
+  // Client Segmentation
+  app.get("/api/crm/segments/stats", authenticateToken, async (req, res) => {
+    try {
+      const stats = await storage.getSegmentStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error fetching segment stats:", error);
+      res.status(500).json({ error: "Failed to fetch segment stats", message: error.message });
+    }
+  });
+
+  app.get("/api/crm/segments/:segment/clients", authenticateToken, async (req, res) => {
+    try {
+      const owners = await storage.getOwnersBySegment(req.params.segment);
+      res.json(owners);
+    } catch (error: any) {
+      console.error("Error fetching segment clients:", error);
+      res.status(500).json({ error: "Failed to fetch clients", message: error.message });
+    }
+  });
+
+  app.post("/api/crm/segments/recalculate", authenticateToken, async (req, res) => {
+    try {
+      const result = await storage.recalculateClientSegments();
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error recalculating segments:", error);
+      res.status(500).json({ error: "Failed to recalculate segments", message: error.message });
+    }
+  });
+
+  // Target audience for campaigns
+  app.post("/api/crm/campaigns/audience", authenticateToken, async (req, res) => {
+    try {
+      const { segments, smsOptIn, emailOptIn, pushOptIn } = req.body;
+      const owners = await storage.getOwnersForCampaign({ segments, smsOptIn, emailOptIn, pushOptIn });
+      res.json({ count: owners.length, owners: owners.map(o => ({ id: o.id, name: o.name, phone: o.phone, email: o.email, segment: o.segment })) });
+    } catch (error: any) {
+      console.error("Error fetching audience:", error);
+      res.status(500).json({ error: "Failed to fetch audience", message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
