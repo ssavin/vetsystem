@@ -3277,3 +3277,210 @@ export type InsertLabAnalyzer = z.infer<typeof insertLabAnalyzerSchema>;
 
 export type LabResultImport = typeof labResultImports.$inferSelect;
 export type InsertLabResultImport = z.infer<typeof insertLabResultImportSchema>;
+
+// ============================================
+// DICOM IMAGING INTEGRATION
+// ============================================
+
+// DICOM Modality types
+export const DICOM_MODALITY = ['CR', 'DX', 'US', 'CT', 'MR', 'XA', 'RF', 'OT'] as const;
+export const DICOM_STUDY_STATUS = ['scheduled', 'in_progress', 'completed', 'cancelled'] as const;
+export const DICOM_DEVICE_STATUS = ['online', 'offline', 'maintenance', 'error'] as const;
+
+// DICOM Devices - рентген-аппараты, УЗИ-аппараты и другие DICOM-устройства
+export const dicomDevices = pgTable('dicom_devices', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  
+  name: varchar('name', { length: 255 }).notNull(), // Название аппарата
+  modality: varchar('modality', { length: 10 }).notNull(), // CR, DX, US, CT, MR, etc.
+  manufacturer: varchar('manufacturer', { length: 255 }), // Производитель
+  model: varchar('model', { length: 255 }), // Модель
+  serialNumber: varchar('serial_number', { length: 100 }), // Серийный номер
+  
+  aeTitle: varchar('ae_title', { length: 16 }), // DICOM Application Entity Title
+  ipAddress: varchar('ip_address', { length: 45 }), // IP адрес устройства
+  port: integer('port').default(104), // DICOM порт (по умолчанию 104)
+  
+  connectionType: varchar('connection_type', { length: 20 }).default('network'), // network, usb, folder_watch
+  watchFolder: text('watch_folder'), // Папка для мониторинга новых файлов
+  
+  status: varchar('status', { length: 20 }).default('offline'),
+  lastConnectedAt: timestamp('last_connected_at'),
+  lastError: text('last_error'),
+  
+  settings: jsonb('settings'), // Дополнительные настройки
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('dicom_devices_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('dicom_devices_branch_idx').on(table.branchId),
+  aeTitleIdx: index('dicom_devices_ae_title_idx').on(table.aeTitle),
+  modalityCheck: check('dicom_devices_modality_check', sql`${table.modality} IN ('CR', 'DX', 'US', 'CT', 'MR', 'XA', 'RF', 'OT')`),
+  statusCheck: check('dicom_devices_status_check', sql`${table.status} IN ('online', 'offline', 'maintenance', 'error')`)
+}));
+
+// DICOM Studies - исследования (сессии сканирования)
+export const dicomStudies = pgTable('dicom_studies', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  branchId: varchar('branch_id').references(() => branches.id).notNull(),
+  
+  patientId: varchar('patient_id').references(() => patients.id).notNull(),
+  encounterId: varchar('encounter_id').references(() => clinicalEncounters.id), // Связь с визитом
+  
+  studyInstanceUid: varchar('study_instance_uid', { length: 64 }).notNull().unique(), // DICOM Study Instance UID
+  accessionNumber: varchar('accession_number', { length: 64 }), // Номер направления
+  
+  studyDate: timestamp('study_date'), // Дата исследования
+  studyTime: varchar('study_time', { length: 14 }), // Время исследования (HHMMSS.FFFFFF)
+  studyDescription: text('study_description'), // Описание исследования
+  
+  modality: varchar('modality', { length: 10 }).notNull(), // CR, DX, US, etc.
+  bodyPart: varchar('body_part', { length: 100 }), // Область исследования
+  
+  referringPhysician: varchar('referring_physician', { length: 255 }), // Направивший врач
+  performingPhysician: varchar('performing_physician', { length: 255 }), // Выполняющий врач
+  
+  numberOfSeries: integer('number_of_series').default(0),
+  numberOfInstances: integer('number_of_instances').default(0),
+  
+  status: varchar('status', { length: 20 }).default('completed'),
+  
+  deviceId: varchar('device_id').references(() => dicomDevices.id), // С какого аппарата
+  
+  interpretation: text('interpretation'), // Заключение врача
+  interpretedBy: varchar('interpreted_by').references(() => users.id),
+  interpretedAt: timestamp('interpreted_at'),
+  
+  thumbnailPath: text('thumbnail_path'), // Путь к превью
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  tenantIdIdx: index('dicom_studies_tenant_idx').on(table.tenantId),
+  branchIdIdx: index('dicom_studies_branch_idx').on(table.branchId),
+  patientIdIdx: index('dicom_studies_patient_idx').on(table.patientId),
+  encounterIdIdx: index('dicom_studies_encounter_idx').on(table.encounterId),
+  studyDateIdx: index('dicom_studies_date_idx').on(table.studyDate),
+  modalityIdx: index('dicom_studies_modality_idx').on(table.modality),
+  statusCheck: check('dicom_studies_status_check', sql`${table.status} IN ('scheduled', 'in_progress', 'completed', 'cancelled')`)
+}));
+
+// DICOM Series - серии внутри исследования
+export const dicomSeries = pgTable('dicom_series', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  
+  studyId: varchar('study_id').references(() => dicomStudies.id).notNull(),
+  
+  seriesInstanceUid: varchar('series_instance_uid', { length: 64 }).notNull().unique(), // DICOM Series Instance UID
+  seriesNumber: integer('series_number'), // Номер серии
+  seriesDescription: text('series_description'), // Описание серии
+  
+  modality: varchar('modality', { length: 10 }).notNull(),
+  bodyPart: varchar('body_part', { length: 100 }),
+  
+  numberOfInstances: integer('number_of_instances').default(0),
+  
+  thumbnailPath: text('thumbnail_path'), // Путь к превью серии
+  
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  studyIdIdx: index('dicom_series_study_idx').on(table.studyId),
+  tenantIdIdx: index('dicom_series_tenant_idx').on(table.tenantId)
+}));
+
+// DICOM Instances - отдельные изображения (снимки)
+export const dicomInstances = pgTable('dicom_instances', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').references(() => tenants.id).notNull(),
+  
+  seriesId: varchar('series_id').references(() => dicomSeries.id).notNull(),
+  
+  sopInstanceUid: varchar('sop_instance_uid', { length: 64 }).notNull().unique(), // DICOM SOP Instance UID
+  sopClassUid: varchar('sop_class_uid', { length: 64 }), // SOP Class UID
+  instanceNumber: integer('instance_number'), // Номер изображения в серии
+  
+  filePath: text('file_path').notNull(), // Путь к DICOM файлу
+  fileSize: integer('file_size'), // Размер файла в байтах
+  checksum: varchar('checksum', { length: 64 }), // SHA-256 хэш файла
+  
+  // Image parameters
+  rows: integer('rows'), // Высота изображения
+  columns: integer('columns'), // Ширина изображения
+  bitsAllocated: integer('bits_allocated'), // Бит на пиксель
+  photometricInterpretation: varchar('photometric_interpretation', { length: 50 }),
+  
+  windowCenter: decimal('window_center', { precision: 10, scale: 2 }), // Центр окна яркости
+  windowWidth: decimal('window_width', { precision: 10, scale: 2 }), // Ширина окна яркости
+  
+  thumbnailPath: text('thumbnail_path'), // Путь к превью
+  
+  annotations: jsonb('annotations'), // Аннотации и измерения
+  
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  seriesIdIdx: index('dicom_instances_series_idx').on(table.seriesId),
+  tenantIdIdx: index('dicom_instances_tenant_idx').on(table.tenantId)
+}));
+
+// Zod schemas for DICOM
+export const insertDicomDeviceSchema = createInsertSchema(dicomDevices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+}).extend({
+  modality: z.enum(DICOM_MODALITY),
+  status: z.enum(DICOM_DEVICE_STATUS).default('offline'),
+  name: z.string().min(2, 'Название устройства обязательно'),
+  port: z.number().int().min(1).max(65535).default(104)
+});
+
+export const insertDicomStudySchema = createInsertSchema(dicomStudies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tenantId: true
+}).extend({
+  modality: z.enum(DICOM_MODALITY),
+  status: z.enum(DICOM_STUDY_STATUS).default('completed'),
+  studyInstanceUid: z.string().min(1, 'Study Instance UID обязателен'),
+  patientId: z.string().min(1, 'ID пациента обязателен')
+});
+
+export const insertDicomSeriesSchema = createInsertSchema(dicomSeries).omit({
+  id: true,
+  createdAt: true,
+  tenantId: true
+}).extend({
+  modality: z.enum(DICOM_MODALITY),
+  seriesInstanceUid: z.string().min(1, 'Series Instance UID обязателен'),
+  studyId: z.string().min(1, 'ID исследования обязателен')
+});
+
+export const insertDicomInstanceSchema = createInsertSchema(dicomInstances).omit({
+  id: true,
+  createdAt: true,
+  tenantId: true
+}).extend({
+  sopInstanceUid: z.string().min(1, 'SOP Instance UID обязателен'),
+  seriesId: z.string().min(1, 'ID серии обязателен'),
+  filePath: z.string().min(1, 'Путь к файлу обязателен')
+});
+
+// Types for DICOM
+export type DicomDevice = typeof dicomDevices.$inferSelect;
+export type InsertDicomDevice = z.infer<typeof insertDicomDeviceSchema>;
+
+export type DicomStudy = typeof dicomStudies.$inferSelect;
+export type InsertDicomStudy = z.infer<typeof insertDicomStudySchema>;
+
+export type DicomSeries = typeof dicomSeries.$inferSelect;
+export type InsertDicomSeries = z.infer<typeof insertDicomSeriesSchema>;
+
+export type DicomInstance = typeof dicomInstances.$inferSelect;
+export type InsertDicomInstance = z.infer<typeof insertDicomInstanceSchema>;
