@@ -67,7 +67,12 @@ import {
   clinicalCases, clinicalEncounters, labAnalyses, attachments, documentTemplates,
   smsVerificationCodes, pushTokens, conversations, messages, callLogs,
   cages, hospitalStays, treatmentLog,
-  externalLabIntegrations, labAnalyzers, labResultImports
+  externalLabIntegrations, labAnalyzers, labResultImports,
+  dicomDevices, dicomStudies, dicomSeries, dicomInstances,
+  type DicomDevice, type InsertDicomDevice,
+  type DicomStudy, type InsertDicomStudy,
+  type DicomSeries, type InsertDicomSeries,
+  type DicomInstance, type InsertDicomInstance
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -726,6 +731,38 @@ export interface IStorage {
   createLabResultImport(importData: InsertLabResultImport & { tenantId: string }): Promise<LabResultImport>;
   updateLabResultImport(id: string, updates: Partial<InsertLabResultImport>): Promise<LabResultImport>;
   deleteLabResultImport(id: string): Promise<void>;
+
+  // === DICOM IMAGING ===
+  
+  // DICOM Devices - рентген, УЗИ аппараты
+  getDicomDevices(tenantId: string, branchId: string): Promise<DicomDevice[]>;
+  getDicomDevice(id: string): Promise<DicomDevice | undefined>;
+  createDicomDevice(device: InsertDicomDevice & { tenantId: string }): Promise<DicomDevice>;
+  updateDicomDevice(id: string, updates: Partial<InsertDicomDevice>): Promise<DicomDevice>;
+  deleteDicomDevice(id: string): Promise<void>;
+  
+  // DICOM Studies - исследования
+  getDicomStudies(tenantId: string, patientId?: string, branchId?: string): Promise<DicomStudy[]>;
+  getDicomStudy(id: string): Promise<DicomStudy | undefined>;
+  getDicomStudyByUid(studyInstanceUid: string): Promise<DicomStudy | undefined>;
+  createDicomStudy(study: InsertDicomStudy & { tenantId: string }): Promise<DicomStudy>;
+  updateDicomStudy(id: string, updates: Partial<InsertDicomStudy>): Promise<DicomStudy>;
+  deleteDicomStudy(id: string): Promise<void>;
+  
+  // DICOM Series - серии изображений
+  getDicomSeriesByStudy(studyId: string): Promise<DicomSeries[]>;
+  getDicomSeries(id: string): Promise<DicomSeries | undefined>;
+  createDicomSeries(series: InsertDicomSeries & { tenantId: string }): Promise<DicomSeries>;
+  updateDicomSeries(id: string, updates: Partial<InsertDicomSeries>): Promise<DicomSeries>;
+  deleteDicomSeries(id: string): Promise<void>;
+  
+  // DICOM Instances - отдельные снимки
+  getDicomInstancesBySeries(seriesId: string): Promise<DicomInstance[]>;
+  getDicomInstance(id: string): Promise<DicomInstance | undefined>;
+  getDicomInstanceByUid(sopInstanceUid: string): Promise<DicomInstance | undefined>;
+  createDicomInstance(instance: InsertDicomInstance & { tenantId: string }): Promise<DicomInstance>;
+  updateDicomInstance(id: string, updates: Partial<InsertDicomInstance>): Promise<DicomInstance>;
+  deleteDicomInstance(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6621,6 +6658,276 @@ export class DatabaseStorage implements IStorage {
     return withPerformanceLogging('deleteLabResultImport', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         await dbInstance.delete(labResultImports).where(eq(labResultImports.id, id));
+      });
+    });
+  }
+
+  // ========================================
+  // DICOM IMAGING
+  // ========================================
+
+  // DICOM Devices methods
+  async getDicomDevices(tenantId: string, branchId: string): Promise<DicomDevice[]> {
+    return withPerformanceLogging('getDicomDevices', async () => {
+      return withTenantContext(tenantId, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(dicomDevices)
+          .where(and(
+            eq(dicomDevices.tenantId, tenantId),
+            eq(dicomDevices.branchId, branchId)
+          ))
+          .orderBy(desc(dicomDevices.createdAt));
+      });
+    });
+  }
+
+  async getDicomDevice(id: string): Promise<DicomDevice | undefined> {
+    return withPerformanceLogging('getDicomDevice', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [device] = await dbInstance
+          .select()
+          .from(dicomDevices)
+          .where(eq(dicomDevices.id, id));
+        return device;
+      });
+    });
+  }
+
+  async createDicomDevice(device: InsertDicomDevice & { tenantId: string }): Promise<DicomDevice> {
+    return withPerformanceLogging('createDicomDevice', async () => {
+      return withTenantContext(device.tenantId, async (dbInstance) => {
+        const [newDevice] = await dbInstance
+          .insert(dicomDevices)
+          .values(device)
+          .returning();
+        return newDevice;
+      });
+    });
+  }
+
+  async updateDicomDevice(id: string, updates: Partial<InsertDicomDevice>): Promise<DicomDevice> {
+    return withPerformanceLogging('updateDicomDevice', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(dicomDevices)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(dicomDevices.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async deleteDicomDevice(id: string): Promise<void> {
+    return withPerformanceLogging('deleteDicomDevice', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(dicomDevices).where(eq(dicomDevices.id, id));
+      });
+    });
+  }
+
+  // DICOM Studies methods
+  async getDicomStudies(tenantId: string, patientId?: string, branchId?: string): Promise<DicomStudy[]> {
+    return withPerformanceLogging('getDicomStudies', async () => {
+      return withTenantContext(tenantId, async (dbInstance) => {
+        const conditions = [eq(dicomStudies.tenantId, tenantId)];
+        if (patientId) {
+          conditions.push(eq(dicomStudies.patientId, patientId));
+        }
+        if (branchId) {
+          conditions.push(eq(dicomStudies.branchId, branchId));
+        }
+        return await dbInstance
+          .select()
+          .from(dicomStudies)
+          .where(and(...conditions))
+          .orderBy(desc(dicomStudies.studyDate));
+      });
+    });
+  }
+
+  async getDicomStudy(id: string): Promise<DicomStudy | undefined> {
+    return withPerformanceLogging('getDicomStudy', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [study] = await dbInstance
+          .select()
+          .from(dicomStudies)
+          .where(eq(dicomStudies.id, id));
+        return study;
+      });
+    });
+  }
+
+  async getDicomStudyByUid(studyInstanceUid: string): Promise<DicomStudy | undefined> {
+    return withPerformanceLogging('getDicomStudyByUid', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [study] = await dbInstance
+          .select()
+          .from(dicomStudies)
+          .where(eq(dicomStudies.studyInstanceUid, studyInstanceUid));
+        return study;
+      });
+    });
+  }
+
+  async createDicomStudy(study: InsertDicomStudy & { tenantId: string }): Promise<DicomStudy> {
+    return withPerformanceLogging('createDicomStudy', async () => {
+      return withTenantContext(study.tenantId, async (dbInstance) => {
+        const [newStudy] = await dbInstance
+          .insert(dicomStudies)
+          .values(study)
+          .returning();
+        return newStudy;
+      });
+    });
+  }
+
+  async updateDicomStudy(id: string, updates: Partial<InsertDicomStudy>): Promise<DicomStudy> {
+    return withPerformanceLogging('updateDicomStudy', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(dicomStudies)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(dicomStudies.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async deleteDicomStudy(id: string): Promise<void> {
+    return withPerformanceLogging('deleteDicomStudy', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(dicomStudies).where(eq(dicomStudies.id, id));
+      });
+    });
+  }
+
+  // DICOM Series methods
+  async getDicomSeriesByStudy(studyId: string): Promise<DicomSeries[]> {
+    return withPerformanceLogging('getDicomSeriesByStudy', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(dicomSeries)
+          .where(eq(dicomSeries.studyId, studyId))
+          .orderBy(asc(dicomSeries.seriesNumber));
+      });
+    });
+  }
+
+  async getDicomSeries(id: string): Promise<DicomSeries | undefined> {
+    return withPerformanceLogging('getDicomSeries', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [series] = await dbInstance
+          .select()
+          .from(dicomSeries)
+          .where(eq(dicomSeries.id, id));
+        return series;
+      });
+    });
+  }
+
+  async createDicomSeries(series: InsertDicomSeries & { tenantId: string }): Promise<DicomSeries> {
+    return withPerformanceLogging('createDicomSeries', async () => {
+      return withTenantContext(series.tenantId, async (dbInstance) => {
+        const [newSeries] = await dbInstance
+          .insert(dicomSeries)
+          .values(series)
+          .returning();
+        return newSeries;
+      });
+    });
+  }
+
+  async updateDicomSeries(id: string, updates: Partial<InsertDicomSeries>): Promise<DicomSeries> {
+    return withPerformanceLogging('updateDicomSeries', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(dicomSeries)
+          .set(updates)
+          .where(eq(dicomSeries.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async deleteDicomSeries(id: string): Promise<void> {
+    return withPerformanceLogging('deleteDicomSeries', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(dicomSeries).where(eq(dicomSeries.id, id));
+      });
+    });
+  }
+
+  // DICOM Instances methods
+  async getDicomInstancesBySeries(seriesId: string): Promise<DicomInstance[]> {
+    return withPerformanceLogging('getDicomInstancesBySeries', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(dicomInstances)
+          .where(eq(dicomInstances.seriesId, seriesId))
+          .orderBy(asc(dicomInstances.instanceNumber));
+      });
+    });
+  }
+
+  async getDicomInstance(id: string): Promise<DicomInstance | undefined> {
+    return withPerformanceLogging('getDicomInstance', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [instance] = await dbInstance
+          .select()
+          .from(dicomInstances)
+          .where(eq(dicomInstances.id, id));
+        return instance;
+      });
+    });
+  }
+
+  async getDicomInstanceByUid(sopInstanceUid: string): Promise<DicomInstance | undefined> {
+    return withPerformanceLogging('getDicomInstanceByUid', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [instance] = await dbInstance
+          .select()
+          .from(dicomInstances)
+          .where(eq(dicomInstances.sopInstanceUid, sopInstanceUid));
+        return instance;
+      });
+    });
+  }
+
+  async createDicomInstance(instance: InsertDicomInstance & { tenantId: string }): Promise<DicomInstance> {
+    return withPerformanceLogging('createDicomInstance', async () => {
+      return withTenantContext(instance.tenantId, async (dbInstance) => {
+        const [newInstance] = await dbInstance
+          .insert(dicomInstances)
+          .values(instance)
+          .returning();
+        return newInstance;
+      });
+    });
+  }
+
+  async updateDicomInstance(id: string, updates: Partial<InsertDicomInstance>): Promise<DicomInstance> {
+    return withPerformanceLogging('updateDicomInstance', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        const [updated] = await dbInstance
+          .update(dicomInstances)
+          .set(updates)
+          .where(eq(dicomInstances.id, id))
+          .returning();
+        return updated;
+      });
+    });
+  }
+
+  async deleteDicomInstance(id: string): Promise<void> {
+    return withPerformanceLogging('deleteDicomInstance', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance.delete(dicomInstances).where(eq(dicomInstances.id, id));
       });
     });
   }

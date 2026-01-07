@@ -13,7 +13,8 @@ import {
   insertPaymentMethodSchema, insertSalesTransactionSchema, insertSalesTransactionItemSchema,
   insertCashOperationSchema, insertUserRoleSchema, insertUserRoleAssignmentSchema,
   insertSubscriptionPlanSchema, insertClinicSubscriptionSchema, insertTenantSchema,
-  insertLegalEntitySchema
+  insertLegalEntitySchema,
+  insertDicomDeviceSchema, insertDicomStudySchema, insertDicomSeriesSchema, insertDicomInstanceSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
@@ -9636,6 +9637,381 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting lab result import:", error);
       res.status(500).json({ error: "Failed to delete import", message: error.message });
+    }
+  });
+
+  // ============================================
+  // DICOM IMAGING INTEGRATION
+  // ============================================
+
+  // === DICOM DEVICES ===
+
+  // GET /api/dicom/devices - Получить все DICOM устройства
+  app.get("/api/dicom/devices", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      const branchId = user.branchId;
+      
+      if (!branchId) {
+        return res.status(400).json({ error: "Branch ID required" });
+      }
+      
+      const devices = await storage.getDicomDevices(tenantId, branchId);
+      res.json(devices);
+    } catch (error: any) {
+      console.error("Error fetching DICOM devices:", error);
+      res.status(500).json({ error: "Failed to fetch devices", message: error.message });
+    }
+  });
+
+  // GET /api/dicom/devices/:id - Получить DICOM устройство по ID
+  app.get("/api/dicom/devices/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const device = await storage.getDicomDevice(req.params.id);
+      if (!device) {
+        return res.status(404).json({ error: "Device not found" });
+      }
+      // Security: Verify tenant ownership
+      if (device.tenantId !== user.tenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(device);
+    } catch (error: any) {
+      console.error("Error fetching DICOM device:", error);
+      res.status(500).json({ error: "Failed to fetch device", message: error.message });
+    }
+  });
+
+  // POST /api/dicom/devices - Создать DICOM устройство
+  app.post("/api/dicom/devices", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      const branchId = user.branchId;
+      
+      if (!branchId) {
+        return res.status(400).json({ error: "Branch ID required" });
+      }
+      
+      // Validate input with zod schema (strip any client-provided tenant/branch)
+      const { tenantId: _, branchId: __, ...clientData } = req.body;
+      const validated = insertDicomDeviceSchema.safeParse(clientData);
+      if (!validated.success) {
+        return res.status(400).json({ error: "Validation failed", details: validated.error.errors });
+      }
+      
+      const deviceData = {
+        ...validated.data,
+        tenantId,
+        branchId
+      };
+      
+      const device = await storage.createDicomDevice(deviceData);
+      res.status(201).json(device);
+    } catch (error: any) {
+      console.error("Error creating DICOM device:", error);
+      res.status(500).json({ error: "Failed to create device", message: error.message });
+    }
+  });
+
+  // PUT /api/dicom/devices/:id - Обновить DICOM устройство
+  app.put("/api/dicom/devices/:id", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      // First check if device exists and belongs to tenant
+      const existing = await storage.getDicomDevice(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Device not found" });
+      }
+      if (existing.tenantId !== user.tenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const device = await storage.updateDicomDevice(req.params.id, req.body);
+      res.json(device);
+    } catch (error: any) {
+      console.error("Error updating DICOM device:", error);
+      res.status(500).json({ error: "Failed to update device", message: error.message });
+    }
+  });
+
+  // DELETE /api/dicom/devices/:id - Удалить DICOM устройство
+  app.delete("/api/dicom/devices/:id", authenticateToken, requireRole('администратор', 'admin'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      // First check if device exists and belongs to tenant
+      const existing = await storage.getDicomDevice(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Device not found" });
+      }
+      if (existing.tenantId !== user.tenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteDicomDevice(req.params.id);
+      res.json({ success: true, message: "Device deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting DICOM device:", error);
+      res.status(500).json({ error: "Failed to delete device", message: error.message });
+    }
+  });
+
+  // === DICOM STUDIES ===
+
+  // GET /api/dicom/studies - Получить исследования
+  app.get("/api/dicom/studies", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      const branchId = user.branchId;
+      const patientId = req.query.patientId as string | undefined;
+      
+      const studies = await storage.getDicomStudies(tenantId, patientId, branchId);
+      res.json(studies);
+    } catch (error: any) {
+      console.error("Error fetching DICOM studies:", error);
+      res.status(500).json({ error: "Failed to fetch studies", message: error.message });
+    }
+  });
+
+  // GET /api/dicom/studies/:id - Получить исследование по ID
+  app.get("/api/dicom/studies/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const study = await storage.getDicomStudy(req.params.id);
+      if (!study) {
+        return res.status(404).json({ error: "Study not found" });
+      }
+      // Security: Verify tenant ownership
+      if (study.tenantId !== user.tenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(study);
+    } catch (error: any) {
+      console.error("Error fetching DICOM study:", error);
+      res.status(500).json({ error: "Failed to fetch study", message: error.message });
+    }
+  });
+
+  // POST /api/dicom/studies - Создать исследование
+  app.post("/api/dicom/studies", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      const branchId = user.branchId;
+      
+      if (!branchId) {
+        return res.status(400).json({ error: "Branch ID required" });
+      }
+      
+      // Validate input with zod schema (strip any client-provided tenant/branch)
+      const { tenantId: _, branchId: __, ...clientData } = req.body;
+      const validated = insertDicomStudySchema.safeParse(clientData);
+      if (!validated.success) {
+        return res.status(400).json({ error: "Validation failed", details: validated.error.errors });
+      }
+      
+      const studyData = {
+        ...validated.data,
+        tenantId,
+        branchId
+      };
+      
+      const study = await storage.createDicomStudy(studyData);
+      res.status(201).json(study);
+    } catch (error: any) {
+      console.error("Error creating DICOM study:", error);
+      res.status(500).json({ error: "Failed to create study", message: error.message });
+    }
+  });
+
+  // PUT /api/dicom/studies/:id - Обновить исследование
+  app.put("/api/dicom/studies/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const existing = await storage.getDicomStudy(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Study not found" });
+      }
+      if (existing.tenantId !== user.tenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const study = await storage.updateDicomStudy(req.params.id, req.body);
+      res.json(study);
+    } catch (error: any) {
+      console.error("Error updating DICOM study:", error);
+      res.status(500).json({ error: "Failed to update study", message: error.message });
+    }
+  });
+
+  // DELETE /api/dicom/studies/:id - Удалить исследование
+  app.delete("/api/dicom/studies/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const existing = await storage.getDicomStudy(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Study not found" });
+      }
+      if (existing.tenantId !== user.tenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteDicomStudy(req.params.id);
+      res.json({ success: true, message: "Study deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting DICOM study:", error);
+      res.status(500).json({ error: "Failed to delete study", message: error.message });
+    }
+  });
+
+  // === DICOM SERIES ===
+
+  // GET /api/dicom/studies/:studyId/series - Получить серии исследования
+  app.get("/api/dicom/studies/:studyId/series", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      // First verify the parent study belongs to user's tenant
+      const study = await storage.getDicomStudy(req.params.studyId);
+      if (!study) {
+        return res.status(404).json({ error: "Study not found" });
+      }
+      if (study.tenantId !== user.tenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const series = await storage.getDicomSeriesByStudy(req.params.studyId);
+      res.json(series);
+    } catch (error: any) {
+      console.error("Error fetching DICOM series:", error);
+      res.status(500).json({ error: "Failed to fetch series", message: error.message });
+    }
+  });
+
+  // POST /api/dicom/series - Создать серию
+  app.post("/api/dicom/series", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      
+      // Validate input with zod schema (strip any client-provided tenantId)
+      const { tenantId: _, ...clientData } = req.body;
+      const validated = insertDicomSeriesSchema.safeParse(clientData);
+      if (!validated.success) {
+        return res.status(400).json({ error: "Validation failed", details: validated.error.errors });
+      }
+      
+      // Verify parent study belongs to user's tenant
+      const parentStudy = await storage.getDicomStudy(validated.data.studyId);
+      if (!parentStudy || parentStudy.tenantId !== tenantId) {
+        return res.status(403).json({ error: "Access denied to parent study" });
+      }
+      
+      const seriesData = {
+        ...validated.data,
+        tenantId
+      };
+      
+      const series = await storage.createDicomSeries(seriesData);
+      res.status(201).json(series);
+    } catch (error: any) {
+      console.error("Error creating DICOM series:", error);
+      res.status(500).json({ error: "Failed to create series", message: error.message });
+    }
+  });
+
+  // === DICOM INSTANCES ===
+
+  // GET /api/dicom/series/:seriesId/instances - Получить снимки серии
+  app.get("/api/dicom/series/:seriesId/instances", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      // First verify the parent series belongs to user's tenant
+      const series = await storage.getDicomSeries(req.params.seriesId);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      if (series.tenantId !== user.tenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const instances = await storage.getDicomInstancesBySeries(req.params.seriesId);
+      res.json(instances);
+    } catch (error: any) {
+      console.error("Error fetching DICOM instances:", error);
+      res.status(500).json({ error: "Failed to fetch instances", message: error.message });
+    }
+  });
+
+  // GET /api/dicom/instances/:id - Получить снимок по ID
+  app.get("/api/dicom/instances/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const instance = await storage.getDicomInstance(req.params.id);
+      if (!instance) {
+        return res.status(404).json({ error: "Instance not found" });
+      }
+      // Security: Verify tenant ownership
+      if (instance.tenantId !== user.tenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(instance);
+    } catch (error: any) {
+      console.error("Error fetching DICOM instance:", error);
+      res.status(500).json({ error: "Failed to fetch instance", message: error.message });
+    }
+  });
+
+  // POST /api/dicom/instances - Создать снимок
+  app.post("/api/dicom/instances", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      
+      // Validate input with zod schema (strip any client-provided tenantId)
+      const { tenantId: _, ...clientData } = req.body;
+      const validated = insertDicomInstanceSchema.safeParse(clientData);
+      if (!validated.success) {
+        return res.status(400).json({ error: "Validation failed", details: validated.error.errors });
+      }
+      
+      // Verify parent series belongs to user's tenant
+      const parentSeries = await storage.getDicomSeries(validated.data.seriesId);
+      if (!parentSeries || parentSeries.tenantId !== tenantId) {
+        return res.status(403).json({ error: "Access denied to parent series" });
+      }
+      
+      const instanceData = {
+        ...validated.data,
+        tenantId
+      };
+      
+      const instance = await storage.createDicomInstance(instanceData);
+      res.status(201).json(instance);
+    } catch (error: any) {
+      console.error("Error creating DICOM instance:", error);
+      res.status(500).json({ error: "Failed to create instance", message: error.message });
+    }
+  });
+
+  // PUT /api/dicom/instances/:id/annotations - Обновить аннотации снимка
+  app.put("/api/dicom/instances/:id/annotations", authenticateToken, async (req, res) => {
+    try {
+      const instance = await storage.updateDicomInstance(req.params.id, { annotations: req.body.annotations });
+      res.json(instance);
+    } catch (error: any) {
+      console.error("Error updating DICOM annotations:", error);
+      res.status(500).json({ error: "Failed to update annotations", message: error.message });
+    }
+  });
+
+  // GET /api/patients/:patientId/imaging - Получить все исследования пациента
+  app.get("/api/patients/:patientId/imaging", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const tenantId = user.tenantId;
+      
+      const studies = await storage.getDicomStudies(tenantId, req.params.patientId);
+      res.json(studies);
+    } catch (error: any) {
+      console.error("Error fetching patient imaging:", error);
+      res.status(500).json({ error: "Failed to fetch patient imaging", message: error.message });
     }
   });
 

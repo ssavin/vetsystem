@@ -18,7 +18,8 @@ import {
   Stethoscope,
   FlaskConical,
   Paperclip,
-  Edit
+  Edit,
+  FileImage
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { format, isValid } from "date-fns"
@@ -35,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import EncounterDialog from "@/components/EncounterDialog"
+import { PatientImagingList } from "@/components/DicomViewer"
 
 interface ClinicalEncounter {
   id: string
@@ -455,6 +457,21 @@ export default function ClinicalCaseDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Imaging Studies - Рентген и УЗИ */}
+      {patient && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileImage className="h-5 w-5" />
+              Снимки и исследования
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PatientImagingList patientId={patient.id} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Close Case Dialog */}
       <AlertDialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
