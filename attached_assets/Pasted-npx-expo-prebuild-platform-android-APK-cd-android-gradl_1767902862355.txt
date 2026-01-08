@@ -1,0 +1,32 @@
+npx expo prebuild --platform android
+
+# Собрать APK
+cd android
+./gradlew assembleRelease
+✔ Created native directory
+› Using current versions instead of recommended react-native@0.73.6.
+✔ Updated package.json
+✖ Prebuild failed
+Error: [android.dangerous]: withAndroidDangerousBaseMod: ENOENT: no such file or directory, open './assets/adaptive-icon.png'
+Error: [android.dangerous]: withAndroidDangerousBaseMod: ENOENT: no such file or directory, open './assets/adaptive-icon.png'
+    at Object.openSync (node:fs:574:18)
+    at readFileSync (node:fs:453:35)
+    at calculateHash (/var/www/vetsystem/mobile-app/node_modules/@expo/image-utils/build/Cache.js:14:91)
+    at createCacheKey (/var/www/vetsystem/mobile-app/node_modules/@expo/image-utils/build/Cache.js:19:18)
+    at Object.createCacheKeyWithDirectoryAsync (/var/www/vetsystem/mobile-app/node_modules/@expo/image-utils/build/Cache.js:24:33)
+    at generateImageAsync (/var/www/vetsystem/mobile-app/node_modules/@expo/image-utils/build/Image.js:177:34)
+    at async generateIconAsync (/var/www/vetsystem/mobile-app/node_modules/@expo/prebuild-config/build/plugins/icons/withAndroidIcons.js:350:11)
+    at async /var/www/vetsystem/mobile-app/node_modules/@expo/prebuild-config/build/plugins/icons/withAndroidIcons.js:278:21
+    at async Promise.all (index 0)
+    at async generateMultiLayerImageAsync (/var/www/vetsystem/mobile-app/node_modules/@expo/prebuild-config/build/plugins/icons/withAndroidIcons.js:274:3)
+    at async setIconAsync (/var/www/vetsystem/mobile-app/node_modules/@expo/prebuild-config/build/plugins/icons/withAndroidIcons.js:161:3)
+    at async /var/www/vetsystem/mobile-app/node_modules/@expo/prebuild-config/build/plugins/icons/withAndroidIcons.js:104:5
+    at async action (/var/www/vetsystem/mobile-app/node_modules/@expo/config-plugins/build/plugins/withMod.js:201:23)
+    at async interceptingMod (/var/www/vetsystem/mobile-app/node_modules/@expo/config-plugins/build/plugins/withMod.js:105:21)
+    at async interceptingMod (/var/www/vetsystem/mobile-app/node_modules/@expo/config-plugins/build/plugins/withMod.js:105:21)
+    at async action (/var/www/vetsystem/mobile-app/node_modules/@expo/config-plugins/build/plugins/createBaseMod.js:61:21)
+
+ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation.
