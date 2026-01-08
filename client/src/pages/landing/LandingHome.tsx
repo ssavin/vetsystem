@@ -8,7 +8,8 @@ import {
   CheckCircle2, ArrowRight, Play, Star, Quote, Heart, Clock, TrendingUp
 } from "lucide-react"
 
-import heroImage from "@assets/stock_images/veterinarian_doctor__5e6faee9.jpg"
+import heroImage from "@assets/stock_images/veterinarian_examini_5dfaa1b0.jpg"
+import heroImage2 from "@assets/stock_images/veterinary_doctor_wi_bf21fe42.jpg"
 import petsImage from "@assets/stock_images/cute_dog_and_cat_tog_b965a2f6.jpg"
 import clinicImage from "@assets/stock_images/veterinary_clinic_in_690194f4.jpg"
 import ownerImage from "@assets/stock_images/happy_pet_owner_with_b22b3b02.jpg"
@@ -100,64 +101,84 @@ export default function LandingHome() {
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center overflow-hidden">
-        <div className="absolute inset-0">
-          <img 
-            src={heroImage} 
-            alt="Ветеринарная клиника" 
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40" />
-        </div>
+      <section className="relative py-16 md:py-24 lg:py-32 overflow-hidden bg-gradient-to-br from-background via-muted/30 to-primary/5">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
         
-        <div className="container relative z-10 py-20">
-          <div className="max-w-2xl space-y-8">
-            <Badge variant="secondary" className="px-4 py-2 text-sm bg-primary/20 text-primary-foreground border-primary/30">
-              Платформа нового поколения
-            </Badge>
-            
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-tight">
-              Умная платформа для{" "}
-              <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                ветеринарных клиник
-              </span>
-            </h1>
-            
-            <p className="text-xl text-white/80 leading-relaxed">
-              Автоматизируйте работу клиники, увеличьте выручку и освободите время 
-              для главного — заботы о животных
-            </p>
-            
-            <div className="flex flex-col sm:flex-row flex-wrap gap-4 pt-4">
-              <Link href="/demo">
-                <Button size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/30">
-                  Запросить демо
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/features">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto border-white/30 text-white bg-white/10">
-                  <Play className="mr-2 h-5 w-5" />
-                  Узнать больше
-                </Button>
-              </Link>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-8 pt-6">
-              <div className="flex -space-x-3">
-                {[1,2,3,4,5].map(i => (
-                  <div key={i} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/50 border-2 border-white/20 flex items-center justify-center text-white text-xs font-bold">
-                    {['А', 'М', 'Е', 'К', 'Д'][i-1]}
-                  </div>
-                ))}
+        <div className="container relative z-10">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div className="space-y-8">
+              <Badge className="px-4 py-2">
+                Платформа нового поколения
+              </Badge>
+              
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
+                Умная платформа для{" "}
+                <span className="text-primary">
+                  ветеринарных клиник
+                </span>
+              </h1>
+              
+              <p className="text-xl text-muted-foreground leading-relaxed">
+                Автоматизируйте работу клиники, увеличьте выручку и освободите время 
+                для главного — заботы о животных
+              </p>
+              
+              <div className="flex flex-col sm:flex-row flex-wrap gap-4 pt-4">
+                <Link href="/demo">
+                  <Button size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/30">
+                    Запросить демо
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link href="/features">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                    <Play className="mr-2 h-5 w-5" />
+                    Узнать больше
+                  </Button>
+                </Link>
               </div>
-              <div className="text-white/80">
-                <div className="flex items-center gap-1">
+
+              <div className="flex flex-wrap items-center gap-8 pt-6">
+                <div className="flex -space-x-3">
                   {[1,2,3,4,5].map(i => (
-                    <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <div key={i} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/50 border-2 border-background flex items-center justify-center text-white text-xs font-bold">
+                      {['А', 'М', 'Е', 'К', 'Д'][i-1]}
+                    </div>
                   ))}
                 </div>
-                <span className="text-sm">500+ довольных клиник</span>
+                <div className="text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    {[1,2,3,4,5].map(i => (
+                      <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                  <span className="text-sm">500+ довольных клиник</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 to-primary/5 rounded-3xl blur-2xl" />
+              <div className="relative grid grid-cols-2 gap-4">
+                <img 
+                  src={heroImage} 
+                  alt="Ветеринар с собакой" 
+                  className="rounded-2xl shadow-2xl w-full aspect-[3/4] object-cover"
+                />
+                <img 
+                  src={heroImage2} 
+                  alt="Ветеринар с кошкой" 
+                  className="rounded-2xl shadow-2xl w-full aspect-[3/4] object-cover mt-8"
+                />
+              </div>
+              <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-card p-4 rounded-xl shadow-xl border flex items-center gap-4">
+                <div className="p-2 rounded-full bg-green-500/10">
+                  <CheckCircle2 className="h-6 w-6 text-green-500" />
+                </div>
+                <div>
+                  <div className="text-lg font-bold">+40%</div>
+                  <div className="text-xs text-muted-foreground">рост эффективности</div>
+                </div>
               </div>
             </div>
           </div>
