@@ -128,22 +128,22 @@ export default function LandingHome() {
               для главного — заботы о животных
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-4 pt-4">
               <Link href="/demo">
-                <Button size="lg" className="w-full sm:w-auto text-lg px-8 py-6 shadow-lg shadow-primary/30">
+                <Button size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/30">
                   Запросить демо
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
               <Link href="/features">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg px-8 py-6 border-white/30 text-white hover:bg-white/10">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto border-white/30 text-white bg-white/10">
                   <Play className="mr-2 h-5 w-5" />
                   Узнать больше
                 </Button>
               </Link>
             </div>
 
-            <div className="flex items-center gap-8 pt-6">
+            <div className="flex flex-wrap items-center gap-8 pt-6">
               <div className="flex -space-x-3">
                 {[1,2,3,4,5].map(i => (
                   <div key={i} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/50 border-2 border-white/20 flex items-center justify-center text-white text-xs font-bold">
@@ -266,7 +266,7 @@ export default function LandingHome() {
           
           <div className="text-center mt-12">
             <Link href="/features">
-              <Button size="lg" variant="outline" className="px-8">
+              <Button size="lg" variant="outline">
                 Все возможности
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -411,15 +411,15 @@ export default function LandingHome() {
               Запишитесь на бесплатную демонстрацию и узнайте, 
               как VetSystem может помочь вашему бизнесу
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center pt-4">
               <Link href="/demo">
-                <Button size="lg" variant="secondary" className="text-lg px-8 py-6 shadow-lg">
+                <Button size="lg" variant="secondary" className="shadow-lg">
                   Запросить демо
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
               <Link href="/pricing">
-                <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-white/30 text-white hover:bg-white/10">
+                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10">
                   Посмотреть цены
                 </Button>
               </Link>
