@@ -26,6 +26,8 @@ export async function sendDemoRequestEmail(data: DemoRequestData): Promise<boole
     return false;
   }
 
+  console.log(`📧 SMTP Config: host=${SMTP_HOST}, port=${SMTP_PORT}, user=${SMTP_USER}`);
+
   try {
     const transporter = nodemailer.createTransport({
       host: SMTP_HOST,
