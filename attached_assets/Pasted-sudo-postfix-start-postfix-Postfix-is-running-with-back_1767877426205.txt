@@ -1,0 +1,37 @@
+sudo postfix start
+postfix: Postfix is running with backwards-compatible default settings
+postfix: See http://www.postfix.org/COMPATIBILITY_README.html for details
+postfix: To disable backwards compatibility use "postconf compatibility_level=3.6" and "postfix reload"
+postfix/postfix-script: stopping the Postfix mail system
+postfix: Postfix is running with backwards-compatible default settings
+postfix: See http://www.postfix.org/COMPATIBILITY_README.html for details
+postfix: To disable backwards compatibility use "postconf compatibility_level=3.6" and "postfix reload"
+postfix/postfix-script: starting the Postfix mail system
+root@mail:~# echo "Test VetSystem" | mail -s "Test" ssavin@me.com
+root@mail:~# sudo tail -50 /var/log/postfix.log
+Jan 08 13:03:03 mail postfix[3042174]: Postfix is running with backwards-compatible default settings
+Jan 08 13:03:03 mail postfix[3042174]: See http://www.postfix.org/COMPATIBILITY_README.html for details
+Jan 08 13:03:03 mail postfix[3042174]: To disable backwards compatibility use "postconf compatibility_level=3.6" and "postfix reload"
+Jan 08 13:03:03 mail postfix/postfix-script[3042181]: stopping the Postfix mail system
+Jan 08 13:03:03 mail postfix[3042186]: Postfix is running with backwards-compatible default settings
+Jan 08 13:03:03 mail postfix[3042186]: See http://www.postfix.org/COMPATIBILITY_README.html for details
+Jan 08 13:03:03 mail postfix[3042186]: To disable backwards compatibility use "postconf compatibility_level=3.6" and "postfix reload"
+Jan 08 13:03:03 mail postfix[3042188]: Postfix is running with backwards-compatible default settings
+Jan 08 13:03:03 mail postfix[3042188]: See http://www.postfix.org/COMPATIBILITY_README.html for details
+Jan 08 13:03:03 mail postfix[3042188]: To disable backwards compatibility use "postconf compatibility_level=3.6" and "postfix reload"
+Jan 08 13:03:03 mail postfix/postfix-script[3042199]: fatal: the Postfix mail system is not running
+Jan 08 13:03:03 mail postfix/postfix-script[3042434]: starting the Postfix mail system
+Jan 08 13:03:03 mail postfix/master[3042436]: warning: duplicate master.cf entry for service "postlog" (public/postlog) -- using the last entry
+Jan 08 13:03:03 mail postfix/master[3042436]: daemon started -- version 3.6.4, configuration /etc/postfix
+Jan 08 13:03:13 mail postfix/pickup[3042437]: 24FED2315B: uid=0 from=<root@mail.vetsystemai.ru>
+Jan 08 13:03:13 mail postfix/cleanup[3042460]: 24FED2315B: message-id=<20260108130313.24FED2315B@mail.vetsystemai.ru>
+Jan 08 13:03:13 mail postfix/qmgr[3042438]: 24FED2315B: from=<root@mail.vetsystemai.ru>, size=346, nrcpt=1 (queue active)
+Jan 08 13:03:15 mail postfix/smtp[3042462]: 24FED2315B: to=<ssavin@me.com>, relay=mx01.mail.icloud.com[17.57.154.33]:25, delay=2.1, delays=0.03/0.04/1.3/0.79, dsn=5.7.0, status=bounced (host mx01.mail.icloud.com[17.57.154.33] said: 554 5.7.0 Blocked - see https://support.proofpoint.com/dnsbl-lookup.cgi?ip=194.5.78.182 (in reply to RCPT TO command))
+Jan 08 13:03:15 mail postfix/smtp[3042462]: 24FED2315B: lost connection with mx01.mail.icloud.com[17.57.154.33] while sending DATA command
+Jan 08 13:03:15 mail postfix/cleanup[3042460]: 416432315C: message-id=<20260108130315.416432315C@mail.vetsystemai.ru>
+Jan 08 13:03:15 mail postfix/bounce[3042465]: 24FED2315B: sender non-delivery notification: 416432315C
+Jan 08 13:03:15 mail postfix/qmgr[3042438]: 416432315C: from=<>, size=2400, nrcpt=1 (queue active)
+Jan 08 13:03:15 mail postfix/qmgr[3042438]: 24FED2315B: removed
+Jan 08 13:03:15 mail postfix/local[3042466]: warning: dict_nis_init: NIS domain name not set - NIS lookups disabled
+Jan 08 13:03:15 mail postfix/local[3042466]: 416432315C: to=<root@mail.vetsystemai.ru>, relay=local, delay=0.02, delays=0.01/0.01/0/0, dsn=2.0.0, status=sent (delivered to maildir)
+Jan 08 13:03:15 mail postfix/qmgr[3042438]: 416432315C: removed
