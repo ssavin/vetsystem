@@ -323,12 +323,14 @@ export default function LandingHome() {
                   </li>
                 ))}
               </ul>
-              <Link href="/pet-owners/login">
-                <Button size="lg">
-                  Войти в личный кабинет
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+              <div className="pt-4">
+                <Link href="/pet-owners/login">
+                  <Button size="lg">
+                    Войти в личный кабинет
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
             </div>
             
             <div className="relative">
