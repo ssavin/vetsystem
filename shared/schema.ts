@@ -3707,3 +3707,44 @@ export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSche
 
 export type CampaignRecipient = typeof campaignRecipients.$inferSelect;
 export type InsertCampaignRecipient = z.infer<typeof insertCampaignRecipientSchema>;
+
+// Demo Requests - заявки на демонстрацию с лендинга
+export const DEMO_REQUEST_STATUS = ['new', 'contacted', 'demo_scheduled', 'demo_completed', 'converted', 'rejected'] as const;
+
+export const demoRequests = pgTable('demo_requests', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  
+  fullName: varchar('full_name', { length: 255 }).notNull(),
+  clinicName: varchar('clinic_name', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 50 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  city: varchar('city', { length: 100 }),
+  branchCount: varchar('branch_count', { length: 20 }),
+  currentSystem: varchar('current_system', { length: 50 }),
+  comment: text('comment'),
+  
+  status: varchar('status', { length: 20 }).default('new').notNull(),
+  notes: text('notes'),
+  
+  emailSent: boolean('email_sent').default(false),
+  telegramSent: boolean('telegram_sent').default(false),
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  statusIdx: index('demo_requests_status_idx').on(table.status),
+  createdAtIdx: index('demo_requests_created_idx').on(table.createdAt)
+}));
+
+export const insertDemoRequestSchema = createInsertSchema(demoRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  status: true,
+  notes: true,
+  emailSent: true,
+  telegramSent: true
+});
+
+export type DemoRequest = typeof demoRequests.$inferSelect;
+export type InsertDemoRequest = z.infer<typeof insertDemoRequestSchema>;
