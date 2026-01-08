@@ -8,7 +8,7 @@ import {
   CheckCircle2, ArrowRight, Star, Quote
 } from "lucide-react"
 
-import heroImage from "@assets/generated-image-1_(1)_1767847112592.jpg"
+import heroImage from "@assets/kotenok_1767873477980.jpg"
 import petsImage from "@assets/stock_images/cute_dog_and_cat_tog_b965a2f6.jpg"
 import clinicImage from "@assets/stock_images/veterinary_clinic_in_690194f4.jpg"
 import ownerImage from "@assets/generated-image-1_(2)_1767847944466.jpg"
