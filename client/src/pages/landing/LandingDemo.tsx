@@ -109,15 +109,19 @@ export default function LandingDemo() {
 
   if (isSubmitted) {
     return (
-      <div className="py-20 md:py-32">
-        <div className="container max-w-lg">
+      <div className="min-h-[60vh] flex items-center justify-center py-20 md:py-32">
+        <div className="max-w-lg mx-auto px-6">
           <Card className="text-center p-8">
             <CheckCircle2 className="h-16 w-16 text-primary mx-auto mb-6" />
             <CardTitle className="text-2xl mb-4">Заявка отправлена!</CardTitle>
-            <CardDescription className="text-base">
+            <CardDescription className="text-base mb-4">
               Спасибо за интерес к VetSystemAI. Мы свяжемся с вами в течение 24 часов 
               для согласования времени демонстрации.
             </CardDescription>
+            <p className="text-sm text-muted-foreground">
+              Копия заявки отправлена на указанный вами email.<br />
+              По вопросам: <a href="mailto:info@vetsystemai.ru" className="text-primary hover:underline">info@vetsystemai.ru</a>
+            </p>
           </Card>
         </div>
       </div>
@@ -126,7 +130,7 @@ export default function LandingDemo() {
 
   return (
     <div className="py-12 md:py-20">
-      <div className="container">
+      <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16">
         <div className="max-w-3xl mx-auto text-center mb-12">
           <h1 className="text-4xl font-bold mb-4">Запросить демонстрацию</h1>
           <p className="text-xl text-muted-foreground">
