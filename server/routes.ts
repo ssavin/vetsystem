@@ -9720,8 +9720,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date().toISOString(),
       });
 
-      // TODO: Save to database, send email notification, integrate with CRM
-      // For now, just log and return success
+      // 1. Save to database
+      const { demoRequests } = await import('../shared/schema');
+      const [savedRequest] = await db.insert(demoRequests).values({
+        fullName: data.fullName,
+        clinicName: data.clinicName,
+        phone: data.phone,
+        email: data.email,
+        city: data.city || null,
+        branchCount: data.branchCount || null,
+        currentSystem: data.currentSystem || null,
+        comment: data.comment || null,
+      }).returning();
+      
+      console.log("✅ Demo request saved to database:", savedRequest.id);
+
+      // 2. Send email notification (async, don't block response)
+      const { sendDemoRequestEmail, sendDemoRequestTelegram } = await import('./services/notifications');
+      
+      const notificationData = {
+        fullName: data.fullName,
+        clinicName: data.clinicName,
+        phone: data.phone,
+        email: data.email,
+        city: data.city,
+        branchCount: data.branchCount,
+        currentSystem: data.currentSystem,
+        comment: data.comment,
+      };
+
+      // Send notifications in background
+      Promise.all([
+        sendDemoRequestEmail(notificationData).then(sent => {
+          if (sent && savedRequest.id) {
+            db.update(demoRequests).set({ emailSent: true }).where(eq(demoRequests.id, savedRequest.id));
+          }
+        }),
+        sendDemoRequestTelegram(notificationData).then(sent => {
+          if (sent && savedRequest.id) {
+            db.update(demoRequests).set({ telegramSent: true }).where(eq(demoRequests.id, savedRequest.id));
+          }
+        })
+      ]).catch(err => console.error("Notification error:", err));
 
       res.json({ success: true, message: "Заявка успешно отправлена" });
     } catch (error: any) {
