@@ -86,3 +86,46 @@ export interface OwnerWithPets {
   owner: Owner;
   pets: Patient[];
 }
+
+export interface DoctorUser {
+  id: number;
+  username: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string | null;
+  role: string;
+  specialization?: string | null;
+  tenantId: string;
+  branchId?: number | null;
+}
+
+export interface DoctorAuthResponse {
+  success: boolean;
+  message?: string;
+  token?: string;
+  user?: DoctorUser;
+}
+
+export interface QueueEntry {
+  id: number;
+  ticketNumber: number;
+  patientId: number;
+  ownerId: number;
+  doctorId?: number | null;
+  status: 'waiting' | 'called' | 'in_progress' | 'completed' | 'cancelled';
+  priority: 'normal' | 'urgent' | 'emergency';
+  createdAt: string;
+  patient?: Patient;
+  owner?: Owner;
+}
+
+export interface TodayAppointment {
+  id: number;
+  patientId: number;
+  doctorId: number;
+  scheduledAt: string;
+  status: string;
+  description?: string | null;
+  patient?: Patient;
+  owner?: Owner;
+}
