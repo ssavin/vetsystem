@@ -11,7 +11,7 @@ import {
 import heroImage from "@assets/generated-image-1_(1)_1767847112592.jpg"
 import petsImage from "@assets/stock_images/cute_dog_and_cat_tog_b965a2f6.jpg"
 import clinicImage from "@assets/stock_images/veterinary_clinic_in_690194f4.jpg"
-import ownerImage from "@assets/stock_images/happy_pet_owner_with_b22b3b02.jpg"
+import ownerImage from "@assets/generated-image-1_(2)_1767847944466.jpg"
 
 const benefits = [
   {
