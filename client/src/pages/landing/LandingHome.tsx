@@ -8,8 +8,7 @@ import {
   CheckCircle2, ArrowRight, Star, Quote
 } from "lucide-react"
 
-import heroImage from "@assets/stock_images/veterinarian_examini_5dfaa1b0.jpg"
-import heroImage2 from "@assets/stock_images/veterinary_doctor_wi_bf21fe42.jpg"
+import heroImage from "@assets/generated-image-1_(1)_1767847112592.jpg"
 import petsImage from "@assets/stock_images/cute_dog_and_cat_tog_b965a2f6.jpg"
 import clinicImage from "@assets/stock_images/veterinary_clinic_in_690194f4.jpg"
 import ownerImage from "@assets/stock_images/happy_pet_owner_with_b22b3b02.jpg"
@@ -138,18 +137,11 @@ export default function LandingHome() {
             </div>
 
             <div className="relative">
-              <div className="grid grid-cols-2 gap-4">
-                <img 
-                  src={heroImage} 
-                  alt="Ветеринар с собакой" 
-                  className="rounded-2xl shadow-lg w-full aspect-[3/4] object-cover"
-                />
-                <img 
-                  src={heroImage2} 
-                  alt="Ветеринар с кошкой" 
-                  className="rounded-2xl shadow-lg w-full aspect-[3/4] object-cover mt-8"
-                />
-              </div>
+              <img 
+                src={heroImage} 
+                alt="Ветеринарная клиника" 
+                className="rounded-2xl shadow-lg w-full aspect-[4/3] object-cover"
+              />
             </div>
           </div>
         </div>
