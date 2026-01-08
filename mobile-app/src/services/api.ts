@@ -11,7 +11,7 @@ import {
 // API configuration
 const API_URL = __DEV__ 
   ? 'http://localhost:5000/api' 
-  : 'https://your-production-url.com/api';
+  : 'https://vetsystemai.ru/api';
 
 // Create axios instance
 const api = axios.create({
