@@ -37,7 +37,18 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "minSdkVersion": 24,
+            "buildToolsVersion": "34.0.0"
+          }
+        }
+      ]
     ]
   }
 }
