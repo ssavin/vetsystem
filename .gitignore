@@ -4,3 +4,8 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Large SQL backup files
+backup_*.sql
+*_inserts*.sql
+*_dump*.sql
