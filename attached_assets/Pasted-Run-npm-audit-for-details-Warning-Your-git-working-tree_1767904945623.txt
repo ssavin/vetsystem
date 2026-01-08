@@ -1,0 +1,56 @@
+Run `npm audit` for details.
+Warning! Your git working tree is dirty.
+It's recommended to commit all your changes before proceeding, so you can revert the changes made by this command if necessary.
+
+✔ Would you like to proceed? … yes
+
+✔ Cleared android code
+✔ Created native directory
+› Using current versions instead of recommended react-native@0.73.6.
+✔ Updated package.json | no changes
+» android: userInterfaceStyle: Install expo-system-ui in your project to enable this feature.
+✔ Finished prebuild
+
+> Configure project :
+Path for java installation '/usr/lib/jvm/openjdk-17' (Common Linux Locations) does not contain a java executable
+Path for java installation '/usr/lib/jvm/openjdk-11' (Common Linux Locations) does not contain a java executable
+
+FAILURE: Build completed with 2 failures.
+
+1: Task failed with an exception.
+-----------
+* Where:
+Build file '/var/www/vetsystem/mobile-app/node_modules/expo-font/android/build.gradle' line: 3
+
+* What went wrong:
+Plugin [id: 'expo-module-gradle-plugin'] was not found in any of the following sources:
+
+- Gradle Core Plugins (not a core plugin. For more available plugins, please refer to https://docs.gradle.org/8.3/userguide/plugin_reference.html in the Gradle documentation.)
+- Included Builds (None of the included builds contain this plugin)
+- Plugin Repositories (plugin dependency must include a version number for this source)
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+2: Task failed with an exception.
+-----------
+* Where:
+Script '/var/www/vetsystem/mobile-app/node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle' line: 76
+
+* What went wrong:
+A problem occurred configuring project ':expo'.
+> Could not get unknown property 'release' for SoftwareComponent container of type org.gradle.api.internal.component.DefaultSoftwareComponentContainer.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+BUILD FAILED in 16s
+5 actionable tasks: 5 executed
