@@ -9722,6 +9722,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 1. Save to database
       const { demoRequests } = await import('../shared/schema');
+      const { db } = await import('./db-local');
+      const { eq } = await import('drizzle-orm');
       const [savedRequest] = await db.insert(demoRequests).values({
         fullName: data.fullName,
         clinicName: data.clinicName,
