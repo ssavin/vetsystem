@@ -1,0 +1,57 @@
+cd /var/www/vetsystem/mobile-app
+
+# Диагностика
+npx expo-doctor
+
+# Исправить зависимости
+npx expo install --fix
+
+# Пересобрать с очисткой кэша
+eas build --platform android --profile preview --clear-cache
+13/16 checks passed. 3 checks failed. Possible issues detected:
+Use the --verbose flag to see more details about passed checks.
+
+✖ Check for common project setup issues
+The .expo directory is not ignored by Git. It contains machine-specific device history and development server settings and should not be committed.
+Advice:
+Add ".expo/" to your .gitignore to avoid committing local Expo state.
+
+✖ Check Expo config (app.json/ app.config.js) schema
+Errors validating fields in /var/www/vetsystem/mobile-app/app.json:
+ Field: android - should NOT have additional property 'compileSdkVersion'.
+ Field: android - should NOT have additional property 'targetSdkVersion'.
+ Field: android - should NOT have additional property 'minSdkVersion'.
+Advice:
+Resolve schema errors in your app config. Learn more: https://docs.expo.dev/workflow/configuration/
+
+✖ Check that required peer dependencies are installed
+Missing peer dependency: expo-font
+Required by: @expo/vector-icons
+Advice:
+Install missing required peer dependency with "npx expo install expo-font"
+Your app may crash outside of Expo Go without this dependency. Native module peer dependencies must be installed directly.
+
+3 checks failed, indicating possible issues with the project.
+Dependencies are up to date
+The field "cli.appVersionSource" is not set, but it will be required in the future. Learn more: https://docs.expo.dev/build-reference/app-versions/
+Resolved "preview" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "preview" environment on EAS.
+
+
+
+The field "cli.appVersionSource" is not set, but it will be required in the future. Learn more: https://docs.expo.dev/build-reference/app-versions/
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials rbwzOuCZk0 (default)
+
+Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+✔ Compressed project files 12s (246 MB)
+Your project archive is 246 MB. You can reduce its size and the time it takes to upload by excluding files that are unnecessary for the build process in .easignore file. Learn more: https://expo.fyi/eas-build-archive
+✔ Uploaded to EAS 1m 9s
+
+See logs: https://expo.dev/accounts/vetsystemai/projects/vetsystem-mobile/builds/ca7c274f-0e7d-4b2e-b559-6ea0080bd4c5
+
+Waiting for build to complete. You can press Ctrl+C to exit.
+✖ Build failed
+
+🤖 Android build failed:
+Gradle build failed with unknown error. See logs for the "Run gradlew" (https://expo.dev/accounts/vetsystemai/projects/vetsystem-mobile/builds/ca7c274f-0e7d-4b2e-b559-6ea0080bd4c5#run-gradlew) phase for more information.
