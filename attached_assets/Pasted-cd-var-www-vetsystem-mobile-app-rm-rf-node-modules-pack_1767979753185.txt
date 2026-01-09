@@ -1,0 +1,74 @@
+cd /var/www/vetsystem/mobile-app
+rm -rf node_modules package-lock.json
+npm install
+npx expo-doctor
+eas build --platform android --profile preview --clear-cache
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out l ru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more compr ehensive and powerful.
+npm warn deprecated osenv@0.1.5: This package is no longer supported.
+npm warn deprecated @babel/plugin-proposal-optional-catch-binding@7.18.6: This proposal has been merged to the  ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-optional -catch-binding instead.
+npm warn deprecated @babel/plugin-proposal-numeric-separator@7.18.6: This proposal has been merged to the ECMA Script standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-numeric-separ ator instead.
+npm warn deprecated @babel/plugin-proposal-nullish-coalescing-operator@7.18.6: This proposal has been merged t o the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-nul lish-coalescing-operator instead.
+npm warn deprecated @babel/plugin-proposal-class-properties@7.18.6: This proposal has been merged to the ECMAS cript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-class-properti es instead.
+npm warn deprecated @babel/plugin-proposal-logical-assignment-operators@7.20.7: This proposal has been merged  to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-lo gical-assignment-operators instead.
+npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated @babel/plugin-proposal-optional-chaining@7.21.0: This proposal has been merged to the ECMA Script standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-optional-chai ning instead.
+npm warn deprecated @babel/plugin-proposal-async-generator-functions@7.20.7: This proposal has been merged to  the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-async -generator-functions instead.
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated querystring@0.2.1: The querystring API is considered Legacy. new code should use the URLSe archParams API instead.
+npm warn deprecated sudo-prompt@9.2.1: Package no longer supported. Contact Support at https://www.npmjs.com/s upport for more info.
+npm warn deprecated @babel/plugin-proposal-object-rest-spread@7.20.7: This proposal has been merged to the ECM AScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-object-rest- spread instead.
+npm warn deprecated glob@7.1.6: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.1.6: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.1.6: Glob versions prior to v9 are no longer supported
+npm warn deprecated @xmldom/xmldom@0.7.13: this version is no longer supported, please update to at least 0.8. *
+
+added 1201 packages, and audited 1202 packages in 1m
+
+166 packages are looking for funding
+  run `npm fund` for details
+
+3 low severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+15/16 checks passed. 1 checks failed. Possible issues detected:
+Use the --verbose flag to see more details about passed checks.
+
+✖ Check that packages match versions required by installed Expo SDK
+The following packages should be updated for best compatibility with the installed expo version:
+  react-native-safe-area-context@4.10.1 - expected version: 4.10.5
+  typescript@5.9.3 - expected version: ~5.3.3
+Your project may not work correctly until you install the expected versions of the packages.
+Found outdated dependencies
+Advice:
+Use 'npx expo install --check' to review and upgrade your dependencies.
+To ignore specific packages, add them to "expo.install.exclude" in package.json. Learn more: https://expo.fyi/ dependency-validation
+
+1 check failed, indicating possible issues with the project.
+Resolved "preview" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#set ting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "preview" environment on E AS.
+
+
+
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials rbwzOuCZk0 (default)
+
+Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+✔ Compressed project files 12s (246 MB)
+Your project archive is 246 MB. You can reduce its size and the time it takes to upload by excluding files tha t are unnecessary for the build process in .easignore file. Learn more: https://expo.fyi/eas-build-archive
+✔ Uploaded to EAS 1m 9s
+
+See logs: https://expo.dev/accounts/vetsystemai/projects/vetsystem-mobile/builds/3d645463-6503-46e7-85db-8dcbb f199d1e
+
+Waiting for build to complete. You can press Ctrl+C to exit.
+  Build queued...
+
+Start builds sooner in the priority queue.
+Sign up for a paid plan at https://expo.dev/accounts/vetsystemai/settings/billing
