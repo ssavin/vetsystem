@@ -1,0 +1,56 @@
+ pm2 restart vetsystem
+pm2 logs vetsystem --lines 10
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [vetsystem](ids: [ 0 ])
+[PM2] [vetsystem](0) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ vetsystem          │ fork     │ 12   │ online    │ 0%       │ 16.8mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[TAILING] Tailing last 10 lines for [vetsystem] process (change the value with --lines option)
+/root/.pm2/logs/vetsystem-error.log last 10 lines:
+0|vetsyste |   where: undefined,
+0|vetsyste |   schema: undefined,
+0|vetsyste |   table: undefined,
+0|vetsyste |   column: undefined,
+0|vetsyste |   dataType: undefined,
+0|vetsyste |   constraint: undefined,
+0|vetsyste |   file: 'parse_relation.c',
+0|vetsyste |   line: '3822',
+0|vetsyste |   routine: 'errorMissingColumn'
+0|vetsyste | }
+
+/root/.pm2/logs/vetsystem-out.log last 10 lines:
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 16ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 17ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 22ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 74ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 17ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 20ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 21ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 21ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 16ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 23ms
+
+0|vetsystem  | > rest-express@1.0.0 start
+0|vetsystem  | > NODE_ENV=production node dist/index.js
+0|vetsystem  | WebSocket server initialized on /ws/socket.io
+0|vetsystem  | 7:29:25 PM [express] serving on port 5001
+0|vetsystem  | [Notification Scheduler] Started - expiration check at 9:00 AM UTC, expired check at 1:00 AM UTC
+0|vetsystem  | [Queue Cleanup] Started - runs every 5 minutes
+0|vetsystem  | [Health Notifications] Started - health check at 10:00 AM UTC (1:00 PM MSK)
+0|vetsystem  | [Hospital Billing] Scheduler started - runs daily at 00:00 UTC
+0|vetsystem  | [Notification Scheduler] Running initial checks...
+0|vetsystem  | ⚡ Query: expireOldQueueCalls completed in 23ms
+0|vetsystem  | [Queue Cleanup] Initial cleanup completed: 0 expired calls deleted
+0|vetsystem  | ⚡ Query: getClinicSubscriptions completed in 37ms
+0|vetsystem  | [Notification Scheduler] Expired subscriptions check completed: 0 subscriptions expired
+0|vetsystem  | ⚡ Query: getClinicSubscriptions completed in 1ms
+0|vetsystem  | [Notification Scheduler] Completed: 0 notifications created, 0 skipped
+0|vetsystem  | [Notification Scheduler] Initial checks completed
+0|vetsystem  | [Health Notifications] Running initial health check...
+0|vetsystem  | ⚡ Query: getUpcomingAppointments completed in 3ms
+0|vetsystem  | [Health Notifications] Sent 0 notifications for upcoming appointments
+0|vetsystem  | [Health Notifications] Initial health check completed
+
