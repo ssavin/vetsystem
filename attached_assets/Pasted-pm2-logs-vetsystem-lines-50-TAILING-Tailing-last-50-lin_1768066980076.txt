@@ -1,0 +1,105 @@
+pm2 logs vetsystem --lines 50
+[TAILING] Tailing last 50 lines for [vetsystem] process (change the value with -                                -lines option)
+/root/.pm2/logs/vetsystem-error.log last 50 lines:
+0|vetsyste | ❌ Query failed: getOwnerByPhone after 6ms: error: column "segment"                                 does not exist
+0|vetsyste |     at /var/www/vetsystem/node_modules/pg-pool/index.js:45:11
+0|vetsyste |     at process.processTicksAndRejections (node:internal/process/tas                                k_queues:95:5)
+0|vetsyste |     at async file:///var/www/vetsystem/node_modules/drizzle-orm/nod                                e-postgres/session.js:83:22
+0|vetsyste |     at async file:///var/www/vetsystem/dist/index.js:7363:27
+0|vetsyste |     at async withPerformanceLogging (file:///var/www/vetsystem/dist                                /index.js:3824:24)
+0|vetsyste |     at async file:///var/www/vetsystem/dist/index.js:19388:21 {
+0|vetsyste |   length: 108,
+0|vetsyste |   severity: 'ERROR',
+0|vetsyste |   code: '42703',
+0|vetsyste |   detail: undefined,
+0|vetsyste |   hint: undefined,
+0|vetsyste |   position: '306',
+0|vetsyste |   internalPosition: undefined,
+0|vetsyste |   internalQuery: undefined,
+0|vetsyste |   where: undefined,
+0|vetsyste |   schema: undefined,
+0|vetsyste |   table: undefined,
+0|vetsyste |   column: undefined,
+0|vetsyste |   dataType: undefined,
+0|vetsyste |   constraint: undefined,
+0|vetsyste |   file: 'parse_relation.c',
+0|vetsyste |   line: '3822',
+0|vetsyste |   routine: 'errorMissingColumn'
+0|vetsyste | }
+0|vetsyste | Error sending SMS code: error: column "segment" does not exist
+0|vetsyste |     at /var/www/vetsystem/node_modules/pg-pool/index.js:45:11
+0|vetsyste |     at process.processTicksAndRejections (node:internal/process/tas                                k_queues:95:5)
+0|vetsyste |     at async file:///var/www/vetsystem/node_modules/drizzle-orm/nod                                e-postgres/session.js:83:22
+0|vetsyste |     at async file:///var/www/vetsystem/dist/index.js:7363:27
+0|vetsyste |     at async withPerformanceLogging (file:///var/www/vetsystem/dist                                /index.js:3824:24)
+0|vetsyste |     at async file:///var/www/vetsystem/dist/index.js:19388:21 {
+0|vetsyste |   length: 108,
+0|vetsyste |   severity: 'ERROR',
+0|vetsyste |   code: '42703',
+0|vetsyste |   detail: undefined,
+0|vetsyste |   hint: undefined,
+0|vetsyste |   position: '306',
+0|vetsyste |   internalPosition: undefined,
+0|vetsyste |   internalQuery: undefined,
+0|vetsyste |   where: undefined,
+0|vetsyste |   schema: undefined,
+0|vetsyste |   table: undefined,
+0|vetsyste |   column: undefined,
+0|vetsyste |   dataType: undefined,
+0|vetsyste |   constraint: undefined,
+0|vetsyste |   file: 'parse_relation.c',
+0|vetsyste |   line: '3822',
+0|vetsyste |   routine: 'errorMissingColumn'
+0|vetsyste | }
+
+/root/.pm2/logs/vetsystem-out.log last 50 lines:
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 16ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 17ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 18ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 16ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 16ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 21ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 29ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 26ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 26ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 21ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 17ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 16ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 2ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 23ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 20ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 16ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 6ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 17ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 17ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 18ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 16ms
+0|vetsyste | 5:38:37 PM [express] POST /api/mobile/auth/send-code 500 in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
