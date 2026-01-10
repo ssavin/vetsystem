@@ -1,0 +1,67 @@
+ pm2 logs vetsystem --lines 30
+[TAILING] Tailing last 30 lines for [vetsystem] process (change the value with --lines option)
+/root/.pm2/logs/vetsystem-error.log last 30 lines:
+0|vetsyste |   constraint: undefined,
+0|vetsyste |   file: 'parse_relation.c',
+0|vetsyste |   line: '3822',
+0|vetsyste |   routine: 'errorMissingColumn'
+0|vetsyste | }
+0|vetsyste | Error sending SMS code: error: column "total_spent" does not exist
+0|vetsyste |     at /var/www/vetsystem/node_modules/pg-pool/index.js:45:11
+0|vetsyste |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|vetsyste |     at async file:///var/www/vetsystem/node_modules/drizzle-orm/node-postgres/session.js:83:22
+0|vetsyste |     at async file:///var/www/vetsystem/dist/index.js:7363:27
+0|vetsyste |     at async withPerformanceLogging (file:///var/www/vetsystem/dist/index.js:3824:24)
+0|vetsyste |     at async file:///var/www/vetsystem/dist/index.js:19388:21 {
+0|vetsyste |   length: 112,
+0|vetsyste |   severity: 'ERROR',
+0|vetsyste |   code: '42703',
+0|vetsyste |   detail: undefined,
+0|vetsyste |   hint: undefined,
+0|vetsyste |   position: '317',
+0|vetsyste |   internalPosition: undefined,
+0|vetsyste |   internalQuery: undefined,
+0|vetsyste |   where: undefined,
+0|vetsyste |   schema: undefined,
+0|vetsyste |   table: undefined,
+0|vetsyste |   column: undefined,
+0|vetsyste |   dataType: undefined,
+0|vetsyste |   constraint: undefined,
+0|vetsyste |   file: 'parse_relation.c',
+0|vetsyste |   line: '3822',
+0|vetsyste |   routine: 'errorMissingColumn'
+0|vetsyste | }
+
+/root/.pm2/logs/vetsystem-out.log last 30 lines:
+0|vetsyste | [Notification Scheduler] Completed: 0 notifications created, 0 skipped
+0|vetsyste | [Notification Scheduler] Initial checks completed
+0|vetsyste | [Health Notifications] Running initial health check...
+0|vetsyste | ⚡ Query: getUpcomingAppointments completed in 4ms
+0|vetsyste | [Health Notifications] Sent 0 notifications for upcoming appointments
+0|vetsyste | [Health Notifications] Initial health check completed
+0|vetsyste | 5:48:34 PM [express] POST /api/mobile/auth/send-code 500 in 19ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 18ms
+0|vetsyste |
+0|vetsyste | > rest-express@1.0.0 start
+0|vetsyste | > NODE_ENV=production node dist/index.js
+0|vetsyste |
+0|vetsyste | WebSocket server initialized on /ws/socket.io
+0|vetsyste | 5:50:28 PM [express] serving on port 5001
+0|vetsyste | [Notification Scheduler] Started - expiration check at 9:00 AM UTC, expired check at 1:00 AM UTC
+0|vetsyste | [Queue Cleanup] Started - runs every 5 minutes
+0|vetsyste | [Health Notifications] Started - health check at 10:00 AM UTC (1:00 PM MSK)
+0|vetsyste | [Hospital Billing] Scheduler started - runs daily at 00:00 UTC
+0|vetsyste | [Notification Scheduler] Running initial checks...
+0|vetsyste | ⚡ Query: getClinicSubscriptions completed in 40ms
+0|vetsyste | [Notification Scheduler] Expired subscriptions check completed: 0 subscriptions expired
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 28ms
+0|vetsyste | [Queue Cleanup] Initial cleanup completed: 0 expired calls deleted
+0|vetsyste | ⚡ Query: getClinicSubscriptions completed in 1ms
+0|vetsyste | [Notification Scheduler] Completed: 0 notifications created, 0 skipped
+0|vetsyste | [Notification Scheduler] Initial checks completed
+0|vetsyste | [Health Notifications] Running initial health check...
+0|vetsyste | ⚡ Query: getUpcomingAppointments completed in 2ms
+0|vetsyste | [Health Notifications] Sent 0 notifications for upcoming appointments
+0|vetsyste | [Health Notifications] Initial health check completed
+
+
