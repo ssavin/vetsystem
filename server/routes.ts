@@ -8480,7 +8480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     legacyHeaders: false,
   });
 
-  // Mobile Auth: Send SMS code
+  // Mobile Auth: Send SMS code (generic response to prevent phone enumeration)
   app.post('/api/mobile/auth/send-code', mobileAuthLimiter, async (req, res) => {
     try {
       const { phone } = req.body;
@@ -8495,26 +8495,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid phone number format' });
       }
 
-      // SECURITY: Find owner by phone - don't reveal if they exist
+      // Find owner by phone
       const owner = await storage.getOwnerByPhone(phone);
       
-      // ALWAYS return success to prevent phone enumeration
-      // Only send SMS if owner exists
+      let smsResult;
       if (owner) {
-        const result = await smsService.sendMobileLoginCode(
-          owner.id, 
-          phone
-        );
-        
-        if (!result.success) {
-          console.error('Failed to send SMS:', result.error);
-        }
+        // Owner exists - send login SMS
+        smsResult = await smsService.sendMobileLoginCode(owner.id, phone);
+      } else {
+        // Owner doesn't exist - send registration SMS
+        smsResult = await smsService.sendRegistrationCode(phone);
+      }
+      
+      // Return error if SMS failed
+      if (!smsResult.success) {
+        console.error('Failed to send SMS:', smsResult.error);
+        return res.status(500).json({ 
+          error: 'Не удалось отправить СМС. Попробуйте позже.' 
+        });
       }
 
-      // Generic response - don't reveal if owner exists
+      // Generic response - don't reveal if owner exists (prevents phone enumeration)
       res.json({ 
         success: true, 
-        message: 'Если этот номер зарегистрирован, на него будет отправлен код подтверждения',
+        message: 'Код подтверждения отправлен на ваш номер',
       });
     } catch (error: any) {
       console.error('Error sending SMS code:', error);
@@ -8522,7 +8526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Mobile Auth: Verify SMS code and login
+  // Mobile Auth: Verify SMS code and login (or indicate registration needed)
   app.post('/api/mobile/auth/verify-code', mobileAuthLimiter, async (req, res) => {
     try {
       const { phone, code } = req.body;
@@ -8537,28 +8541,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid phone number format' });
       }
 
-      // SECURITY: Find owner by phone
+      // Find owner by phone
       const owner = await storage.getOwnerByPhone(phone);
       
-      if (!owner) {
-        // Don't reveal that owner doesn't exist - return generic error
-        return res.status(401).json({ error: 'Неверный код подтверждения' });
+      if (owner) {
+        // Owner exists - verify login code
+        const isValid = await smsService.verifyMobileLoginCode(owner.id, code);
+
+        if (!isValid) {
+          return res.status(401).json({ error: 'Неверный код подтверждения' });
+        }
+
+        // Generate JWT token for mobile client
+        const token = generateTokens({
+          id: owner.id,
+          username: owner.phone,
+          role: 'client',
+          tenantId: owner.tenantId,
+          branchId: null,
+          isMobileClient: true
+        }).accessToken;
+
+        res.json({
+          success: true,
+          needsRegistration: false,
+          token,
+          owner: {
+            id: owner.id,
+            name: owner.name,
+            phone: owner.phone,
+            email: owner.email,
+          }
+        });
+      } else {
+        // Owner doesn't exist - verify registration code (code is NOT consumed here)
+        const isValidRegistration = await storage.checkRegistrationCodeValid(phone, code);
+
+        if (!isValidRegistration) {
+          return res.status(401).json({ error: 'Неверный код подтверждения' });
+        }
+
+        // Code is valid but user needs to complete registration
+        // The same code will be used in the registration endpoint
+        res.json({
+          success: true,
+          needsRegistration: true,
+          verifiedCode: code, // Pass back the verified code for registration
+          message: 'Для завершения регистрации заполните данные',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error verifying SMS code:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // Mobile Auth: Register new owner with pet
+  app.post('/api/mobile/auth/register', mobileAuthLimiter, async (req, res) => {
+    try {
+      const { 
+        phone, 
+        code, 
+        name, 
+        address, 
+        petName, 
+        petBreed,
+        petSpecies,
+        personalDataConsent 
+      } = req.body;
+      
+      // Validate required fields
+      if (!phone || !code || !name || !address || !petName || !petBreed) {
+        return res.status(400).json({ 
+          error: 'Все поля обязательны для заполнения' 
+        });
       }
 
-      // Verify code
-      const isValid = await smsService.verifyMobileLoginCode(owner.id, code);
+      if (!personalDataConsent) {
+        return res.status(400).json({ 
+          error: 'Необходимо согласие на обработку персональных данных' 
+        });
+      }
 
+      // Validate phone format
+      const phoneRegex = /^\+?[1-9]\d{10,14}$/;
+      if (!phoneRegex.test(phone)) {
+        return res.status(400).json({ error: 'Неверный формат телефона' });
+      }
+
+      // Check if owner already exists
+      const existingOwner = await storage.getOwnerByPhone(phone);
+      if (existingOwner) {
+        return res.status(400).json({ 
+          error: 'Пользователь с таким номером уже зарегистрирован' 
+        });
+      }
+
+      // Verify SMS code
+      const isValid = await smsService.verifyRegistrationCode(phone, code);
       if (!isValid) {
         return res.status(401).json({ error: 'Неверный код подтверждения' });
       }
 
-      // Generate JWT token for mobile client
+      // Get default tenant and branch for mobile registrations
+      const allTenants = await storage.getTenants();
+      if (allTenants.length === 0) {
+        return res.status(500).json({ error: 'Система не настроена. Обратитесь к администратору.' });
+      }
+      
+      // Find a tenant that has at least one branch
+      let defaultTenant = null;
+      let defaultBranch = null;
+      
+      for (const tenant of allTenants) {
+        const branches = await storage.getBranches(tenant.id);
+        if (branches.length > 0) {
+          defaultTenant = tenant;
+          defaultBranch = branches[0];
+          break;
+        }
+      }
+      
+      if (!defaultTenant || !defaultBranch) {
+        return res.status(500).json({ error: 'Филиал не найден. Обратитесь к администратору.' });
+      }
+
+      // Create owner
+      const newOwner = await storage.createOwner({
+        tenantId: defaultTenant.id,
+        branchId: defaultBranch.id,
+        name,
+        phone,
+        address,
+        personalDataConsentGiven: true,
+        personalDataConsentDate: new Date(),
+        segment: 'new',
+      });
+
+      // Create pet (patient)
+      const newPatient = await storage.createPatient({
+        tenantId: defaultTenant.id,
+        branchId: defaultBranch.id,
+        name: petName,
+        species: petSpecies || 'Собака',
+        breed: petBreed,
+        ownerId: newOwner.id,
+      });
+
+      // Create patient-owner relationship
+      await storage.createPatientOwner({
+        patientId: newPatient.id,
+        ownerId: newOwner.id,
+        relationship: 'primary',
+      });
+
+      // Generate JWT token
       const token = generateTokens({
-        id: owner.id,
-        username: owner.phone,
+        id: newOwner.id,
+        username: newOwner.phone,
         role: 'client',
-        tenantId: owner.tenantId,
-        branchId: null, // Clients don't have branch restrictions
+        tenantId: defaultTenant.id,
+        branchId: null,
         isMobileClient: true
       }).accessToken;
 
@@ -8566,15 +8709,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         token,
         owner: {
-          id: owner.id,
-          name: owner.name,
-          phone: owner.phone,
-          email: owner.email,
+          id: newOwner.id,
+          name: newOwner.name,
+          phone: newOwner.phone,
+        },
+        pet: {
+          id: newPatient.id,
+          name: newPatient.name,
+          species: newPatient.species,
+          breed: newPatient.breed,
         }
       });
     } catch (error: any) {
-      console.error('Error verifying SMS code:', error);
-      res.status(500).json({ error: 'Server error' });
+      console.error('Error registering new owner:', error);
+      res.status(500).json({ error: 'Ошибка регистрации' });
     }
   });
 

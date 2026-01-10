@@ -77,9 +77,11 @@ export interface MedicalRecord {
 
 export interface AuthResponse {
   success: boolean;
-  message: string;
+  message?: string;
   token?: string;
   owner?: Owner;
+  needsRegistration?: boolean;
+  verifiedCode?: string;
 }
 
 export interface OwnerWithPets {

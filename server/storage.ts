@@ -645,6 +645,8 @@ export interface IStorage {
   createSmsVerificationCode(code: InsertSmsVerificationCode): Promise<SmsVerificationCode>;
   getSmsVerificationCode(userId: string, purpose: string): Promise<SmsVerificationCode | undefined>;
   verifySmsCode(userId: string, code: string, purpose: string): Promise<boolean>;
+  verifyRegistrationSmsCode(phone: string, code: string): Promise<boolean>;
+  checkRegistrationCodeValid(phone: string, code: string): Promise<boolean>;
   deleteSmsVerificationCode(id: string): Promise<void>;
   
   // Mobile - Owner & Pets data
@@ -5765,6 +5767,65 @@ export class DatabaseStorage implements IStorage {
       }
       
       return isValid;
+    });
+  }
+
+  async verifyRegistrationSmsCode(phone: string, code: string): Promise<boolean> {
+    return withPerformanceLogging('verifyRegistrationSmsCode', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [verificationCode] = await dbInstance
+        .select()
+        .from(smsVerificationCodes)
+        .where(
+          and(
+            eq(smsVerificationCodes.phone, phone),
+            eq(smsVerificationCodes.purpose, 'mobile_registration'),
+            gt(smsVerificationCodes.expiresAt, new Date())
+          )
+        )
+        .orderBy(desc(smsVerificationCodes.createdAt))
+        .limit(1);
+      
+      if (!verificationCode) {
+        return false;
+      }
+
+      const bcrypt = await import('bcryptjs');
+      const isValid = await bcrypt.compare(code, verificationCode.codeHash);
+      
+      if (isValid) {
+        await this.deleteSmsVerificationCode(verificationCode.id);
+      }
+      
+      return isValid;
+    });
+  }
+
+  async checkRegistrationCodeValid(phone: string, code: string): Promise<boolean> {
+    return withPerformanceLogging('checkRegistrationCodeValid', async () => {
+      const dbInstance = requestDbStorage.getStore() || db;
+      
+      const [verificationCode] = await dbInstance
+        .select()
+        .from(smsVerificationCodes)
+        .where(
+          and(
+            eq(smsVerificationCodes.phone, phone),
+            eq(smsVerificationCodes.purpose, 'mobile_registration'),
+            gt(smsVerificationCodes.expiresAt, new Date())
+          )
+        )
+        .orderBy(desc(smsVerificationCodes.createdAt))
+        .limit(1);
+      
+      if (!verificationCode) {
+        return false;
+      }
+
+      const bcrypt = await import('bcryptjs');
+      return await bcrypt.compare(code, verificationCode.codeHash);
+      // Note: Does NOT delete the code - it will be consumed during registration
     });
   }
 

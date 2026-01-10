@@ -74,7 +74,11 @@ api.interceptors.response.use(
 
 // ========== AUTH API ==========
 
-export const sendSmsCode = async (phone: string): Promise<{ success: boolean; message: string }> => {
+export const sendSmsCode = async (phone: string): Promise<{ 
+  success: boolean; 
+  message: string;
+  needsRegistration?: boolean;
+}> => {
   const { data } = await api.post('/mobile/auth/send-code', { phone });
   return data;
 };
@@ -88,6 +92,25 @@ export const verifySmsCode = async (
     await setAuthToken(data.token);
   }
   return data;
+};
+
+export interface RegistrationData {
+  phone: string;
+  code: string;
+  name: string;
+  address: string;
+  petName: string;
+  petBreed: string;
+  petSpecies?: string;
+  personalDataConsent: boolean;
+}
+
+export const registerOwner = async (data: RegistrationData): Promise<AuthResponse> => {
+  const { data: response } = await api.post('/mobile/auth/register', data);
+  if (response.token) {
+    await setAuthToken(response.token);
+  }
+  return response;
 };
 
 export const logout = async () => {

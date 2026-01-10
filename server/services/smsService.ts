@@ -177,4 +177,54 @@ export const smsService = {
   ): Promise<boolean> {
     return await storage.verifyMobileSmsCode(ownerId, code);
   },
+
+  /**
+   * Send SMS verification code for mobile registration (for new owners)
+   */
+  async sendRegistrationCode(
+    phone: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const code = this.generateCode();
+      const codeHash = await bcrypt.hash(code, 10);
+
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+      const verificationCode: InsertSmsVerificationCode = {
+        phone,
+        codeHash,
+        purpose: 'mobile_registration',
+        expiresAt,
+        attemptCount: 0,
+      };
+
+      await storage.createSmsVerificationCode(verificationCode);
+
+      const message = `Код для регистрации: ${code}`;
+      const result = await this.sendSms(phone, message);
+
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error sending registration SMS code:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to send SMS' 
+      };
+    }
+  },
+
+  /**
+   * Verify registration code (for new owners by phone)
+   */
+  async verifyRegistrationCode(
+    phone: string,
+    code: string
+  ): Promise<boolean> {
+    return await storage.verifyRegistrationSmsCode(phone, code);
+  },
 };
