@@ -1,0 +1,92 @@
+
+    SELECT
+        DISTINCT file_clients.kod_kado AS client_id ,
+        file_clients.nazev_kado AS client_surname,
+        file_clients.poznamka_kado AS client_name,
+        file_clients.jmeno AS client_secname,
+        file_clients.mesto_k AS house_number,
+        file_clients.blok AS quadrant,
+        file_clients.room AS flat,
+        file_streets.nazev AS street_name,
+        file_street_types.name AS stree_type_name,
+        file_cities.nazev_mes AS city_name,
+        file_cities.nazev_psc AS city_zip,
+        file_regions.nazev AS region_name,
+        file_areas.name AS area_name,
+        file_superareas.name AS superarea_name,
+        file_clients.telefon AS client_phone,
+        file_clients.mobil AS client_mobile,
+        file_clients.email AS client_email,
+        file_clients.datum_kado AS card_created_date,
+        file_clients.created_clinic_id,
+        file_clients.created_clinic_name,
+        file_clients.created_department_id,
+        file_clients.created_department_name,
+        file_clients.no_pass,
+        file_clients.date_birth AS date_of_birth,
+        file_clients.last_cosmo_login AS last_login,
+        CASE 
+            WHEN file_clients.gender_id = 1 THEN 'женский' 
+            WHEN file_clients.gender_id = 2 THEN 'мужской' 
+            ELSE '' 
+        END AS client_gender 
+    FROM
+        public.file_bridge_clients_patients 
+    LEFT JOIN
+        public.file_clients 
+            ON (
+                file_clients.kod_kado = file_bridge_clients_patients.id_klient
+            )  
+    LEFT JOIN
+        public.file_patients 
+            ON (
+                file_patients.id_pacienta = file_bridge_clients_patients.id_pacient
+            )  
+    LEFT JOIN
+        public.file_cities 
+            ON (
+                file_clients.id_mesto = file_cities.kod_mes
+            )  
+    LEFT JOIN
+        public.file_streets 
+            ON (
+                file_clients.id_str = file_streets.id_str
+            )  
+    LEFT JOIN
+        public.file_street_types 
+            ON (
+                file_street_types.id = file_streets.idtypu
+            )  
+    LEFT JOIN
+        public.file_areas 
+            ON (
+                file_clients.id_rajon = file_areas.id
+            )  
+    LEFT JOIN
+        public.file_superareas 
+            ON (
+                file_clients.id_megarajon = file_superareas.id
+            )  
+    LEFT JOIN
+        public.file_regions 
+            ON (
+                file_clients.id_reg = file_regions.id_reg
+            )  
+    WHERE
+        file_bridge_clients_patients.id_most > 0 
+        AND file_clients.kod_kado > 0  
+        AND file_clients.vymaz = 0 
+        AND file_clients.vyrazen = 'N' 
+        AND file_patients.id_pacienta > 0  
+        AND file_patients.vymaz = 0 
+        AND file_patients.vyrazen = 'N' 
+        AND fncGetIsPatientAlive(file_patients.zemrel) = 1 
+        AND (
+            file_clients.telefon != '' 
+            OR file_clients.mobil != ''
+        ) 
+        AND file_clients.datum_kado BETWEEN '2026-02-12 00:00:00' AND '2026-02-19 23:59:59' 
+    ORDER BY
+        client_surname,
+        client_name,
+        client_secname
