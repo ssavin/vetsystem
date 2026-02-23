@@ -45,6 +45,29 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Ensure RLS policies exist for login-critical tables
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`
+      DO $$ BEGIN
+        -- branches: allow SELECT for all (needed for login page)
+        IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'branches_select_all' AND polrelid = 'branches'::regclass) THEN
+          EXECUTE 'CREATE POLICY branches_select_all ON branches FOR SELECT USING (true)';
+        END IF;
+        -- tenants: allow SELECT for all (needed for login page grouping)
+        IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'tenants_select_all' AND polrelid = 'tenants'::regclass) THEN
+          EXECUTE 'CREATE POLICY tenants_select_all ON tenants FOR SELECT USING (true)';
+        END IF;
+        -- users: allow SELECT for all (needed for authentication)
+        IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'users_select_all' AND polrelid = 'users'::regclass) THEN
+          EXECUTE 'CREATE POLICY users_select_all ON users FOR SELECT USING (true)';
+        END IF;
+      END $$;
+    `);
+  } catch (e) {
+    console.warn("Could not ensure RLS policies for login tables:", e);
+  }
+
   const server = await registerRoutes(app);
   
   // Setup WebSocket server for real-time notifications

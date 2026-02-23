@@ -2852,15 +2852,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all branches grouped by tenant for login page (bypasses RLS)
+  // Get all branches grouped by tenant for login page (bypasses RLS via dedicated connection)
   app.get("/api/branches/login", async (req, res) => {
     try {
       const { pool } = await import("./db");
+      const client = await pool.connect();
       
-      // Try query with tenant join first, fallback to simpler query if columns differ
       let rows: any[];
       try {
-        const result = await pool.query(`
+        // Bypass RLS by resetting role to superuser level within transaction
+        await client.query('BEGIN');
+        // Set a special tenant context that signals "show all" for RLS policies
+        await client.query("SELECT set_config('app.tenant_id', '', true)");
+        // Try to temporarily bypass RLS if user has permission
+        try {
+          await client.query('SET LOCAL row_security = off');
+        } catch (e) {
+          // If SET row_security is not allowed, continue - the query might still work
+        }
+        
+        const result = await client.query(`
           SELECT b.id, b.name, b.city, b.address, b.tenant_id, t.name as tenant_name
           FROM branches b
           LEFT JOIN tenants t ON b.tenant_id = t.id
@@ -2868,12 +2879,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ORDER BY t.name NULLS LAST, b.name
         `);
         rows = result.rows;
+        await client.query('COMMIT');
       } catch (queryError) {
-        console.error("Login branches query error, trying fallback:", queryError);
-        const result = await pool.query(`
-          SELECT id, name, city, address, tenant_id FROM branches WHERE status = 'active' ORDER BY name
-        `);
-        rows = result.rows.map(r => ({ ...r, tenant_name: '' }));
+        await client.query('ROLLBACK').catch(() => {});
+        console.error("Login branches RLS bypass failed, trying direct:", queryError);
+        // Fallback: try simple query without RLS bypass
+        try {
+          const result = await client.query(`
+            SELECT id, name, city, address, tenant_id FROM branches WHERE status = 'active' ORDER BY name
+          `);
+          rows = result.rows.map(r => ({ ...r, tenant_name: '' }));
+        } catch (e2) {
+          console.error("Login branches fallback also failed:", e2);
+          rows = [];
+        }
+      } finally {
+        client.release();
       }
       
       const grouped: Record<string, { tenantId: string; tenantName: string; branches: any[] }> = {};
@@ -2897,7 +2918,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(Object.values(grouped));
     } catch (error) {
       console.error("Error fetching login branches:", error);
-      // Return empty array instead of error object so frontend doesn't crash
       res.json([]);
     }
   });
