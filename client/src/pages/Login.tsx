@@ -38,7 +38,18 @@ export default function Login() {
   
   const { data: tenantGroups = [], isLoading: branchesLoading } = useQuery<TenantGroup[]>({
     queryKey: ['/api/branches/login'],
-    queryFn: () => fetch('/api/branches/login').then(res => res.json()),
+    queryFn: async () => {
+      const res = await fetch('/api/branches/login');
+      if (!res.ok) {
+        const fallback = await fetch('/api/branches/active');
+        if (!fallback.ok) return [];
+        const branches = await fallback.json();
+        if (!Array.isArray(branches)) return [];
+        return [{ tenantId: 'default', tenantName: '', branches }];
+      }
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
     staleTime: 5 * 60 * 1000,
   });
 

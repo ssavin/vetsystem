@@ -2856,24 +2856,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/branches/login", async (req, res) => {
     try {
       const { pool } = await import("./db");
-      const result = await pool.query(`
-        SELECT b.id, b.name, b.city, b.address, b.tenant_id, t.name as tenant_name
-        FROM branches b
-        JOIN tenants t ON b.tenant_id = t.id
-        WHERE b.status = 'active' AND t.status = 'active'
-        ORDER BY t.name, b.name
-      `);
+      
+      // Try query with tenant join first, fallback to simpler query if columns differ
+      let rows: any[];
+      try {
+        const result = await pool.query(`
+          SELECT b.id, b.name, b.city, b.address, b.tenant_id, t.name as tenant_name
+          FROM branches b
+          LEFT JOIN tenants t ON b.tenant_id = t.id
+          WHERE b.status = 'active'
+          ORDER BY t.name NULLS LAST, b.name
+        `);
+        rows = result.rows;
+      } catch (queryError) {
+        console.error("Login branches query error, trying fallback:", queryError);
+        const result = await pool.query(`
+          SELECT id, name, city, address, tenant_id FROM branches WHERE status = 'active' ORDER BY name
+        `);
+        rows = result.rows.map(r => ({ ...r, tenant_name: '' }));
+      }
       
       const grouped: Record<string, { tenantId: string; tenantName: string; branches: any[] }> = {};
-      for (const row of result.rows) {
-        if (!grouped[row.tenant_id]) {
-          grouped[row.tenant_id] = {
-            tenantId: row.tenant_id,
-            tenantName: row.tenant_name,
+      for (const row of rows) {
+        const tid = row.tenant_id || 'default';
+        if (!grouped[tid]) {
+          grouped[tid] = {
+            tenantId: tid,
+            tenantName: row.tenant_name || '',
             branches: []
           };
         }
-        grouped[row.tenant_id].branches.push({
+        grouped[tid].branches.push({
           id: row.id,
           name: row.name,
           city: row.city || '',
@@ -2884,7 +2897,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(Object.values(grouped));
     } catch (error) {
       console.error("Error fetching login branches:", error);
-      res.status(500).json({ error: "Ошибка получения списка филиалов" });
+      // Return empty array instead of error object so frontend doesn't crash
+      res.json([]);
     }
   });
 
