@@ -10,6 +10,9 @@
 import { Client } from 'pg';
 import bcrypt from 'bcryptjs';
 
+const VETAIS_DB_NAME = process.argv[3] || process.env.VETAIS_DB_NAME || 'vetais_alisavet';
+const BRANCH_ID_ARG = process.argv[4] && process.argv[4] !== 'null' ? process.argv[4] : null;
+
 const ROLE_MAPPING: Record<number, string> = {
   1: 'врач',                  // Врач
   2: 'администратор',         // Администратор
@@ -39,10 +42,13 @@ async function main() {
     connectionString: process.env.DATABASE_URL
   });
 
+  console.log(`  Vetais DB: ${VETAIS_DB_NAME}`);
+  console.log(`  Branch override: ${BRANCH_ID_ARG || 'auto'}\n`);
+
   const vetaisDb = new Client({
     host: process.env.VETAIS_DB_HOST,
-    port: parseInt(process.env.VETAIS_DB_PORT || '5432'),
-    database: process.env.VETAIS_DB_NAME,
+    port: parseInt(process.env.VETAIS_DB_PORT || '5454'),
+    database: VETAIS_DB_NAME,
     user: process.env.VETAIS_DB_USER,
     password: process.env.VETAIS_DB_PASSWORD,
   });
@@ -135,7 +141,7 @@ async function main() {
         const role = ROLE_MAPPING[user.funkce] || 'врач';
         const phone = user.mobile?.trim() || user.telefon?.trim() || null;
         const email = user.email?.trim() || null;
-        const branchId = clinicToBranch.get(user.id_kliniky) || null;
+        const branchId = BRANCH_ID_ARG || clinicToBranch.get(user.id_kliniky) || null;
         const department = DEPARTMENT_MAPPING[user.id_ordinace] || `Отделение ${user.id_ordinace}`;
 
         // Генерировать username из email или телефона с добавлением vetais_id

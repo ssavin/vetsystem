@@ -187,15 +187,17 @@ async function main() {
       const email = cleanEmail(row.email);
       const address = buildAddress(row.adresar, row.mesto_k);
       
+      const truncatedName = name.length > 100 ? name.substring(0, 100) : name;
+      
       // Паспорт и личные данные из Vetais
-      const passportNumber = row.no_pass?.trim() || null;
+      const passportNumber = row.no_pass?.trim() ? row.no_pass.trim().substring(0, 50) : null;
       const dateOfBirth = row.date_birth ? new Date(row.date_birth) : null;
       // gender_id: 1 = мужской, 2 = женский
       const gender = row.gender_id === 1 ? 'male' : 
                      row.gender_id === 2 ? 'female' : null;
       const vetaisId = row.kod_kado.toString();
 
-      toInsert.push({ name, phone, email, address, passportNumber, dateOfBirth, gender, vetaisId });
+      toInsert.push({ name: truncatedName, phone, email, address, passportNumber, dateOfBirth, gender, vetaisId });
       existingPhones.add(phone);
     }
 

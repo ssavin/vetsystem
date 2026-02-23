@@ -8,13 +8,14 @@
 import { Client } from 'pg';
 
 const BATCH_SIZE = 1000;
-const TENANT_ID = 'default-tenant-001';
+const TENANT_ID = process.argv[2] || 'default-tenant-001';
+const BRANCH_ID_ARG = process.argv[3] && process.argv[3] !== 'null' ? process.argv[3] : null;
+const VETAIS_DB_NAME = process.argv[4] || process.env.VETAIS_DB_NAME || 'vetais_alisavet';
 
-// Маппинг клиник Vetais → филиалы VetSystem  
 const CLINIC_TO_BRANCH: Record<number, string> = {
-  10000: '280fcff4-2e1c-43d7-8ae5-6a48d288e518', // Бутово
-  10001: '48ef0926-7fc3-4c82-b1b9-d8cb6d787ee8', // Лобачевского
-  10002: 'c59ff876-d0c9-4220-b782-de28bdd0329c', // Новопеределкино
+  10000: '280fcff4-2e1c-43d7-8ae5-6a48d288e518',
+  10001: '48ef0926-7fc3-4c82-b1b9-d8cb6d787ee8',
+  10002: 'c59ff876-d0c9-4220-b782-de28bdd0329c',
 };
 
 function cleanEmail(email: string | null): string | null {
@@ -66,11 +67,15 @@ async function main() {
   console.log('║   МИГРАЦИЯ ВЛАДЕЛЬЦЕВ БЕЗ ТЕЛЕФОНОВ (ФИКТИВНЫЕ ТЕЛЕФОНЫ) ║');
   console.log('╚════════════════════════════════════════════════════════════╝\n');
 
+  console.log(`  Tenant: ${TENANT_ID}`);
+  console.log(`  Branch: ${BRANCH_ID_ARG || 'auto'}`);
+  console.log(`  Vetais DB: ${VETAIS_DB_NAME}\n`);
+
   const vetsystemDb = new Client({ connectionString: process.env.DATABASE_URL });
   const vetaisDb = new Client({
     host: process.env.VETAIS_DB_HOST,
-    port: parseInt(process.env.VETAIS_DB_PORT || '5432'),
-    database: process.env.VETAIS_DB_NAME,
+    port: parseInt(process.env.VETAIS_DB_PORT || '5454'),
+    database: VETAIS_DB_NAME,
     user: process.env.VETAIS_DB_USER,
     password: process.env.VETAIS_DB_PASSWORD,
   });
@@ -146,7 +151,7 @@ async function main() {
 
       const email = cleanEmail(row.email);
       const address = buildAddress(row.adresar, row.mesto_k);
-      const branchId = CLINIC_TO_BRANCH[row.id_kliniky] || null;
+      const branchId = BRANCH_ID_ARG || CLINIC_TO_BRANCH[row.id_kliniky] || null;
 
       toInsert.push({ 
         vetais_id: row.kod_kado,
