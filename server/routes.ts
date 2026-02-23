@@ -2852,39 +2852,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all branches grouped by tenant for login page
-  // Uses storage methods that bypass RLS (same pattern as getTenantBranches)
-  app.get("/api/branches/login", async (req, res) => {
+  // Step 1: Validate credentials and return available branches for the user's tenant
+  app.post("/api/auth/validate", authLimiter, async (req, res) => {
     try {
-      // Get all tenants first (tenants table has no RLS)
-      const allTenants = await storage.getAllTenants();
-      const activeTenants = allTenants.filter(t => t.status === 'active');
-      
-      // For each tenant, get their branches using the RLS-bypassing method
-      const grouped: { tenantId: string; tenantName: string; branches: any[] }[] = [];
-      
-      for (const tenant of activeTenants) {
-        const tenantBranches = await storage.getTenantBranches(tenant.id);
-        const activeBranches = tenantBranches.filter(b => b.status === 'active');
-        
-        if (activeBranches.length > 0) {
-          grouped.push({
-            tenantId: tenant.id,
-            tenantName: tenant.name,
-            branches: activeBranches.map(b => ({
-              id: b.id,
-              name: b.name,
-              city: b.city || '',
-              address: b.address || ''
-            }))
-          });
-        }
+      const { username, password } = req.body;
+      if (!username || !password) {
+        return res.status(400).json({ error: "Логин и пароль обязательны" });
       }
       
-      res.json(grouped);
+      const user = await storage.getUserByUsername(username);
+      if (!user || user.status !== 'active') {
+        return res.status(401).json({ error: "Неверный логин или пароль" });
+      }
+      
+      const isValidPassword = await storage.verifyPassword(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Неверный логин или пароль" });
+      }
+      
+      if (!user.tenantId) {
+        return res.status(400).json({ error: "Пользователь не привязан к клинике" });
+      }
+      
+      // Get branches for user's tenant using RLS-bypassing method
+      const tenantBranches = await storage.getTenantBranches(user.tenantId);
+      const activeBranches = tenantBranches.filter(b => b.status === 'active');
+      
+      // Get tenant name
+      const tenant = await storage.getTenant(user.tenantId);
+      
+      res.json({
+        tenantName: tenant?.name || '',
+        branches: activeBranches.map(b => ({
+          id: b.id,
+          name: b.name,
+          city: b.city || '',
+          address: b.address || ''
+        }))
+      });
     } catch (error) {
-      console.error("Error fetching login branches:", error);
-      res.json([]);
+      console.error("Error validating credentials:", error);
+      res.status(500).json({ error: "Ошибка проверки учётных данных" });
     }
   });
 
