@@ -7,12 +7,12 @@ import BranchSelector from "@/components/BranchSelector"
 import TenantSelector from "@/components/TenantSelector"
 
 export default function TopHeader() {
-  const { user, logout } = useAuth()
+  const { user, logout, currentTenant } = useAuth()
 
   return (
     <div className="bg-card text-card-foreground px-4 py-1.5 flex items-center justify-between text-sm border-b">
       <div className="flex items-center gap-4">
-        <span className="font-semibold text-primary">VetSystem 2025</span>
+        <span className="font-semibold text-primary">{currentTenant?.name || 'VetSystem'}</span>
         <span className="text-muted-foreground text-xs hidden md:block">Ветеринарная информационная система</span>
       </div>
       

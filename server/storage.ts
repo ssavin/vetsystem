@@ -3356,12 +3356,12 @@ export class DatabaseStorage implements IStorage {
   async getUserAccessibleBranches(userId: string): Promise<Branch[]> {
     return await withPerformanceLogging('getUserAccessibleBranches', async () => {
       const user = await this.getUser(userId);
-      if (!user) {
+      if (!user || !user.tenantId) {
         return [];
       }
 
-      // ВСЕ пользователи видят все активные филиалы в регистратуре
-      return await this.getActiveBranches();
+      const tenantBranches = await this.getTenantBranches(user.tenantId);
+      return tenantBranches.filter(b => b.status === 'active');
     });
   }
 
