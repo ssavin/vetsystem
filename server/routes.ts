@@ -2921,25 +2921,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Multi-tenant validation: verify user belongs to current tenant
-      // Exception: superadmin portal or superadmin users can bypass tenant validation
-      // In development mode (replit.dev), allow login for any tenant since
-      // the default tenant is hardcoded - tenant is resolved from user data
-      if (!req.user?.isSuperAdmin && !isSuperAdmin) {
-        if (!req.tenantId) {
-          return res.status(403).json({ 
-            error: "Tenant не определён",
-            message: "Невозможно войти: клиника не определена"
-          });
-        }
-        
-        const isDev = (req.get('host') || '').includes('replit.dev');
-        if (!isDev && user.tenantId !== req.tenantId) {
-          return res.status(401).json({ 
-            error: "Неверный логин или пароль",
-          });
-        }
-      }
+      // Tenant is now determined by user credentials (two-step login flow)
+      // No domain-based tenant validation needed - user's tenantId is authoritative
       
       // Verify password with bcrypt
       const isValidPassword = await storage.verifyPassword(password, user.password);
