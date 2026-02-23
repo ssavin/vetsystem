@@ -2853,61 +2853,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all branches grouped by tenant for login page
-  // Uses pool from db-local (same as storage/middleware) to ensure compatibility
+  // Uses storage methods that bypass RLS (same pattern as getTenantBranches)
   app.get("/api/branches/login", async (req, res) => {
     try {
-      const { pool: dbPool } = await import("./db-local");
-      const client = await dbPool.connect();
+      // Get all tenants first (tenants table has no RLS)
+      const allTenants = await storage.getAllTenants();
+      const activeTenants = allTenants.filter(t => t.status === 'active');
       
-      let rows: any[] = [];
-      try {
-        // Try to bypass RLS for superuser connections
-        await client.query('BEGIN');
-        try { await client.query('SET LOCAL row_security = off'); } catch(e) { /* non-superuser, continue */ }
+      // For each tenant, get their branches using the RLS-bypassing method
+      const grouped: { tenantId: string; tenantName: string; branches: any[] }[] = [];
+      
+      for (const tenant of activeTenants) {
+        const tenantBranches = await storage.getTenantBranches(tenant.id);
+        const activeBranches = tenantBranches.filter(b => b.status === 'active');
         
-        try {
-          const result = await client.query(`
-            SELECT b.id, b.name, b.city, b.address, b.tenant_id, t.name as tenant_name
-            FROM branches b LEFT JOIN tenants t ON b.tenant_id = t.id
-            WHERE b.status = 'active'
-            ORDER BY t.name NULLS LAST, b.name
-          `);
-          rows = result.rows;
-        } catch (queryErr) {
-          // If join fails, try without join
-          const result = await client.query(`
-            SELECT id, name, city, address, tenant_id FROM branches WHERE status = 'active' ORDER BY name
-          `);
-          rows = result.rows.map((r: any) => ({ ...r, tenant_name: '' }));
+        if (activeBranches.length > 0) {
+          grouped.push({
+            tenantId: tenant.id,
+            tenantName: tenant.name,
+            branches: activeBranches.map(b => ({
+              id: b.id,
+              name: b.name,
+              city: b.city || '',
+              address: b.address || ''
+            }))
+          });
         }
-        
-        await client.query('COMMIT');
-      } catch (txErr) {
-        await client.query('ROLLBACK').catch(() => {});
-        console.error("Login branches transaction error:", txErr);
-      } finally {
-        client.release();
       }
       
-      const grouped: Record<string, { tenantId: string; tenantName: string; branches: any[] }> = {};
-      for (const row of rows) {
-        const tid = row.tenant_id || 'default';
-        if (!grouped[tid]) {
-          grouped[tid] = {
-            tenantId: tid,
-            tenantName: row.tenant_name || '',
-            branches: []
-          };
-        }
-        grouped[tid].branches.push({
-          id: row.id,
-          name: row.name,
-          city: row.city || '',
-          address: row.address || ''
-        });
-      }
-      
-      res.json(Object.values(grouped));
+      res.json(grouped);
     } catch (error) {
       console.error("Error fetching login branches:", error);
       res.json([]);
