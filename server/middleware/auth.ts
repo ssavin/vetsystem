@@ -86,7 +86,9 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
 
     // Multi-tenant validation: Check tenant_id from JWT matches current request tenant
     // Exception: superadmin portal (admin.vetsystem.ru) bypasses tenant check
-    if (!isSuperAdmin) {
+    // In development mode (replit.dev), tenant is resolved from user data
+    const isDev = (req.get('host') || '').includes('replit.dev');
+    if (!isSuperAdmin && !isDev) {
       if (!req.tenantId) {
         return res.status(403).json({ 
           error: 'Tenant не определён',
@@ -112,12 +114,17 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
         });
       }
 
-      if (user.tenantId !== req.tenantId) {
+      if (!isDev && user.tenantId !== req.tenantId) {
         return res.status(403).json({ 
           error: 'Access denied',
           message: 'Пользователь не принадлежит текущей клинике'
         });
       }
+    }
+
+    // In dev mode, override req.tenantId with user's actual tenant
+    if (isDev && user.tenantId) {
+      req.tenantId = user.tenantId;
     }
 
     req.user = {
