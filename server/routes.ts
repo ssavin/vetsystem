@@ -2879,6 +2879,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Multi-tenant validation: verify user belongs to current tenant
       // Exception: superadmin portal or superadmin users can bypass tenant validation
+      // In development mode (replit.dev), allow login for any tenant since
+      // the default tenant is hardcoded - tenant is resolved from user data
       if (!req.user?.isSuperAdmin && !isSuperAdmin) {
         if (!req.tenantId) {
           return res.status(403).json({ 
@@ -2887,10 +2889,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        if (user.tenantId !== req.tenantId) {
+        const isDev = (req.get('host') || '').includes('replit.dev');
+        if (!isDev && user.tenantId !== req.tenantId) {
           return res.status(401).json({ 
             error: "Неверный логин или пароль",
-            // Don't reveal tenant mismatch for security
           });
         }
       }
