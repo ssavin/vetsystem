@@ -84,28 +84,9 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
 
     const isSuperAdmin = user.isSuperAdmin || false;
 
-    // Multi-tenant validation: Check tenant_id from JWT matches current request tenant
-    // Exception: superadmin portal (admin.vetsystem.ru) bypasses tenant check
-    // In development mode (replit.dev), tenant is resolved from user data
-    const isDev = (req.get('host') || '').includes('replit.dev');
-    if (!isSuperAdmin && !isDev) {
-      if (!req.tenantId) {
-        return res.status(403).json({ 
-          error: 'Tenant не определён',
-          message: 'Невозможно определить tenant для текущего запроса'
-        });
-      }
-      
-      if (payload.tenantId !== req.tenantId) {
-        return res.status(403).json({ 
-          error: 'Tenant mismatch',
-          message: 'Доступ запрещён: токен принадлежит другой клинике'
-        });
-      }
-    }
-
-    // Additional tenant validation: verify user belongs to correct tenant
-    // Exception: superadmins can access any tenant and may not have tenantId
+    // Tenant is determined by user credentials (two-step login flow)
+    // Override req.tenantId with user's actual tenant from JWT/database
+    // This allows multiple tenants to share the same domain
     if (!isSuperAdmin) {
       if (!user.tenantId) {
         return res.status(500).json({ 
@@ -113,17 +94,10 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
           message: 'Пользователь не привязан к клинике'
         });
       }
-
-      if (!isDev && user.tenantId !== req.tenantId) {
-        return res.status(403).json({ 
-          error: 'Access denied',
-          message: 'Пользователь не принадлежит текущей клинике'
-        });
-      }
     }
 
-    // In dev mode, override req.tenantId with user's actual tenant
-    if (isDev && user.tenantId) {
+    // Always set req.tenantId from authenticated user's data
+    if (user.tenantId) {
       req.tenantId = user.tenantId;
     }
 
