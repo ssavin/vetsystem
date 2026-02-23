@@ -2852,47 +2852,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all branches grouped by tenant for login page (bypasses RLS via dedicated connection)
+  // Get all branches grouped by tenant for login page
+  // Uses pool from db-local (same as storage/middleware) to ensure compatibility
   app.get("/api/branches/login", async (req, res) => {
     try {
-      const { pool } = await import("./db");
-      const client = await pool.connect();
+      const { pool: dbPool } = await import("./db-local");
+      const client = await dbPool.connect();
       
-      let rows: any[];
+      let rows: any[] = [];
       try {
-        // Bypass RLS by resetting role to superuser level within transaction
+        // Try to bypass RLS for superuser connections
         await client.query('BEGIN');
-        // Set a special tenant context that signals "show all" for RLS policies
-        await client.query("SELECT set_config('app.tenant_id', '', true)");
-        // Try to temporarily bypass RLS if user has permission
-        try {
-          await client.query('SET LOCAL row_security = off');
-        } catch (e) {
-          // If SET row_security is not allowed, continue - the query might still work
-        }
+        try { await client.query('SET LOCAL row_security = off'); } catch(e) { /* non-superuser, continue */ }
         
-        const result = await client.query(`
-          SELECT b.id, b.name, b.city, b.address, b.tenant_id, t.name as tenant_name
-          FROM branches b
-          LEFT JOIN tenants t ON b.tenant_id = t.id
-          WHERE b.status = 'active'
-          ORDER BY t.name NULLS LAST, b.name
-        `);
-        rows = result.rows;
-        await client.query('COMMIT');
-      } catch (queryError) {
-        await client.query('ROLLBACK').catch(() => {});
-        console.error("Login branches RLS bypass failed, trying direct:", queryError);
-        // Fallback: try simple query without RLS bypass
         try {
+          const result = await client.query(`
+            SELECT b.id, b.name, b.city, b.address, b.tenant_id, t.name as tenant_name
+            FROM branches b LEFT JOIN tenants t ON b.tenant_id = t.id
+            WHERE b.status = 'active'
+            ORDER BY t.name NULLS LAST, b.name
+          `);
+          rows = result.rows;
+        } catch (queryErr) {
+          // If join fails, try without join
           const result = await client.query(`
             SELECT id, name, city, address, tenant_id FROM branches WHERE status = 'active' ORDER BY name
           `);
-          rows = result.rows.map(r => ({ ...r, tenant_name: '' }));
-        } catch (e2) {
-          console.error("Login branches fallback also failed:", e2);
-          rows = [];
+          rows = result.rows.map((r: any) => ({ ...r, tenant_name: '' }));
         }
+        
+        await client.query('COMMIT');
+      } catch (txErr) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error("Login branches transaction error:", txErr);
       } finally {
         client.release();
       }
@@ -2974,8 +2966,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify user has access to the selected branch (bypass RLS for login)
-      const { pool } = await import("./db");
-      const branchResult = await pool.query(
+      const { pool: loginPool } = await import("./db-local");
+      const branchResult = await loginPool.query(
         `SELECT id, name, status, tenant_id FROM branches WHERE id = $1`,
         [branchId]
       );

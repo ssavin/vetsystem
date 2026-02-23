@@ -45,11 +45,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Ensure RLS policies exist for login-critical tables
+  // Ensure RLS is properly enabled and policies exist for login-critical tables
   try {
-    const { pool } = await import("./db");
+    const { pool } = await import("./db-local");
     await pool.query(`
       DO $$ BEGIN
+        -- Ensure RLS is properly enabled (not just FORCE) on critical tables
+        ALTER TABLE branches ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+        
         -- branches: allow SELECT for all (needed for login page)
         IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'branches_select_all' AND polrelid = 'branches'::regclass) THEN
           EXECUTE 'CREATE POLICY branches_select_all ON branches FOR SELECT USING (true)';
