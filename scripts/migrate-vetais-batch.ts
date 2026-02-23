@@ -4,12 +4,23 @@
  * Оптимизированная миграция с batch-вставками
  * 
  * Использование:
- *   tsx scripts/migrate-vetais-batch.ts [tenantId] [branchId] [batchSize]
+ *   tsx scripts/migrate-vetais-batch.ts [tenantId] [branchId] [batchSize] [vetaisDbName]
+ * 
+ * Параметры:
+ *   tenantId    - ID клиники в VetSystem
+ *   branchId    - ID филиала (или null для всех)
+ *   batchSize   - Размер пакета вставки (по умолчанию 500)
+ *   vetaisDbName - Имя базы Vetais: 'vetais_alisavet' (по умолчанию) или 'vetais_haks'
+ * 
+ * Примеры:
+ *   tsx scripts/migrate-vetais-batch.ts <tenantId> null 500 vetais_alisavet
+ *   tsx scripts/migrate-vetais-batch.ts <tenantId> null 500 vetais_haks
  */
 
 import { Client } from 'pg';
 
 const BATCH_SIZE = parseInt(process.argv[4] || '500');
+const VETAIS_DB_NAME = process.argv[5] || process.env.VETAIS_DB_NAME || 'vetais_alisavet';
 
 function cleanPhone(phone: string | null): string | null {
   if (!phone) return null;
@@ -73,10 +84,12 @@ async function main() {
   const vetaisDb = new Client({
     host: process.env.VETAIS_DB_HOST,
     port: parseInt(process.env.VETAIS_DB_PORT || '5432'),
-    database: process.env.VETAIS_DB_NAME,
+    database: VETAIS_DB_NAME,
     user: process.env.VETAIS_DB_USER,
     password: process.env.VETAIS_DB_PASSWORD,
   });
+
+  console.log(`  База Vetais: ${VETAIS_DB_NAME}`);
 
   try {
     console.log('🔌 Подключение к базам данных...');

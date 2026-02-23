@@ -41,3 +41,13 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_database:1.0.0", "javascript_openai:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+VETAIS_DB_HOST = "45.128.206.134"
+VETAIS_DB_PORT = "5454"
+VETAIS_DB_USER = "postgres"
+VETAIS_DB_PASSWORD = "ASPI6rin"
+VETAIS_DB_NAME = "vetais_alisavet"
+VETAIS_HAKS_DB_NAME = "vetais_haks"

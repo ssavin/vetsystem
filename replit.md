@@ -159,20 +159,35 @@ Preferred communication style: Simple, everyday language.
 -   **DADATA**: Data enrichment service (implied by environment variables).
 -   **OpenAI**: AI services (implied by environment variables).
 
-## Vetais Legacy Database (External)
-Внешняя база данных старой системы Vetais для миграции данных и ручных SQL-запросов.
+## Vetais Legacy Databases (External)
+Внешние базы данных старой системы Vetais для миграции данных и ручных SQL-запросов.
+Все базы расположены на одном сервере с общими учётными данными.
 -   **Host:** 45.128.206.134
 -   **Port:** 5454
--   **Database:** vetais_alisavet
 -   **User:** postgres
 -   **Password:** ASPI6rin
--   **Ключевые таблицы:**
+
+### База 1: vetais_alisavet (Алисавет)
+-   **Database:** vetais_alisavet
+-   **Tenant ID:** default-tenant-001
+-   **Данные:** ~62,000 клиентов, ~58,000 пациентов, ~330,000 оплаченных счетов
+
+### База 2: vetais_haks (Первый вет центр)
+-   **Database:** vetais_haks
+-   **Tenant ID:** e7c3459d-599b-4570-858f-1674dbd8db82
+-   **Branch ID:** 140455b8-c2c2-4f1b-babb-ce34b0980994
+-   **Данные:** ~29,744 клиентов, ~36,418 пациентов, ~191,204 оплаченных счетов
+
+### Общие таблицы:
     - `file_clients` - клиенты (kod_kado = ID, nazev_kado = ФИО)
     - `file_patients` - пациенты (id_majitele = ID владельца)
     - `accounts_headers` - счета (client_id, client_name - денормализованное ФИО)
-    - `accounts_items` - позиции счетов
--   **Скрипт миграции:** `scripts/migrate-vetais-batch.ts`
+    - `accounts_items` - позиции счетов (user_id = врач, выполнивший услугу)
+    - `system_users` - пользователи/врачи (is_doctor=1 для врачей)
+-   **Конфиг подключения:** `scripts/vetais-config.ts` (маппинг tenant→база)
+-   **Скрипт миграции:** `scripts/migrate-vetais-batch.ts` (5-й параметр — имя базы)
 -   **Подключение через psql:**
     ```bash
     PGPASSWORD='ASPI6rin' psql -h 45.128.206.134 -p 5454 -U postgres -d vetais_alisavet
+    PGPASSWORD='ASPI6rin' psql -h 45.128.206.134 -p 5454 -U postgres -d vetais_haks
     ```
