@@ -999,13 +999,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User methods
-  // NOTE: getUserByUsername and verifyPassword are used for authentication and don't use tenant context
+  // NOTE: getUser, getUserByUsername and verifyPassword are used for authentication and don't use tenant context
   async getUser(id: string): Promise<User | undefined> {
     return withPerformanceLogging('getUser', async () => {
-      return withTenantContext(undefined, async (dbInstance) => {
-        const [user] = await dbInstance.select().from(users).where(eq(users.id, id));
-        return user || undefined;
-      });
+      // No tenant context - used for authentication middleware before tenant is fully resolved
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      return user || undefined;
     });
   }
 

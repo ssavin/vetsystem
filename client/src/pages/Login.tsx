@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { loginSchema } from "@shared/schema"
@@ -6,7 +6,7 @@ import { z } from "zod"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
@@ -16,11 +16,15 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import logoPath from "@assets/logo_1759553178604.png"
 
-type Branch = {
-  id: string;
-  name: string;
-  city: string;
-  address: string;
+type TenantGroup = {
+  tenantId: string;
+  tenantName: string;
+  branches: {
+    id: string;
+    name: string;
+    city: string;
+    address: string;
+  }[];
 }
 
 type LoginFormValues = z.infer<typeof loginSchema>
@@ -32,9 +36,9 @@ export default function Login() {
   const { toast } = useToast()
   const { t } = useTranslation('auth')
   
-  const { data: branches = [], isLoading: branchesLoading } = useQuery({
-    queryKey: ['/api/branches/active'],
-    queryFn: () => fetch('/api/branches/active').then(res => res.json()),
+  const { data: tenantGroups = [], isLoading: branchesLoading } = useQuery<TenantGroup[]>({
+    queryKey: ['/api/branches/login'],
+    queryFn: () => fetch('/api/branches/login').then(res => res.json()),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -151,13 +155,24 @@ export default function Login() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {branches.map((branch: Branch) => (
-                          <SelectItem key={branch.id} value={branch.id}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{branch.name}</span>
-                              <span className="text-sm text-muted-foreground">{branch.city}</span>
-                            </div>
-                          </SelectItem>
+                        {tenantGroups.map((group) => (
+                          <SelectGroup key={group.tenantId}>
+                            {tenantGroups.length > 1 && (
+                              <SelectLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                {group.tenantName}
+                              </SelectLabel>
+                            )}
+                            {group.branches.map((branch) => (
+                              <SelectItem key={branch.id} value={branch.id}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{branch.name}</span>
+                                  {branch.city && (
+                                    <span className="text-sm text-muted-foreground">{branch.city}</span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         ))}
                       </SelectContent>
                     </Select>

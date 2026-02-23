@@ -2852,6 +2852,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all branches grouped by tenant for login page (bypasses RLS)
+  app.get("/api/branches/login", async (req, res) => {
+    try {
+      const { pool } = await import("./db");
+      const result = await pool.query(`
+        SELECT b.id, b.name, b.city, b.address, b.tenant_id, t.name as tenant_name
+        FROM branches b
+        JOIN tenants t ON b.tenant_id = t.id
+        WHERE b.status = 'active' AND t.status = 'active'
+        ORDER BY t.name, b.name
+      `);
+      
+      const grouped: Record<string, { tenantId: string; tenantName: string; branches: any[] }> = {};
+      for (const row of result.rows) {
+        if (!grouped[row.tenant_id]) {
+          grouped[row.tenant_id] = {
+            tenantId: row.tenant_id,
+            tenantName: row.tenant_name,
+            branches: []
+          };
+        }
+        grouped[row.tenant_id].branches.push({
+          id: row.id,
+          name: row.name,
+          city: row.city || '',
+          address: row.address || ''
+        });
+      }
+      
+      res.json(Object.values(grouped));
+    } catch (error) {
+      console.error("Error fetching login branches:", error);
+      res.status(500).json({ error: "Ошибка получения списка филиалов" });
+    }
+  });
+
   app.post("/api/auth/login", authLimiter, validateBody(loginSchema), async (req, res) => {
     try {
       const { username, password, branchId } = req.body;
@@ -2903,14 +2939,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Неверный логин или пароль" });
       }
       
-      // Verify user has access to the selected branch
-      const selectedBranch = await storage.getBranch(branchId);
+      // Verify user has access to the selected branch (bypass RLS for login)
+      const { pool } = await import("./db");
+      const branchResult = await pool.query(
+        `SELECT id, name, status, tenant_id FROM branches WHERE id = $1`,
+        [branchId]
+      );
+      const selectedBranch = branchResult.rows[0];
       if (!selectedBranch || selectedBranch.status !== 'active') {
         return res.status(400).json({ error: "Выбранный филиал недоступен" });
       }
 
       // Verify branch belongs to same tenant (except for superadmin)
-      if (!req.user?.isSuperAdmin && !isSuperAdmin && selectedBranch.tenantId !== user.tenantId) {
+      if (!req.user?.isSuperAdmin && !isSuperAdmin && selectedBranch.tenant_id !== user.tenantId) {
         return res.status(403).json({ 
           error: "Доступ запрещён",
           message: "Филиал не принадлежит вашей клинике"
