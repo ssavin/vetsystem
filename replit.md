@@ -178,6 +178,17 @@ Preferred communication style: Simple, everyday language.
 -   **Branch ID:** 140455b8-c2c2-4f1b-babb-ce34b0980994
 -   **Данные:** ~29,744 клиентов, ~36,418 пациентов, ~191,204 оплаченных счетов
 
+### База 3: arutyn1 (Усатый Полосатый)
+-   **Database:** arutyn1
+-   **Tenant ID:** 06d235e4-e7ba-4b2c-87a2-77afc72c4358
+-   **Tenant Slug:** usatyj-polosatyj
+-   **Admin user:** admin_up / admin123
+-   **Филиалы:**
+    - Дрожжино (Branch ID: fde48131-9495-478f-806b-274fa1fcbdba, vetais_clinic_id=10000)
+    - Остафьево (Branch ID: 7b46d4f5-7cb3-404c-8642-e3d025a281b8, vetais_clinic_id=10001)
+-   **Данные:** ~8,838 клиентов, ~11,335 пациентов мигрировано
+-   **Скрипт миграции:** `scripts/migrate-arutyn1.ts`
+
 ### Общие таблицы:
     - `file_clients` - клиенты (kod_kado = ID, nazev_kado = ФИО)
     - `file_patients` - пациенты (id_majitele = ID владельца)

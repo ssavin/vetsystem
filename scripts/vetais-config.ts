@@ -24,4 +24,5 @@ export const VETAIS_DATABASES = {
 export const TENANT_VETAIS_MAPPING: Record<string, string> = {
   'default-tenant-001': 'vetais_alisavet',
   'e7c3459d-599b-4570-858f-1674dbd8db82': 'vetais_haks',
+  '06d235e4-e7ba-4b2c-87a2-77afc72c4358': 'arutyn1', // Усатый Полосатый
 };
