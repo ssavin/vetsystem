@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { User } from '@shared/schema'
-import { queryClient } from '@/lib/queryClient'
+import { queryClient, apiRequest } from '@/lib/queryClient'
 import i18n from '@/i18n'
 
 import { ROLE_PERMISSIONS } from '../shared/permissions';
@@ -92,24 +92,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const switchBranch = async (branchId: string): Promise<void> => {
     try {
-      const response = await fetch('/api/auth/switch-branch', {
-        method: 'POST',
-        body: JSON.stringify({ branchId }),
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include' // Important: send cookies
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Ошибка при смене филиала')
-      }
-
+      const response = await apiRequest('POST', '/api/auth/switch-branch', { branchId })
       const data = await response.json()
       setCurrentBranch(data.currentBranch)
-      
-      // 🚀 UX IMPROVEMENT: Invalidate cache instead of page reload for better UX
       queryClient.invalidateQueries()
     } catch (error) {
       console.error('Switch branch error:', error)
@@ -119,26 +104,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const switchTenant = async (tenantId: string): Promise<void> => {
     try {
-      const response = await fetch('/api/auth/switch-tenant', {
-        method: 'POST',
-        body: JSON.stringify({ tenantId }),
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include' // Important: send cookies
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Ошибка при смене клиники')
-      }
-
+      const response = await apiRequest('POST', '/api/auth/switch-tenant', { tenantId })
       const data = await response.json()
       setCurrentTenant(data.currentTenant)
       setCurrentBranch(data.currentBranch || null)
       setUser(data.user || user)
-      
-      // 🚀 UX IMPROVEMENT: Invalidate cache instead of page reload for better UX
       queryClient.invalidateQueries()
     } catch (error) {
       console.error('Switch tenant error:', error)

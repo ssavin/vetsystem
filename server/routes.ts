@@ -3006,50 +3006,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Недействительный refresh token" });
       }
 
-      // Multi-tenant validation: verify token tenant matches request tenant
-      // Exception: superadmin portal bypasses tenant check
-      if (!req.user?.isSuperAdmin) {
-        if (!req.tenantId) {
-          return res.status(403).json({ 
-            error: "Tenant не определён",
-            message: "Невозможно обновить токен: клиника не определена"
-          });
-        }
-        
-        if (payload.tenantId !== req.tenantId) {
-          return res.status(403).json({ 
-            error: "Tenant mismatch",
-            message: "Токен принадлежит другой клинике"
-          });
-        }
-      }
-
       // Get fresh user data
       const user = await storage.getUser(payload.userId);
       if (!user || user.status !== 'active') {
         return res.status(401).json({ error: "Пользователь не найден или неактивен" });
       }
 
-      // Validate user has tenant_id
-      if (!user.tenantId) {
+      // Validate user has tenant_id (superadmins may not have one)
+      const isSuperAdmin = user.isSuperAdmin || user.role === 'superadmin';
+      if (!user.tenantId && !isSuperAdmin) {
         return res.status(500).json({ 
           error: "Invalid user data",
           message: "Пользователь не привязан к клинике"
         });
       }
 
-      // Additional validation: verify user tenant matches token and request tenant
-      if (payload.tenantId !== user.tenantId) {
+      // Verify token belongs to this user's tenant (JWT is signed, so we trust payload)
+      if (!isSuperAdmin && payload.tenantId !== user.tenantId) {
         return res.status(401).json({ 
           error: "Invalid token",
           message: "Токен не соответствует клинике пользователя"
-        });
-      }
-
-      if (!req.user?.isSuperAdmin && user.tenantId !== req.tenantId) {
-        return res.status(403).json({ 
-          error: "Access denied",
-          message: "Пользователь не принадлежит текущей клинике"
         });
       }
 
