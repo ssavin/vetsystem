@@ -272,6 +272,48 @@ async function migratePatients(vetsystemDb: Client, arutynDb: Client, ownerMap: 
   }
 }
 
+async function migrateDoctors(vetsystemDb: Client, arutynDb: Client): Promise<void> {
+  console.log('\n════════════════════════════════════════');
+  console.log('  МИГРАЦИЯ ВРАЧЕЙ');
+  console.log('════════════════════════════════════════\n');
+
+  const sourceResult = await arutynDb.query(`
+    SELECT kod_uzivatele, prijmeni, jmeno, otcestvo, email, mobile, telefon, id_kliniky
+    FROM system_users
+    WHERE is_doctor = 1 AND vymaz = 0
+    ORDER BY id_kliniky, prijmeni
+  `);
+  console.log(`Источник (arutyn1): ${sourceResult.rows.length} врачей\n`);
+
+  let inserted = 0;
+  let skipped = 0;
+
+  for (const row of sourceResult.rows) {
+    const nameParts = [row.prijmeni, row.jmeno, row.otcestvo].filter(p => p?.trim());
+    const name = nameParts.join(' ').trim();
+    if (!name || name.toLowerCase() === 'administrator' || name.toLowerCase().includes('техподдержка')) {
+      skipped++;
+      continue;
+    }
+
+    const branchId = getBranchId(row.id_kliniky);
+    const phone = cleanPhone(row.mobile) || cleanPhone(row.telefon);
+    const email = cleanEmail(row.email);
+
+    await vetsystemDb.query(`
+      INSERT INTO doctors (tenant_id, branch_id, name, phone, email, is_active, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
+      ON CONFLICT DO NOTHING
+    `, [TENANT_ID, branchId, name, phone, email]);
+
+    inserted++;
+    console.log(`  ✅ ${name}`);
+  }
+
+  console.log(`\n✅ Врачей добавлено: ${inserted}`);
+  console.log(`⚠️  Пропущено: ${skipped}`);
+}
+
 async function main() {
   console.log('╔═══════════════════════════════════════════════════════════╗');
   console.log('║   МИГРАЦИЯ: Усатый Полосатый (arutyn1)                   ║');
@@ -311,6 +353,10 @@ async function main() {
 
     if (MODE === 'patients' || MODE === 'all') {
       await migratePatients(vetsystemDb, arutynDb, ownerMap);
+    }
+
+    if (MODE === 'doctors' || MODE === 'all') {
+      await migrateDoctors(vetsystemDb, arutynDb);
     }
 
     console.log('\n✨ Миграция завершена!\n');
