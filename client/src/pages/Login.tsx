@@ -94,7 +94,7 @@ export default function Login() {
         title: t('login.success'),
         description: t('login.welcomeMessage'),
       })
-      navigate("/")
+      navigate("/registry")
     } catch (error) {
       toast({
         title: t('login.error'),
