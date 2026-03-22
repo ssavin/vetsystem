@@ -222,7 +222,7 @@ export interface IStorage {
   // Owner methods - 🔒 SECURITY: branchId required for PHI isolation
   getOwners(branchId: string): Promise<Owner[]>;
   getOwnersPaginated(params: { branchId: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }>;
-  getAllOwners(limit?: number, offset?: number): Promise<Owner[]>; // 🔒 All owners from all branches within tenant
+  getAllOwners(limit?: number, offset?: number, tenantId?: string): Promise<Owner[]>; // 🔒 All owners from all branches within tenant
   getOwner(id: string): Promise<Owner | undefined>;
   createOwner(owner: InsertOwner): Promise<Owner>;
   updateOwner(id: string, owner: Partial<InsertOwner>): Promise<Owner>;
@@ -1246,10 +1246,11 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getAllOwners(limit: number = 100, offset: number = 0): Promise<Owner[]> {
+  async getAllOwners(limit: number = 100, offset: number = 0, tenantId?: string): Promise<Owner[]> {
     return withPerformanceLogging('getAllOwners', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         return await dbInstance.select().from(owners)
+          .where(tenantId ? eq(owners.tenantId, tenantId) : undefined)
           .orderBy(desc(owners.createdAt))
           .limit(limit)
           .offset(offset);
@@ -1292,11 +1293,22 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async searchOwnersWithPatients(query: string, limit: number = 30, offset: number = 0): Promise<{ owners: any[], total: number }> {
+  async searchOwnersWithPatients(query: string, limit: number = 30, offset: number = 0, tenantId?: string): Promise<{ owners: any[], total: number }> {
     return withPerformanceLogging('searchOwnersWithPatients', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         const searchQuery = `%${query}%`;
         
+        // Build search condition with mandatory tenant filter
+        const searchCondition = and(
+          tenantId ? eq(owners.tenantId, tenantId) : undefined,
+          or(
+            ilike(owners.name, searchQuery),
+            ilike(owners.phone, searchQuery),
+            ilike(owners.email, searchQuery),
+            ilike(patients.name, searchQuery)
+          )
+        );
+
         // Search in both owners and patients tables (case-insensitive)
         // Use patientOwners junction table for many-to-many relationships
         const ownerIds = await dbInstance
@@ -1307,14 +1319,7 @@ export class DatabaseStorage implements IStorage {
           .from(owners)
           .leftJoin(patientOwners, eq(patientOwners.ownerId, owners.id))
           .leftJoin(patients, eq(patients.id, patientOwners.patientId))
-          .where(
-            or(
-              ilike(owners.name, searchQuery),
-              ilike(owners.phone, searchQuery),
-              ilike(owners.email, searchQuery),
-              ilike(patients.name, searchQuery)
-            )
-          )
+          .where(searchCondition)
           .orderBy(desc(owners.createdAt));
 
         const total = ownerIds.length;

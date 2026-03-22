@@ -284,8 +284,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
-      const owners = await storage.getAllOwners(limit, offset);
-      res.json(owners);
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+      const ownersResult = await storage.getAllOwners(limit, offset, tenantId);
+      res.json(ownersResult);
     } catch (error) {
       console.error("Error fetching all owners:", error);
       res.status(500).json({ error: "Failed to fetch all owners" });
@@ -303,8 +305,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!query || query.length < 2) {
         return res.json({ owners: [], total: 0 });
       }
+
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) {
+        return res.status(403).json({ error: "Tenant не определён" });
+      }
       
-      const result = await storage.searchOwnersWithPatients(query, limit, offset);
+      const result = await storage.searchOwnersWithPatients(query, limit, offset, tenantId);
       res.json(result);
     } catch (error) {
       console.error("Error searching owners with patients:", error);
