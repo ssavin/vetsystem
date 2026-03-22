@@ -207,8 +207,8 @@ export interface IStorage {
   deleteUser(id: string): Promise<void>;
 
   // Branch methods
-  getBranches(): Promise<Branch[]>;
-  getActiveBranches(): Promise<Branch[]>;
+  getBranches(tenantId?: string): Promise<Branch[]>;
+  getActiveBranches(tenantId?: string): Promise<Branch[]>;
   getBranch(id: string): Promise<Branch | undefined>;
   getTenantBranches(tenantId: string): Promise<Branch[]>;
   createBranch(branch: InsertBranch): Promise<Branch>;
@@ -3248,19 +3248,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Branch methods
-  async getBranches(): Promise<Branch[]> {
+  async getBranches(tenantId?: string): Promise<Branch[]> {
     return await withPerformanceLogging('getBranches', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        return await dbInstance.select().from(branches).orderBy(desc(branches.createdAt));
+        return await dbInstance.select().from(branches)
+          .where(tenantId ? eq(branches.tenantId, tenantId) : undefined)
+          .orderBy(desc(branches.createdAt));
       });
     });
   }
 
-  async getActiveBranches(): Promise<Branch[]> {
+  async getActiveBranches(tenantId?: string): Promise<Branch[]> {
     return await withPerformanceLogging('getActiveBranches', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         return await dbInstance.select().from(branches)
-          .where(eq(branches.status, 'active'))
+          .where(
+            tenantId
+              ? and(eq(branches.status, 'active'), eq(branches.tenantId, tenantId))
+              : eq(branches.status, 'active')
+          )
           .orderBy(branches.name);
       });
     });

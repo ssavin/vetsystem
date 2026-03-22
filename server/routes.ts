@@ -2849,10 +2849,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // AUTHENTICATION ROUTES  
   // Get active branches for login selection
-  app.get("/api/branches/active", async (req, res) => {
+  app.get("/api/branches/active", authenticateToken, async (req, res) => {
     try {
-      const branches = await storage.getActiveBranches();
-      res.json(branches);
+      // Superadmin sees all branches; regular users only see their own clinic's branches
+      const tenantId = req.user?.isSuperAdmin ? undefined : (req.user?.tenantId ?? undefined);
+      const result = await storage.getActiveBranches(tenantId);
+      res.json(result);
     } catch (error) {
       console.error("Error fetching active branches:", error);
       res.status(500).json({ error: "Ошибка получения списка филиалов" });
@@ -3275,8 +3277,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Доступ запрещён" });
       }
       
-      const branches = await storage.getBranches();
-      res.json(branches);
+      // Superadmin sees all branches; regular users only see their own clinic's branches
+      const tenantId = req.user?.isSuperAdmin ? undefined : (req.user?.tenantId ?? undefined);
+      const result = await storage.getBranches(tenantId);
+      res.json(result);
     } catch (error) {
       console.error("Error fetching branches:", error);
       res.status(500).json({ error: "Failed to fetch branches" });
