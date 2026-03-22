@@ -1,0 +1,65 @@
+pm2 logs vetsystem --lines 30
+[TAILING] Tailing last 30 lines for [vetsystem] process (change the value with --lines option)
+/root/.pm2/logs/vetsystem-out.log last 30 lines:
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 8ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 16ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 2ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+
+/root/.pm2/logs/vetsystem-error.log last 30 lines:
+0|vetsyste |     at setupUserModules (node:internal/process/pre_execution:208:5)
+0|vetsyste |     at prepareExecution (node:internal/process/pre_execution:161:5)
+0|vetsyste |     at prepareMainThreadExecution (node:internal/process/pre_execution:54:10)
+0|vetsyste |     at node:internal/main/run_main_module:11:19 {
+0|vetsyste |   code: 'MODULE_NOT_FOUND',
+0|vetsyste |   requireStack: [ 'internal/preload' ]
+0|vetsyste | }
+0|vetsyste |
+0|vetsyste | Node.js v20.19.6
+0|vetsyste | node:internal/modules/cjs/loader:1210
+0|vetsyste |   throw err;
+0|vetsyste |   ^
+0|vetsyste |
+0|vetsyste | Error: Cannot find module 'dotenv/config'
+0|vetsyste | Require stack:
+0|vetsyste | - internal/preload
+0|vetsyste |     at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+0|vetsyste |     at Module._load (node:internal/modules/cjs/loader:1038:27)
+0|vetsyste |     at internalRequire (node:internal/modules/cjs/loader:219:19)
+0|vetsyste |     at Module._preloadModules (node:internal/modules/cjs/loader:1785:5)
+0|vetsyste |     at loadPreloadModules (node:internal/process/pre_execution:747:5)
+0|vetsyste |     at setupUserModules (node:internal/process/pre_execution:208:5)
+0|vetsyste |     at prepareExecution (node:internal/process/pre_execution:161:5)
+0|vetsyste |     at prepareMainThreadExecution (node:internal/process/pre_execution:54:10)
+0|vetsyste |     at node:internal/main/run_main_module:11:19 {
+0|vetsyste |   code: 'MODULE_NOT_FOUND',
+0|vetsyste |   requireStack: [ 'internal/preload' ]
+0|vetsyste | }
+0|vetsyste |
+0|vetsyste | Node.js v20.19.6
