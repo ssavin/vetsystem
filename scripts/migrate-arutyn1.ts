@@ -262,6 +262,7 @@ async function migratePatients(vetsystemDb: Client, arutynDb: Client, ownerMap: 
       await vetsystemDb.query(`
         INSERT INTO patients (tenant_id, owner_id, name, species, breed, gender, birth_date, microchip_number, branch_id, vetais_id, created_at, updated_at)
         VALUES ${values.join(', ')}
+        ON CONFLICT DO NOTHING
       `, params);
 
       insertedCount += batch.length;
