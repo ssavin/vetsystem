@@ -61,20 +61,7 @@ export default function AIAssistant({ patientData, onSuggestionApply }: AIAssist
       }
       console.log('Тело запроса:', requestBody)
       
-      const response = await apiRequest('/api/ai/analyze-symptoms', {
-        method: 'POST',
-        body: JSON.stringify(requestBody),
-        headers: { 'Content-Type': 'application/json' }
-      })
-      
-      console.log('Ответ от API:', response.status, response.statusText)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Ошибка API:', errorText)
-        throw new Error(`Ошибка анализа симптомов: ${errorText}`)
-      }
-      
+      const response = await apiRequest('POST', '/api/ai/analyze-symptoms', requestBody)
       const result = await response.json()
       console.log('Результат анализа:', result)
       return result
@@ -107,12 +94,7 @@ export default function AIAssistant({ patientData, onSuggestionApply }: AIAssist
 
   const soapMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest('/api/ai/generate-soap', {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
-      })
-      if (!response.ok) throw new Error('Ошибка генерации SOAP')
+      const response = await apiRequest('POST', '/api/ai/generate-soap', data)
       return response.json()
     }
   })
@@ -124,12 +106,7 @@ export default function AIAssistant({ patientData, onSuggestionApply }: AIAssist
 
   const imageMutation = useMutation({
     mutationFn: async (data: { base64Image: string; imageType: string; context: string }) => {
-      const response = await apiRequest('/api/ai/analyze-image', {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
-      })
-      if (!response.ok) throw new Error('Ошибка анализа изображения')
+      const response = await apiRequest('POST', '/api/ai/analyze-image', data)
       return response.json()
     }
   })
@@ -144,18 +121,13 @@ export default function AIAssistant({ patientData, onSuggestionApply }: AIAssist
 
   const treatmentMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest('/api/ai/treatment-plan', {
-        method: 'POST',
-        body: JSON.stringify({
-          species: patientData?.species || 'собака',
-          breed: patientData?.breed,
-          age: patientData?.age || 1,
-          weight: patientData?.weight,
-          ...data
-        }),
-        headers: { 'Content-Type': 'application/json' }
+      const response = await apiRequest('POST', '/api/ai/treatment-plan', {
+        species: patientData?.species || 'собака',
+        breed: patientData?.breed,
+        age: patientData?.age || 1,
+        weight: patientData?.weight,
+        ...data
       })
-      if (!response.ok) throw new Error('Ошибка создания плана лечения')
       return response.json()
     }
   })
@@ -163,12 +135,7 @@ export default function AIAssistant({ patientData, onSuggestionApply }: AIAssist
   // Чат-консультант
   const chatMutation = useMutation({
     mutationFn: async (data: { question: string; conversationHistory?: any[] }) => {
-      const response = await apiRequest('/api/ai/chat', {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
-      })
-      if (!response.ok) throw new Error('Ошибка ИИ-консультанта')
+      const response = await apiRequest('POST', '/api/ai/chat', data)
       return response.json()
     },
     onSuccess: (data) => {
