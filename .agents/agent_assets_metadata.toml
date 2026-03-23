@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "oPiNfUdJ1XH_nVCl3Qcom"
+uri = "file://VetSystem_Инвестиционное_описание.md"
+type = "text"
+title = "VetSystem — Инвестиционное описание"
