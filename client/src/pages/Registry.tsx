@@ -456,9 +456,9 @@ export default function Registry() {
     }
   }, [patientToEdit?.id, showPatientForm])
 
-  // Fetch available branches
+  // Fetch available branches (filtered by current user's clinic)
   const { data: branchesData = [] } = useQuery({
-    queryKey: ['/api/branches/active'],
+    queryKey: ['/api/user/available-branches'],
   })
 
   // Fetch patients from API based on selected branch (with owner data joined)

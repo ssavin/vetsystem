@@ -65,9 +65,9 @@ export default function SubscriptionManagement() {
     queryKey: ['/api/billing/subscriptions']
   })
 
-  // Fetch branches
+  // Fetch branches for current clinic only
   const { data: branches = [] } = useQuery<Branch[]>({
-    queryKey: ['/api/branches/active']
+    queryKey: ['/api/user/available-branches']
   })
 
   // Plan mutations

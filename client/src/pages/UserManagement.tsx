@@ -30,9 +30,9 @@ export default function UserManagement() {
     queryKey: ['/api/users']
   })
 
-  // Fetch active branches for user assignment
+  // Fetch branches for current clinic only
   const { data: branches = [] } = useQuery<Branch[]>({
-    queryKey: ['/api/branches/active']
+    queryKey: ['/api/user/available-branches']
   })
 
   // Create user mutation

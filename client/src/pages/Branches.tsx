@@ -112,6 +112,7 @@ export default function Branches() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/branches'] })
       queryClient.invalidateQueries({ queryKey: ['/api/branches/active'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/user/available-branches'] })
       toast({
         title: "Успешно!",
         description: "Отделение создано",
@@ -137,6 +138,7 @@ export default function Branches() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/branches'] })
       queryClient.invalidateQueries({ queryKey: ['/api/branches/active'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/user/available-branches'] })
       toast({
         title: "Успешно!",
         description: "Отделение обновлено",
@@ -162,6 +164,7 @@ export default function Branches() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/branches'] })
       queryClient.invalidateQueries({ queryKey: ['/api/branches/active'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/user/available-branches'] })
       toast({
         title: "Успешно!",
         description: "Отделение удалено",
