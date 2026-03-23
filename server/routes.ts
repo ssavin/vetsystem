@@ -1571,7 +1571,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { translateVisitType } = await import('../shared/visitTypes.js');
       const enrichedRecords = await Promise.all(records.map(async (record) => {
         const patient = record.patientId ? await storage.getPatient(record.patientId) : null;
-        const doctor = record.doctorId ? await storage.getUser(record.doctorId) : null;
+        let doctorName: string | null = null;
+        if (record.doctorId) {
+          const userDoctor = await storage.getUser(record.doctorId);
+          if (userDoctor) {
+            doctorName = userDoctor.name;
+          } else {
+            const tableDoctor = await storage.getDoctor(record.doctorId);
+            if (tableDoctor) doctorName = tableDoctor.name;
+          }
+        }
         
         // Get owner info for the patient
         let ownerName = 'Не указан';
@@ -1595,7 +1604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           patientName: patient?.name || 'Неизвестный пациент',
           ownerName,
           doctorId: record.doctorId,
-          doctorName: doctor?.name || 'Неизвестный врач',
+          doctorName: doctorName || 'Не указан',
           visitType: record.visitType, // Keep raw value for form
           visitTypeLabel: translateVisitType(record.visitType), // Translated for display
           complaints: record.complaints,
@@ -1643,8 +1652,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!await ensurePatientAccess(user, record.patientId)) {
         return res.status(403).json({ error: 'Access denied: Medical record not found' });
       }
-      
-      res.json(record);
+
+      // Enrich with doctor name
+      let doctorName: string | null = null;
+      if (record.doctorId) {
+        const userDoctor = await storage.getUser(record.doctorId);
+        if (userDoctor) {
+          doctorName = userDoctor.name;
+        } else {
+          const tableDoctor = await storage.getDoctor(record.doctorId);
+          if (tableDoctor) doctorName = tableDoctor.name;
+        }
+      }
+
+      res.json({ ...record, doctorName: doctorName || 'Не указан' });
     } catch (error) {
       console.error("Error fetching medical record:", error);
       res.status(500).json({ error: "Failed to fetch medical record" });
