@@ -354,8 +354,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userBranchId = requireValidBranchId(req, res);
       if (!userBranchId) return; // 403 already sent
       
-      // 🔒 SECURITY: Force branchId from user token, ignore any branchId in body
-      const ownerData = { ...req.body, branchId: userBranchId };
+      // 🔒 SECURITY: Force branchId and tenantId from user token, ignore any from body
+      const ownerData = { ...req.body, branchId: userBranchId, tenantId: (req as any).tenantId };
       const owner = await storage.createOwner(ownerData);
       res.status(201).json(owner);
     } catch (error) {

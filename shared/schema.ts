@@ -1645,6 +1645,7 @@ export const insertOwnerSchema = createInsertSchema(owners).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  tenantId: true,
 }).extend({
   email: z.string().email().optional().or(z.literal("")),
   dateOfBirth: z.union([z.coerce.date(), z.literal("")]).transform(val => val === "" ? undefined : val).optional(),
