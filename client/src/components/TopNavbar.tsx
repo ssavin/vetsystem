@@ -1,4 +1,4 @@
-import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, ClipboardList, ListOrdered, Bed, UserCog } from "lucide-react"
+import { Calendar, Users, FileText, Package, CreditCard, BarChart3, Stethoscope, Microscope, Settings, Shield, ClipboardList, ListOrdered, Bed, UserCog, Bot } from "lucide-react"
 import { Link, useLocation } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
 import { useTranslation } from "react-i18next"
@@ -91,6 +91,14 @@ const getMenuItems = (t: any) => [
     title: "CRM",
     url: "/crm",
     icon: UserCog,
+    module: "owners",
+    managerOnly: true,
+  },
+  {
+    titleKey: "menu.voiceAssistant",
+    title: "Голосовой ИИ",
+    url: "/voice-assistant",
+    icon: Bot,
     module: "owners",
     managerOnly: true,
   },

@@ -10844,6 +10844,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── ГОЛОСОВОЙ АССИСТЕНТ ─────────────────────────────────────────────────────
+  app.post("/api/voice-assistant/chat", authenticateToken, async (req, res) => {
+    try {
+      const { text, history } = req.body as {
+        text: string;
+        history?: { role: "user" | "assistant"; content: string }[];
+      };
+
+      if (!text?.trim()) {
+        return res.status(400).json({ error: "Текст не может быть пустым" });
+      }
+
+      const OpenAI = (await import("openai")).default;
+      const openai = process.env.OPENAI_API_KEY
+        ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+        : null;
+
+      if (!openai) {
+        return res.status(503).json({ error: "OpenAI API не настроен" });
+      }
+
+      const systemPrompt = `Ты — голосовой ИИ-ассистент ветеринарной клиники VetSystem.
+Ты помогаешь администраторам и врачам клиники с вопросами о:
+- клиентах и владельцах животных
+- пациентах (животных) — болезнях, лечении, симптомах
+- записях на приём, расписании
+- медицинских записях и диагнозах
+- финансах, счетах, оплатах
+- препаратах, услугах и номенклатуре
+- работе персонала клиники
+
+Правила ответов:
+- Отвечай кратко и по делу, не более 3–4 предложений
+- Говори на русском языке
+- Используй профессиональную, но дружелюбную речь
+- Если вопрос не связан с ветеринарией или клиникой, мягко перенаправь разговор
+- Не используй markdown — отвечай обычным текстом, так как ответ будет озвучен голосом`;
+
+      const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+        { role: "system", content: systemPrompt },
+        ...(history || []).slice(-6),
+        { role: "user", content: text },
+      ];
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages,
+        max_tokens: 300,
+        temperature: 0.7,
+      });
+
+      const response = completion.choices[0].message.content || "Не могу обработать запрос";
+      res.json({ response });
+    } catch (error: any) {
+      console.error("Voice assistant error:", error);
+      res.status(500).json({ error: "Ошибка ИИ-ассистента", details: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

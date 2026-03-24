@@ -37,6 +37,7 @@ import QueueDisplay from "@/pages/QueueDisplay";
 import Hospital from "@/pages/Hospital";
 import Analytics from "@/pages/Analytics";
 import CRM from "@/pages/CRM";
+import VoiceAssistant from "@/pages/VoiceAssistant";
 import NotFound from "@/pages/not-found";
 import { IncomingCallNotification } from "@/components/IncomingCallNotification";
 
@@ -95,6 +96,7 @@ function AuthenticatedApp() {
             <Route path="/hospital" component={Hospital} />
             <Route path="/analytics" component={Analytics} />
             <Route path="/crm" component={CRM} />
+            <Route path="/voice-assistant" component={VoiceAssistant} />
             <Route component={NotFound} />
           </Switch>
         </main>
