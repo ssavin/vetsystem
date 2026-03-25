@@ -3748,4 +3748,26 @@ export const insertDemoRequestSchema = createInsertSchema(demoRequests).omit({
 });
 
 export type DemoRequest = typeof demoRequests.$inferSelect;
+
+// ─── РАСПОЗНАВАНИЕ ЛИЦ ───────────────────────────────────────────────────────
+export const faceDescriptors = pgTable('face_descriptors', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar('owner_id').notNull(),
+  ownerName: varchar('owner_name').notNull(),
+  descriptor: jsonb('descriptor').notNull(), // 128-float array from face-api.js
+  tenantId: varchar('tenant_id').notNull(),
+  branchId: varchar('branch_id').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  ownerIdx: index('face_desc_owner_idx').on(table.ownerId),
+  tenantIdx: index('face_desc_tenant_idx').on(table.tenantId),
+  branchIdx: index('face_desc_branch_idx').on(table.branchId),
+}));
+
+export const insertFaceDescriptorSchema = createInsertSchema(faceDescriptors).omit({
+  id: true,
+  createdAt: true,
+});
+export type FaceDescriptor = typeof faceDescriptors.$inferSelect;
+export type InsertFaceDescriptor = z.infer<typeof insertFaceDescriptorSchema>;
 export type InsertDemoRequest = z.infer<typeof insertDemoRequestSchema>;

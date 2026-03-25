@@ -77,7 +77,8 @@ import {
   type HealthReminder, type InsertHealthReminder,
   type MarketingCampaign, type InsertMarketingCampaign,
   type CampaignRecipient, type InsertCampaignRecipient,
-  clientInteractions, healthReminders, marketingCampaigns, campaignRecipients
+  clientInteractions, healthReminders, marketingCampaigns, campaignRecipients,
+  faceDescriptors, type FaceDescriptor, type InsertFaceDescriptor,
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -692,6 +693,11 @@ export interface IStorage {
   updateCallLog(id: string, updates: Partial<InsertCallLog>): Promise<CallLog>;
   getOwnerCallLogs(ownerId: string): Promise<CallLog[]>;
   findOwnerByPhone(phone: string): Promise<Owner | undefined>;
+
+  // === FACE RECOGNITION ===
+  getFaceDescriptors(branchId: string): Promise<FaceDescriptor[]>;
+  saveFaceDescriptor(data: InsertFaceDescriptor): Promise<FaceDescriptor>;
+  deleteFaceDescriptorByOwner(ownerId: string, branchId: string): Promise<void>;
 
   // === HOSPITAL MODULE (Inpatient/Стационар) ===
   
@@ -7327,6 +7333,51 @@ export class DatabaseStorage implements IStorage {
         updatedCount += (newResult as any).rowCount || 0;
 
         return { updated: updatedCount };
+      });
+    });
+  }
+
+  // === FACE RECOGNITION IMPLEMENTATION ===
+
+  async getFaceDescriptors(branchId: string): Promise<FaceDescriptor[]> {
+    return withPerformanceLogging('getFaceDescriptors', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        return await dbInstance
+          .select()
+          .from(faceDescriptors)
+          .where(eq(faceDescriptors.branchId, branchId))
+          .orderBy(faceDescriptors.createdAt);
+      });
+    });
+  }
+
+  async saveFaceDescriptor(data: InsertFaceDescriptor): Promise<FaceDescriptor> {
+    return withPerformanceLogging('saveFaceDescriptor', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance
+          .delete(faceDescriptors)
+          .where(and(
+            eq(faceDescriptors.ownerId, data.ownerId),
+            eq(faceDescriptors.branchId, data.branchId),
+          ));
+        const [row] = await dbInstance
+          .insert(faceDescriptors)
+          .values(data)
+          .returning();
+        return row;
+      });
+    });
+  }
+
+  async deleteFaceDescriptorByOwner(ownerId: string, branchId: string): Promise<void> {
+    return withPerformanceLogging('deleteFaceDescriptorByOwner', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance
+          .delete(faceDescriptors)
+          .where(and(
+            eq(faceDescriptors.ownerId, ownerId),
+            eq(faceDescriptors.branchId, branchId),
+          ));
       });
     });
   }

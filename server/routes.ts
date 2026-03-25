@@ -10844,6 +10844,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── РАСПОЗНАВАНИЕ ЛИЦ ───────────────────────────────────────────────────────
+  app.get("/api/face-recognition/descriptors", authenticateToken, async (req, res) => {
+    try {
+      const branchId = (req as any).user?.branchId;
+      if (!branchId) return res.status(400).json({ error: "Не определён филиал" });
+      const descriptors = await storage.getFaceDescriptors(branchId);
+      res.json(descriptors);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/face-recognition/enroll", authenticateToken, async (req, res) => {
+    try {
+      const { ownerId, ownerName, descriptor } = req.body;
+      if (!ownerId || !ownerName || !descriptor) return res.status(400).json({ error: "Нет данных" });
+      const branchId = (req as any).user?.branchId;
+      const tenantId = (req as any).tenantId;
+      if (!branchId || !tenantId) return res.status(400).json({ error: "Не определён филиал" });
+      const saved = await storage.saveFaceDescriptor({ ownerId, ownerName, descriptor, branchId, tenantId });
+      res.json({ success: true, id: saved.id });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/face-recognition/owner/:ownerId", authenticateToken, async (req, res) => {
+    try {
+      const branchId = (req as any).user?.branchId;
+      if (!branchId) return res.status(400).json({ error: "Не определён филиал" });
+      await storage.deleteFaceDescriptorByOwner(req.params.ownerId, branchId);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ─── ГОЛОСОВОЙ АССИСТЕНТ ─────────────────────────────────────────────────────
   app.post("/api/voice-assistant/chat", authenticateToken, async (req, res) => {
     try {
