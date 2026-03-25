@@ -716,15 +716,9 @@ export default function VoiceAssistant() {
             <DialogTitle>Зарегистрировать лицо клиента</DialogTitle>
           </DialogHeader>
 
-          {!cameraActive && (
-            <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 text-sm text-yellow-700 dark:text-yellow-300">
-              Сначала включите камеру на главном экране
-            </div>
-          )}
-
           <div className="space-y-4">
             <div>
-              <p className="text-sm text-muted-foreground mb-2">Найдите клиента в базе:</p>
+              <p className="text-sm text-muted-foreground mb-2">Найдите клиента в базе или введите имя вручную:</p>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -734,6 +728,8 @@ export default function VoiceAssistant() {
                   onChange={e => { setEnrollSearch(e.target.value); setEnrollSelected(null); }}
                 />
               </div>
+
+              {/* Dropdown: results from DB */}
               {enrollOwners.length > 0 && !enrollSelected && (
                 <div className="mt-1 border rounded-md divide-y max-h-40 overflow-y-auto">
                   {enrollOwners.map(o => (
@@ -748,8 +744,23 @@ export default function VoiceAssistant() {
                   ))}
                 </div>
               )}
+
+              {/* No results found — allow manual name */}
+              {enrollSearch.trim().length >= 2 && enrollOwners.length === 0 && !enrollSelected && (
+                <button
+                  className="mt-2 w-full text-left px-3 py-2 text-sm border border-dashed rounded-md hover-elevate flex items-center gap-2 text-muted-foreground"
+                  onClick={() => {
+                    setEnrollSelected({ id: crypto.randomUUID(), name: enrollSearch.trim() });
+                    setEnrollOwners([]);
+                  }}
+                >
+                  <UserPlus className="w-4 h-4 flex-shrink-0" />
+                  <span>Использовать имя <strong className="text-foreground">«{enrollSearch.trim()}»</strong> без привязки к базе</span>
+                </button>
+              )}
             </div>
 
+            {/* Selected client badge */}
             {enrollSelected && (
               <div className="bg-muted rounded-md px-3 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -766,16 +777,28 @@ export default function VoiceAssistant() {
               Попросите клиента смотреть прямо в камеру, затем нажмите кнопку ниже.
             </p>
 
-            <Button
-              className="w-full"
-              disabled={!enrollSelected || !cameraActive || enrollStatus === "capturing" || enrollStatus === "saving" || enrollStatus === "done"}
-              onClick={enrollFace}
-            >
-              {enrollStatus === "capturing" && <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Захватываю лицо...</>}
-              {enrollStatus === "saving" && <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Сохраняю...</>}
-              {enrollStatus === "done" && <>Готово!</>}
-              {enrollStatus === "idle" && <><Camera className="w-4 h-4 mr-2" />Сфотографировать и зарегистрировать</>}
-            </Button>
+            {/* Action button — camera off warning shown inline */}
+            {!cameraActive && enrollSelected ? (
+              <div className="space-y-2">
+                <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 text-sm text-yellow-700 dark:text-yellow-300">
+                  Для фото нужна камера. Закройте это окно, включите камеру, затем откройте регистрацию снова.
+                </div>
+                <Button className="w-full" variant="outline" onClick={() => { setEnrollOpen(false); startCamera(); }}>
+                  <Camera className="w-4 h-4 mr-2" />Включить камеру и вернуться
+                </Button>
+              </div>
+            ) : (
+              <Button
+                className="w-full"
+                disabled={!enrollSelected || enrollStatus === "capturing" || enrollStatus === "saving" || enrollStatus === "done"}
+                onClick={enrollFace}
+              >
+                {enrollStatus === "capturing" && <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Захватываю лицо...</>}
+                {enrollStatus === "saving" && <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Сохраняю...</>}
+                {enrollStatus === "done" && <>Готово!</>}
+                {enrollStatus === "idle" && <><Camera className="w-4 h-4 mr-2" />Сфотографировать и зарегистрировать</>}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
