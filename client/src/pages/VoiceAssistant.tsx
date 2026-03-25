@@ -11,8 +11,28 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
-const MODEL_URL = "/models";
+// Local models (copied to dist/public/models/ by vite build)
+// CDN fallback if local not found (vladmandic/face-api mirrors original weights)
+const MODEL_URL_LOCAL = "/models";
+const MODEL_URL_CDN = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model";
 const RECOGNITION_THRESHOLD = 0.5;
+
+async function loadModelWithFallback(
+  loader: (url: string) => Promise<void>,
+  name: string
+): Promise<void> {
+  try {
+    await loader(MODEL_URL_LOCAL);
+  } catch (e1) {
+    console.warn(`[face-api] Local model "${name}" failed, trying CDN...`, e1);
+    try {
+      await loader(MODEL_URL_CDN);
+    } catch (e2) {
+      console.error(`[face-api] CDN model "${name}" also failed`, e2);
+      throw e2;
+    }
+  }
+}
 
 type Status = "init" | "ready" | "face" | "listening" | "processing" | "speaking";
 
@@ -88,32 +108,40 @@ export default function VoiceAssistant() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ─── Load models progressively ───────────────────────────────────────────────
+  // ─── Load models progressively with CDN fallback ─────────────────────────────
   // Step 1: TinyFaceDetector (189KB) → unlock camera button immediately
   // Step 2+3: Landmark + Recognition models (6.5MB) in background
   const loadModels = useCallback(async () => {
     try {
       // Step 1: tiny detector — fast, unlocks the camera button
       setModelLoadStep(1);
-      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      await loadModelWithFallback(
+        url => faceapi.nets.tinyFaceDetector.loadFromUri(url),
+        "tinyFaceDetector"
+      );
       setDetectorReady(true);
-      setModelsLoaded(true); // camera button unlocks here (detection only)
+      setModelsLoaded(true); // camera button unlocks here
       setStatus("ready");
 
       // Step 2: landmarks (349KB)
       setModelLoadStep(2);
-      await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+      await loadModelWithFallback(
+        url => faceapi.nets.faceLandmark68Net.loadFromUri(url),
+        "faceLandmark68"
+      );
 
       // Step 3: recognition model (6.2MB) — heaviest, loads last
       setModelLoadStep(3);
-      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+      await loadModelWithFallback(
+        url => faceapi.nets.faceRecognitionNet.loadFromUri(url),
+        "faceRecognition"
+      );
       recognitionReadyRef.current = true;
       setRecognitionReady(true);
     } catch (err) {
       console.error("Failed to load face-api models:", err);
-      // Even on error, if detector was loaded, keep it usable
       if (!detectorReady) {
-        setErrorMessage("Не удалось загрузить модели. Перезагрузите страницу.");
+        setErrorMessage("Не удалось загрузить модели. Проверьте интернет-соединение и перезагрузите страницу.");
       }
     }
   }, [detectorReady]);

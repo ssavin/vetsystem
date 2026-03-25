@@ -38,6 +38,17 @@ SQL
 echo "=== [5/6] Сборка фронтенда ==="
 npm run build
 
+echo "=== Проверка моделей face-api в сборке ==="
+if ls dist/public/models/*.json 1> /dev/null 2>&1; then
+  echo "✅ Модели face-api найдены в dist/public/models/"
+  ls -lh dist/public/models/
+else
+  echo "⚠️  Модели НЕ найдены в dist/public/models/ — копируем вручную..."
+  mkdir -p dist/public/models
+  cp -v client/public/models/* dist/public/models/
+  echo "✅ Модели скопированы"
+fi
+
 echo "=== [6/6] Перезапуск PM2 ==="
 pm2 restart vetsystem
 
