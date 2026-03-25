@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { AnimatedAvatarPhoto } from "@/components/AnimatedAvatarPhoto";
 import * as faceapi from "face-api.js";
 import {
   Mic, MicOff, Camera, CameraOff, Bot, User, Volume2,
@@ -944,23 +943,35 @@ export default function VoiceAssistant() {
                   ? `0 0 0 3px ${c}, 0 0 20px ${c}50, 0 8px 24px rgba(0,0,0,0.35)`
                   : `0 0 0 2px ${c}60, 0 8px 24px rgba(0,0,0,0.3)`,
                 transition: "box-shadow .4s",
+                animation: isTalk ? "avBob .6s ease-in-out infinite" : "none",
               }}
             >
-              <div className="relative" style={{ height: 170, borderRadius: "inherit", overflow: "hidden" }}>
-                {/* Animated face: blinking eyes, lip sync, micro head movements */}
-                <AnimatedAvatarPhoto status={status} mouthOpen={mouthOpen} width={150} height={170} />
-
+              <div className="relative" style={{ height: 170 }}>
+                <img
+                  src="/avatar.png"
+                  alt="Ассистент"
+                  draggable={false}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }}
+                />
                 {/* Status dot */}
                 <div style={{
-                  position: "absolute", top: 8, right: 8, zIndex: 2,
+                  position: "absolute", top: 8, right: 8,
                   width: 10, height: 10, borderRadius: "50%",
                   background: c,
                   boxShadow: isPulse ? `0 0 0 3px ${c}40` : "none",
                   animation: isPulse ? "avDot 1.2s ease-in-out infinite" : "none",
                 }} />
+                {/* Speaking overlay */}
+                {isTalk && (
+                  <div style={{
+                    position: "absolute", bottom: 0, left: 0, right: 0, height: "30%",
+                    background: `linear-gradient(to top, ${c}25, transparent)`,
+                    animation: "avMouthPulse .4s ease-in-out infinite alternate",
+                  }} />
+                )}
                 {/* Drag hint */}
                 <div style={{
-                  position: "absolute", top: 6, left: 8, zIndex: 2, opacity: 0.45,
+                  position: "absolute", top: 6, left: 8, opacity: 0.5,
                   fontSize: 10, color: "white", letterSpacing: 2, pointerEvents: "none",
                 }}>⠿</div>
               </div>

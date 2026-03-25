@@ -331,22 +331,3 @@
   100% { transform: scaleY(1); }
 }
 
-/* ── Animated avatar head micro-movements ──────────────────────────────────── */
-@keyframes headIdle {
-  0%,100% { transform: translateY(0px)  rotate(0deg); }
-  30%     { transform: translateY(-2px) rotate(0.4deg); }
-  60%     { transform: translateY(1px)  rotate(-0.3deg); }
-}
-@keyframes headSway {
-  0%,100% { transform: translateY(0px)  rotate(0deg); }
-  25%     { transform: translateY(-3px) rotate(0.5deg); }
-  50%     { transform: translateY(0px)  rotate(-0.4deg); }
-  75%     { transform: translateY(-1px) rotate(0.2deg); }
-}
-@keyframes headBob {
-  0%,100% { transform: translateY(0px)  rotate(0deg); }
-  20%     { transform: translateY(-4px) rotate(0.6deg); }
-  40%     { transform: translateY(1px)  rotate(-0.5deg); }
-  65%     { transform: translateY(-3px) rotate(0.3deg); }
-  85%     { transform: translateY(0px)  rotate(-0.2deg); }
-}
