@@ -80,6 +80,7 @@ export default function VoiceAssistant() {
   const faceMatcherRef = useRef<faceapi.FaceMatcher | null>(null);
   const recognizedOwnerRef = useRef<RecognizedOwner | null>(null);
   const recognitionReadyRef = useRef(false); // avoids stale closure in interval
+  const stoppedRef = useRef(false);          // set on stop — blocks async AI/TTS callbacks
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [status, setStatus] = useState<Status>("init");
@@ -178,9 +179,10 @@ export default function VoiceAssistant() {
 
   // ─── Stop everything ─────────────────────────────────────────────────────────
   const stopEverything = useCallback(() => {
+    stoppedRef.current = true; // block any pending async AI/TTS callbacks
     if (detectionIntervalRef.current) clearInterval(detectionIntervalRef.current);
     detectionIntervalRef.current = null;
-    if (recognitionRef.current) { try { recognitionRef.current.stop(); } catch {} }
+    if (recognitionRef.current) { try { recognitionRef.current.abort(); } catch {} }
     recognitionRef.current = null;
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     streamRef.current = null;
@@ -192,6 +194,7 @@ export default function VoiceAssistant() {
 
   // ─── TTS ─────────────────────────────────────────────────────────────────────
   const speak = useCallback((text: string) => {
+    if (stoppedRef.current) return; // agent was stopped, ignore
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "ru-RU";
@@ -203,6 +206,7 @@ export default function VoiceAssistant() {
     setStatus("speaking");
     utterance.onend = utterance.onerror = () => {
       isSpeakingRef.current = false;
+      if (stoppedRef.current) return; // stopped while speaking
       setStatus(faceDetectedRef.current ? "face" : "ready");
       if (faceDetectedRef.current && !isListeningRef.current) startListening();
     };
@@ -221,7 +225,9 @@ export default function VoiceAssistant() {
     try {
       const history = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
       const res = await apiRequest("POST", "/api/voice-assistant/chat", { text: fullText, history });
+      if (stoppedRef.current) return; // camera was turned off while waiting for AI
       const result = await res.json();
+      if (stoppedRef.current) return;
       const response: string = result.response || "Не могу ответить.";
       const actions: { type: string; data: any }[] = result.actions || [];
 
@@ -237,6 +243,7 @@ export default function VoiceAssistant() {
       setMessages(prev => [...prev, ...newMsgs]);
       speak(response);
     } catch {
+      if (stoppedRef.current) return;
       const errMsg = "Произошла ошибка. Попробуйте снова.";
       setMessages(prev => [...prev, { role: "assistant", content: errMsg, timestamp: new Date() }]);
       speak(errMsg);
@@ -393,6 +400,7 @@ export default function VoiceAssistant() {
   // ─── Camera ───────────────────────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
     if (!modelsLoaded) { toast({ title: "Подождите", description: "Загрузка моделей..." }); return; }
+    stoppedRef.current = false; // reset stop flag — agent is active again
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" }, audio: false });
       streamRef.current = stream;
