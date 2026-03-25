@@ -10856,46 +10856,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Текст не может быть пустым" });
       }
 
-      const OpenAI = (await import("openai")).default;
-      const apiKey = process.env.OPENAI_KEY || process.env.OPENAI_API_KEY;
-      const openai = apiKey ? new OpenAI({ apiKey }) : null;
+      const user = (req as any).user;
+      const tenantId = (req as any).tenantId || user?.tenantId;
+      const branchId = user?.branchId;
 
-      if (!openai) {
-        return res.status(503).json({ error: "OpenAI API не настроен. Добавьте секрет OPENAI_KEY в настройках." });
+      if (!branchId || !tenantId) {
+        return res.status(400).json({ error: "Не удалось определить филиал пользователя" });
       }
 
-      const systemPrompt = `Ты — голосовой ИИ-ассистент ветеринарной клиники VetSystem.
-Ты помогаешь администраторам и врачам клиники с вопросами о:
-- клиентах и владельцах животных
-- пациентах (животных) — болезнях, лечении, симптомах
-- записях на приём, расписании
-- медицинских записях и диагнозах
-- финансах, счетах, оплатах
-- препаратах, услугах и номенклатуре
-- работе персонала клиники
+      const { processVoiceQuery } = await import("./services/voiceAssistantService");
+      const result = await processVoiceQuery(text, history || [], branchId, tenantId);
 
-Правила ответов:
-- Отвечай кратко и по делу, не более 3–4 предложений
-- Говори на русском языке
-- Используй профессиональную, но дружелюбную речь
-- Если вопрос не связан с ветеринарией или клиникой, мягко перенаправь разговор
-- Не используй markdown — отвечай обычным текстом, так как ответ будет озвучен голосом`;
-
-      const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
-        { role: "system", content: systemPrompt },
-        ...(history || []).slice(-6),
-        { role: "user", content: text },
-      ];
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages,
-        max_tokens: 300,
-        temperature: 0.7,
-      });
-
-      const response = completion.choices[0].message.content || "Не могу обработать запрос";
-      res.json({ response });
+      res.json(result);
     } catch (error: any) {
       console.error("Voice assistant error:", error);
       res.status(500).json({ error: "Ошибка ИИ-ассистента", details: error.message });

@@ -126,20 +126,34 @@ export default function VoiceAssistant() {
     setCurrentTranscript("");
 
     const userMsg: Message = { role: "user", content: text, timestamp: new Date() };
-    setMessages(prev => {
-      const updated = [...prev, userMsg];
-      return updated;
-    });
+    setMessages(prev => [...prev, userMsg]);
 
     try {
-      const history = messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
+      const history = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
       const data = await apiRequest("POST", "/api/voice-assistant/chat", { text, history });
       const result = await data.json();
       const response: string = result.response || "Не могу ответить на этот вопрос.";
+      const actions: { type: string; data: any }[] = result.actions || [];
 
-      const assistantMsg: Message = { role: "assistant", content: response, timestamp: new Date() };
-      setMessages(prev => [...prev, assistantMsg]);
-
+      // Показываем действия как системные сообщения
+      const newMessages: Message[] = [{ role: "assistant", content: response, timestamp: new Date() }];
+      for (const action of actions) {
+        if (action.type === "appointment_booked" && action.data?.summary) {
+          newMessages.push({
+            role: "assistant",
+            content: `✓ ${action.data.summary}`,
+            timestamp: new Date(),
+          });
+        }
+        if (action.type === "appointment_cancelled") {
+          newMessages.push({
+            role: "assistant",
+            content: `✓ Запись отменена`,
+            timestamp: new Date(),
+          });
+        }
+      }
+      setMessages(prev => [...prev, ...newMessages]);
       speak(response);
     } catch (err: any) {
       console.error("AI error:", err);
@@ -437,10 +451,12 @@ export default function VoiceAssistant() {
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mt-2 max-w-md">
                 {[
-                  "Сколько записей на сегодня?",
-                  "Напомни правила вакцинации собак",
-                  "Как добавить нового клиента?",
-                  "Что такое парвовирус?",
+                  "Кто записан сегодня к доктору Ивановой?",
+                  "Найди владельца Петрова",
+                  "Запиши кота Барсика к доктору Смирновой на завтра в 10:00",
+                  "Отмени запись номер ...",
+                  "Покажи расписание на пятницу",
+                  "Есть ли свободное время сегодня после обеда?",
                 ].map(hint => (
                   <div key={hint} className="bg-muted rounded-md px-3 py-2 text-xs">
                     "{hint}"
