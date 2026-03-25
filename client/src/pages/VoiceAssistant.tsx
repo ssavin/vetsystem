@@ -181,7 +181,10 @@ export default function VoiceAssistant() {
       const newMsgs: Message[] = [{ role: "assistant", content: response, timestamp: new Date() }];
       for (const a of actions) {
         if (a.type === "appointment_booked" && a.data?.summary) {
-          newMsgs.push({ role: "assistant", content: `✓ ${a.data.summary}`, timestamp: new Date() });
+          newMsgs.push({ role: "assistant", content: `✓ Запись: ${a.data.summary}`, timestamp: new Date() });
+        }
+        if (a.type === "payment_processed" && a.data?.summary) {
+          newMsgs.push({ role: "assistant", content: `💳 Оплата: ${a.data.summary}`, timestamp: new Date() });
         }
       }
       setMessages(prev => [...prev, ...newMsgs]);
@@ -556,11 +559,11 @@ export default function VoiceAssistant() {
               <div className="grid grid-cols-2 gap-2 max-w-md w-full">
                 {[
                   "Кто записан сегодня?",
-                  "Найди владельца Петрова",
-                  "Запиши кота Мурзика к врачу на завтра в 10:00",
-                  "Покажи расписание на пятницу",
-                  "Отмени запись Иванова",
-                  "Есть ли свободное время после 14:00?",
+                  "Найди счета Петрова",
+                  "Запиши кота на завтра в 10:00",
+                  "Принять оплату наличными от Иванова",
+                  "Какая выручка за сегодня?",
+                  "Отмени запись Сидорова",
                 ].map(h => (
                   <div key={h} className="bg-muted rounded-md px-3 py-2 text-xs text-muted-foreground">"{h}"</div>
                 ))}
