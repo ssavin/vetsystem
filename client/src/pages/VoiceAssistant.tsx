@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { AvatarFace } from "@/components/AvatarFace";
 
 // Local models (copied to dist/public/models/ by vite build)
 // CDN fallback if local not found (vladmandic/face-api mirrors original weights)
@@ -85,6 +84,12 @@ export default function VoiceAssistant() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const animFrameRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // ─── Floating avatar drag state ───────────────────────────────────────────────
+  const avatarFloatRef = useRef<HTMLDivElement>(null);
+  const dragOffsetRef  = useRef({ x: 0, y: 0 });
+  const isDraggingRef2 = useRef(false);
+  const avatarPosRef   = useRef({ x: typeof window !== "undefined" ? window.innerWidth - 180 : 1100, y: 80 });
 
   const [mouthOpen, setMouthOpen] = useState(0);
   const [status, setStatus] = useState<Status>("init");
@@ -164,22 +169,53 @@ export default function VoiceAssistant() {
       }
 
       const labeled = data.map((item: any) => {
-        const arr = new Float32Array(item.descriptor as number[]);
+        // JSONB can come back as array, string, or object — handle all cases
+        let raw = item.descriptor;
+        if (typeof raw === "string") {
+          try { raw = JSON.parse(raw); } catch { raw = []; }
+        }
+        const nums: number[] = Array.isArray(raw)
+          ? raw
+          : Object.values(raw as Record<string, number>);
+        const arr = new Float32Array(nums);
         return new faceapi.LabeledFaceDescriptors(
           `${item.ownerName}__${item.ownerId}`,
           [arr]
         );
       });
       faceMatcherRef.current = new faceapi.FaceMatcher(labeled, RECOGNITION_THRESHOLD);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load face descriptors:", err);
+      toast({ title: "Ошибка загрузки лиц", description: err.message, variant: "destructive" });
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     loadModels().then(() => loadDescriptors());
     return () => stopEverything();
   }, []);
+
+  // ─── Floating avatar drag handlers ───────────────────────────────────────────
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isDraggingRef2.current || !avatarFloatRef.current) return;
+      const x = Math.max(0, Math.min(window.innerWidth - 160, e.clientX - dragOffsetRef.current.x));
+      const y = Math.max(0, Math.min(window.innerHeight - 210, e.clientY - dragOffsetRef.current.y));
+      avatarPosRef.current = { x, y };
+      avatarFloatRef.current.style.left = `${x}px`;
+      avatarFloatRef.current.style.top = `${y}px`;
+    };
+    const onUp = () => { isDraggingRef2.current = false; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, []);
+
+  const onAvatarMouseDown = (e: React.MouseEvent) => {
+    isDraggingRef2.current = true;
+    dragOffsetRef.current = { x: e.clientX - avatarPosRef.current.x, y: e.clientY - avatarPosRef.current.y };
+    e.preventDefault();
+  };
 
   // ─── Stop everything ─────────────────────────────────────────────────────────
   const stopEverything = useCallback(() => {
@@ -616,10 +652,8 @@ export default function VoiceAssistant() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Avatar + Camera panel */}
-        <div className="flex flex-col items-center bg-muted/30 border-r p-4 gap-3 overflow-y-auto" style={{ minWidth: 340, width: 380 }}>
-          {/* Avatar face */}
-          <AvatarFace status={status} mouthOpen={mouthOpen} />
+        {/* Left: Camera panel */}
+        <div className="flex flex-col items-center bg-muted/30 border-r p-3 gap-3 overflow-y-auto" style={{ minWidth: 260, width: 280 }}>
 
           {/* Camera view */}
           <div className="relative rounded-md overflow-hidden bg-black w-full" style={{ aspectRatio: "4/3" }}>
@@ -874,6 +908,109 @@ export default function VoiceAssistant() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Floating avatar window (draggable) ──────────────────────────────── */}
+      {(() => {
+        const COLOR: Record<Status, string> = {
+          init: "#94a3b8", ready: "#94a3b8", face: "#22c55e",
+          listening: "#3b82f6", processing: "#f59e0b", speaking: "#a855f7",
+        };
+        const LABEL: Record<Status, string> = {
+          init: "", ready: "Ожидание", face: "Клиент обнаружен",
+          listening: "Слушаю...", processing: "Думаю...", speaking: "Говорю...",
+        };
+        const c = COLOR[status];
+        const isPulse = status === "listening" || status === "speaking" || status === "processing";
+        const isTalk = status === "speaking";
+        return (
+          <div
+            ref={avatarFloatRef}
+            onMouseDown={onAvatarMouseDown}
+            style={{
+              position: "fixed",
+              left: avatarPosRef.current.x,
+              top: avatarPosRef.current.y,
+              zIndex: 50,
+              cursor: "grab",
+              userSelect: "none",
+              width: 150,
+            }}
+          >
+            <div
+              className="rounded-2xl overflow-hidden select-none"
+              style={{
+                boxShadow: isPulse
+                  ? `0 0 0 3px ${c}, 0 0 20px ${c}50, 0 8px 24px rgba(0,0,0,0.35)`
+                  : `0 0 0 2px ${c}60, 0 8px 24px rgba(0,0,0,0.3)`,
+                transition: "box-shadow .4s",
+                animation: isTalk ? "avBob .6s ease-in-out infinite" : "none",
+              }}
+            >
+              <div className="relative" style={{ height: 170 }}>
+                <img
+                  src="/avatar.png"
+                  alt="Ассистент"
+                  draggable={false}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }}
+                />
+                {/* Status dot */}
+                <div style={{
+                  position: "absolute", top: 8, right: 8,
+                  width: 10, height: 10, borderRadius: "50%",
+                  background: c,
+                  boxShadow: isPulse ? `0 0 0 3px ${c}40` : "none",
+                  animation: isPulse ? "avDot 1.2s ease-in-out infinite" : "none",
+                }} />
+                {/* Speaking overlay */}
+                {isTalk && (
+                  <div style={{
+                    position: "absolute", bottom: 0, left: 0, right: 0, height: "30%",
+                    background: `linear-gradient(to top, ${c}25, transparent)`,
+                    animation: "avMouthPulse .4s ease-in-out infinite alternate",
+                  }} />
+                )}
+                {/* Drag hint */}
+                <div style={{
+                  position: "absolute", top: 6, left: 8, opacity: 0.5,
+                  fontSize: 10, color: "white", letterSpacing: 2, pointerEvents: "none",
+                }}>⠿</div>
+              </div>
+
+              {/* Status label bar */}
+              <div style={{
+                background: "rgba(15,17,24,0.88)",
+                backdropFilter: "blur(6px)",
+                padding: "5px 10px",
+                textAlign: "center",
+              }}>
+                {LABEL[status] ? (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: c }}>{LABEL[status]}</span>
+                ) : (
+                  <span style={{ fontSize: 11, color: "#6b7280" }}>ИИ-ассистент</span>
+                )}
+              </div>
+            </div>
+
+            {/* Sound wave under avatar when speaking */}
+            {isTalk && (
+              <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 3, height: 24, marginTop: 6 }}>
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} style={{
+                    width: 3, borderRadius: 2, background: c, opacity: 0.8,
+                    height: Math.max(4, Math.round((mouthOpen > 0.05 ? mouthOpen : 0.3 + Math.sin(i * 1.3) * 0.3) * 22)),
+                    animationName: "avWave",
+                    animationDuration: `${0.3 + (i % 4) * 0.1}s`,
+                    animationTimingFunction: "ease-in-out",
+                    animationDelay: `${i * 0.06}s`,
+                    animationIterationCount: "infinite",
+                    animationDirection: "alternate",
+                  }} />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
