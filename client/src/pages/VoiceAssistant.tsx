@@ -59,10 +59,14 @@ export default function VoiceAssistant() {
   const streamRef = useRef<MediaStream | null>(null);
   const faceMatcherRef = useRef<faceapi.FaceMatcher | null>(null);
   const recognizedOwnerRef = useRef<RecognizedOwner | null>(null);
+  const recognitionReadyRef = useRef(false); // avoids stale closure in interval
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [status, setStatus] = useState<Status>("init");
-  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [modelsLoaded, setModelsLoaded] = useState(false);        // full: detector + landmarks + recognition
+  const [detectorReady, setDetectorReady] = useState(false);      // minimal: just face detector (189KB)
+  const [recognitionReady, setRecognitionReady] = useState(false); // all 3 models done
+  const [modelLoadStep, setModelLoadStep] = useState(0);           // 0=init 1=detector 2=landmarks 3=recognition
   const [cameraActive, setCameraActive] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState("");
@@ -84,20 +88,35 @@ export default function VoiceAssistant() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ─── Load all models ─────────────────────────────────────────────────────────
+  // ─── Load models progressively ───────────────────────────────────────────────
+  // Step 1: TinyFaceDetector (189KB) → unlock camera button immediately
+  // Step 2+3: Landmark + Recognition models (6.5MB) in background
   const loadModels = useCallback(async () => {
     try {
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-      ]);
-      setModelsLoaded(true);
+      // Step 1: tiny detector — fast, unlocks the camera button
+      setModelLoadStep(1);
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      setDetectorReady(true);
+      setModelsLoaded(true); // camera button unlocks here (detection only)
+      setStatus("ready");
+
+      // Step 2: landmarks (349KB)
+      setModelLoadStep(2);
+      await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+
+      // Step 3: recognition model (6.2MB) — heaviest, loads last
+      setModelLoadStep(3);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+      recognitionReadyRef.current = true;
+      setRecognitionReady(true);
     } catch (err) {
       console.error("Failed to load face-api models:", err);
-      setErrorMessage("Не удалось загрузить модели распознавания лица");
+      // Even on error, if detector was loaded, keep it usable
+      if (!detectorReady) {
+        setErrorMessage("Не удалось загрузить модели. Перезагрузите страницу.");
+      }
     }
-  }, []);
+  }, [detectorReady]);
 
   // ─── Load face descriptors and build matcher ──────────────────────────────────
   const loadDescriptors = useCallback(async () => {
@@ -256,26 +275,62 @@ export default function VoiceAssistant() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       try {
-        // Run full pipeline: detect + landmarks + descriptor
-        const detections = await faceapi
-          .detectAllFaces(video, options)
-          .withFaceLandmarks()
-          .withFaceDescriptors();
+        let hasFace = false;
+        let detectionBoxes: faceapi.FaceDetection[] = [];
 
-        const hasFace = detections.length > 0;
+        if (recognitionReadyRef.current) {
+          // Full pipeline: detect + landmarks + descriptor (for recognition)
+          const full = await faceapi
+            .detectAllFaces(video, options)
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+          hasFace = full.length > 0;
+          detectionBoxes = full.map(d => d.detection);
+
+          if (hasFace) {
+            // Recognition attempt
+            if (faceMatcherRef.current && full[0]) {
+              const match = faceMatcherRef.current.findBestMatch(full[0].descriptor);
+              if (match.label !== "unknown") {
+                const [ownerName, ownerId] = match.label.split("__");
+                const prev = recognizedOwnerRef.current;
+                if (!prev || prev.ownerId !== ownerId) {
+                  const recognized: RecognizedOwner = { ownerId, ownerName, distance: match.distance };
+                  recognizedOwnerRef.current = recognized;
+                  setRecognizedOwner(recognized);
+                  if (!isSpeakingRef.current) {
+                    speak(`Здравствуйте, ${ownerName}!`);
+                    setMessages(prev => [...prev, {
+                      role: "assistant",
+                      content: `Система: клиент ${ownerName} подошёл к стойке`,
+                      timestamp: new Date(),
+                    }]);
+                  }
+                }
+              } else {
+                if (recognizedOwnerRef.current) { recognizedOwnerRef.current = null; setRecognizedOwner(null); }
+              }
+            }
+          }
+        } else {
+          // Minimal pipeline: detection only (while recognition model still loading)
+          const basic = await faceapi.detectAllFaces(video, options);
+          hasFace = basic.length > 0;
+          detectionBoxes = basic;
+        }
 
         if (hasFace) {
-          const resized = faceapi.resizeResults(detections, { width: canvas.width, height: canvas.height });
+          const scaleX = canvas.width / (video.videoWidth || 640);
+          const scaleY = canvas.height / (video.videoHeight || 480);
 
-          // Draw face box
-          resized.forEach(det => {
-            const { x, y, width, height } = det.detection.box;
+          detectionBoxes.forEach(det => {
+            const { x, y, width, height } = det.box;
             const isKnown = recognizedOwnerRef.current !== null;
             ctx.strokeStyle = isKnown ? "#22c55e" : "#3b82f6";
             ctx.lineWidth = 2;
             ctx.shadowColor = isKnown ? "#22c55e" : "#3b82f6";
             ctx.shadowBlur = 10;
-            ctx.strokeRect(x, y, width, height);
+            ctx.strokeRect(x * scaleX, y * scaleY, width * scaleX, height * scaleY);
 
             if (isKnown && recognizedOwnerRef.current) {
               ctx.shadowBlur = 0;
@@ -283,42 +338,11 @@ export default function VoiceAssistant() {
               const label = recognizedOwnerRef.current.ownerName;
               ctx.font = "bold 14px sans-serif";
               const tw = ctx.measureText(label).width;
-              ctx.fillRect(x, y - 24, tw + 16, 22);
+              ctx.fillRect(x * scaleX, y * scaleY - 24, tw + 16, 22);
               ctx.fillStyle = "#fff";
-              ctx.fillText(label, x + 8, y - 7);
+              ctx.fillText(label, x * scaleX + 8, y * scaleY - 7);
             }
           });
-
-          // Recognition attempt
-          if (faceMatcherRef.current && detections[0]) {
-            const match = faceMatcherRef.current.findBestMatch(detections[0].descriptor);
-            if (match.label !== "unknown") {
-              const [ownerName, ownerId] = match.label.split("__");
-              const prev = recognizedOwnerRef.current;
-              if (!prev || prev.ownerId !== ownerId) {
-                const recognized: RecognizedOwner = { ownerId, ownerName, distance: match.distance };
-                recognizedOwnerRef.current = recognized;
-                setRecognizedOwner(recognized);
-
-                // Greet and inform AI
-                const greeting = `Перед камерой клиент: ${ownerName}`;
-                if (!isSpeakingRef.current) {
-                  speak(`Здравствуйте, ${ownerName}!`);
-                  // Add context for the AI silently
-                  setMessages(prev => [...prev, {
-                    role: "assistant",
-                    content: `Система: клиент ${ownerName} подошёл к стойке`,
-                    timestamp: new Date(),
-                  }]);
-                }
-              }
-            } else {
-              if (recognizedOwnerRef.current) {
-                recognizedOwnerRef.current = null;
-                setRecognizedOwner(null);
-              }
-            }
-          }
         }
 
         if (hasFace && !faceDetectedRef.current) {
@@ -430,9 +454,12 @@ export default function VoiceAssistant() {
   }, [loadDescriptors, toast]);
 
   // ─── Status display ───────────────────────────────────────────────────────────
+  const modelStepLabels = ["", "Загрузка детектора...", "Загрузка ориентиров...", "Загрузка распознавания..."];
+  const modelProgress = Math.round((modelLoadStep / 3) * 100);
+
   const statusConfig: Record<Status, { label: string; color: string; pulse: boolean }> = {
-    init:       { label: "Инициализация...", color: "bg-muted text-muted-foreground", pulse: false },
-    ready:      { label: "Направьте камеру на лицо", color: "bg-secondary text-secondary-foreground", pulse: false },
+    init:       { label: modelLoadStep > 0 ? modelStepLabels[modelLoadStep] : "Инициализация...", color: "bg-muted text-muted-foreground", pulse: modelLoadStep > 0 },
+    ready:      { label: recognitionReady ? "Готов · Распознавание активно" : "Готов · Загрузка распознавания...", color: "bg-secondary text-secondary-foreground", pulse: !recognitionReady },
     face:       { label: "Лицо обнаружено — говорите!", color: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300", pulse: true },
     listening:  { label: "Слушаю...", color: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300", pulse: true },
     processing: { label: "Думаю...", color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300", pulse: true },
@@ -442,25 +469,46 @@ export default function VoiceAssistant() {
 
   return (
     <div className="flex flex-col h-full bg-background">
+      {/* Model loading progress bar — shows while recognition model downloads */}
+      {modelsLoaded && !recognitionReady && (
+        <div className="h-1 bg-muted">
+          <div
+            className="h-full bg-primary transition-all duration-500"
+            style={{ width: `${modelProgress}%` }}
+          />
+        </div>
+      )}
+      {!modelsLoaded && (
+        <div className="h-1 bg-muted">
+          <div className="h-full bg-primary animate-pulse" style={{ width: `${modelProgress}%` }} />
+        </div>
+      )}
+
       {/* Header */}
       <div className="border-b px-6 py-3 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-md bg-primary/10"><Bot className="w-5 h-5 text-primary" /></div>
           <div>
             <h1 className="text-base font-semibold">Голосовой ИИ-ассистент</h1>
-            <p className="text-xs text-muted-foreground">Ветеринарная клиника · GPT-4o · Распознавание лиц</p>
+            <p className="text-xs text-muted-foreground">
+              Ветеринарная клиника · GPT-4o{recognitionReady ? " · Распознавание лиц ✓" : modelLoadStep > 0 ? ` · ${modelStepLabels[modelLoadStep]}` : ""}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Badge className={`${cfg.color} no-default-active-elevate ${cfg.pulse ? "animate-pulse" : ""}`}>
             {cfg.label}
           </Badge>
-          <Button size="sm" variant="outline" onClick={() => setEnrollOpen(true)}>
-            <UserPlus className="w-4 h-4 mr-1" />Зарегистрировать лицо
+          <Button size="sm" variant="outline" onClick={() => setEnrollOpen(true)} disabled={!recognitionReady}>
+            <UserPlus className="w-4 h-4 mr-1" />
+            {recognitionReady ? "Зарегистрировать лицо" : "Загрузка..."}
           </Button>
           {!cameraActive ? (
             <Button size="sm" onClick={startCamera} disabled={!modelsLoaded}>
-              {!modelsLoaded ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Загрузка</> : <><Camera className="w-4 h-4 mr-1" />Включить камеру</>}
+              {!modelsLoaded
+                ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" />{modelLoadStep > 0 ? `${modelProgress}%` : "Загрузка"}</>
+                : <><Camera className="w-4 h-4 mr-1" />Включить камеру</>
+              }
             </Button>
           ) : (
             <Button size="sm" variant="destructive" onClick={stopCamera}>
