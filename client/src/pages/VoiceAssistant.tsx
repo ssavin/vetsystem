@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { AvatarFace } from "@/components/AvatarFace";
 
 // Local models (copied to dist/public/models/ by vite build)
 // CDN fallback if local not found (vladmandic/face-api mirrors original weights)
@@ -81,8 +82,11 @@ export default function VoiceAssistant() {
   const recognizedOwnerRef = useRef<RecognizedOwner | null>(null);
   const recognitionReadyRef = useRef(false); // avoids stale closure in interval
   const stoppedRef = useRef(false);          // set on stop — blocks async AI/TTS callbacks
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const animFrameRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const [mouthOpen, setMouthOpen] = useState(0);
   const [status, setStatus] = useState<Status>("init");
   const [modelsLoaded, setModelsLoaded] = useState(false);        // full: detector + landmarks + recognition
   const [detectorReady, setDetectorReady] = useState(false);      // minimal: just face detector (189KB)
@@ -186,32 +190,89 @@ export default function VoiceAssistant() {
     recognitionRef.current = null;
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     streamRef.current = null;
+    // Stop OpenAI TTS audio
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch {} audioCtxRef.current = null; }
+    setMouthOpen(0);
     window.speechSynthesis.cancel();
     isListeningRef.current = false;
     isSpeakingRef.current = false;
     faceDetectedRef.current = false;
   }, []);
 
-  // ─── TTS ─────────────────────────────────────────────────────────────────────
-  const speak = useCallback((text: string) => {
-    if (stoppedRef.current) return; // agent was stopped, ignore
+  // ─── TTS via OpenAI (with browser fallback) ──────────────────────────────────
+  const speak = useCallback(async (text: string) => {
+    if (stoppedRef.current) return;
+
+    // Cancel previous audio
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "ru-RU";
-    utterance.rate = 1.05;
-    const voices = window.speechSynthesis.getVoices();
-    const ru = voices.find(v => v.lang.startsWith("ru"));
-    if (ru) utterance.voice = ru;
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch {} audioCtxRef.current = null; }
+    setMouthOpen(0);
+
     isSpeakingRef.current = true;
     setStatus("speaking");
-    utterance.onend = utterance.onerror = () => {
+
+    const onEnd = () => {
       isSpeakingRef.current = false;
-      if (stoppedRef.current) return; // stopped while speaking
+      setMouthOpen(0);
+      if (stoppedRef.current) return;
       setStatus(faceDetectedRef.current ? "face" : "ready");
       if (faceDetectedRef.current && !isListeningRef.current) startListening();
     };
-    window.speechSynthesis.speak(utterance);
-  }, []);
+
+    try {
+      const res = await apiRequest("POST", "/api/voice-assistant/tts", { text, voice: "nova" });
+      if (stoppedRef.current) return;
+
+      const arrayBuffer = await res.arrayBuffer();
+      if (stoppedRef.current) return;
+
+      const audioCtx = new AudioContext();
+      audioCtxRef.current = audioCtx;
+
+      const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+      if (stoppedRef.current) { audioCtx.close(); return; }
+
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      const source = audioCtx.createBufferSource();
+      source.buffer = decoded;
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteFrequencyData(dataArray);
+        // Voice frequencies: bins 2–15 correspond to ~170–1300 Hz
+        const slice = Array.from(dataArray.slice(2, 16));
+        const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
+        setMouthOpen(Math.min(1, avg / 72));
+        animFrameRef.current = requestAnimationFrame(tick);
+      };
+
+      source.onended = () => {
+        cancelAnimationFrame(animFrameRef.current);
+        audioCtx.close();
+        audioCtxRef.current = null;
+        onEnd();
+      };
+
+      tick();
+      source.start(0);
+    } catch (err) {
+      console.warn("[TTS] OpenAI failed, using browser fallback:", err);
+      setMouthOpen(0);
+      // Browser TTS fallback
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "ru-RU";
+      utterance.rate = 1.05;
+      const ru = window.speechSynthesis.getVoices().find(v => v.lang.startsWith("ru"));
+      if (ru) utterance.voice = ru;
+      utterance.onend = utterance.onerror = onEnd;
+      window.speechSynthesis.speak(utterance);
+    }
+  }, []); // intentionally empty deps — uses refs only
 
   // ─── Send to AI ──────────────────────────────────────────────────────────────
   const sendToAI = useCallback(async (text: string, autoContext?: string) => {
@@ -555,10 +616,13 @@ export default function VoiceAssistant() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Camera panel */}
-        <div className="flex flex-col items-center bg-muted/30 border-r p-4 gap-3" style={{ minWidth: 340, width: 380 }}>
+        {/* Left: Avatar + Camera panel */}
+        <div className="flex flex-col items-center bg-muted/30 border-r p-4 gap-3 overflow-y-auto" style={{ minWidth: 340, width: 380 }}>
+          {/* Avatar face */}
+          <AvatarFace status={status} mouthOpen={mouthOpen} />
+
           {/* Camera view */}
-          <div className="relative rounded-md overflow-hidden bg-black w-full aspect-[4/3]">
+          <div className="relative rounded-md overflow-hidden bg-black w-full" style={{ aspectRatio: "4/3" }}>
             <video ref={videoRef} className="w-full h-full object-cover" muted playsInline style={{ transform: "scaleX(-1)" }} />
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ transform: "scaleX(-1)" }} />
             {!cameraActive && (

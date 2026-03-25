@@ -10882,6 +10882,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ─── ГОЛОСОВОЙ АССИСТЕНТ ─────────────────────────────────────────────────────
+
+  // TTS — синтез речи через OpenAI (returns audio/mpeg)
+  app.post("/api/voice-assistant/tts", authenticateToken, async (req, res) => {
+    try {
+      const { text, voice = "nova" } = req.body as { text: string; voice?: string };
+      if (!text?.trim()) return res.status(400).json({ error: "Текст не может быть пустым" });
+
+      const apiKey = process.env.OPENAI_KEY || process.env.OPENAI_API_KEY;
+      if (!apiKey) return res.status(503).json({ error: "OpenAI TTS не настроен" });
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey });
+
+      const mp3 = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: voice as any,
+        input: text.slice(0, 4096),
+        response_format: "mp3",
+      });
+
+      const buffer = Buffer.from(await mp3.arrayBuffer());
+      res.set({ "Content-Type": "audio/mpeg", "Content-Length": buffer.length });
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("TTS error:", error);
+      res.status(500).json({ error: "Ошибка синтеза речи", details: error.message });
+    }
+  });
+
   app.post("/api/voice-assistant/chat", authenticateToken, async (req, res) => {
     try {
       const { text, history } = req.body as {
