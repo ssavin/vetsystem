@@ -483,7 +483,7 @@ ${clinicContext}
   const actions: { type: string; data: any }[] = [];
 
   let response = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4o-mini",
     messages,
     tools: TOOLS,
     tool_choice: "auto",
@@ -523,7 +523,7 @@ ${clinicContext}
     }
 
     response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages,
       tools: TOOLS,
       tool_choice: "auto",
