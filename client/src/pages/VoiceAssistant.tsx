@@ -420,9 +420,9 @@ export default function VoiceAssistant() {
   const searchOwners = useCallback(async (q: string) => {
     if (q.length < 2) { setEnrollOwners([]); return; }
     try {
-      const res = await apiRequest("GET", `/api/owners?search=${encodeURIComponent(q)}&limit=8`);
+      const res = await apiRequest("GET", `/api/owners?search=${encodeURIComponent(q)}&limit=8&page=1`);
       const data = await res.json();
-      setEnrollOwners((data.data || data || []).slice(0, 8));
+      setEnrollOwners((data.data || []).slice(0, 8));
     } catch { setEnrollOwners([]); }
   }, []);
 
