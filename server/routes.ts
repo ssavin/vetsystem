@@ -10857,12 +10857,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const OpenAI = (await import("openai")).default;
-      const openai = process.env.OPENAI_API_KEY
-        ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-        : null;
+      const apiKey = process.env.OPENAI_KEY || process.env.OPENAI_API_KEY;
+      const openai = apiKey ? new OpenAI({ apiKey }) : null;
 
       if (!openai) {
-        return res.status(503).json({ error: "OpenAI API не настроен" });
+        return res.status(503).json({ error: "OpenAI API не настроен. Добавьте секрет OPENAI_KEY в настройках." });
       }
 
       const systemPrompt = `Ты — голосовой ИИ-ассистент ветеринарной клиники VetSystem.
