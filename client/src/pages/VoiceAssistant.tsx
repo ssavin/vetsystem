@@ -85,6 +85,14 @@ export default function VoiceAssistant() {
   const animFrameRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // ─── D-ID Streams state ───────────────────────────────────────────────────────
+  const didVideoRef      = useRef<HTMLVideoElement>(null);
+  const didStreamIdRef   = useRef<string | null>(null);
+  const didSessionIdRef  = useRef<string | null>(null);
+  const didPCRef         = useRef<RTCPeerConnection | null>(null);
+  const didSpeakEndRef   = useRef<(() => void) | null>(null);
+  const [didConnected, setDidConnected] = useState(false);
+
   // ─── Floating avatar drag state ───────────────────────────────────────────────
   const avatarFloatRef = useRef<HTMLDivElement>(null);
   const dragOffsetRef  = useRef({ x: 0, y: 0 });
@@ -217,7 +225,78 @@ export default function VoiceAssistant() {
     e.preventDefault();
   };
 
-  // ─── Stop everything ─────────────────────────────────────────────────────────
+  // ─── D-ID stream init / destroy ──────────────────────────────────────────────
+  const initDIDStream = useCallback(async () => {
+    try {
+      console.log("[D-ID] Initializing stream...");
+      const res = await apiRequest("POST", "/api/did/stream", {});
+      const { id, session_id, offer, ice_servers } = await res.json();
+      didStreamIdRef.current  = id;
+      didSessionIdRef.current = session_id;
+
+      const pc = new RTCPeerConnection({ iceServers: ice_servers });
+      didPCRef.current = pc;
+
+      // Video track → show in avatar window
+      pc.ontrack = (e) => {
+        if (didVideoRef.current && e.streams[0]) {
+          didVideoRef.current.srcObject = e.streams[0];
+          setDidConnected(true);
+          console.log("[D-ID] Video track received");
+        }
+      };
+
+      // ICE candidate forwarding
+      pc.onicecandidate = async ({ candidate }) => {
+        if (!candidate) return;
+        try {
+          await apiRequest("POST", `/api/did/stream/${id}/ice`, {
+            candidate: { candidate: candidate.candidate, sdpMid: candidate.sdpMid, sdpMLineIndex: candidate.sdpMLineIndex },
+            session_id,
+          });
+        } catch {}
+      };
+
+      // Data channel: D-ID sends stream/done when avatar stops speaking
+      pc.ondatachannel = ({ channel }) => {
+        channel.onmessage = ({ data }) => {
+          try {
+            const msg = JSON.parse(data);
+            const evType = msg.type || msg.event || "";
+            if (evType.includes("done") && didSpeakEndRef.current) {
+              didSpeakEndRef.current();
+              didSpeakEndRef.current = null;
+            }
+          } catch {}
+        };
+      };
+
+      await pc.setRemoteDescription(offer);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await apiRequest("POST", `/api/did/stream/${id}/sdp`, {
+        answer: { type: answer.type, sdp: answer.sdp },
+        session_id,
+      });
+      console.log("[D-ID] WebRTC signaling complete, stream id:", id);
+    } catch (err) {
+      console.warn("[D-ID] init failed:", err);
+    }
+  }, []);
+
+  const destroyDIDStream = useCallback(async () => {
+    const id = didStreamIdRef.current;
+    const session_id = didSessionIdRef.current;
+    didStreamIdRef.current  = null;
+    didSessionIdRef.current = null;
+    setDidConnected(false);
+    if (didPCRef.current) { try { didPCRef.current.close(); } catch {} didPCRef.current = null; }
+    if (id && session_id) {
+      try { await apiRequest("DELETE", `/api/did/stream/${id}`, { session_id }); } catch {}
+    }
+    console.log("[D-ID] Stream destroyed");
+  }, []);
+
   const stopEverything = useCallback(() => {
     stoppedRef.current = true; // block any pending async AI/TTS callbacks
     if (detectionIntervalRef.current) clearInterval(detectionIntervalRef.current);
@@ -236,11 +315,10 @@ export default function VoiceAssistant() {
     faceDetectedRef.current = false;
   }, []);
 
-  // ─── TTS via OpenAI (with browser fallback) ──────────────────────────────────
+  // ─── TTS: D-ID stream → OpenAI TTS → Browser fallback ───────────────────────
   const speak = useCallback(async (text: string) => {
     if (stoppedRef.current) return;
 
-    // Cancel previous audio
     window.speechSynthesis.cancel();
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch {} audioCtxRef.current = null; }
@@ -257,6 +335,35 @@ export default function VoiceAssistant() {
       if (faceDetectedRef.current && !isListeningRef.current) startListening();
     };
 
+    // ── 1. Try D-ID stream ──────────────────────────────────────────────────
+    const streamId  = didStreamIdRef.current;
+    const sessionId = didSessionIdRef.current;
+    if (streamId && sessionId) {
+      try {
+        didSpeakEndRef.current = onEnd;
+        await apiRequest("POST", `/api/did/stream/${streamId}/speak`, { text, session_id: sessionId });
+        if (didVideoRef.current) {
+          try { await didVideoRef.current.play(); } catch {}
+        }
+        // onEnd is called by the data channel "stream/done" event
+        // Safety timeout: ~80ms per word + 3s buffer
+        const wordCount = text.split(/\s+/).length;
+        const timeout = wordCount * 80 + 3000;
+        setTimeout(() => {
+          if (didSpeakEndRef.current === onEnd) {
+            console.warn("[D-ID] stream/done timeout — calling onEnd manually");
+            didSpeakEndRef.current = null;
+            onEnd();
+          }
+        }, timeout);
+        return;
+      } catch (err) {
+        console.warn("[D-ID] speak failed, falling back to OpenAI TTS:", err);
+        didSpeakEndRef.current = null;
+      }
+    }
+
+    // ── 2. OpenAI TTS fallback ──────────────────────────────────────────────
     try {
       const res = await apiRequest("POST", "/api/voice-assistant/tts", { text, voice: "nova" });
       if (stoppedRef.current) return;
@@ -266,7 +373,6 @@ export default function VoiceAssistant() {
 
       const audioCtx = new AudioContext();
       audioCtxRef.current = audioCtx;
-
       const decoded = await audioCtx.decodeAudioData(arrayBuffer);
       if (stoppedRef.current) { audioCtx.close(); return; }
 
@@ -280,26 +386,18 @@ export default function VoiceAssistant() {
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
         analyser.getByteFrequencyData(dataArray);
-        // Voice frequencies: bins 2–15 correspond to ~170–1300 Hz
         const slice = Array.from(dataArray.slice(2, 16));
         const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
         setMouthOpen(Math.min(1, avg / 72));
         animFrameRef.current = requestAnimationFrame(tick);
       };
-
-      source.onended = () => {
-        cancelAnimationFrame(animFrameRef.current);
-        audioCtx.close();
-        audioCtxRef.current = null;
-        onEnd();
-      };
-
+      source.onended = () => { cancelAnimationFrame(animFrameRef.current); audioCtx.close(); audioCtxRef.current = null; onEnd(); };
       tick();
       source.start(0);
     } catch (err) {
+      // ── 3. Browser TTS fallback ─────────────────────────────────────────
       console.warn("[TTS] OpenAI failed, using browser fallback:", err);
       setMouthOpen(0);
-      // Browser TTS fallback
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "ru-RU";
       utterance.rate = 1.05;
@@ -497,7 +595,7 @@ export default function VoiceAssistant() {
   // ─── Camera ───────────────────────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
     if (!modelsLoaded) { toast({ title: "Подождите", description: "Загрузка моделей..." }); return; }
-    stoppedRef.current = false; // reset stop flag — agent is active again
+    stoppedRef.current = false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" }, audio: false });
       streamRef.current = stream;
@@ -506,10 +604,12 @@ export default function VoiceAssistant() {
       setStatus("ready");
       setErrorMessage("");
       startDetectionLoop();
+      // Init D-ID stream in background (don't block camera start)
+      if (!didStreamIdRef.current) initDIDStream();
     } catch {
       setErrorMessage("Нет доступа к камере. Разрешите использование в браузере.");
     }
-  }, [modelsLoaded, startDetectionLoop]);
+  }, [modelsLoaded, startDetectionLoop, initDIDStream]);
 
   const stopCamera = useCallback(() => {
     stopEverything();
@@ -519,7 +619,8 @@ export default function VoiceAssistant() {
     setStatus("init");
     setCurrentTranscript("");
     setRecognizedOwner(null);
-  }, [stopEverything]);
+    destroyDIDStream();
+  }, [stopEverything, destroyDIDStream]);
 
   // ─── Enrollment ───────────────────────────────────────────────────────────────
   const searchOwners = useCallback(async (q: string) => {
@@ -946,23 +1047,48 @@ export default function VoiceAssistant() {
                 animation: isTalk ? "avBob .6s ease-in-out infinite" : "none",
               }}
             >
-              <div className="relative" style={{ height: 170 }}>
+              <div className="relative" style={{ height: 170, background: "#000" }}>
+                {/* D-ID live video — shown when WebRTC stream is active */}
+                <video
+                  ref={didVideoRef}
+                  autoPlay
+                  playsInline
+                  style={{
+                    position: "absolute", inset: 0,
+                    width: "100%", height: "100%",
+                    objectFit: "cover", objectPosition: "top",
+                    display: didConnected ? "block" : "none",
+                  }}
+                />
+                {/* Static photo fallback — shown while D-ID is connecting */}
                 <img
                   src="/avatar.png"
                   alt="Ассистент"
                   draggable={false}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }}
+                  style={{
+                    width: "100%", height: "100%",
+                    objectFit: "cover", objectPosition: "top",
+                    display: didConnected ? "none" : "block",
+                  }}
                 />
+                {/* Connecting badge */}
+                {!didConnected && cameraActive && (
+                  <div style={{
+                    position: "absolute", bottom: 6, left: 0, right: 0,
+                    textAlign: "center", fontSize: 9, color: "rgba(255,255,255,0.6)",
+                    letterSpacing: 1,
+                  }}>ПОДКЛЮЧЕНИЕ…</div>
+                )}
                 {/* Status dot */}
                 <div style={{
-                  position: "absolute", top: 8, right: 8,
+                  position: "absolute", top: 8, right: 8, zIndex: 2,
                   width: 10, height: 10, borderRadius: "50%",
                   background: c,
                   boxShadow: isPulse ? `0 0 0 3px ${c}40` : "none",
                   animation: isPulse ? "avDot 1.2s ease-in-out infinite" : "none",
                 }} />
-                {/* Speaking overlay */}
-                {isTalk && (
+                {/* Speaking overlay (only when D-ID not connected) */}
+                {isTalk && !didConnected && (
                   <div style={{
                     position: "absolute", bottom: 0, left: 0, right: 0, height: "30%",
                     background: `linear-gradient(to top, ${c}25, transparent)`,
@@ -971,7 +1097,7 @@ export default function VoiceAssistant() {
                 )}
                 {/* Drag hint */}
                 <div style={{
-                  position: "absolute", top: 6, left: 8, opacity: 0.5,
+                  position: "absolute", top: 6, left: 8, zIndex: 2, opacity: 0.45,
                   fontSize: 10, color: "white", letterSpacing: 2, pointerEvents: "none",
                 }}>⠿</div>
               </div>

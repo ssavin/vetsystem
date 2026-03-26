@@ -10940,6 +10940,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── D-ID STREAMS PROXY ──────────────────────────────────────────────────────
+  const DID_API = "https://api.d-id.com";
+
+  const didHeaders = () => {
+    const key = process.env.DID_API_KEY;
+    if (!key) throw new Error("DID_API_KEY не настроен");
+    return {
+      Authorization: "Basic " + Buffer.from(key).toString("base64"),
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+  };
+
+  // Создать стрим
+  app.post("/api/did/stream", authenticateToken, async (req, res) => {
+    try {
+      const domain = process.env.REPLIT_DOMAINS?.split(/[\s,]+/)[0];
+      const avatarUrl = domain
+        ? `https://${domain}/avatar.png`
+        : "https://create-images-results.d-id.com/DefaultPresenters/Aria_f/image.jpeg";
+
+      const r = await fetch(`${DID_API}/talks/streams`, {
+        method: "POST",
+        headers: didHeaders(),
+        body: JSON.stringify({
+          source_url: avatarUrl,
+          driver_url: "bank://subtle",
+          config: { stitch: true },
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json(data);
+      res.json(data);
+    } catch (e: any) {
+      console.error("[D-ID] create stream error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // SDP answer
+  app.post("/api/did/stream/:id/sdp", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { answer, session_id } = req.body;
+      const r = await fetch(`${DID_API}/talks/streams/${id}/sdp`, {
+        method: "POST",
+        headers: didHeaders(),
+        body: JSON.stringify({ answer, session_id }),
+      });
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json(data);
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ICE candidate
+  app.post("/api/did/stream/:id/ice", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { candidate, session_id } = req.body;
+      const r = await fetch(`${DID_API}/talks/streams/${id}/ice`, {
+        method: "POST",
+        headers: didHeaders(),
+        body: JSON.stringify({ candidate, session_id }),
+      });
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json(data);
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Говорить
+  app.post("/api/did/stream/:id/speak", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { text, session_id } = req.body as { text: string; session_id: string };
+      const r = await fetch(`${DID_API}/talks/streams/${id}`, {
+        method: "POST",
+        headers: didHeaders(),
+        body: JSON.stringify({
+          script: {
+            type: "text",
+            input: text.slice(0, 1000),
+            provider: { type: "microsoft", voice_id: "ru-RU-SvetlanaNeural" },
+          },
+          config: { stitch: true },
+          session_id,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json(data);
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Уничтожить стрим
+  app.delete("/api/did/stream/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { session_id } = req.body;
+      const r = await fetch(`${DID_API}/talks/streams/${id}`, {
+        method: "DELETE",
+        headers: didHeaders(),
+        body: JSON.stringify({ session_id }),
+      });
+      if (r.status === 204) return res.json({ ok: true });
+      try { const data = await r.json(); res.json(data); } catch { res.json({ ok: true }); }
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
