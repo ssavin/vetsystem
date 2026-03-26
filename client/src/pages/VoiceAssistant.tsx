@@ -245,12 +245,25 @@ export default function VoiceAssistant() {
         console.log("[D-ID] track kind:", e.track.kind);
 
         if (e.track.kind === "video" && vid) {
-          if (vid.srcObject !== e.streams[0]) vid.srcObject = e.streams[0];
-          // Mute video element — audio routed via AudioContext to bypass autoplay restriction
-          vid.muted = true;
+          if (vid.srcObject !== e.streams[0]) {
+            vid.srcObject = e.streams[0];
+          }
+          console.log("[D-ID] video srcObject set, readyState:", vid.readyState, "paused:", vid.paused, "muted:", vid.muted);
           setDidConnected(true);
-          try { await vid.play(); console.log("[D-ID] video.play() OK"); }
-          catch (err) { console.warn("[D-ID] video.play() failed:", err); }
+
+          // Play via canplay event — fires when browser has enough data
+          const tryPlay = async () => {
+            try {
+              if (vid.paused) await vid.play();
+              console.log("[D-ID] video playing OK, currentTime:", vid.currentTime);
+            } catch (err: any) {
+              console.warn("[D-ID] video.play() failed:", err?.name, err?.message);
+            }
+          };
+
+          // Try immediately (may succeed if already has data), also listen for canplay
+          tryPlay();
+          vid.addEventListener("canplay", tryPlay, { once: true });
         }
 
         if (e.track.kind === "audio") {
@@ -1088,8 +1101,12 @@ export default function VoiceAssistant() {
             >
               <div className="relative" style={{ height: 170, background: "#000" }}>
                 {/* D-ID live video — always in DOM, visibility toggled */}
+                {/* React muted workaround: use ref callback to force the attribute */}
                 <video
-                  ref={didVideoRef}
+                  ref={(el) => {
+                    (didVideoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+                    if (el) el.muted = true; // force muted so autoPlay works (React bug workaround)
+                  }}
                   autoPlay
                   playsInline
                   style={{
