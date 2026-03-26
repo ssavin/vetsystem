@@ -91,6 +91,7 @@ export default function VoiceAssistant() {
   const didSessionIdRef  = useRef<string | null>(null);
   const didPCRef         = useRef<RTCPeerConnection | null>(null);
   const didSpeakEndRef   = useRef<(() => void) | null>(null);
+  const didAudioCtxRef   = useRef<AudioContext | null>(null);
   const [didConnected, setDidConnected] = useState(false);
 
   // ─── Floating avatar drag state ───────────────────────────────────────────────
@@ -237,24 +238,56 @@ export default function VoiceAssistant() {
       const pc = new RTCPeerConnection({ iceServers: ice_servers });
       didPCRef.current = pc;
 
-      // Video track → show in avatar window
-      pc.ontrack = (e) => {
-        if (didVideoRef.current && e.streams[0]) {
-          didVideoRef.current.srcObject = e.streams[0];
+      // Video + Audio tracks from D-ID WebRTC stream
+      pc.ontrack = async (e) => {
+        const vid = didVideoRef.current;
+        if (!e.streams[0]) return;
+        console.log("[D-ID] track kind:", e.track.kind);
+
+        if (e.track.kind === "video" && vid) {
+          if (vid.srcObject !== e.streams[0]) vid.srcObject = e.streams[0];
+          // Mute video element — audio routed via AudioContext to bypass autoplay restriction
+          vid.muted = true;
           setDidConnected(true);
-          console.log("[D-ID] Video track received");
+          try { await vid.play(); console.log("[D-ID] video.play() OK"); }
+          catch (err) { console.warn("[D-ID] video.play() failed:", err); }
+        }
+
+        if (e.track.kind === "audio") {
+          // Route D-ID audio through Web Audio API (bypasses muted-video restriction)
+          try {
+            if (!didAudioCtxRef.current || didAudioCtxRef.current.state === "closed") {
+              didAudioCtxRef.current = new AudioContext();
+            }
+            const src = didAudioCtxRef.current.createMediaStreamSource(e.streams[0]);
+            src.connect(didAudioCtxRef.current.destination);
+            console.log("[D-ID] audio routed via AudioContext");
+          } catch (err) {
+            console.warn("[D-ID] AudioContext audio routing failed:", err);
+          }
         }
       };
 
-      // ICE candidate forwarding
-      pc.onicecandidate = async ({ candidate }) => {
-        if (!candidate) return;
+      // Buffer ICE candidates until SDP exchange completes
+      const iceBuffer: RTCIceCandidate[] = [];
+      let sdpDone = false;
+      const sendIce = async (candidate: RTCIceCandidate) => {
         try {
           await apiRequest("POST", `/api/did/stream/${id}/ice`, {
-            candidate: { candidate: candidate.candidate, sdpMid: candidate.sdpMid, sdpMLineIndex: candidate.sdpMLineIndex },
+            candidate: {
+              candidate: candidate.candidate,
+              sdpMid: candidate.sdpMid,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+            },
             session_id,
           });
         } catch {}
+      };
+
+      pc.onicecandidate = ({ candidate }) => {
+        if (!candidate) return;
+        if (sdpDone) { sendIce(candidate); }
+        else { iceBuffer.push(candidate); }
       };
 
       // Data channel: D-ID sends stream/done when avatar stops speaking
@@ -262,6 +295,7 @@ export default function VoiceAssistant() {
         channel.onmessage = ({ data }) => {
           try {
             const msg = JSON.parse(data);
+            console.log("[D-ID] data channel msg:", msg);
             const evType = msg.type || msg.event || "";
             if (evType.includes("done") && didSpeakEndRef.current) {
               didSpeakEndRef.current();
@@ -278,7 +312,10 @@ export default function VoiceAssistant() {
         answer: { type: answer.type, sdp: answer.sdp },
         session_id,
       });
-      console.log("[D-ID] WebRTC signaling complete, stream id:", id);
+      // SDP done — now flush buffered ICE candidates
+      sdpDone = true;
+      for (const c of iceBuffer) sendIce(c);
+      console.log("[D-ID] WebRTC signaling complete, stream id:", id, `(flushed ${iceBuffer.length} buffered ICE)`);
     } catch (err) {
       console.warn("[D-ID] init failed:", err);
     }
@@ -291,6 +328,8 @@ export default function VoiceAssistant() {
     didSessionIdRef.current = null;
     setDidConnected(false);
     if (didPCRef.current) { try { didPCRef.current.close(); } catch {} didPCRef.current = null; }
+    if (didAudioCtxRef.current) { try { didAudioCtxRef.current.close(); } catch {} didAudioCtxRef.current = null; }
+    if (didVideoRef.current) didVideoRef.current.srcObject = null;
     if (id && session_id) {
       try { await apiRequest("DELETE", `/api/did/stream/${id}`, { session_id }); } catch {}
     }
@@ -1048,7 +1087,7 @@ export default function VoiceAssistant() {
               }}
             >
               <div className="relative" style={{ height: 170, background: "#000" }}>
-                {/* D-ID live video — shown when WebRTC stream is active */}
+                {/* D-ID live video — always in DOM, visibility toggled */}
                 <video
                   ref={didVideoRef}
                   autoPlay
@@ -1057,7 +1096,8 @@ export default function VoiceAssistant() {
                     position: "absolute", inset: 0,
                     width: "100%", height: "100%",
                     objectFit: "cover", objectPosition: "top",
-                    display: didConnected ? "block" : "none",
+                    visibility: didConnected ? "visible" : "hidden",
+                    zIndex: didConnected ? 1 : 0,
                   }}
                 />
                 {/* Static photo fallback — shown while D-ID is connecting */}
@@ -1066,9 +1106,11 @@ export default function VoiceAssistant() {
                   alt="Ассистент"
                   draggable={false}
                   style={{
+                    position: "absolute", inset: 0,
                     width: "100%", height: "100%",
                     objectFit: "cover", objectPosition: "top",
-                    display: didConnected ? "none" : "block",
+                    visibility: didConnected ? "hidden" : "visible",
+                    zIndex: didConnected ? 0 : 1,
                   }}
                 />
                 {/* Connecting badge */}

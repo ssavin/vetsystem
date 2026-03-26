@@ -10956,22 +10956,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Создать стрим
   app.post("/api/did/stream", authenticateToken, async (req, res) => {
     try {
+      // Use Replit public URL for avatar (accepted by D-ID API)
       const domain = process.env.REPLIT_DOMAINS?.split(/[\s,]+/)[0];
-      const avatarUrl = domain
+      const sourceUrl = domain
         ? `https://${domain}/avatar.png`
-        : "https://create-images-results.d-id.com/DefaultPresenters/Aria_f/image.jpeg";
+        : "https://d-id-public-bucket.s3.amazonaws.com/alice.jpg";
+      console.log("[D-ID] creating stream with source_url:", sourceUrl);
 
       const r = await fetch(`${DID_API}/talks/streams`, {
         method: "POST",
         headers: didHeaders(),
         body: JSON.stringify({
-          source_url: avatarUrl,
+          source_url: sourceUrl,
           driver_url: "bank://subtle",
           config: { stitch: true },
         }),
       });
       const data = await r.json();
-      if (!r.ok) return res.status(r.status).json(data);
+      if (!r.ok) {
+        console.error("[D-ID] stream creation failed:", JSON.stringify(data));
+        return res.status(r.status).json(data);
+      }
       res.json(data);
     } catch (e: any) {
       console.error("[D-ID] create stream error:", e);
