@@ -236,7 +236,16 @@ export default function VoiceAssistant() {
       didStreamIdRef.current  = id;
       didSessionIdRef.current = session_id;
 
-      const pc = new RTCPeerConnection({ iceServers: ice_servers });
+      // Log ICE servers to help diagnose connectivity (are TURN servers provided?)
+      console.log("[D-ID] ICE servers:", JSON.stringify(ice_servers));
+
+      // Merge D-ID ICE servers with Google STUN as backup
+      const allIceServers = [
+        ...(ice_servers ?? []),
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+      ];
+      const pc = new RTCPeerConnection({ iceServers: allIceServers });
       didPCRef.current = pc;
 
       // Video + Audio tracks from D-ID WebRTC stream

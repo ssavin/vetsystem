@@ -10977,6 +10977,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("[D-ID] stream creation failed:", JSON.stringify(data));
         return res.status(r.status).json(data);
       }
+      console.log("[D-ID] ICE servers from D-ID:", JSON.stringify(data.ice_servers ?? []));
       res.json(data);
     } catch (e: any) {
       console.error("[D-ID] create stream error:", e);
