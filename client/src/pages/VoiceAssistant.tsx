@@ -251,17 +251,26 @@ export default function VoiceAssistant() {
           console.log("[D-ID] video srcObject set, readyState:", vid.readyState, "paused:", vid.paused, "muted:", vid.muted);
           setDidConnected(true);
 
+          // Listen to all relevant video events for diagnostics
+          vid.onloadedmetadata  = () => console.log("[D-ID] loadedmetadata, readyState:", vid.readyState);
+          vid.oncanplay         = () => console.log("[D-ID] canplay");
+          vid.onplay            = () => console.log("[D-ID] play event");
+          vid.onplaying         = () => console.log("[D-ID] playing event! currentTime:", vid.currentTime);
+          vid.onstalled         = () => console.log("[D-ID] stalled");
+          vid.onwaiting         = () => console.log("[D-ID] waiting");
+          vid.onerror           = () => console.error("[D-ID] video error:", vid.error?.message, vid.error?.code);
+
           // Play via canplay event — fires when browser has enough data
           const tryPlay = async () => {
+            console.log("[D-ID] tryPlay called, paused:", vid.paused, "readyState:", vid.readyState);
             try {
               if (vid.paused) await vid.play();
-              console.log("[D-ID] video playing OK, currentTime:", vid.currentTime);
+              console.log("[D-ID] video playing OK");
             } catch (err: any) {
               console.warn("[D-ID] video.play() failed:", err?.name, err?.message);
             }
           };
 
-          // Try immediately (may succeed if already has data), also listen for canplay
           tryPlay();
           vid.addEventListener("canplay", tryPlay, { once: true });
         }
@@ -280,6 +289,10 @@ export default function VoiceAssistant() {
           }
         }
       };
+
+      // WebRTC connection state logging
+      pc.oniceconnectionstatechange = () => console.log("[D-ID] ICE state:", pc.iceConnectionState);
+      pc.onconnectionstatechange    = () => console.log("[D-ID] conn state:", pc.connectionState);
 
       // Buffer ICE candidates until SDP exchange completes
       const iceBuffer: RTCIceCandidate[] = [];
