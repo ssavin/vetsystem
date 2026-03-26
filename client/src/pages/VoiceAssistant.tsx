@@ -290,9 +290,22 @@ export default function VoiceAssistant() {
         }
       };
 
-      // WebRTC connection state logging
-      pc.oniceconnectionstatechange = () => console.log("[D-ID] ICE state:", pc.iceConnectionState);
-      pc.onconnectionstatechange    = () => console.log("[D-ID] conn state:", pc.connectionState);
+      // WebRTC connection state — destroy stream on failure so we fall back to OpenAI TTS
+      const handleWebRTCFailure = () => {
+        console.warn("[D-ID] WebRTC failed — destroying stream, falling back to OpenAI TTS");
+        const endCb = didSpeakEndRef.current;
+        didSpeakEndRef.current = null;
+        destroyDIDStream(); // clears didStreamIdRef so future speak() uses OpenAI TTS
+        if (endCb) endCb(); // unblock speaking state, resume listening
+      };
+      pc.oniceconnectionstatechange = () => {
+        console.log("[D-ID] ICE state:", pc.iceConnectionState);
+        if (pc.iceConnectionState === "failed") handleWebRTCFailure();
+      };
+      pc.onconnectionstatechange = () => {
+        console.log("[D-ID] conn state:", pc.connectionState);
+        if (pc.connectionState === "failed") handleWebRTCFailure();
+      };
 
       // Buffer ICE candidates until SDP exchange completes
       const iceBuffer: RTCIceCandidate[] = [];
@@ -475,6 +488,7 @@ export default function VoiceAssistant() {
 
   // ─── Send to AI ──────────────────────────────────────────────────────────────
   const sendToAI = useCallback(async (text: string, autoContext?: string) => {
+    console.log("[AI] sendToAI called:", JSON.stringify(text.slice(0, 60)), "stopped:", stoppedRef.current, "speaking:", isSpeakingRef.current);
     setStatus("processing");
     setCurrentTranscript("");
 
@@ -521,12 +535,13 @@ export default function VoiceAssistant() {
     rec.continuous = false;
     rec.interimResults = true;
 
-    rec.onstart = () => { isListeningRef.current = true; setStatus("listening"); };
+    rec.onstart = () => { isListeningRef.current = true; setStatus("listening"); console.log("[SR] started, isSpeaking:", isSpeakingRef.current); };
     rec.onresult = (e) => {
       const r = e.results[e.results.length - 1];
       if (r.isFinal) {
         setCurrentTranscript("");
         const t = r[0].transcript.trim();
+        console.log("[SR] final transcript:", JSON.stringify(t), "len:", t.length, "isSpeaking:", isSpeakingRef.current);
         if (t.length > 1) sendToAI(t);
         else if (faceDetectedRef.current) { setStatus("face"); setTimeout(() => startListening(), 300); }
       } else {
@@ -536,12 +551,13 @@ export default function VoiceAssistant() {
     rec.onerror = (e) => {
       isListeningRef.current = false;
       recognitionRef.current = null;
+      console.warn("[SR] error:", e.error, "face:", faceDetectedRef.current, "speaking:", isSpeakingRef.current);
       if (e.error === "no-speech" && faceDetectedRef.current && !isSpeakingRef.current) {
         setStatus("face");
         setTimeout(() => startListening(), 300);
       }
     };
-    rec.onend = () => { isListeningRef.current = false; recognitionRef.current = null; };
+    rec.onend = () => { isListeningRef.current = false; recognitionRef.current = null; console.log("[SR] ended"); };
 
     recognitionRef.current = rec;
     try { rec.start(); } catch { isListeningRef.current = false; }
