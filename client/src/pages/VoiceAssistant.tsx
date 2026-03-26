@@ -239,12 +239,36 @@ export default function VoiceAssistant() {
       // Log ICE servers to help diagnose connectivity (are TURN servers provided?)
       console.log("[D-ID] ICE servers:", JSON.stringify(ice_servers));
 
-      // Merge D-ID ICE servers with Google STUN as backup
-      const allIceServers = [
-        ...(ice_servers ?? []),
+      // Supplement D-ID ICE servers with STUN + TURN relays.
+      // TURN servers (Metered Open Relay) relay traffic over TCP/TLS port 443
+      // which bypasses most corporate firewalls and strict NAT.
+      const turnServers: RTCIceServer[] = [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:openrelay.metered.ca:80" },
+        {
+          urls: "turn:openrelay.metered.ca:80",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        {
+          urls: "turn:openrelay.metered.ca:443",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        {
+          urls: "turns:openrelay.metered.ca:443",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        {
+          urls: "turn:openrelay.metered.ca:80?transport=tcp",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
       ];
+      const allIceServers = [...(ice_servers ?? []), ...turnServers];
+      console.log("[D-ID] total ICE servers:", allIceServers.length, "including", turnServers.length, "TURN relays");
       const pc = new RTCPeerConnection({ iceServers: allIceServers });
       didPCRef.current = pc;
 
