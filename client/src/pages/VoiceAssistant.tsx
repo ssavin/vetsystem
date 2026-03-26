@@ -103,6 +103,7 @@ export default function VoiceAssistant() {
 
   const [mouthOpen, setMouthOpen] = useState(0);
   const [status, setStatus] = useState<Status>("init");
+  const [didEnabled, setDidEnabled] = useState(false); // D-ID disabled by default (requires WebRTC/UDP)
   const [modelsLoaded, setModelsLoaded] = useState(false);        // full: detector + landmarks + recognition
   const [detectorReady, setDetectorReady] = useState(false);      // minimal: just face detector (189KB)
   const [recognitionReady, setRecognitionReady] = useState(false); // all 3 models done
@@ -719,12 +720,12 @@ export default function VoiceAssistant() {
       setStatus("ready");
       setErrorMessage("");
       startDetectionLoop();
-      // Init D-ID stream in background (don't block camera start)
-      if (!didStreamIdRef.current) initDIDStream();
+      // Init D-ID stream in background only if user explicitly enabled it
+      if (didEnabled && !didStreamIdRef.current) initDIDStream();
     } catch {
       setErrorMessage("Нет доступа к камере. Разрешите использование в браузере.");
     }
-  }, [modelsLoaded, startDetectionLoop, initDIDStream]);
+  }, [modelsLoaded, startDetectionLoop, initDIDStream, didEnabled]);
 
   const stopCamera = useCallback(() => {
     stopEverything();
@@ -751,6 +752,16 @@ export default function VoiceAssistant() {
     const timer = setTimeout(() => searchOwners(enrollSearch), 350);
     return () => clearTimeout(timer);
   }, [enrollSearch, searchOwners]);
+
+  // React to D-ID toggle while camera is already active
+  useEffect(() => {
+    if (!cameraActive) return;
+    if (didEnabled && !didStreamIdRef.current) {
+      initDIDStream();
+    } else if (!didEnabled && didStreamIdRef.current) {
+      destroyDIDStream();
+    }
+  }, [didEnabled, cameraActive, initDIDStream, destroyDIDStream]);
 
   const enrollFace = useCallback(async () => {
     if (!enrollSelected || !videoRef.current || !cameraActive) return;
@@ -851,6 +862,15 @@ export default function VoiceAssistant() {
           <Button size="sm" variant="outline" onClick={() => setEnrollOpen(true)} disabled={!recognitionReady}>
             <UserPlus className="w-4 h-4 mr-1" />
             {recognitionReady ? "Зарегистрировать лицо" : "Загрузка..."}
+          </Button>
+          <Button
+            size="sm"
+            variant={didEnabled ? "default" : "outline"}
+            onClick={() => setDidEnabled(v => !v)}
+            title="D-ID видео-аватар (требует WebRTC/UDP)"
+          >
+            <span className="w-4 h-4 mr-1 text-xs font-bold">AI</span>
+            {didEnabled ? "D-ID вкл" : "D-ID выкл"}
           </Button>
           {!cameraActive ? (
             <Button size="sm" onClick={startCamera} disabled={!modelsLoaded}>
