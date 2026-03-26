@@ -86,12 +86,13 @@ export default function VoiceAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // ─── D-ID Streams state ───────────────────────────────────────────────────────
-  const didVideoRef      = useRef<HTMLVideoElement>(null);
-  const didStreamIdRef   = useRef<string | null>(null);
-  const didSessionIdRef  = useRef<string | null>(null);
-  const didPCRef         = useRef<RTCPeerConnection | null>(null);
-  const didSpeakEndRef   = useRef<(() => void) | null>(null);
-  const didAudioCtxRef   = useRef<AudioContext | null>(null);
+  const didVideoRef       = useRef<HTMLVideoElement>(null);
+  const didStreamIdRef    = useRef<string | null>(null);
+  const didSessionIdRef   = useRef<string | null>(null);
+  const didPCRef          = useRef<RTCPeerConnection | null>(null);
+  const didSpeakEndRef    = useRef<(() => void) | null>(null);
+  const didAudioCtxRef    = useRef<AudioContext | null>(null);
+  const didICEReadyRef    = useRef(false);   // true only when ICE reaches "connected"
   const [didConnected, setDidConnected] = useState(false);
 
   // ─── Floating avatar drag state ───────────────────────────────────────────────
@@ -249,7 +250,7 @@ export default function VoiceAssistant() {
             vid.srcObject = e.streams[0];
           }
           console.log("[D-ID] video srcObject set, readyState:", vid.readyState, "paused:", vid.paused, "muted:", vid.muted);
-          setDidConnected(true);
+          // Don't show video yet — wait for ICE to connect (see oniceconnectionstatechange)
 
           // Listen to all relevant video events for diagnostics
           vid.onloadedmetadata  = () => console.log("[D-ID] loadedmetadata, readyState:", vid.readyState);
@@ -260,19 +261,7 @@ export default function VoiceAssistant() {
           vid.onwaiting         = () => console.log("[D-ID] waiting");
           vid.onerror           = () => console.error("[D-ID] video error:", vid.error?.message, vid.error?.code);
 
-          // Play via canplay event — fires when browser has enough data
-          const tryPlay = async () => {
-            console.log("[D-ID] tryPlay called, paused:", vid.paused, "readyState:", vid.readyState);
-            try {
-              if (vid.paused) await vid.play();
-              console.log("[D-ID] video playing OK");
-            } catch (err: any) {
-              console.warn("[D-ID] video.play() failed:", err?.name, err?.message);
-            }
-          };
-
-          tryPlay();
-          vid.addEventListener("canplay", tryPlay, { once: true });
+          // Playback starts when ICE connects (see oniceconnectionstatechange)
         }
 
         if (e.track.kind === "audio") {
@@ -290,17 +279,28 @@ export default function VoiceAssistant() {
         }
       };
 
-      // WebRTC connection state — destroy stream on failure so we fall back to OpenAI TTS
+      // WebRTC connection state — track readiness; destroy on failure
       const handleWebRTCFailure = () => {
         console.warn("[D-ID] WebRTC failed — destroying stream, falling back to OpenAI TTS");
+        didICEReadyRef.current = false;
         const endCb = didSpeakEndRef.current;
         didSpeakEndRef.current = null;
         destroyDIDStream(); // clears didStreamIdRef so future speak() uses OpenAI TTS
         if (endCb) endCb(); // unblock speaking state, resume listening
       };
       pc.oniceconnectionstatechange = () => {
-        console.log("[D-ID] ICE state:", pc.iceConnectionState);
-        if (pc.iceConnectionState === "failed") handleWebRTCFailure();
+        const s = pc.iceConnectionState;
+        console.log("[D-ID] ICE state:", s);
+        if (s === "connected" || s === "completed") {
+          didICEReadyRef.current = true;
+          setDidConnected(true); // Show video only now — ICE is real
+          console.log("[D-ID] ICE connected — video + speak enabled");
+          // Start playback now that media can actually flow
+          const vid = didVideoRef.current;
+          if (vid && vid.paused) vid.play().catch(() => {});
+        } else if (s === "failed") {
+          handleWebRTCFailure();
+        }
       };
       pc.onconnectionstatechange = () => {
         console.log("[D-ID] conn state:", pc.connectionState);
@@ -365,6 +365,7 @@ export default function VoiceAssistant() {
     const session_id = didSessionIdRef.current;
     didStreamIdRef.current  = null;
     didSessionIdRef.current = null;
+    didICEReadyRef.current  = false;
     setDidConnected(false);
     if (didPCRef.current) { try { didPCRef.current.close(); } catch {} didPCRef.current = null; }
     if (didAudioCtxRef.current) { try { didAudioCtxRef.current.close(); } catch {} didAudioCtxRef.current = null; }
@@ -413,10 +414,10 @@ export default function VoiceAssistant() {
       if (faceDetectedRef.current && !isListeningRef.current) startListening();
     };
 
-    // ── 1. Try D-ID stream ──────────────────────────────────────────────────
+    // ── 1. Try D-ID stream (only if ICE is fully connected) ─────────────────
     const streamId  = didStreamIdRef.current;
     const sessionId = didSessionIdRef.current;
-    if (streamId && sessionId) {
+    if (streamId && sessionId && didICEReadyRef.current) {
       try {
         didSpeakEndRef.current = onEnd;
         await apiRequest("POST", `/api/did/stream/${streamId}/speak`, { text, session_id: sessionId });
