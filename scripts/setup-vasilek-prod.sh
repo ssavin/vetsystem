@@ -1,9 +1,11 @@
 #!/bin/bash
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  СКРИПТ НАСТРОЙКИ ТЕНАНТА ВАСИЛЁК НА ПРОДАКШЕН-СЕРВЕРЕ                ║
+# ║  ПОЛНЫЙ СКРИПТ ПЕРЕНОСА ТЕНАНТА ВАСИЛЁК НА ПРОДАКШЕН-СЕРВЕР           ║
 # ║                                                                          ║
 # ║  Запуск: bash scripts/setup-vasilek-prod.sh                             ║
 # ║  Выполнять из /var/www/vetsystem на продакшен-сервере                   ║
+# ║                                                                          ║
+# ║  Можно запускать повторно — все шаги идемпотентны (не дублируются)      ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 set -e
@@ -12,7 +14,7 @@ PROD_DB="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem"
 TENANT_ID="bd89523e-47e7-4d4b-8b94-e98c6d3e1959"
 
 echo "╔══════════════════════════════════════════════════════╗"
-echo "║   Настройка тенанта Василёк на продакшене           ║"
+echo "║   Перенос тенанта Василёк на продакшен             ║"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
 
@@ -35,7 +37,7 @@ echo "✅ Тенант создан"
 echo ""
 
 # ── Шаг 2: Создать филиалы ─────────────────────────────────────────────────
-echo "🏥 Шаг 2: Создание филиалов..."
+echo "🏥 Шаг 2: Создание 7 филиалов..."
 psql "$PROD_DB" << 'EOSQL'
 INSERT INTO branches (id, tenant_id, name, address, city, phone, status, vetais_clinic_id)
 VALUES
@@ -61,7 +63,7 @@ echo "✅ 7 филиалов создано"
 echo ""
 
 # ── Шаг 3: Создать admin-пользователя ─────────────────────────────────────
-echo "👤 Шаг 3: Создание пользователя admin_vasilek..."
+echo "👤 Шаг 3: Создание пользователя admin_vasilek (пароль: admin123)..."
 psql "$PROD_DB" << 'EOSQL'
 INSERT INTO users (id, tenant_id, username, role, branch_id, password)
 VALUES (
@@ -75,12 +77,11 @@ VALUES (
   username = EXCLUDED.username,
   role     = EXCLUDED.role;
 EOSQL
-echo "✅ Пользователь admin_vasilek создан (пароль: admin123)"
+echo "✅ Пользователь admin_vasilek создан"
 echo ""
 
 # ── Шаг 4: Миграция владельцев ─────────────────────────────────────────────
-echo "👥 Шаг 4: Миграция владельцев из Vetais Василёк..."
-echo "   (это займёт 3-7 минут)"
+echo "👥 Шаг 4: Миграция владельцев (~56,000 записей, ~5 мин)..."
 DATABASE_URL="$PROD_DB" tsx scripts/migrate-vetais-universal.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
@@ -91,8 +92,7 @@ DATABASE_URL="$PROD_DB" tsx scripts/migrate-vetais-universal.ts \
 echo ""
 
 # ── Шаг 5: Миграция пациентов ─────────────────────────────────────────────
-echo "🐾 Шаг 5: Миграция пациентов из Vetais Василёк..."
-echo "   (это займёт 10-20 минут)"
+echo "🐾 Шаг 5: Миграция пациентов (~77,000 записей, ~15 мин)..."
 DATABASE_URL="$PROD_DB" tsx scripts/migrate-vetais-universal.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
@@ -103,7 +103,7 @@ DATABASE_URL="$PROD_DB" tsx scripts/migrate-vetais-universal.ts \
 echo ""
 
 # ── Шаг 6: Миграция врачей ─────────────────────────────────────────────────
-echo "👨‍⚕️ Шаг 6: Миграция врачей..."
+echo "👨‍⚕️ Шаг 6: Миграция врачей (~107 записей)..."
 DATABASE_URL="$PROD_DB" tsx scripts/migrate-vetais-universal.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
@@ -121,11 +121,66 @@ DATABASE_URL="$PROD_DB" tsx scripts/fix-patient-branches.ts \
   --password vetais
 echo ""
 
+# ── Шаг 8: Клинические случаи ─────────────────────────────────────────────
+echo "🗂️  Шаг 8: Миграция клинических случаев (~148,000 записей, ~20 мин)..."
+DATABASE_URL="$PROD_DB" tsx scripts/migrate-medical-data.ts \
+  --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
+  --db vetais_vasilek \
+  --host 94.198.53.52 \
+  --password vetais \
+  --phase cases \
+  --batch 1000
+echo ""
+
+# ── Шаг 9: Медицинские записи (осмотры) ────────────────────────────────────
+echo "📋 Шаг 9: Миграция осмотров (~456,000 записей, ~60-90 мин)..."
+echo "   ВНИМАНИЕ: самый долгий шаг — загружает тексты всех осмотров"
+DATABASE_URL="$PROD_DB" tsx scripts/migrate-medical-data.ts \
+  --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
+  --db vetais_vasilek \
+  --host 94.198.53.52 \
+  --password vetais \
+  --phase records \
+  --batch 500
+echo ""
+
+# ── Шаг 10: Вакцинации ─────────────────────────────────────────────────────
+echo "💉 Шаг 10: Миграция вакцинаций (~54,000 записей, ~5 мин)..."
+DATABASE_URL="$PROD_DB" tsx scripts/migrate-medical-data.ts \
+  --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
+  --db vetais_vasilek \
+  --host 94.198.53.52 \
+  --password vetais \
+  --phase vaccinations \
+  --batch 1000
+echo ""
+
+# ── Шаг 11: Счета ─────────────────────────────────────────────────────────
+echo "🧾 Шаг 11: Миграция счетов (~472,000 счётов + 1.6M позиций, ~30-60 мин)..."
+DATABASE_URL="$PROD_DB" tsx scripts/migrate-medical-data.ts \
+  --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
+  --db vetais_vasilek \
+  --host 94.198.53.52 \
+  --password vetais \
+  --phase invoices \
+  --batch 1000
+echo ""
+
 # ── Итог ──────────────────────────────────────────────────────────────────
 echo "═══════════════════════════════════════════════════════"
-echo "✨ ГОТОВО! Тенант Василёк полностью настроен."
+echo "✨ ГОТОВО! Тенант Василёк полностью перенесён."
 echo ""
 echo "   Логин:  admin_vasilek"
 echo "   Пароль: admin123"
-echo "   URL:    https://vasilek.вашдомен.ru"
+echo ""
+echo "   Данные что перенесено:"
+psql "$PROD_DB" -c "
+SELECT
+  (SELECT COUNT(*) FROM owners WHERE tenant_id='bd89523e-47e7-4d4b-8b94-e98c6d3e1959') AS владельцы,
+  (SELECT COUNT(*) FROM patients WHERE tenant_id='bd89523e-47e7-4d4b-8b94-e98c6d3e1959') AS пациенты,
+  (SELECT COUNT(*) FROM doctors WHERE tenant_id='bd89523e-47e7-4d4b-8b94-e98c6d3e1959') AS врачи,
+  (SELECT COUNT(*) FROM clinical_cases WHERE tenant_id='bd89523e-47e7-4d4b-8b94-e98c6d3e1959') AS случаи,
+  (SELECT COUNT(*) FROM medical_records WHERE tenant_id='bd89523e-47e7-4d4b-8b94-e98c6d3e1959') AS осмотры,
+  (SELECT COUNT(*) FROM invoices WHERE tenant_id='bd89523e-47e7-4d4b-8b94-e98c6d3e1959') AS счета;
+"
 echo "═══════════════════════════════════════════════════════"
