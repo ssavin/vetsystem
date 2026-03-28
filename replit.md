@@ -92,8 +92,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Vetais Legacy Databases (for Data Migration)
 -   **Host**: `45.128.206.134` (Port: `5454`, User: `postgres`, Password: `ASPI6rin`)
-    -   `vetais_alisavet` (Tenant ID: `default-tenant-001`)
-    -   `vetais_haks` (Tenant ID: `e7c3459d-599b-4570-858f-1674dbd8db82`)
-    -   `arutyn1` (Tenant ID: `06d235e4-e7ba-4b2c-87a2-77afc72c4358`, Slug: `usatyj-polosatyj`)
+    -   `vetais_alisavet` (Tenant ID: `default-tenant-001`) — **МИГРИРОВАН**: 61,974 владельцев, 82,371 пациентов, 3 врача
+    -   `vetais_haks` (Tenant ID: `e7c3459d-599b-4570-858f-1674dbd8db82`) — **МИГРИРОВАН**: 27,833 владельцев, 34,200 пациентов
+    -   `arutyn1` (Tenant ID: `06d235e4-e7ba-4b2c-87a2-77afc72c4358`, Slug: `usatyj-polosatyj`) — **МИГРИРОВАН**: 8,838 владельцев, 11,335 пациентов
 -   **Host**: `94.198.53.52` (Port: `5454`, User: `postgres`, Password: `vetais`)
-    -   `vetais_vasilek` (Tenant ID: `bd89523e-47e7-4d4b-8b94-e98c6d3e1959`, Slug: `vasilek`)
+    -   `vetais_vasilek` (Tenant ID: `bd89523e-47e7-4d4b-8b94-e98c6d3e1959`, Slug: `vasilek`) — **МИГРИРОВАН**: 56,327 владельцев, 76,740 пациентов, 107 врачей
+
+## Миграционные инструменты
+-   `scripts/migrate-vetais-universal.ts` — Универсальный идемпотентный скрипт миграции (owners/patients/doctors/all phases). CLI: `--tenant`, `--db`, `--host`, `--port`, `--user`, `--password`, `--batch`, `--phase`.
+-   `scripts/fix-patient-branches.ts` — Скрипт исправления branch_id для уже мигрированных пациентов по clinic_id из Vetais. Те же CLI параметры.
+-   `scripts/vetais-config.ts` — Конфигурация маппинга Vetais БД → VetSystem тенанты.
+-   **Ключевые особенности маппинга**:
+    -   `patient_sex`: id_pohlavi 8=самец, 9=самка, 10=самец кастрированный, 11=самка кастрированная
+    -   `file_bridge_clients_patients`: vymazk/vymazp могут быть NULL (не 0) — всегда фильтровать `IS NULL OR = 0`
+    -   Пациенты без владельца (нет bridge-записей) пропускаются — нельзя добавить без owner_id
+    -   admin user: `admin_vasilek` / `admin123`, филиал: Василёк-1
