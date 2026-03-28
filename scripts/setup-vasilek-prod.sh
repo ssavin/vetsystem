@@ -13,6 +13,12 @@ set -e
 PROD_DB="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem"
 TENANT_ID="bd89523e-47e7-4d4b-8b94-e98c6d3e1959"
 
+# tsx может не быть в PATH — ищем локально
+TSX="./node_modules/.bin/tsx"
+if ! [ -x "$TSX" ]; then
+  TSX="npx tsx"
+fi
+
 echo "╔══════════════════════════════════════════════════════╗"
 echo "║   Перенос тенанта Василёк на продакшен             ║"
 echo "╚══════════════════════════════════════════════════════╝"
@@ -65,24 +71,50 @@ echo ""
 # ── Шаг 3: Создать admin-пользователя ─────────────────────────────────────
 echo "👤 Шаг 3: Создание пользователя admin_vasilek (пароль: admin123)..."
 psql "$PROD_DB" << 'EOSQL'
-INSERT INTO users (id, tenant_id, username, role, branch_id, password)
-VALUES (
-  '0984b54c-01cf-4843-b7ee-961eee7ee68d',
-  'bd89523e-47e7-4d4b-8b94-e98c6d3e1959',
-  'admin_vasilek',
-  'администратор',
-  'a797197e-973c-4210-9d7b-83c2b02e4d74',
-  '$2b$10$Nqz4EvvlQq5fDSNosp7u5uGwsa0fEOz1YV4FrJ7O.Rax79K8UDEoC'
-) ON CONFLICT (id) DO UPDATE SET
-  username = EXCLUDED.username,
-  role     = EXCLUDED.role;
+DO $$
+DECLARE
+  has_full_name boolean;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='users' AND column_name='full_name'
+  ) INTO has_full_name;
+
+  IF has_full_name THEN
+    INSERT INTO users (id, tenant_id, username, full_name, role, branch_id, password)
+    VALUES (
+      '0984b54c-01cf-4843-b7ee-961eee7ee68d',
+      'bd89523e-47e7-4d4b-8b94-e98c6d3e1959',
+      'admin_vasilek',
+      'Администратор Василёк',
+      'администратор',
+      'a797197e-973c-4210-9d7b-83c2b02e4d74',
+      '$2b$10$Nqz4EvvlQq5fDSNosp7u5uGwsa0fEOz1YV4FrJ7O.Rax79K8UDEoC'
+    ) ON CONFLICT (id) DO UPDATE SET
+      username  = EXCLUDED.username,
+      full_name = EXCLUDED.full_name,
+      role      = EXCLUDED.role;
+  ELSE
+    INSERT INTO users (id, tenant_id, username, role, branch_id, password)
+    VALUES (
+      '0984b54c-01cf-4843-b7ee-961eee7ee68d',
+      'bd89523e-47e7-4d4b-8b94-e98c6d3e1959',
+      'admin_vasilek',
+      'администратор',
+      'a797197e-973c-4210-9d7b-83c2b02e4d74',
+      '$2b$10$Nqz4EvvlQq5fDSNosp7u5uGwsa0fEOz1YV4FrJ7O.Rax79K8UDEoC'
+    ) ON CONFLICT (id) DO UPDATE SET
+      username = EXCLUDED.username,
+      role     = EXCLUDED.role;
+  END IF;
+END$$;
 EOSQL
 echo "✅ Пользователь admin_vasilek создан"
 echo ""
 
 # ── Шаг 4: Миграция владельцев ─────────────────────────────────────────────
 echo "👥 Шаг 4: Миграция владельцев (~56,000 записей, ~5 мин)..."
-DATABASE_URL="$PROD_DB" tsx scripts/migrate-vetais-universal.ts \
+DATABASE_URL="$PROD_DB" $TSX scripts/migrate-vetais-universal.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
   --host 94.198.53.52 \
@@ -93,7 +125,7 @@ echo ""
 
 # ── Шаг 5: Миграция пациентов ─────────────────────────────────────────────
 echo "🐾 Шаг 5: Миграция пациентов (~77,000 записей, ~15 мин)..."
-DATABASE_URL="$PROD_DB" tsx scripts/migrate-vetais-universal.ts \
+DATABASE_URL="$PROD_DB" $TSX scripts/migrate-vetais-universal.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
   --host 94.198.53.52 \
@@ -104,7 +136,7 @@ echo ""
 
 # ── Шаг 6: Миграция врачей ─────────────────────────────────────────────────
 echo "👨‍⚕️ Шаг 6: Миграция врачей (~107 записей)..."
-DATABASE_URL="$PROD_DB" tsx scripts/migrate-vetais-universal.ts \
+DATABASE_URL="$PROD_DB" $TSX scripts/migrate-vetais-universal.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
   --host 94.198.53.52 \
@@ -114,7 +146,7 @@ echo ""
 
 # ── Шаг 7: Исправление привязки к филиалам ────────────────────────────────
 echo "📍 Шаг 7: Привязка пациентов к филиалам..."
-DATABASE_URL="$PROD_DB" tsx scripts/fix-patient-branches.ts \
+DATABASE_URL="$PROD_DB" $TSX scripts/fix-patient-branches.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
   --host 94.198.53.52 \
@@ -123,7 +155,7 @@ echo ""
 
 # ── Шаг 8: Клинические случаи ─────────────────────────────────────────────
 echo "🗂️  Шаг 8: Миграция клинических случаев (~148,000 записей, ~20 мин)..."
-DATABASE_URL="$PROD_DB" tsx scripts/migrate-medical-data.ts \
+DATABASE_URL="$PROD_DB" $TSX scripts/migrate-medical-data.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
   --host 94.198.53.52 \
@@ -135,7 +167,7 @@ echo ""
 # ── Шаг 9: Медицинские записи (осмотры) ────────────────────────────────────
 echo "📋 Шаг 9: Миграция осмотров (~456,000 записей, ~60-90 мин)..."
 echo "   ВНИМАНИЕ: самый долгий шаг — загружает тексты всех осмотров"
-DATABASE_URL="$PROD_DB" tsx scripts/migrate-medical-data.ts \
+DATABASE_URL="$PROD_DB" $TSX scripts/migrate-medical-data.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
   --host 94.198.53.52 \
@@ -146,7 +178,7 @@ echo ""
 
 # ── Шаг 10: Вакцинации ─────────────────────────────────────────────────────
 echo "💉 Шаг 10: Миграция вакцинаций (~54,000 записей, ~5 мин)..."
-DATABASE_URL="$PROD_DB" tsx scripts/migrate-medical-data.ts \
+DATABASE_URL="$PROD_DB" $TSX scripts/migrate-medical-data.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
   --host 94.198.53.52 \
@@ -157,7 +189,7 @@ echo ""
 
 # ── Шаг 11: Счета ─────────────────────────────────────────────────────────
 echo "🧾 Шаг 11: Миграция счетов (~472,000 счётов + 1.6M позиций, ~30-60 мин)..."
-DATABASE_URL="$PROD_DB" tsx scripts/migrate-medical-data.ts \
+DATABASE_URL="$PROD_DB" $TSX scripts/migrate-medical-data.ts \
   --tenant bd89523e-47e7-4d4b-8b94-e98c6d3e1959 \
   --db vetais_vasilek \
   --host 94.198.53.52 \
