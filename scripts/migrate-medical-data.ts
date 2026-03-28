@@ -406,6 +406,14 @@ async function migrateVaccinations(
   branchMap: Map<number, string>,
   DEFAULT_BRANCH_ID: string
 ) {
+  // Строим карту patient_uuid → owner_uuid из VetSystem
+  const patOwnerRes = await vs.query(
+    `SELECT id, owner_id FROM patients WHERE tenant_id=$1 AND owner_id IS NOT NULL`, [TENANT_ID]
+  );
+  const patientOwnerMap = new Map<string, string>(
+    patOwnerRes.rows.map(r => [r.id, r.owner_id])
+  );
+
   console.log('━'.repeat(70));
   console.log('💉 ФАЗА 3: ВАКЦИНАЦИИ (vaccination_patient → health_reminders)');
   console.log('━'.repeat(70));
@@ -466,6 +474,9 @@ async function migrateVaccinations(
       const patId = patientMap.get(parseInt(r.id_patient));
       if (!patId) { S.vaccinations.skipped++; continue; }
 
+      const ownerId = patientOwnerMap.get(patId);
+      if (!ownerId) { S.vaccinations.skipped++; continue; } // owner_id NOT NULL
+
       const branchId = branchMap.get(parseInt(r.id_clinic)) || DEFAULT_BRANCH_ID;
       const vaccDate = parseVetaisDate(r.vaccination_date) || new Date();
       const vaccName = vaccNames.get(`${r.id_schema}_${r.id_step}`) || 'Вакцинация';
@@ -477,12 +488,13 @@ async function migrateVaccinations(
         const hasTenantId = cols.includes('tenant_id');
         const hasStatus   = cols.includes('status');
         const hasType     = cols.includes('reminder_type') || cols.includes('type');
+        const hasOwnerId  = cols.includes('owner_id');
         const reminderTypeCol = cols.includes('reminder_type') ? 'reminder_type' : 'type';
 
         let insertCols = ['id', 'patient_id', 'title', 'due_date', 'created_at', 'updated_at'];
         let values: any[] = [uuid(), patId, vaccName, vaccDate, new Date(), new Date()];
-        let p = values.length;
 
+        if (hasOwnerId)  { insertCols.push('owner_id');  values.push(ownerId); }
         if (hasTenantId) { insertCols.push('tenant_id'); values.push(TENANT_ID); }
         if (hasBranchId) { insertCols.push('branch_id'); values.push(branchId); }
         if (hasStatus)   { insertCols.push('status');    values.push('completed'); }
@@ -498,7 +510,8 @@ async function migrateVaccinations(
         S.vaccinations.inserted++;
       } catch (e: any) {
         S.vaccinations.errors++;
-        if (S.vaccinations.errors <= 3) console.error(`\n   ❌ Вакцинация ${r.id}: ${e.message}`);
+        if (S.vaccinations.errors <= 10) console.error(`\n   ❌ Вакцинация ${r.id}: ${e.message}`);
+        else if (S.vaccinations.errors === 11) console.error(`   (дальнейшие ошибки подавлены)`);
       }
     }
     process.stdout.write(`\r   Обработано: ${offset} | ✅ ${S.vaccinations.inserted} | ⏭️ ${S.vaccinations.skipped}`);
