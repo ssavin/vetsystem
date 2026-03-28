@@ -301,28 +301,13 @@ async function migrateRecords(
   console.log('📋 ФАЗА 2: ОСМОТРЫ (medical_exams + medical_documents → medical_records)');
   console.log('━'.repeat(70));
 
-  // Уже мигрированные
+  // Уже мигрированные (храним только строки-id, не весь контент)
   const existing = await vs.query(
     'SELECT vetais_id FROM medical_records WHERE tenant_id=$1 AND vetais_id IS NOT NULL', [TENANT_ID]
   );
   const done = new Set(existing.rows.map(r => r.vetais_id));
   console.log(`   Уже мигрировано: ${done.size}`);
-
-  // Загрузить все документы в память (сгруппировать по record_id = exam_id)
-  console.log('   Загрузка документов из Vetais...');
-  const docRes = await vt.query(`
-    SELECT record_id, doc_type, doc_data
-    FROM medical_documents
-    WHERE deleted = 0 AND doc_data IS NOT NULL AND length(doc_data) > 0
-    ORDER BY record_id, doc_type
-  `);
-  const docsMap = new Map<number, Record<string, string>>();
-  for (const d of docRes.rows) {
-    const rid = parseInt(d.record_id);
-    if (!docsMap.has(rid)) docsMap.set(rid, {});
-    docsMap.get(rid)![d.doc_type] = d.doc_data;
-  }
-  console.log(`   Документов загружено: ${docRes.rows.length} → ${docsMap.size} осмотров\n`);
+  console.log(`   Документы загружаются по батчам (без загрузки всего в память)\n`);
 
   let offset = 0;
   while (true) {
@@ -337,6 +322,25 @@ async function migrateRecords(
     if (!rows.rows.length) break;
     offset += BATCH;
 
+    // Для текущего батча загружаем документы только для нужных exam_id
+    const examIds = rows.rows.map(r => parseInt(r.id));
+    const docsMap = new Map<number, Record<string, string>>();
+    if (examIds.length > 0) {
+      const docRes = await vt.query(`
+        SELECT record_id, doc_type, doc_data
+        FROM medical_documents
+        WHERE deleted = 0
+          AND doc_data IS NOT NULL AND length(doc_data) > 0
+          AND record_id = ANY($1::int[])
+        ORDER BY record_id, doc_type
+      `, [examIds]);
+      for (const d of docRes.rows) {
+        const rid = parseInt(d.record_id);
+        if (!docsMap.has(rid)) docsMap.set(rid, {});
+        docsMap.get(rid)![d.doc_type] = d.doc_data;
+      }
+    }
+
     for (const r of rows.rows) {
       const vid = r.id.toString();
       if (done.has(vid)) { S.records.skipped++; continue; }
@@ -349,7 +353,7 @@ async function migrateRecords(
       const caseId   = r.id_case ? caseMap.get(parseInt(r.id_case)) || null : null;
       const visitDate = safeDt(r.date_created) || new Date();
 
-      // Собрать текст из документов
+      // Собрать текст из документов батча
       const docs = docsMap.get(parseInt(r.id)) || {};
       const anamnesis    = htmlToText(docs['anamnesis']    || '');
       const clinical     = htmlToText(docs['clinical']     || '');
