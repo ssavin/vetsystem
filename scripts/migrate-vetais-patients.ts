@@ -177,7 +177,7 @@ async function main() {
           p.department_id,
           ARRAY_AGG(
             bridge.id_klient ORDER BY bridge.id_most
-          ) FILTER (WHERE bridge.id_klient IS NOT NULL AND bridge.vymazk = 0 AND bridge.vymazp = 0) as owner_ids
+          ) FILTER (WHERE bridge.id_klient IS NOT NULL AND (bridge.vymazk IS NULL OR bridge.vymazk = 0) AND (bridge.vymazp IS NULL OR bridge.vymazp = 0)) as owner_ids
         FROM file_patients p
         LEFT JOIN file_bridge_clients_patients bridge ON bridge.id_pacient = p.id_pacienta
         LEFT JOIN patient_breeds pb ON pb.id_rasa = p.id_rasa AND pb.vymaz = 0

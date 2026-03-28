@@ -6,9 +6,13 @@ Preferred communication style: Simple, everyday language.
 
 # System Architecture
 
+## Core Principles
+-   **Multi-Tenancy**: Data isolation per clinic, accessible via subdomains, with a superadmin portal for platform-wide management.
+-   **Security**: JWT-based authentication with `tenant_id` embedding, `TenantResolver` middleware, Auth middleware, and PostgreSQL Row-Level Security (RLS) for robust tenant and role-based access control.
+
 ## Frontend
 -   **Framework**: React 18 with TypeScript (Vite).
--   **UI Components**: Shadcn/ui built on Radix UI, styled with Tailwind CSS (healthcare-focused palette).
+-   **UI/UX**: Shadcn/ui (Radix UI, Tailwind CSS with healthcare-focused palette), Inter font, sidebar navigation, mobile-first responsive design, dark/light mode.
 -   **State Management**: TanStack Query for server state.
 -   **Routing**: Wouter.
 -   **Forms**: React Hook Form with Zod validation.
@@ -17,106 +21,42 @@ Preferred communication style: Simple, everyday language.
 -   **Runtime**: Node.js with Express (TypeScript, ES modules).
 -   **API Design**: RESTful API with structured error handling and Zod validation.
 -   **Database ORM**: Drizzle ORM.
--   **File Storage**: Tenant/branch-scoped file system storage for medical records.
+-   **File Storage**: Tenant/branch-scoped file system storage.
 
 ## Database
--   **Database**: PostgreSQL.
+-   **Type**: PostgreSQL.
 -   **Schema Management**: Drizzle Kit for migrations.
 -   **Data Models**: Comprehensive veterinary domain models (Owners, Patients, Doctors, Appointments, Medical Records, Clinical Cases, Services, Products, Invoicing), with extended fields for Russian Federation legal compliance.
 
-## Authentication & Security
--   **Multi-Tenant Authentication**: JWT-based with `tenant_id` embedding.
--   **Tenant Isolation**: TenantResolver middleware, Auth middleware, and PostgreSQL Row-Level Security (RLS).
--   **Session Management**: Express sessions with PostgreSQL store.
--   **User Management**: Role-based access control (RBAC).
+## Key Features
+-   **Superadmin Portal**: Manages clinic tenants with CRUD operations, bypassing tenant isolation.
+-   **Document Generation**: Multi-tenant template management (Handlebars for rendering, Puppeteer for PDF generation) for medical, consent, agreement, and legal documents, with tenant/branch ownership validation and RLS enforcement.
+-   **Electronic Queue System**: Manages queue entries and calls with branch/tenant isolation via RLS, featuring atomic daily auto-reset numbering and scheduled cleanup.
+-   **Hospital/Inpatient Module**:
+    -   Manages hospital cages with real-time availability.
+    -   Automated patient admission with draft invoice creation and hospital stay record initialization.
+    -   Treatment logging with automatic invoice item creation and recalculation on deletion.
+    -   Daily "Daily Stay" service charge via cron job.
+    -   Branch-level isolation for cages and patients.
+    -   Draft invoices remain open until discharge and are finalized at reception.
 
-## Superadmin Portal
--   Manages clinic tenants with CRUD operations, bypassing tenant isolation for platform management.
-
-## Document Generation & Printing
--   Multi-tenant template management (Handlebars for rendering, Puppeteer for PDF generation) for medical, consent, agreement, and legal documents. Templates access owner, patient, clinic data, with tenant/branch ownership validation and RLS enforcement.
-
-## Electronic Queue System
--   Manages queue entries and calls with branch/tenant isolation via RLS. Features atomic queue numbering with daily auto-reset and scheduled cleanup.
-
-## Hospital/Inpatient Module (Стационар)
--   **Cage Management**: Track and manage hospital cages with real-time availability status (available/occupied/maintenance).
--   **Patient Admission**: Automated workflow for admitting patients - creates draft invoice, occupies cage, and initializes hospital stay record.
--   **Treatment Logging**: 
-    - Record all procedures and treatments with automatic invoice item creation
-    - Delete procedures from treatment log with automatic invoice recalculation
-    - Display owner information (name, phone) and treatment count for active patients
--   **Automatic Billing**: 
-    - Procedures are automatically added to patient invoice upon logging
-    - Daily cron job (00:00 UTC) adds "Daily Stay" service charge for all active inpatients
-    - Service ID for daily charge configured via system setting: `HOSPITAL_DAILY_SERVICE_ID_{tenantId}_{branchId}`
-    - Invoice recalculation on procedure deletion maintains data integrity
--   **Security**: Branch-level isolation enforced - users can only access cages and patients within their branch.
--   **Invoice Management**: 
-    - Hospital stays use draft invoices that remain open until patient discharge, then finalized at reception
-    - Draft invoices visible in Finance section with "Черновик" badge
-    - Invoice visibility ensures branch isolation via hospital_stays JOIN for multi-branch support
-
-## Design System
--   Medical-focused color palette, Inter font, sidebar navigation, mobile-first responsive design, dark/light mode support.
-
-## Settings Page UI
--   Tab-based organization for General Settings, Branch Management, Staff Management, Legal Entities (placeholder), and Document Templates.
-
-## Mobile Application
--   **Framework**: React Native with Expo.
--   **UI Library**: React Native Paper (Material Design 3).
--   **Authentication**: SMS-based (SMS.RU API) with JWT tokens, token persistence, and automatic injection.
--   **Security**: Tenant isolation via `mobileTenantMiddleware` and RLS.
--   **Features**: SMS authentication, owner profiles, pet details, medical history, appointment booking, push notifications, real-time chat, medical file access, proactive health notifications.
-
-## Desktop Companion (Electron)
--   **Purpose**: Offline-capable desktop application for clinic operations when internet is unavailable or unstable.
--   **Framework**: Electron + React + TypeScript + Vite.
--   **Build System**: esbuild for main process, Vite for renderer process, electron-builder for distribution.
--   **Local Database**: SQLite for offline data storage (clients, patients, nomenclature, appointments, invoices). Uses server_id field to map server records with INSERT OR REPLACE for conflict-free sync.
--   **Authentication** (✅ Working):
-    - User login with username/password synchronized with main server
-    - **LoginPage**: Identical to main web app with inline branch selection dropdown (only difference: "Companion" label)
-    - Branch selection integrated into login screen - user selects clinic branch before authentication
-    - API endpoint: `POST /api/sync/login` with bcrypt password verification
-    - User credentials stored in separate JSON file (authenticated-user.json) to avoid electron-store null value limitations
-    - Logout functionality clears stored credentials
-    - SyncStatusBar displays current user info and logout button
-    - Logging: IPC-based log forwarding from main process to renderer for debugging
-    - Services initialized before window creation to ensure sync service readiness
--   **Synchronization**: 
-    - **Bidirectional sync** with main server via REST API (fully automated)
-    - API endpoints: `POST /api/sync/login`, `GET /api/sync/branches`, `GET /api/sync/initial-data`, `POST /api/sync/upload-changes`
-    - API key authentication via `X-API-Key` header for Companion identification
-    - Branch selection on login page for data filtering (clients/patients shared across branches by design)
-    - Nomenclature (services/products) filtered by selected branch
-    - **Automatic sync every 60 seconds (1 minute)** - uploads pending changes when online
-    - Manual sync button available (↻ Синхронизировать) for immediate sync
-    - Local changes tracked in sync_queue table (pending → success/error)
-    - Supports offline: clients, patients, appointments, **invoices** creation
-    - Conflict resolution with sync_queue table for change tracking
-    - Safe data updates using `INSERT OR REPLACE` to prevent constraint violations
-    - Real-time sync status in UI (pending count, online/offline, syncing indicator)
--   **Settings Management**:
-    - Server URL and API key configuration with live credential testing
-    - Branch selection: fetch branches from server, select target branch without restart
-    - IPC-based settings handlers for secure credential updates
-    - Immediate application of settings changes without restart via SyncService.updateCredentials()
--   **Features**: 
-    - User authentication with main server credentials
-    - Client/patient management offline
-    - Appointment scheduling offline
-    - Invoice creation with local nomenclature (synced from server by branch)
-    - Real-time sync status indicator
-    - Automatic retry on network restore
--   **Distribution**: Windows .exe installer via electron-builder (Mac/Linux support configured).
--   **Location**: `/vetsystem-companion/` directory.
--   **Related**: Desktop POS (`/desktop_pos/`) is separate Python/Tkinter app for retail sales with fiscal printer integration.
+## Companion Applications
+-   **Mobile Application (React Native with Expo)**:
+    -   **UI**: React Native Paper (Material Design 3).
+    -   **Authentication**: SMS-based (SMS.RU API) with JWT tokens.
+    -   **Security**: Tenant isolation via `mobileTenantMiddleware` and RLS.
+    -   **Features**: SMS authentication, owner/pet profiles, medical history, appointment booking, push notifications, real-time chat, medical file access, proactive health notifications.
+-   **Desktop Companion (Electron + React + TypeScript + Vite)**:
+    -   **Purpose**: Offline-capable desktop application for clinic operations.
+    -   **Local Database**: SQLite for offline data storage (clients, patients, nomenclature, appointments, invoices) with `INSERT OR REPLACE` for conflict resolution.
+    -   **Authentication**: User login with username/password synchronized with the main server, branch selection on login.
+    -   **Synchronization**: Bidirectional, fully automated sync every 60 seconds (manual sync also available), uploads pending changes when online. Tracks local changes in `sync_queue` table.
+    -   **Features**: Offline client/patient management, appointment scheduling, invoice creation.
+    -   **Distribution**: Windows .exe installer via electron-builder.
 
 # External Dependencies
 
-## Core Framework
+## Core Framework & Database
 -   `@neondatabase/serverless`: PostgreSQL serverless driver.
 -   `drizzle-orm`: Type-safe ORM.
 -   `connect-pg-simple`: PostgreSQL session store.
@@ -138,67 +78,22 @@ Preferred communication style: Simple, everyday language.
 -   `handlebars`: Template engine.
 -   `puppeteer`: Headless browser for PDF generation.
 
-## Mobile Push Notifications
+## Communication & Notifications
 -   `expo-server-sdk`: Expo push notification service.
+-   **SMS.RU API**: SMS verification codes and 2FA.
+-   **Mango Office**: Telephony integration (webhook handler, call logging, real-time notifications via Socket.IO, auto-open client card, call history).
 
-## SMS Service Integration
--   **Provider**: SMS.RU API for SMS verification codes and 2FA. Features API key-based authentication, rate limiting, and phone enumeration protection. Configuration via admin UI with tenant-scoped credentials.
+## Business Integrations
+-   **МойСклад**: One-way inventory sync (МойСклад → VetSystem) and fiscal receipt creation from VetSystem invoices.
+-   **Dreamkas Start**: Fiscal receipt integration for local cash registers, nomenclature synchronization, and fiscal receipt creation.
+-   **YooKassa**: Payment gateway.
+-   **DADATA**: Data enrichment service.
+-   **OpenAI**: AI services.
 
-## Other Integrations
--   **МойСклад**: One-way inventory sync (МойСклад → VetSystem) for products and services nomenclature, including fiscal receipt creation from VetSystem invoices.
--   **YooKassa**: Payment gateway (implied by environment variables).
--   **Dreamkas Start**: Fiscal receipt integration for local cash registers. Features nomenclature synchronization (products/services → Dreamkas), fiscal receipt creation from VetSystem invoices with automatic VAT calculation, and connection testing via device API. Configuration via admin UI with tenant-scoped API tokens and device IDs.
--   **Mango Office**: Telephony integration with real-time operator notifications and call logging. Features:
-    - **Webhook Handler**: Processes incoming call events (call, summary, recording) with HMAC-SHA256 signature verification for security
-    - **Call Logs**: Stores call metadata (phone, direction, duration, status, recording URL) linked to owners and operators with tenant/branch isolation via RLS
-    - **Real-time Notifications**: WebSocket (Socket.IO) server broadcasts incoming call events to specific operators with owner/patient information
-    - **Auto-Open Client Card**: Frontend automatically displays client information dialog on incoming calls if owner found by phone number
-    - **Call History**: UI component displays call logs in owner card with recording playback support
-    - **Configuration**: Admin UI for API Key and API Salt (VPN Key) with connection testing
-    - **Security**: API credentials stored in integration_credentials table with tenant-scoped access, webhook signature verification, and RLS enforcement
--   **DADATA**: Data enrichment service (implied by environment variables).
--   **OpenAI**: AI services (implied by environment variables).
-
-## Vetais Legacy Databases (External)
-Внешние базы данных старой системы Vetais для миграции данных и ручных SQL-запросов.
-Все базы расположены на одном сервере с общими учётными данными.
--   **Host:** 45.128.206.134
--   **Port:** 5454
--   **User:** postgres
--   **Password:** ASPI6rin
-
-### База 1: vetais_alisavet (Алисавет)
--   **Database:** vetais_alisavet
--   **Tenant ID:** default-tenant-001
--   **Данные:** ~62,000 клиентов, ~58,000 пациентов, ~330,000 оплаченных счетов
-
-### База 2: vetais_haks (Первый вет центр)
--   **Database:** vetais_haks
--   **Tenant ID:** e7c3459d-599b-4570-858f-1674dbd8db82
--   **Branch ID:** 140455b8-c2c2-4f1b-babb-ce34b0980994
--   **Данные:** ~29,744 клиентов, ~36,418 пациентов, ~191,204 оплаченных счетов
-
-### База 3: arutyn1 (Усатый Полосатый)
--   **Database:** arutyn1
--   **Tenant ID:** 06d235e4-e7ba-4b2c-87a2-77afc72c4358
--   **Tenant Slug:** usatyj-polosatyj
--   **Admin user:** admin_up / admin123
--   **Филиалы:**
-    - Дрожжино (Branch ID: fde48131-9495-478f-806b-274fa1fcbdba, vetais_clinic_id=10000)
-    - Остафьево (Branch ID: 7b46d4f5-7cb3-404c-8642-e3d025a281b8, vetais_clinic_id=10001)
--   **Данные:** ~8,838 клиентов, ~11,335 пациентов мигрировано
--   **Скрипт миграции:** `scripts/migrate-arutyn1.ts`
-
-### Общие таблицы:
-    - `file_clients` - клиенты (kod_kado = ID, nazev_kado = ФИО)
-    - `file_patients` - пациенты (id_majitele = ID владельца)
-    - `accounts_headers` - счета (client_id, client_name - денормализованное ФИО)
-    - `accounts_items` - позиции счетов (user_id = врач, выполнивший услугу)
-    - `system_users` - пользователи/врачи (is_doctor=1 для врачей)
--   **Конфиг подключения:** `scripts/vetais-config.ts` (маппинг tenant→база)
--   **Скрипт миграции:** `scripts/migrate-vetais-batch.ts` (5-й параметр — имя базы)
--   **Подключение через psql:**
-    ```bash
-    PGPASSWORD='ASPI6rin' psql -h 45.128.206.134 -p 5454 -U postgres -d vetais_alisavet
-    PGPASSWORD='ASPI6rin' psql -h 45.128.206.134 -p 5454 -U postgres -d vetais_haks
-    ```
+## Vetais Legacy Databases (for Data Migration)
+-   **Host**: `45.128.206.134` (Port: `5454`, User: `postgres`, Password: `ASPI6rin`)
+    -   `vetais_alisavet` (Tenant ID: `default-tenant-001`)
+    -   `vetais_haks` (Tenant ID: `e7c3459d-599b-4570-858f-1674dbd8db82`)
+    -   `arutyn1` (Tenant ID: `06d235e4-e7ba-4b2c-87a2-77afc72c4358`, Slug: `usatyj-polosatyj`)
+-   **Host**: `94.198.53.52` (Port: `5454`, User: `postgres`, Password: `vetais`)
+    -   `vetais_vasilek` (Tenant ID: `bd89523e-47e7-4d4b-8b94-e98c6d3e1959`, Slug: `vasilek`)
