@@ -348,7 +348,8 @@ async function migrateRecords(
       const patId = patientMap.get(parseInt(r.id_patient));
       if (!patId) { S.records.skipped++; continue; }
 
-      const doctorId = doctorMap.get(parseInt(r.id_doctor)) || null;
+      // doctor_id в medical_records ссылается на users(id), а не doctors(id).
+      // Поскольку прямой связи нет — ставим NULL (поле nullable).
       const branchId = branchMap.get(parseInt(r.id_clinic)) || DEFAULT_BRANCH_ID;
       const caseId   = r.id_case ? caseMap.get(parseInt(r.id_case)) || null : null;
       const visitDate = safeDt(r.date_created) || new Date();
@@ -373,15 +374,15 @@ async function migrateRecords(
             (id, tenant_id, branch_id, patient_id, doctor_id, appointment_id,
              visit_date, visit_type, complaints, diagnosis, treatment,
              status, notes, created_at, updated_at, vetais_id)
-          VALUES ($1,$2,$3,$4,$5,NULL,$6,$7,$8,$9,$10,$11,$12,$13,$13,$14)
+          VALUES ($1,$2,$3,$4,NULL,NULL,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13)
           ON CONFLICT DO NOTHING
         `, [
-          uuid(), TENANT_ID, branchId, patId, doctorId,
+          uuid(), TENANT_ID, branchId, patId,
           visitDate, 'visit',
           truncate(complaints, 5000),
           truncate(diagnosis, 5000),
           treatment ? JSON.stringify(treatment) : null,
-          r.state === 1 ? 'completed' : 'completed',
+          'completed',
           truncate(notes, 2000),
           new Date(), vid
         ]);
@@ -389,7 +390,8 @@ async function migrateRecords(
         S.records.inserted++;
       } catch (e: any) {
         S.records.errors++;
-        if (S.records.errors <= 3) console.error(`\n   ❌ Осмотр ${r.id}: ${e.message}`);
+        if (S.records.errors <= 10) console.error(`\n   ❌ Осмотр ${r.id}: ${e.message}`);
+        else if (S.records.errors === 11) console.error(`   (дальнейшие ошибки подавлены)`);
       }
     }
     process.stdout.write(`\r   Обработано: ${offset} | ✅ ${S.records.inserted} | ⏭️ ${S.records.skipped}`);
