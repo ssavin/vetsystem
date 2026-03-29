@@ -2279,8 +2279,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("User:", (req as any).user?.username || "no user");
       console.log("Creating invoice with data:", JSON.stringify(req.body, null, 2));
       
+      const { bonusPointsToSpend, ...invoiceBody } = req.body;
+      const bonusPoints = parseInt(bonusPointsToSpend || '0') || 0;
+
       // Validate request body
-      const validation = insertInvoiceSchema.safeParse(req.body);
+      const validation = insertInvoiceSchema.safeParse(invoiceBody);
       if (!validation.success) {
         console.error("Invoice validation failed:", validation.error.issues);
         return res.status(400).json({ 
@@ -2292,10 +2295,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = (req as any).user;
       const userBranchId = requireValidBranchId(req, res);
       if (!userBranchId) return; // 403 already sent
+
+      const tenantId = user?.tenantId || (req as any).tenantId;
+
+      // If bonus points requested, validate atomically before creating invoice
+      let loyaltySettings: any = null;
+      let finalTotal = parseFloat(validation.data.total as any);
+      if (bonusPoints > 0) {
+        if (!validation.data.ownerId) {
+          return res.status(400).json({ error: "Бонусные баллы можно применить только к счёту с владельцем" });
+        }
+        loyaltySettings = await storage.getLoyaltySettings(tenantId);
+        if (!loyaltySettings?.isActive) {
+          return res.status(400).json({ error: "Программа лояльности не активна" });
+        }
+        const ownerBalance = await storage.getLoyaltyBalance(validation.data.ownerId);
+        if (ownerBalance < bonusPoints) {
+          return res.status(400).json({ error: `Недостаточно баллов: доступно ${ownerBalance}, запрошено ${bonusPoints}` });
+        }
+        if (ownerBalance < (loyaltySettings.minBalanceToSpend || 100)) {
+          return res.status(400).json({ error: `Минимальный баланс для списания: ${loyaltySettings.minBalanceToSpend} баллов` });
+        }
+        const pointsValue = parseFloat(loyaltySettings.pointsValue || '1');
+        const bonusDiscount = bonusPoints * pointsValue;
+        const maxAllowed = finalTotal * parseFloat(loyaltySettings.maxSpendPercent || '50') / 100;
+        if (bonusDiscount > maxAllowed) {
+          return res.status(400).json({ error: `Максимально можно списать ${Math.floor(maxAllowed / pointsValue)} баллов по этому счёту` });
+        }
+        finalTotal = Math.max(0, finalTotal - bonusDiscount);
+      }
       
       // 🔒 SECURITY: Force branchId from user token, ignore any branchId in body
-      const invoiceData = { ...validation.data, branchId: userBranchId };
+      const invoiceData = { 
+        ...validation.data, 
+        branchId: userBranchId,
+        total: finalTotal.toFixed(2),
+        bonusPointsUsed: bonusPoints > 0 ? bonusPoints : undefined,
+      };
       const invoice = await storage.createInvoice(invoiceData);
+
+      // Atomically deduct loyalty points after invoice is created
+      if (bonusPoints > 0 && invoice.id && invoice.ownerId && tenantId) {
+        try {
+          await storage.spendLoyaltyPoints({
+            ownerId: invoice.ownerId,
+            tenantId,
+            branchId: userBranchId,
+            invoiceId: invoice.id,
+            points: bonusPoints,
+          });
+        } catch (loyaltyError: any) {
+          // Roll back: delete the just-created invoice and return error
+          console.error("Loyalty spend failed after invoice creation — rolling back:", loyaltyError);
+          await storage.deleteInvoice(invoice.id).catch(() => {});
+          return res.status(400).json({ error: loyaltyError.message || "Ошибка списания баллов — счёт не создан" });
+        }
+      }
+
       res.status(201).json(invoice);
     } catch (error) {
       console.error("Error creating invoice:", error);
@@ -11136,9 +11192,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/loyalty/settings — alias for PUT (upsert, same as PUT)
+  app.post("/api/loyalty/settings", authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
+      if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+      const settings = await storage.upsertLoyaltySettings(tenantId, req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error creating loyalty settings:", error);
+      res.status(500).json({ error: "Failed to create loyalty settings" });
+    }
+  });
+
+  // POST /api/loyalty/earn — ручное начисление баллов
+  app.post("/api/loyalty/earn", authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+      const { ownerId, points, description } = req.body;
+      if (!ownerId || !points) return res.status(400).json({ error: "ownerId и points обязательны" });
+      const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
+      const branchId = (req as any).user?.branchId;
+      if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+
+      // Verify owner belongs to this tenant
+      const owner = await storage.getOwner(ownerId);
+      if (!owner || owner.tenantId !== tenantId) {
+        return res.status(404).json({ error: "Владелец не найден" });
+      }
+
+      const tx = await storage.earnLoyaltyPoints({
+        ownerId,
+        tenantId,
+        branchId,
+        invoiceId: undefined,
+        invoiceTotal: 0,
+        manualPoints: parseInt(points),
+        description,
+      });
+      res.json(tx);
+    } catch (error: any) {
+      console.error("Error earning loyalty points:", error);
+      res.status(400).json({ error: error.message || "Failed to earn loyalty points" });
+    }
+  });
+
   // GET /api/loyalty/balance/:ownerId — баланс владельца
   app.get("/api/loyalty/balance/:ownerId", authenticateToken, async (req, res) => {
     try {
+      const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
+      if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+      // Verify owner belongs to this tenant
+      const owner = await storage.getOwner(req.params.ownerId);
+      if (!owner || owner.tenantId !== tenantId) {
+        return res.status(404).json({ error: "Владелец не найден" });
+      }
       const balance = await storage.getLoyaltyBalance(req.params.ownerId);
       res.json({ balance });
     } catch (error) {
@@ -11150,6 +11257,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/loyalty/transactions/:ownerId — история транзакций
   app.get("/api/loyalty/transactions/:ownerId", authenticateToken, async (req, res) => {
     try {
+      const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
+      if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+      // Verify owner belongs to this tenant
+      const owner = await storage.getOwner(req.params.ownerId);
+      if (!owner || owner.tenantId !== tenantId) {
+        return res.status(404).json({ error: "Владелец не найден" });
+      }
       const limit = parseInt(req.query.limit as string || '50');
       const offset = parseInt(req.query.offset as string || '0');
       const transactions = await storage.getLoyaltyTransactions(req.params.ownerId, limit, offset);

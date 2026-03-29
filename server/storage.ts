@@ -786,7 +786,7 @@ export interface IStorage {
   getLoyaltyBalance(ownerId: string): Promise<number>;
   getLoyaltyTransactions(ownerId: string, limit?: number, offset?: number): Promise<LoyaltyTransaction[]>;
   getLoyaltyTransactionStats(tenantId: string): Promise<{ totalEarned: number; totalSpent: number; activeOwners: number }>;
-  earnLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; invoiceTotal: number }): Promise<LoyaltyTransaction | null>;
+  earnLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId?: string; invoiceTotal: number; manualPoints?: number; description?: string }): Promise<LoyaltyTransaction | null>;
   spendLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number }): Promise<LoyaltyTransaction>;
 }
 
@@ -7499,12 +7499,20 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async earnLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; invoiceTotal: number }): Promise<LoyaltyTransaction | null> {
+  async earnLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId?: string; invoiceTotal: number; manualPoints?: number; description?: string }): Promise<LoyaltyTransaction | null> {
     const settings = await this.getLoyaltySettings(params.tenantId);
     if (!settings || !settings.isActive) return null;
 
-    const earnRate = parseFloat(settings.earnRatePercent || '5');
-    const points = Math.floor(params.invoiceTotal * earnRate / 100);
+    let points: number;
+    let txDescription: string;
+    if (params.manualPoints && params.manualPoints > 0) {
+      points = params.manualPoints;
+      txDescription = params.description || `Ручное начисление ${points} баллов`;
+    } else {
+      const earnRate = parseFloat(settings.earnRatePercent || '5');
+      points = Math.floor(params.invoiceTotal * earnRate / 100);
+      txDescription = params.description || `Начисление за оплату счёта на сумму ${params.invoiceTotal} ₽`;
+    }
     if (points <= 0) return null;
 
     return withTenantContext(params.tenantId, async (dbInstance) => {
@@ -7525,8 +7533,8 @@ export class DatabaseStorage implements IStorage {
         points,
         balanceBefore,
         balanceAfter,
-        invoiceId: params.invoiceId,
-        description: `Начисление за оплату счёта на сумму ${params.invoiceTotal} ₽`,
+        invoiceId: params.invoiceId || undefined,
+        description: txDescription,
       }).returning();
       return tx;
     });

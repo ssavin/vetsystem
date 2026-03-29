@@ -153,36 +153,21 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
     mutationFn: async (data: InvoiceFormData) => {
       // Calculate totals (ensure numbers, not strings)
       const subtotal = data.items.reduce((sum, item) => sum + Number(item.total), 0)
-      const pointsValue = parseFloat(loyaltySettings?.pointsValue || '1')
-      const bonusDiscount = bonusPointsToSpend * pointsValue
-      const total = subtotal - Number(data.discount) - bonusDiscount
+      // NOTE: Do NOT apply bonus discount here — server applies it atomically
+      const total = subtotal - Number(data.discount)
 
       const processedData = {
         ...data,
         subtotal,
-        total: Math.max(0, total),
+        total,
         status: "pending" as const,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-        bonusPointsUsed: bonusPointsToSpend > 0 ? bonusPointsToSpend : undefined,
+        // Pass bonus points to server for atomic application
+        bonusPointsToSpend: bonusPointsToSpend > 0 ? bonusPointsToSpend : undefined,
       }
       
       const invoiceRes = await apiRequest('POST', '/api/invoices', processedData)
-      const invoice = await invoiceRes.json()
-      
-      // Spend bonus points if applied
-      if (bonusPointsToSpend > 0 && selectedOwner && invoice.id) {
-        try {
-          await apiRequest('POST', '/api/loyalty/spend', {
-            ownerId: selectedOwner.id,
-            invoiceId: invoice.id,
-            points: bonusPointsToSpend,
-          })
-        } catch (e) {
-          console.warn('Failed to spend loyalty points:', e)
-        }
-      }
-      
-      return invoice
+      return await invoiceRes.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/invoices'] })
@@ -226,7 +211,7 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
     form.setValue(`items.${index}.total`, total)
   }
 
-  // Calculate total invoice amount
+  // Calculate total invoice amount (preview only — server applies actual bonus discount)
   const calculateTotals = () => {
     const items = form.getValues("items")
     const discount = form.getValues("discount")
@@ -235,6 +220,7 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
     const bonusDiscount = bonusPointsToSpend * pointsValue
     return { subtotal, bonusDiscount, total: Math.max(0, subtotal - Number(discount || 0) - bonusDiscount) }
   }
+  // Re-run totals calculation when bonusPointsToSpend changes
 
   const addServiceOrProduct = (itemType: "service" | "product", itemId: string) => {
     const allItems = itemType === "service" ? services : products
