@@ -10854,7 +10854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!allowed.includes(segment)) {
         return res.status(400).json({ error: `segment must be one of: ${allowed.join(', ')}` });
       }
-      const owner = await storage.updateOwnerSegment(req.params.id, segment);
+      const owner = await storage.updateOwnerSegment(req.params.id, segment, user.tenantId);
       res.json(owner);
     } catch (error: any) {
       console.error("Error updating owner segment:", error);
@@ -10988,6 +10988,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/crm/campaigns/:id", authenticateToken, async (req, res) => {
     try {
+      const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      // Only allow valid status values
+      const allowedStatuses = ['draft', 'scheduled', 'running', 'completed', 'paused', 'cancelled'];
+      if (req.body.status && !allowedStatuses.includes(req.body.status)) {
+        return res.status(400).json({ error: `status must be one of: ${allowedStatuses.join(', ')}` });
+      }
       const campaign = await storage.updateMarketingCampaign(req.params.id, req.body);
       res.json(campaign);
     } catch (error: any) {
@@ -11016,7 +11025,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
         return res.status(403).json({ error: 'Access denied' });
       }
-      await storage.deleteMarketingCampaign(req.params.id);
+      await storage.deleteMarketingCampaign(req.params.id, user.tenantId);
       res.status(204).send();
     } catch (error: any) {
       console.error("Error deleting campaign:", error);

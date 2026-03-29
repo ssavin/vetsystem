@@ -7238,12 +7238,14 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async deleteMarketingCampaign(id: string): Promise<void> {
+  async deleteMarketingCampaign(id: string, tenantId?: string): Promise<void> {
     return withPerformanceLogging('deleteMarketingCampaign', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
+        const conditions: any[] = [eq(marketingCampaigns.id, id)];
+        if (tenantId) conditions.push(eq(marketingCampaigns.tenantId, tenantId));
         await dbInstance
           .delete(marketingCampaigns)
-          .where(eq(marketingCampaigns.id, id));
+          .where(and(...conditions));
       });
     });
   }
@@ -7257,9 +7259,13 @@ export class DatabaseStorage implements IStorage {
     offset?: number;
   }): Promise<{ data: Owner[]; total: number }> {
     return withPerformanceLogging('getCrmOwners', async () => {
-      return withTenantContext(params.tenantId, async (dbInstance) => {
-        const { segment, search, limit = 50, offset = 0 } = params;
+      return withTenantContext(undefined, async (dbInstance) => {
+        const { tenantId, segment, search, limit = 50, offset = 0 } = params;
         const conditions: any[] = [];
+        // Always scope to tenant — this is a hard security requirement
+        if (tenantId) {
+          conditions.push(eq(owners.tenantId, tenantId));
+        }
         if (segment && segment !== 'all') {
           conditions.push(eq(owners.segment, segment));
         }
@@ -7300,13 +7306,17 @@ export class DatabaseStorage implements IStorage {
     totalOwners: number;
   }> {
     return withPerformanceLogging('getCrmStats', async () => {
-      return withTenantContext(tenantId, async (dbInstance) => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Always scope to tenant
+        const tenantFilter = tenantId ? eq(owners.tenantId, tenantId) : undefined;
+
         const segmentRows = await dbInstance
           .select({
             segment: owners.segment,
             count: sql<number>`count(*)::int`
           })
           .from(owners)
+          .where(tenantFilter)
           .groupBy(owners.segment);
 
         const [totals] = await dbInstance
@@ -7315,7 +7325,8 @@ export class DatabaseStorage implements IStorage {
             averageCheck: sql<number>`COALESCE(AVG(CAST(average_check AS numeric)) FILTER (WHERE CAST(average_check AS numeric) > 0), 0)::float`,
             totalOwners: sql<number>`count(*)::int`
           })
-          .from(owners);
+          .from(owners)
+          .where(tenantFilter);
 
         return {
           segmentCounts: segmentRows.map(r => ({ segment: r.segment || 'new', count: r.count })),
@@ -7358,13 +7369,15 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updateOwnerSegment(id: string, segment: string): Promise<Owner> {
+  async updateOwnerSegment(id: string, segment: string, tenantId?: string): Promise<Owner> {
     return withPerformanceLogging('updateOwnerSegment', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
+        const conditions: any[] = [eq(owners.id, id)];
+        if (tenantId) conditions.push(eq(owners.tenantId, tenantId));
         const [updated] = await dbInstance
           .update(owners)
           .set({ segment, updatedAt: new Date() })
-          .where(eq(owners.id, id))
+          .where(and(...conditions))
           .returning();
         return updated;
       });
