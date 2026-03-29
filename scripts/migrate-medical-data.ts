@@ -567,8 +567,12 @@ async function migrateInvoices(
       const invNum = `VT-${r.id}`;
       if (done.has(invNum)) { S.invoices.skipped++; continue; }
 
-      const patId    = r.patient_id ? patientMap.get(parseInt(r.patient_id)) || null : null;
-      if (!patId) { S.invoices.skipped++; continue; } // patient_id NOT NULL
+      // owner_id — из client_id (владелец счёта, NOT NULL)
+      const ownerId = r.client_id ? ownerMap.get(parseInt(r.client_id)) || null : null;
+      if (!ownerId) { S.invoices.skipped++; continue; } // owner_id обязателен
+
+      // patient_id — необязательный (аптека, групповые услуги и т.д.)
+      const patId = r.patient_id ? patientMap.get(parseInt(r.patient_id)) || null : null;
 
       const branchId = branchMap.get(parseInt(r.clinic_id)) || DEFAULT_BRANCH_ID;
       const issueDate = safeDt(r.datetime_create) || new Date();
@@ -584,11 +588,11 @@ async function migrateInvoices(
       const newId = uuid();
 
       try {
-        const insertCols = ['id', 'invoice_number', 'patient_id', 'issue_date',
+        const insertCols = ['id', 'invoice_number', 'owner_id', 'patient_id', 'issue_date',
           'subtotal', 'discount', 'total', 'status', 'paid_date',
           'created_at', 'updated_at', 'tenant_id'];
         const vals: any[] = [
-          newId, invNum, patId, issueDate,
+          newId, invNum, ownerId, patId, issueDate,
           subtotal, discount, total, status, paidDate,
           new Date(), new Date(), TENANT_ID
         ];

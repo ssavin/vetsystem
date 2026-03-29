@@ -960,7 +960,8 @@ export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   invoiceNumber: varchar("invoice_number", { length: 255 }).unique().notNull(),
-  patientId: varchar("patient_id").references(() => patients.id).notNull(),
+  ownerId: varchar("owner_id").references(() => owners.id),
+  patientId: varchar("patient_id").references(() => patients.id),
   appointmentId: varchar("appointment_id").references(() => appointments.id),
   issueDate: timestamp("issue_date").defaultNow().notNull(),
   dueDate: timestamp("due_date"),
@@ -985,6 +986,7 @@ export const invoices = pgTable("invoices", {
     totalCheck: check("invoices_total_check", sql`${table.total} >= 0`),
     dueDateCheck: check("invoices_due_date_check", sql`${table.dueDate} IS NULL OR ${table.dueDate} >= ${table.issueDate}`),
     tenantIdIdx: index("invoices_tenant_id_idx").on(table.tenantId),
+    ownerIdIdx: index("invoices_owner_id_idx").on(table.ownerId),
     patientIdIdx: index("invoices_patient_id_idx").on(table.patientId),
     issueDateIdx: index("invoices_issue_date_idx").on(table.issueDate),
     statusIdx: index("invoices_status_idx").on(table.status),
@@ -1332,6 +1334,10 @@ export const medicationsRelations = relations(medications, ({ one }) => ({
 }));
 
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  owner: one(owners, {
+    fields: [invoices.ownerId],
+    references: [owners.id],
+  }),
   patient: one(patients, {
     fields: [invoices.patientId],
     references: [patients.id],

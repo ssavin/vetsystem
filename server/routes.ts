@@ -9327,10 +9327,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Пациент не найден' });
       }
 
-      // 3. Create draft invoice
+      // 3. Create draft invoice (owner_id from patient)
       const invoice = await storage.createInvoice({
         tenantId: req.tenantId!,
         patientId,
+        ownerId: patient.ownerId || undefined,
         subtotal: "0",
         discount: "0",
         total: "0",
