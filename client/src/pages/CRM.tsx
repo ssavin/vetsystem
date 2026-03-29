@@ -75,9 +75,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
   draft: "Черновик",
   scheduled: "Запланирована",
-  running: "Выполняется",
-  completed: "Завершена",
-  paused: "Приостановлена",
+  sent: "Отправлена",
   cancelled: "Отменена"
 }
 
@@ -507,9 +505,7 @@ function CampaignsTab() {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       draft: "outline",
       scheduled: "secondary",
-      running: "default",
-      completed: "default",
-      paused: "secondary",
+      sent: "default",
       cancelled: "destructive"
     }
     return <Badge variant={variants[status] || "outline"}>{CAMPAIGN_STATUS_LABELS[status] || status}</Badge>

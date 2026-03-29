@@ -10802,11 +10802,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = Math.min(req.query.limit ? parseInt(req.query.limit as string) : 50, 100);
       const offset = (page - 1) * limit;
 
-      // Auto-trigger per-tenant segment recalculation on each page load (async, non-blocking)
+      // Recalculate segments for this tenant before returning data (ensures consistent first render)
       if (user.tenantId) {
-        storage.recalculateOwnerSegments(user.tenantId).catch((err: Error) => {
-          console.error('[CRM] Background segment recalculation error:', err.message);
-        });
+        try {
+          await storage.recalculateOwnerSegments(user.tenantId);
+        } catch (err: any) {
+          console.error('[CRM] Segment recalculation error:', err.message);
+        }
       }
 
       const result = await storage.getCrmOwners({
@@ -10992,12 +10994,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
         return res.status(403).json({ error: 'Access denied' });
       }
-      // Only allow valid status values
-      const allowedStatuses = ['draft', 'scheduled', 'running', 'completed', 'paused', 'cancelled'];
+      // Allowed statuses per spec: draft | scheduled | sent | cancelled
+      const allowedStatuses = ['draft', 'scheduled', 'sent', 'cancelled'];
       if (req.body.status && !allowedStatuses.includes(req.body.status)) {
         return res.status(400).json({ error: `status must be one of: ${allowedStatuses.join(', ')}` });
       }
-      const campaign = await storage.updateMarketingCampaign(req.params.id, req.body);
+      const campaign = await storage.updateMarketingCampaign(req.params.id, req.body, user.tenantId);
       res.json(campaign);
     } catch (error: any) {
       console.error("Error updating campaign:", error);
@@ -11011,7 +11013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
         return res.status(403).json({ error: 'Access denied' });
       }
-      const campaign = await storage.updateMarketingCampaign(req.params.id, req.body);
+      const campaign = await storage.updateMarketingCampaign(req.params.id, req.body, user.tenantId);
       res.json(campaign);
     } catch (error: any) {
       console.error("Error updating campaign:", error);
@@ -11078,7 +11080,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/crm/segments/recalculate", authenticateToken, async (req, res) => {
     try {
-      const result = await storage.recalculateClientSegments();
+      const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      // Tenant-scoped recalculation — only affects the caller's tenant
+      const result = await storage.recalculateOwnerSegments(user.tenantId);
       res.json(result);
     } catch (error: any) {
       console.error("Error recalculating segments:", error);

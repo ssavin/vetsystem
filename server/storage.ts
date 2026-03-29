@@ -7187,13 +7187,15 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updateMarketingCampaign(id: string, updates: Partial<InsertMarketingCampaign>): Promise<MarketingCampaign> {
+  async updateMarketingCampaign(id: string, updates: Partial<InsertMarketingCampaign>, tenantId?: string): Promise<MarketingCampaign> {
     return withPerformanceLogging('updateMarketingCampaign', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
+        const conditions: any[] = [eq(marketingCampaigns.id, id)];
+        if (tenantId) conditions.push(eq(marketingCampaigns.tenantId, tenantId));
         const [updated] = await dbInstance
           .update(marketingCampaigns)
           .set({ ...updates, updatedAt: new Date() })
-          .where(eq(marketingCampaigns.id, id))
+          .where(and(...conditions))
           .returning();
         return updated;
       });
