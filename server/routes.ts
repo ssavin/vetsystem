@@ -2298,18 +2298,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const tenantId = user?.tenantId || (req as any).tenantId;
 
+      // Derive ownerId server-side from patientId (trusted DB relation, not client input)
+      let resolvedOwnerId: string | undefined = validation.data.ownerId;
+      if (!resolvedOwnerId && validation.data.patientId) {
+        const patientOwnerLinks = await storage.getPatientOwners(validation.data.patientId);
+        const primaryLink = patientOwnerLinks.find((po: any) => po.isPrimary) || patientOwnerLinks[0];
+        if (primaryLink) resolvedOwnerId = primaryLink.ownerId;
+      }
+
       // If bonus points requested, validate atomically before creating invoice
       let loyaltySettings: any = null;
       let finalTotal = parseFloat(validation.data.total as any);
       if (bonusPoints > 0) {
-        if (!validation.data.ownerId) {
+        if (!resolvedOwnerId) {
           return res.status(400).json({ error: "Бонусные баллы можно применить только к счёту с владельцем" });
         }
         loyaltySettings = await storage.getLoyaltySettings(tenantId);
         if (!loyaltySettings?.isActive) {
           return res.status(400).json({ error: "Программа лояльности не активна" });
         }
-        const ownerBalance = await storage.getLoyaltyBalance(validation.data.ownerId);
+        const ownerBalance = await storage.getLoyaltyBalance(resolvedOwnerId);
         if (ownerBalance < bonusPoints) {
           return res.status(400).json({ error: `Недостаточно баллов: доступно ${ownerBalance}, запрошено ${bonusPoints}` });
         }
@@ -2318,16 +2326,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         const pointsValue = parseFloat(loyaltySettings.pointsValue || '1');
         const bonusDiscount = bonusPoints * pointsValue;
-        const maxAllowed = finalTotal * parseFloat(loyaltySettings.maxSpendPercent || '50') / 100;
+        const subtotalForLimit = parseFloat(validation.data.subtotal as any) || finalTotal;
+        const maxAllowed = subtotalForLimit * parseFloat(loyaltySettings.maxSpendPercent || '50') / 100;
         if (bonusDiscount > maxAllowed) {
           return res.status(400).json({ error: `Максимально можно списать ${Math.floor(maxAllowed / pointsValue)} баллов по этому счёту` });
         }
         finalTotal = Math.max(0, finalTotal - bonusDiscount);
       }
       
-      // 🔒 SECURITY: Force branchId from user token, ignore any branchId in body
+      // 🔒 SECURITY: Force branchId + resolved ownerId from server, ignore any branchId/ownerId in body
       const invoiceData = { 
-        ...validation.data, 
+        ...validation.data,
+        ownerId: resolvedOwnerId,
         branchId: userBranchId,
         total: finalTotal.toFixed(2),
         bonusPointsUsed: bonusPoints > 0 ? bonusPoints : undefined,
@@ -11287,7 +11297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/loyalty/spend — применить баллы к счёту
+  // POST /api/loyalty/spend — применить баллы к существующему счёту
   app.post("/api/loyalty/spend", authenticateToken, async (req, res) => {
     try {
       const { ownerId, invoiceId, points } = req.body;
@@ -11295,22 +11305,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
       const branchId = (req as any).user?.branchId;
       if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+
+      // Verify owner belongs to this tenant
+      const owner = await storage.getOwner(ownerId);
+      if (!owner || owner.tenantId !== tenantId) {
+        return res.status(404).json({ error: "Владелец не найден" });
+      }
       
       // Verify loyalty is enabled
       const settings = await storage.getLoyaltySettings(tenantId);
       if (!settings?.isActive) return res.status(400).json({ error: "Программа лояльности не активна" });
       
+      // Get invoice and verify owner-invoice consistency + tenant ownership
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) return res.status(404).json({ error: "Счёт не найден" });
+      if (invoice.tenantId !== tenantId) return res.status(403).json({ error: "Счёт не принадлежит данной клинике" });
+      if (invoice.ownerId !== ownerId) return res.status(400).json({ error: "Счёт не принадлежит указанному владельцу" });
+
       // Check min balance
       const balance = await storage.getLoyaltyBalance(ownerId);
       if (balance < (settings.minBalanceToSpend || 100)) {
         return res.status(400).json({ error: `Минимальный баланс для списания: ${settings.minBalanceToSpend} баллов` });
       }
+      if (balance < points) {
+        return res.status(400).json({ error: `Недостаточно баллов: доступно ${balance}` });
+      }
       
-      // Get invoice to check max spend limit
-      const invoice = await storage.getInvoice(invoiceId);
-      if (!invoice) return res.status(404).json({ error: "Счёт не найден" });
-      const maxSpendAmount = parseFloat(invoice.total) * parseFloat(settings.maxSpendPercent || '50') / 100;
+      // Check max spend limit against original invoice subtotal
+      const invoiceSubtotal = parseFloat(invoice.subtotal || invoice.total);
       const pointsValue = parseFloat(settings.pointsValue || '1');
+      const maxSpendAmount = invoiceSubtotal * parseFloat(settings.maxSpendPercent || '50') / 100;
       const maxPointsToSpend = Math.floor(maxSpendAmount / pointsValue);
       if (points > maxPointsToSpend) {
         return res.status(400).json({ error: `Максимально можно списать ${maxPointsToSpend} баллов по этому счёту` });
@@ -11318,8 +11342,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tx = await storage.spendLoyaltyPoints({ ownerId, tenantId, branchId, invoiceId, points });
       
-      // Update invoice bonusPointsUsed
-      await storage.updateInvoice(invoiceId, { bonusPointsUsed: points });
+      // Atomically update invoice: reduce total and set bonusPointsUsed
+      const bonusDiscount = points * pointsValue;
+      const newTotal = Math.max(0, parseFloat(invoice.total) - bonusDiscount);
+      await storage.updateInvoice(invoiceId, { 
+        bonusPointsUsed: (invoice.bonusPointsUsed || 0) + points,
+        total: newTotal.toFixed(2),
+      });
       
       res.json(tx);
     } catch (error: any) {
