@@ -120,8 +120,8 @@ function formatMoney(value: string | number | null | undefined): string {
 function StatsCards({ stats, isLoading }: { stats: CrmStats | undefined; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-        {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
+        {[...Array(7)].map((_, i) => <Skeleton key={i} className="h-28" />)}
       </div>
     )
   }
@@ -131,6 +131,7 @@ function StatsCards({ stats, isLoading }: { stats: CrmStats | undefined; isLoadi
 
   const segCards = [
     { label: "Всего клиентов", value: stats?.totalOwners?.toLocaleString('ru-RU') || "0", icon: Users, sub: `Средний чек: ${stats ? formatMoney(stats.averageCheck) : "—"}` },
+    { label: "Общий LTV", value: stats ? formatMoney(stats.totalLTV) : "—", icon: Wallet, sub: "Совокупная выручка" },
     { label: "Новые", value: `${segMap['new'] || 0}`, icon: UserPlus, sub: "Новые клиенты" },
     { label: "Активные", value: `${segMap['regular'] || 0}`, icon: Users, sub: "Регулярные посещения" },
     { label: "VIP", value: `${segMap['vip'] || 0}`, icon: Crown, sub: "Топ 10% по выручке" },
@@ -139,7 +140,7 @@ function StatsCards({ stats, isLoading }: { stats: CrmStats | undefined; isLoadi
   ]
 
   return (
-    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
       {segCards.map((c) => (
         <Card key={c.label}>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
