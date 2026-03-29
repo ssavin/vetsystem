@@ -2377,20 +2377,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = (req as any).user;
       const prevInvoice = await storage.getInvoice(req.params.id);
-      const invoice = await storage.updateInvoice(req.params.id, req.body);
+      if (!prevInvoice) return res.status(404).json({ error: "Счёт не найден" });
+
+      // Strip immutable fields: ownerId, tenantId, branchId cannot be changed via update
+      const { ownerId: _ignoreOwner, tenantId: _ignoreTenant, branchId: _ignoreBranch, ...updateData } = req.body;
+      const invoice = await storage.updateInvoice(req.params.id, updateData);
       
       // Auto-earn loyalty points when invoice status changes to 'paid'
-      if (req.body.status === 'paid' && prevInvoice?.status !== 'paid' && invoice.ownerId) {
+      // Use prevInvoice.ownerId (immutable, pre-update) to prevent ownerId manipulation
+      if (req.body.status === 'paid' && prevInvoice.status !== 'paid' && prevInvoice.ownerId) {
         try {
           const tenantId = user?.tenantId || (req as any).tenantId;
           const branchId = user?.branchId;
           if (tenantId && branchId) {
             await storage.earnLoyaltyPoints({
-              ownerId: invoice.ownerId,
+              ownerId: prevInvoice.ownerId,  // always use original owner, not body
               tenantId,
               branchId,
-              invoiceId: invoice.id,
-              invoiceTotal: parseFloat(invoice.total),
+              invoiceId: prevInvoice.id,
+              invoiceTotal: parseFloat(prevInvoice.total),  // use pre-update total for correct earn amount
             });
           }
         } catch (loyaltyError) {

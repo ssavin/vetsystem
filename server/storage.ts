@@ -7526,27 +7526,40 @@ export class DatabaseStorage implements IStorage {
     if (points <= 0) return null;
 
     return withTenantContext(params.tenantId, async (dbInstance) => {
-      // Get current balance
-      const [owner] = await dbInstance.select({ bonusPoints: owners.bonusPoints }).from(owners).where(eq(owners.id, params.ownerId)).limit(1);
-      const balanceBefore = owner?.bonusPoints ?? 0;
-      const balanceAfter = balanceBefore + points;
+      return dbInstance.transaction(async (tx) => {
+        // Idempotency: if this invoiceId already has an earn tx, skip (prevents paid→pending→paid farming)
+        if (params.invoiceId) {
+          const existing = await tx.select({ id: loyaltyTransactions.id }).from(loyaltyTransactions)
+            .where(and(
+              eq(loyaltyTransactions.invoiceId, params.invoiceId),
+              eq(loyaltyTransactions.type, 'earn')
+            )).limit(1);
+          if (existing.length > 0) return null;
+        }
 
-      // Update owner balance
-      await dbInstance.update(owners).set({ bonusPoints: balanceAfter }).where(eq(owners.id, params.ownerId));
+        // Get current balance
+        const [owner] = await tx.select({ bonusPoints: owners.bonusPoints }).from(owners)
+          .where(eq(owners.id, params.ownerId)).limit(1);
+        const balanceBefore = owner?.bonusPoints ?? 0;
+        const balanceAfter = balanceBefore + points;
 
-      // Create transaction record
-      const [tx] = await dbInstance.insert(loyaltyTransactions).values({
-        tenantId: params.tenantId,
-        branchId: params.branchId,
-        ownerId: params.ownerId,
-        type: 'earn',
-        points,
-        balanceBefore,
-        balanceAfter,
-        invoiceId: params.invoiceId || undefined,
-        description: txDescription,
-      }).returning();
-      return tx;
+        // Update owner balance
+        await tx.update(owners).set({ bonusPoints: balanceAfter }).where(eq(owners.id, params.ownerId));
+
+        // Create transaction record
+        const [loyaltyTx] = await tx.insert(loyaltyTransactions).values({
+          tenantId: params.tenantId,
+          branchId: params.branchId,
+          ownerId: params.ownerId,
+          type: 'earn',
+          points,
+          balanceBefore,
+          balanceAfter,
+          invoiceId: params.invoiceId || undefined,
+          description: txDescription,
+        }).returning();
+        return loyaltyTx;
+      });
     });
   }
 
