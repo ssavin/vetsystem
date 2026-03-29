@@ -10792,6 +10792,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CRM SYSTEM ROUTES
   // ========================================
 
+  // CRM owners list: paginated, filterable by segment, searchable
+  app.get("/api/crm/owners", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const segment = req.query.segment as string | undefined;
+      const search = req.query.search as string | undefined;
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = Math.min(req.query.limit ? parseInt(req.query.limit as string) : 50, 100);
+      const offset = (page - 1) * limit;
+
+      const result = await storage.getCrmOwners({
+        tenantId: user.tenantId,
+        segment,
+        search,
+        limit,
+        offset,
+      });
+      res.json({
+        data: result.data,
+        total: result.total,
+        page,
+        limit,
+        totalPages: Math.ceil(result.total / limit),
+      });
+    } catch (error: any) {
+      console.error("Error fetching CRM owners:", error);
+      res.status(500).json({ error: "Failed to fetch CRM owners", message: error.message });
+    }
+  });
+
+  // CRM aggregate stats
+  app.get("/api/crm/stats", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const stats = await storage.getCrmStats(user.tenantId);
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error fetching CRM stats:", error);
+      res.status(500).json({ error: "Failed to fetch CRM stats", message: error.message });
+    }
+  });
+
+  // PATCH manual segment override
+  app.patch("/api/crm/owners/:id/segment", authenticateToken, async (req, res) => {
+    try {
+      const { segment } = req.body;
+      if (!segment) return res.status(400).json({ error: "segment is required" });
+      const allowed = ['new', 'regular', 'vip', 'at_risk', 'lost'];
+      if (!allowed.includes(segment)) {
+        return res.status(400).json({ error: `segment must be one of: ${allowed.join(', ')}` });
+      }
+      const owner = await storage.updateOwnerSegment(req.params.id, segment);
+      res.json(owner);
+    } catch (error: any) {
+      console.error("Error updating owner segment:", error);
+      res.status(500).json({ error: "Failed to update segment", message: error.message });
+    }
+  });
+
   // Client Interactions
   app.get("/api/crm/interactions/:ownerId", authenticateToken, async (req, res) => {
     try {
@@ -10923,6 +10982,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error updating campaign:", error);
       res.status(500).json({ error: "Failed to update campaign", message: error.message });
+    }
+  });
+
+  app.put("/api/crm/campaigns/:id", authenticateToken, async (req, res) => {
+    try {
+      const campaign = await storage.updateMarketingCampaign(req.params.id, req.body);
+      res.json(campaign);
+    } catch (error: any) {
+      console.error("Error updating campaign:", error);
+      res.status(500).json({ error: "Failed to update campaign", message: error.message });
+    }
+  });
+
+  app.delete("/api/crm/campaigns/:id", authenticateToken, async (req, res) => {
+    try {
+      await storage.deleteMarketingCampaign(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting campaign:", error);
+      res.status(500).json({ error: "Failed to delete campaign", message: error.message });
     }
   });
 

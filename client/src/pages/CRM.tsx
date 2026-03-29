@@ -6,28 +6,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { 
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from "recharts"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { 
   Users, Crown, AlertTriangle, UserMinus, UserPlus, RefreshCw,
-  MessageSquare, Phone, Mail, Bell, Megaphone, Send, Plus, Calendar, Check
+  Megaphone, Send, Plus, Calendar, Check, Search, ChevronLeft, ChevronRight,
+  Pencil, Trash2, TrendingUp, Wallet, BarChart3
 } from "lucide-react"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
-
-interface SegmentStats {
-  segment: string
-  count: number
-}
 
 interface Owner {
   id: string
@@ -35,17 +29,17 @@ interface Owner {
   phone: string | null
   email: string | null
   segment: string | null
+  totalSpent: string | null
+  visitCount: number | null
+  lastVisitAt: string | null
+  averageCheck: string | null
 }
 
-interface HealthReminder {
-  id: string
-  patientId: string
-  ownerId: string
-  type: string
-  title: string
-  dueDate: string
-  status: string
-  notifyVia: string[] | null
+interface CrmStats {
+  segmentCounts: { segment: string; count: number }[]
+  totalLTV: number
+  averageCheck: number
+  totalOwners: number
 }
 
 interface MarketingCampaign {
@@ -55,43 +49,36 @@ interface MarketingCampaign {
   status: string
   targetSegments: string[] | null
   content: string
+  subject: string | null
   scheduledAt: string | null
   totalRecipients: number
   sentCount: number
   deliveredCount: number
   createdAt: string
+  updatedAt: string
 }
 
 const SEGMENT_LABELS: Record<string, string> = {
   new: "Новые",
-  regular: "Постоянные",
+  regular: "Активные",
   vip: "VIP",
-  at_risk: "Под угрозой",
+  at_risk: "Спящие",
   lost: "Потерянные"
-}
-
-const SEGMENT_COLORS: Record<string, string> = {
-  new: "hsl(var(--chart-1))",
-  regular: "hsl(var(--chart-2))",
-  vip: "hsl(var(--chart-3))",
-  at_risk: "hsl(var(--chart-4))",
-  lost: "hsl(var(--chart-5))"
-}
-
-const REMINDER_TYPE_LABELS: Record<string, string> = {
-  vaccination: "Вакцинация",
-  deworming: "Дегельминтизация",
-  flea_tick: "Обработка от паразитов",
-  checkup: "Профосмотр",
-  surgery_followup: "Послеоперационный осмотр",
-  dental: "Стоматология",
-  custom: "Другое"
 }
 
 const CHANNEL_LABELS: Record<string, string> = {
   sms: "SMS",
   email: "Email",
   push: "Push"
+}
+
+const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
+  draft: "Черновик",
+  scheduled: "Запланирована",
+  running: "Выполняется",
+  completed: "Завершена",
+  paused: "Приостановлена",
+  cancelled: "Отменена"
 }
 
 function SegmentIcon({ segment }: { segment: string }) {
@@ -114,24 +101,124 @@ function SegmentBadge({ segment }: { segment: string | null }) {
     lost: "destructive"
   }
   return (
-    <Badge variant={variants[seg] || "outline"} data-testid={`badge-segment-${seg}`}>
+    <Badge variant={variants[seg] || "outline"}>
       <SegmentIcon segment={seg} />
       <span className="ml-1">{SEGMENT_LABELS[seg] || seg}</span>
     </Badge>
   )
 }
 
-function SegmentsTab() {
-  const { toast } = useToast()
-  const [selectedSegment, setSelectedSegment] = useState<string | null>(null)
+function formatMoney(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "—"
+  const num = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(num) || num === 0) return "—"
+  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(num)
+}
 
-  const { data: stats, isLoading: statsLoading } = useQuery<SegmentStats[]>({
-    queryKey: ['/api/crm/segments/stats']
+// ========================
+// CRM Stats Cards
+// ========================
+
+function StatsCards({ stats, isLoading }: { stats: CrmStats | undefined; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+      </div>
+    )
+  }
+
+  const segMap: Record<string, number> = {}
+  stats?.segmentCounts.forEach(s => { segMap[s.segment] = s.count })
+
+  const cards = [
+    {
+      label: "Всего клиентов",
+      value: stats?.totalOwners?.toLocaleString('ru-RU') || "0",
+      icon: Users,
+      sub: `VIP: ${segMap['vip'] || 0} · Активных: ${segMap['regular'] || 0}`
+    },
+    {
+      label: "Общий LTV",
+      value: stats ? formatMoney(stats.totalLTV) : "—",
+      icon: Wallet,
+      sub: `Средний чек: ${stats ? formatMoney(stats.averageCheck) : "—"}`
+    },
+    {
+      label: "Спящие / Потерянные",
+      value: `${(segMap['at_risk'] || 0) + (segMap['lost'] || 0)}`,
+      icon: AlertTriangle,
+      sub: `Спящих: ${segMap['at_risk'] || 0} · Потерянных: ${segMap['lost'] || 0}`
+    },
+    {
+      label: "Новые клиенты",
+      value: `${segMap['new'] || 0}`,
+      icon: TrendingUp,
+      sub: "За всё время"
+    }
+  ]
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {cards.map((c) => (
+        <Card key={c.label}>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{c.label}</CardTitle>
+            <c.icon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{c.value}</div>
+            <p className="text-xs text-muted-foreground mt-1">{c.sub}</p>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+// ========================
+// Owners Tab
+// ========================
+
+function OwnersTab() {
+  const { toast } = useToast()
+  const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [segmentFilter, setSegmentFilter] = useState("all")
+  const [page, setPage] = useState(1)
+  const [editSegmentOwner, setEditSegmentOwner] = useState<Owner | null>(null)
+  const [newSegment, setNewSegment] = useState("")
+  const LIMIT = 50
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val)
+    clearTimeout((handleSearchChange as any)._timer)
+    ;(handleSearchChange as any)._timer = setTimeout(() => {
+      setDebouncedSearch(val)
+      setPage(1)
+    }, 400)
+  }
+
+  const { data: ownersData, isLoading } = useQuery<{ data: Owner[]; total: number; totalPages: number }>({
+    queryKey: ['/api/crm/owners', segmentFilter, debouncedSearch, page, LIMIT],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(LIMIT),
+      })
+      if (segmentFilter !== 'all') params.set('segment', segmentFilter)
+      if (debouncedSearch) params.set('search', debouncedSearch)
+      const res = await fetch(`/api/crm/owners?${params}`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      if (!res.ok) throw new Error('Failed to fetch')
+      return res.json()
+    }
   })
 
-  const { data: segmentClients, isLoading: clientsLoading } = useQuery<Owner[]>({
-    queryKey: ['/api/crm/segments', selectedSegment, 'clients'],
-    enabled: !!selectedSegment
+  const { data: stats, isLoading: statsLoading } = useQuery<CrmStats>({
+    queryKey: ['/api/crm/stats']
   })
 
   const recalculateMutation = useMutation({
@@ -141,281 +228,281 @@ function SegmentsTab() {
     },
     onSuccess: (data: any) => {
       toast({ title: "Сегменты обновлены", description: `Обновлено клиентов: ${data.updated}` })
-      queryClient.invalidateQueries({ queryKey: ['/api/crm/segments'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/owners'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/stats'] })
     },
     onError: () => {
       toast({ title: "Ошибка", description: "Не удалось пересчитать сегменты", variant: "destructive" })
     }
   })
 
-  const totalClients = stats?.reduce((sum, s) => sum + s.count, 0) || 0
-  const chartData = stats?.map(s => ({
-    name: SEGMENT_LABELS[s.segment] || s.segment,
-    value: s.count,
-    segment: s.segment
-  })) || []
+  const updateSegmentMutation = useMutation({
+    mutationFn: async ({ id, segment }: { id: string; segment: string }) => {
+      const res = await apiRequest('PATCH', `/api/crm/owners/${id}/segment`, { segment })
+      return res.json()
+    },
+    onSuccess: () => {
+      toast({ title: "Сегмент обновлён" })
+      setEditSegmentOwner(null)
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/owners'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/stats'] })
+    },
+    onError: () => {
+      toast({ title: "Ошибка", description: "Не удалось изменить сегмент", variant: "destructive" })
+    }
+  })
 
-  if (statsLoading) {
-    return <div className="grid gap-4 md:grid-cols-2"><Skeleton className="h-64" /><Skeleton className="h-64" /></div>
-  }
+  const owners = ownersData?.data || []
+  const total = ownersData?.total || 0
+  const totalPages = ownersData?.totalPages || 1
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Сегментация клиентов</h3>
-          <p className="text-sm text-muted-foreground">Всего клиентов: {totalClients}</p>
+      <StatsCards stats={stats} isLoading={statsLoading} />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Поиск по имени, телефону, email..."
+            className="pl-9"
+          />
         </div>
-        <Button 
-          onClick={() => recalculateMutation.mutate()} 
+        <Select value={segmentFilter} onValueChange={(v) => { setSegmentFilter(v); setPage(1) }}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Все сегменты" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все сегменты</SelectItem>
+            {Object.entries(SEGMENT_LABELS).map(([key, label]) => (
+              <SelectItem key={key} value={key}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          onClick={() => recalculateMutation.mutate()}
           disabled={recalculateMutation.isPending}
-          data-testid="button-recalculate-segments"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${recalculateMutation.isPending ? 'animate-spin' : ''}`} />
-          Пересчитать
+          Пересчитать сегменты
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Распределение по сегментам</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                    onClick={(data) => setSelectedSegment(data.segment)}
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={SEGMENT_COLORS[entry.segment] || SEGMENT_COLORS.new}
-                        cursor="pointer"
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+      <Card>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-6 space-y-3">
+              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10" />)}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>По сегментам</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {stats?.map((s) => (
-                <div 
-                  key={s.segment}
-                  className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer hover-elevate ${selectedSegment === s.segment ? 'bg-accent' : ''}`}
-                  onClick={() => setSelectedSegment(s.segment)}
-                  data-testid={`card-segment-${s.segment}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <SegmentIcon segment={s.segment} />
-                    <span className="font-medium">{SEGMENT_LABELS[s.segment] || s.segment}</span>
-                  </div>
-                  <Badge variant="secondary">{s.count}</Badge>
-                </div>
-              ))}
+          ) : owners.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-3 opacity-40" />
+              <p>Клиенты не найдены</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {selectedSegment && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SegmentIcon segment={selectedSegment} />
-              Клиенты сегмента: {SEGMENT_LABELS[selectedSegment]}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {clientsLoading ? (
-              <Skeleton className="h-32" />
-            ) : (
-              <ScrollArea className="h-64">
-                <div className="space-y-2">
-                  {segmentClients?.slice(0, 20).map((client) => (
-                    <div 
-                      key={client.id} 
-                      className="flex items-center justify-between p-3 rounded-lg border"
-                      data-testid={`row-client-${client.id}`}
-                    >
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Клиент</TableHead>
+                  <TableHead>Сегмент</TableHead>
+                  <TableHead>Последний визит</TableHead>
+                  <TableHead className="text-right">Визиты</TableHead>
+                  <TableHead className="text-right">Сумма трат</TableHead>
+                  <TableHead className="text-right">Ср. чек</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {owners.map((owner) => (
+                  <TableRow key={owner.id}>
+                    <TableCell>
                       <div>
-                        <p className="font-medium">{client.name}</p>
-                        <p className="text-sm text-muted-foreground">{client.phone}</p>
+                        <p className="font-medium">{owner.name}</p>
+                        <p className="text-xs text-muted-foreground">{owner.phone || owner.email || "—"}</p>
                       </div>
-                      <div className="flex gap-2">
-                        {client.phone && (
-                          <Button size="icon" variant="ghost" data-testid={`button-call-${client.id}`}>
-                            <Phone className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {client.email && (
-                          <Button size="icon" variant="ghost" data-testid={`button-email-${client.id}`}>
-                            <Mail className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {segmentClients && segmentClients.length > 20 && (
-                    <p className="text-sm text-muted-foreground text-center py-2">
-                      И ещё {segmentClients.length - 20} клиентов...
-                    </p>
-                  )}
-                </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
+                    </TableCell>
+                    <TableCell><SegmentBadge segment={owner.segment} /></TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {owner.lastVisitAt
+                        ? format(new Date(owner.lastVisitAt), 'd MMM yyyy', { locale: ru })
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">{owner.visitCount ?? 0}</TableCell>
+                    <TableCell className="text-right text-sm">{formatMoney(owner.totalSpent)}</TableCell>
+                    <TableCell className="text-right text-sm">{formatMoney(owner.averageCheck)}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => { setEditSegmentOwner(owner); setNewSegment(owner.segment || 'new') }}
+                        title="Изменить сегмент"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Показано {((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, total)} из {total.toLocaleString('ru-RU')}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm">{page} / {totalPages}</span>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       )}
+
+      <Dialog open={!!editSegmentOwner} onOpenChange={(open) => { if (!open) setEditSegmentOwner(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Изменить сегмент</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">{editSegmentOwner?.name}</p>
+            <Select value={newSegment} onValueChange={setNewSegment}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(SEGMENT_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditSegmentOwner(null)}>Отмена</Button>
+            <Button
+              onClick={() => editSegmentOwner && updateSegmentMutation.mutate({ id: editSegmentOwner.id, segment: newSegment })}
+              disabled={updateSegmentMutation.isPending}
+            >
+              Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-function RemindersTab() {
-  const { toast } = useToast()
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
+// ========================
+// Campaigns Tab
+// ========================
 
-  const { data: upcomingReminders, isLoading } = useQuery<HealthReminder[]>({
-    queryKey: ['/api/crm/reminders/upcoming']
-  })
-
-  const updateReminderMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const res = await apiRequest('PATCH', `/api/crm/reminders/${id}`, { status })
-      return res.json()
-    },
-    onSuccess: () => {
-      toast({ title: "Напоминание обновлено" })
-      queryClient.invalidateQueries({ queryKey: ['/api/crm/reminders'] })
-    }
-  })
-
-  if (isLoading) {
-    return <Skeleton className="h-64" />
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Напоминания о здоровье</h3>
-          <p className="text-sm text-muted-foreground">Предстоящие в ближайшие 7 дней</p>
-        </div>
-        <Button onClick={() => setShowCreateDialog(true)} data-testid="button-create-reminder">
-          <Plus className="h-4 w-4 mr-2" />
-          Создать напоминание
-        </Button>
-      </div>
-
-      {upcomingReminders && upcomingReminders.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {upcomingReminders.map((reminder) => (
-            <Card key={reminder.id} data-testid={`card-reminder-${reminder.id}`}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <Badge variant="outline">
-                    {REMINDER_TYPE_LABELS[reminder.type] || reminder.type}
-                  </Badge>
-                  <Badge variant={reminder.status === 'pending' ? 'secondary' : 'default'}>
-                    {reminder.status === 'pending' ? 'Ожидает' : reminder.status}
-                  </Badge>
-                </div>
-                <CardTitle className="text-base">{reminder.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                  <Calendar className="h-4 w-4" />
-                  {format(new Date(reminder.dueDate), 'd MMMM yyyy', { locale: ru })}
-                </div>
-                <div className="flex items-center gap-2 mb-3">
-                  {reminder.notifyVia?.map((channel) => (
-                    <Badge key={channel} variant="outline" className="text-xs">
-                      {CHANNEL_LABELS[channel] || channel}
-                    </Badge>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => updateReminderMutation.mutate({ id: reminder.id, status: 'sent' })}
-                    data-testid={`button-send-reminder-${reminder.id}`}
-                  >
-                    <Send className="h-3 w-3 mr-1" />
-                    Отправить
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => updateReminderMutation.mutate({ id: reminder.id, status: 'completed' })}
-                    data-testid={`button-complete-reminder-${reminder.id}`}
-                  >
-                    <Check className="h-3 w-3 mr-1" />
-                    Выполнено
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <Bell className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Нет предстоящих напоминаний</p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  )
+const DEFAULT_CAMPAIGN = {
+  name: '',
+  channel: 'sms',
+  content: '',
+  subject: '',
+  targetSegments: ['regular', 'vip'] as string[],
+  scheduledAt: '',
 }
 
 function CampaignsTab() {
   const { toast } = useToast()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [newCampaign, setNewCampaign] = useState({
-    name: '',
-    channel: 'sms',
-    content: '',
-    targetSegments: ['regular', 'vip'] as string[]
-  })
+  const [editCampaign, setEditCampaign] = useState<MarketingCampaign | null>(null)
+  const [form, setForm] = useState({ ...DEFAULT_CAMPAIGN })
 
   const { data: campaigns, isLoading } = useQuery<MarketingCampaign[]>({
     queryKey: ['/api/crm/campaigns']
   })
 
   const createCampaignMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/crm/campaigns', newCampaign)
+    mutationFn: async (data: typeof DEFAULT_CAMPAIGN) => {
+      const res = await apiRequest('POST', '/api/crm/campaigns', {
+        ...data,
+        scheduledAt: data.scheduledAt || null
+      })
       return res.json()
     },
     onSuccess: () => {
       toast({ title: "Кампания создана" })
       setShowCreateDialog(false)
-      setNewCampaign({ name: '', channel: 'sms', content: '', targetSegments: ['regular', 'vip'] })
+      setForm({ ...DEFAULT_CAMPAIGN })
       queryClient.invalidateQueries({ queryKey: ['/api/crm/campaigns'] })
     },
-    onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось создать кампанию", variant: "destructive" })
-    }
+    onError: () => toast({ title: "Ошибка", description: "Не удалось создать кампанию", variant: "destructive" })
   })
+
+  const updateCampaignMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<typeof DEFAULT_CAMPAIGN> }) => {
+      const res = await apiRequest('PUT', `/api/crm/campaigns/${id}`, {
+        ...data,
+        scheduledAt: data.scheduledAt || null
+      })
+      return res.json()
+    },
+    onSuccess: () => {
+      toast({ title: "Кампания обновлена" })
+      setEditCampaign(null)
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/campaigns'] })
+    },
+    onError: () => toast({ title: "Ошибка", description: "Не удалось обновить кампанию", variant: "destructive" })
+  })
+
+  const cancelCampaignMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest('PATCH', `/api/crm/campaigns/${id}`, { status: 'cancelled' })
+      return res.json()
+    },
+    onSuccess: () => {
+      toast({ title: "Кампания отменена" })
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/campaigns'] })
+    },
+    onError: () => toast({ title: "Ошибка", description: "Не удалось отменить кампанию", variant: "destructive" })
+  })
+
+  const deleteCampaignMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest('DELETE', `/api/crm/campaigns/${id}`)
+    },
+    onSuccess: () => {
+      toast({ title: "Кампания удалена" })
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/campaigns'] })
+    },
+    onError: () => toast({ title: "Ошибка", description: "Не удалось удалить кампанию", variant: "destructive" })
+  })
+
+  const openEdit = (campaign: MarketingCampaign) => {
+    setEditCampaign(campaign)
+    setForm({
+      name: campaign.name,
+      channel: campaign.channel,
+      content: campaign.content,
+      subject: campaign.subject || '',
+      targetSegments: campaign.targetSegments || [],
+      scheduledAt: campaign.scheduledAt
+        ? format(new Date(campaign.scheduledAt), "yyyy-MM-dd'T'HH:mm")
+        : '',
+    })
+  }
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -426,108 +513,109 @@ function CampaignsTab() {
       paused: "secondary",
       cancelled: "destructive"
     }
-    const labels: Record<string, string> = {
-      draft: "Черновик",
-      scheduled: "Запланирована",
-      running: "Выполняется",
-      completed: "Завершена",
-      paused: "Приостановлена",
-      cancelled: "Отменена"
-    }
-    return <Badge variant={variants[status] || "outline"}>{labels[status] || status}</Badge>
+    return <Badge variant={variants[status] || "outline"}>{CAMPAIGN_STATUS_LABELS[status] || status}</Badge>
   }
 
-  if (isLoading) {
-    return <Skeleton className="h-64" />
-  }
+  const CampaignForm = ({ value, onChange }: { value: typeof DEFAULT_CAMPAIGN; onChange: (v: typeof DEFAULT_CAMPAIGN) => void }) => (
+    <div className="space-y-4">
+      <div>
+        <Label>Название</Label>
+        <Input
+          value={value.name}
+          onChange={(e) => onChange({ ...value, name: e.target.value })}
+          placeholder="Например: Акция на вакцинацию"
+        />
+      </div>
+      <div>
+        <Label>Канал</Label>
+        <Select value={value.channel} onValueChange={(v) => onChange({ ...value, channel: v })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sms">SMS</SelectItem>
+            <SelectItem value="email">Email</SelectItem>
+            <SelectItem value="push">Push-уведомление</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {value.channel === 'email' && (
+        <div>
+          <Label>Тема письма</Label>
+          <Input
+            value={value.subject}
+            onChange={(e) => onChange({ ...value, subject: e.target.value })}
+            placeholder="Тема email-рассылки"
+          />
+        </div>
+      )}
+      <div>
+        <Label>Целевые сегменты</Label>
+        <div className="flex flex-wrap gap-3 mt-2">
+          {Object.entries(SEGMENT_LABELS).map(([key, label]) => (
+            <div key={key} className="flex items-center gap-2">
+              <Checkbox
+                id={`seg-${key}`}
+                checked={value.targetSegments.includes(key)}
+                onCheckedChange={(checked) => {
+                  const segs = checked
+                    ? [...value.targetSegments, key]
+                    : value.targetSegments.filter(s => s !== key)
+                  onChange({ ...value, targetSegments: segs })
+                }}
+              />
+              <Label htmlFor={`seg-${key}`} className="text-sm font-normal">{label}</Label>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <Label>Текст сообщения</Label>
+        <Textarea
+          value={value.content}
+          onChange={(e) => onChange({ ...value, content: e.target.value })}
+          placeholder="Текст рассылки..."
+          rows={4}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Переменные: {'{name}'}, {'{pet_name}'}, {'{clinic_name}'}
+        </p>
+      </div>
+      <div>
+        <Label>Дата отправки (необязательно)</Label>
+        <Input
+          type="datetime-local"
+          value={value.scheduledAt}
+          onChange={(e) => onChange({ ...value, scheduledAt: e.target.value })}
+        />
+      </div>
+    </div>
+  )
+
+  if (isLoading) return <Skeleton className="h-64" />
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Маркетинговые кампании</h3>
-          <p className="text-sm text-muted-foreground">SMS, Email и Push рассылки</p>
+          <p className="text-sm text-muted-foreground">SMS, Email и Push рассылки — планирование без реальной отправки</p>
         </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <Dialog open={showCreateDialog} onOpenChange={(open) => { setShowCreateDialog(open); if (!open) setForm({ ...DEFAULT_CAMPAIGN }) }}>
           <DialogTrigger asChild>
-            <Button data-testid="button-create-campaign">
-              <Megaphone className="h-4 w-4 mr-2" />
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
               Новая кампания
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Создать кампанию</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Название</Label>
-                <Input 
-                  value={newCampaign.name}
-                  onChange={(e) => setNewCampaign({ ...newCampaign, name: e.target.value })}
-                  placeholder="Например: Акция на вакцинацию"
-                  data-testid="input-campaign-name"
-                />
-              </div>
-              <div>
-                <Label>Канал</Label>
-                <Select 
-                  value={newCampaign.channel} 
-                  onValueChange={(v) => setNewCampaign({ ...newCampaign, channel: v })}
-                >
-                  <SelectTrigger data-testid="select-campaign-channel">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sms">SMS</SelectItem>
-                    <SelectItem value="email">Email</SelectItem>
-                    <SelectItem value="push">Push-уведомление</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Целевые сегменты</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {Object.entries(SEGMENT_LABELS).map(([key, label]) => (
-                    <div key={key} className="flex items-center gap-2">
-                      <Checkbox
-                        checked={newCampaign.targetSegments.includes(key)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setNewCampaign({ ...newCampaign, targetSegments: [...newCampaign.targetSegments, key] })
-                          } else {
-                            setNewCampaign({ ...newCampaign, targetSegments: newCampaign.targetSegments.filter(s => s !== key) })
-                          }
-                        }}
-                        data-testid={`checkbox-segment-${key}`}
-                      />
-                      <Label className="text-sm">{label}</Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <Label>Текст сообщения</Label>
-                <Textarea 
-                  value={newCampaign.content}
-                  onChange={(e) => setNewCampaign({ ...newCampaign, content: e.target.value })}
-                  placeholder="Текст рассылки..."
-                  rows={4}
-                  data-testid="textarea-campaign-content"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Доступные переменные: {'{name}'}, {'{pet_name}'}, {'{clinic_name}'}
-                </p>
-              </div>
-            </div>
+            <CampaignForm value={form} onChange={setForm} />
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                Отмена
-              </Button>
-              <Button 
-                onClick={() => createCampaignMutation.mutate()}
-                disabled={!newCampaign.name || !newCampaign.content || createCampaignMutation.isPending}
-                data-testid="button-save-campaign"
+              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Отмена</Button>
+              <Button
+                onClick={() => createCampaignMutation.mutate(form)}
+                disabled={!form.name || !form.content || createCampaignMutation.isPending}
               >
                 Создать
               </Button>
@@ -539,40 +627,82 @@ function CampaignsTab() {
       {campaigns && campaigns.length > 0 ? (
         <div className="space-y-4">
           {campaigns.map((campaign) => (
-            <Card key={campaign.id} data-testid={`card-campaign-${campaign.id}`}>
+            <Card key={campaign.id}>
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <CardTitle className="text-lg">{campaign.name}</CardTitle>
                     {getStatusBadge(campaign.status)}
+                    <Badge variant="outline">{CHANNEL_LABELS[campaign.channel] || campaign.channel}</Badge>
                   </div>
-                  <Badge variant="outline">{CHANNEL_LABELS[campaign.channel] || campaign.channel}</Badge>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => openEdit(campaign)}
+                      disabled={campaign.status === 'cancelled'}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    {campaign.status !== 'cancelled' && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => cancelCampaignMutation.mutate(campaign.id)}
+                        disabled={cancelCampaignMutation.isPending}
+                        title="Отменить кампанию"
+                      >
+                        <Send className="h-4 w-4 text-orange-500" />
+                      </Button>
+                    )}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="icon" variant="ghost">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Удалить кампанию?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Кампания «{campaign.name}» будет удалена. Это действие нельзя отменить.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Отмена</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteCampaignMutation.mutate(campaign.id)}>
+                            Удалить
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
                 <CardDescription>
                   Создана: {format(new Date(campaign.createdAt), 'd MMM yyyy, HH:mm', { locale: ru })}
+                  {campaign.scheduledAt && (
+                    <span className="ml-3 flex items-center gap-1 inline-flex">
+                      <Calendar className="h-3 w-3" />
+                      {format(new Date(campaign.scheduledAt), 'd MMM yyyy, HH:mm', { locale: ru })}
+                    </span>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>Получателей: {campaign.totalRecipients}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Send className="h-4 w-4 text-muted-foreground" />
-                    <span>Отправлено: {campaign.sentCount}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Check className="h-4 w-4 text-muted-foreground" />
-                    <span>Доставлено: {campaign.deliveredCount}</span>
-                  </div>
+                <div className="flex flex-wrap items-center gap-4 text-sm mb-3">
+                  <span className="text-muted-foreground">Получателей: {campaign.totalRecipients}</span>
+                  <span className="text-muted-foreground">Отправлено: {campaign.sentCount}</span>
+                  <span className="text-muted-foreground">Доставлено: {campaign.deliveredCount}</span>
                 </div>
-                {campaign.targetSegments && (
-                  <div className="flex gap-2 mt-3">
+                {campaign.targetSegments && campaign.targetSegments.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
                     {campaign.targetSegments.map((seg) => (
                       <SegmentBadge key={seg} segment={seg} />
                     ))}
                   </div>
+                )}
+                {campaign.content && (
+                  <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{campaign.content}</p>
                 )}
               </CardContent>
             </Card>
@@ -580,49 +710,63 @@ function CampaignsTab() {
         </div>
       ) : (
         <Card>
-          <CardContent className="py-8 text-center">
-            <Megaphone className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <CardContent className="py-12 text-center">
+            <Megaphone className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-40" />
             <p className="text-muted-foreground">Нет созданных кампаний</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Создайте первую маркетинговую кампанию
+              Создайте первую маркетинговую кампанию для клиентской базы
             </p>
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={!!editCampaign} onOpenChange={(open) => { if (!open) setEditCampaign(null) }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Редактировать кампанию</DialogTitle>
+          </DialogHeader>
+          <CampaignForm value={form} onChange={setForm} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCampaign(null)}>Отмена</Button>
+            <Button
+              onClick={() => editCampaign && updateCampaignMutation.mutate({ id: editCampaign.id, data: form })}
+              disabled={!form.name || !form.content || updateCampaignMutation.isPending}
+            >
+              Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+
+// ========================
+// Main CRM Page
+// ========================
 
 export default function CRM() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">CRM</h1>
-        <p className="text-muted-foreground">Управление клиентами, напоминания и маркетинг</p>
+        <h1 className="text-2xl font-bold">CRM</h1>
+        <p className="text-muted-foreground">Сегментация клиентов, аналитика и маркетинг</p>
       </div>
 
-      <Tabs defaultValue="segments" className="space-y-4">
-        <TabsList data-testid="tabs-crm">
-          <TabsTrigger value="segments" data-testid="tab-segments">
+      <Tabs defaultValue="owners" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="owners">
             <Users className="h-4 w-4 mr-2" />
-            Сегменты
+            Клиенты
           </TabsTrigger>
-          <TabsTrigger value="reminders" data-testid="tab-reminders">
-            <Bell className="h-4 w-4 mr-2" />
-            Напоминания
-          </TabsTrigger>
-          <TabsTrigger value="campaigns" data-testid="tab-campaigns">
+          <TabsTrigger value="campaigns">
             <Megaphone className="h-4 w-4 mr-2" />
-            Рассылки
+            Кампании
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="segments">
-          <SegmentsTab />
-        </TabsContent>
-
-        <TabsContent value="reminders">
-          <RemindersTab />
+        <TabsContent value="owners">
+          <OwnersTab />
         </TabsContent>
 
         <TabsContent value="campaigns">

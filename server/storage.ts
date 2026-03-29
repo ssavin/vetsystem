@@ -7238,6 +7238,95 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async deleteMarketingCampaign(id: string): Promise<void> {
+    return withPerformanceLogging('deleteMarketingCampaign', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        await dbInstance
+          .delete(marketingCampaigns)
+          .where(eq(marketingCampaigns.id, id));
+      });
+    });
+  }
+
+  // CRM owners list with pagination, segment filter, and search
+  async getCrmOwners(params: {
+    tenantId?: string;
+    segment?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ data: Owner[]; total: number }> {
+    return withPerformanceLogging('getCrmOwners', async () => {
+      return withTenantContext(params.tenantId, async (dbInstance) => {
+        const { segment, search, limit = 50, offset = 0 } = params;
+        const conditions: any[] = [];
+        if (segment && segment !== 'all') {
+          conditions.push(eq(owners.segment, segment));
+        }
+        if (search) {
+          conditions.push(
+            or(
+              ilike(owners.name, `%${search}%`),
+              ilike(owners.phone, `%${search}%`),
+              ilike(owners.email, `%${search}%`)
+            )
+          );
+        }
+        const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+        const [{ count }] = await dbInstance
+          .select({ count: sql<number>`count(*)::int` })
+          .from(owners)
+          .where(where);
+
+        const data = await dbInstance
+          .select()
+          .from(owners)
+          .where(where)
+          .orderBy(desc(owners.totalSpent), desc(owners.visitCount))
+          .limit(limit)
+          .offset(offset);
+
+        return { data, total: count };
+      });
+    });
+  }
+
+  // CRM summary stats: segment distribution, total LTV, average check
+  async getCrmStats(tenantId?: string): Promise<{
+    segmentCounts: { segment: string; count: number }[];
+    totalLTV: number;
+    averageCheck: number;
+    totalOwners: number;
+  }> {
+    return withPerformanceLogging('getCrmStats', async () => {
+      return withTenantContext(tenantId, async (dbInstance) => {
+        const segmentRows = await dbInstance
+          .select({
+            segment: owners.segment,
+            count: sql<number>`count(*)::int`
+          })
+          .from(owners)
+          .groupBy(owners.segment);
+
+        const [totals] = await dbInstance
+          .select({
+            totalLTV: sql<number>`COALESCE(SUM(CAST(total_spent AS numeric)), 0)::float`,
+            averageCheck: sql<number>`COALESCE(AVG(CAST(average_check AS numeric)) FILTER (WHERE CAST(average_check AS numeric) > 0), 0)::float`,
+            totalOwners: sql<number>`count(*)::int`
+          })
+          .from(owners);
+
+        return {
+          segmentCounts: segmentRows.map(r => ({ segment: r.segment || 'new', count: r.count })),
+          totalLTV: totals?.totalLTV ?? 0,
+          averageCheck: totals?.averageCheck ?? 0,
+          totalOwners: totals?.totalOwners ?? 0,
+        };
+      });
+    });
+  }
+
   // Client Segmentation
   async getOwnersBySegment(segment: string): Promise<Owner[]> {
     return withPerformanceLogging('getOwnersBySegment', async () => {
@@ -7314,55 +7403,57 @@ export class DatabaseStorage implements IStorage {
     return withPerformanceLogging('recalculateClientSegments', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         let updatedCount = 0;
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const ninetyDaysAgo = new Date();
-        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-        const oneYearAgo = new Date();
-        oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+        const sixtyDaysAgo = new Date();
+        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+        const oneEightyDaysAgo = new Date();
+        oneEightyDaysAgo.setDate(oneEightyDaysAgo.getDate() - 180);
 
-        // VIP: totalSpent > 50000 OR visitCount >= 10
-        const vipResult = await dbInstance.execute(sql`
-          UPDATE owners SET segment = 'vip', updated_at = now()
-          WHERE (CAST(total_spent AS numeric) > 50000 OR visit_count >= 10)
-          AND segment != 'vip'
-        `);
-        updatedCount += (vipResult as any).rowCount || 0;
-
-        // Regular: visitCount >= 3 AND lastVisit within 90 days
-        const regularResult = await dbInstance.execute(sql`
-          UPDATE owners SET segment = 'regular', updated_at = now()
-          WHERE visit_count >= 3
-          AND last_visit_at >= ${ninetyDaysAgo}
-          AND CAST(total_spent AS numeric) <= 50000
-          AND visit_count < 10
-          AND segment NOT IN ('vip')
-        `);
-        updatedCount += (regularResult as any).rowCount || 0;
-
-        // At Risk: regular/VIP who haven't visited in 30-90 days
-        const atRiskResult = await dbInstance.execute(sql`
-          UPDATE owners SET segment = 'at_risk', updated_at = now()
-          WHERE visit_count >= 2
-          AND last_visit_at < ${thirtyDaysAgo}
-          AND last_visit_at >= ${ninetyDaysAgo}
-          AND segment IN ('regular', 'vip')
-        `);
-        updatedCount += (atRiskResult as any).rowCount || 0;
-
-        // Lost: haven't visited in over 90 days
+        // Step 1: Lost — no visits in 180+ days (highest priority downgrade)
         const lostResult = await dbInstance.execute(sql`
           UPDATE owners SET segment = 'lost', updated_at = now()
-          WHERE last_visit_at < ${ninetyDaysAgo}
-          AND segment NOT IN ('new', 'lost')
+          WHERE last_visit_at IS NOT NULL
+          AND last_visit_at < ${oneEightyDaysAgo}
+          AND segment != 'lost'
         `);
         updatedCount += (lostResult as any).rowCount || 0;
 
-        // New: first visit within 30 days OR never visited
+        // Step 2: At Risk (Sleeping) — no visits in 60-179 days
+        const atRiskResult = await dbInstance.execute(sql`
+          UPDATE owners SET segment = 'at_risk', updated_at = now()
+          WHERE last_visit_at IS NOT NULL
+          AND last_visit_at < ${sixtyDaysAgo}
+          AND last_visit_at >= ${oneEightyDaysAgo}
+          AND segment NOT IN ('lost', 'at_risk')
+        `);
+        updatedCount += (atRiskResult as any).rowCount || 0;
+
+        // Step 3: VIP — top 10% by total_spent among active owners (visited in last 60 days or more)
+        // Using percentile: owners whose total_spent > 90th percentile of all owners with visits
+        const vipResult = await dbInstance.execute(sql`
+          UPDATE owners SET segment = 'vip', updated_at = now()
+          WHERE visit_count > 0
+          AND CAST(total_spent AS numeric) > (
+            SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(total_spent AS numeric))
+            FROM owners
+            WHERE visit_count > 0 AND CAST(total_spent AS numeric) > 0
+          )
+          AND segment NOT IN ('lost', 'at_risk', 'vip')
+        `);
+        updatedCount += (vipResult as any).rowCount || 0;
+
+        // Step 4: Active (regular) — has at least 2 visits and last visit within 60 days
+        const regularResult = await dbInstance.execute(sql`
+          UPDATE owners SET segment = 'regular', updated_at = now()
+          WHERE visit_count >= 2
+          AND last_visit_at >= ${sixtyDaysAgo}
+          AND segment NOT IN ('vip', 'lost', 'at_risk', 'regular')
+        `);
+        updatedCount += (regularResult as any).rowCount || 0;
+
+        // Step 5: New — never visited or only 1 visit
         const newResult = await dbInstance.execute(sql`
           UPDATE owners SET segment = 'new', updated_at = now()
-          WHERE (first_visit_at >= ${thirtyDaysAgo} OR first_visit_at IS NULL)
-          AND visit_count <= 1
+          WHERE (last_visit_at IS NULL OR visit_count <= 1)
           AND segment NOT IN ('new')
         `);
         updatedCount += (newResult as any).rowCount || 0;
