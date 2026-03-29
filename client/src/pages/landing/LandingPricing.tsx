@@ -23,6 +23,9 @@ const plans = [
       { text: "Email-поддержка", included: true },
       { text: "Лаборатория", included: false },
       { text: "Стационар", included: false },
+      { text: "Программа лояльности", included: false },
+      { text: "CRM и сегментация", included: false },
+      { text: "Электронная подпись", included: false },
       { text: "Мобильное приложение", included: false },
       { text: "Интеграции", included: false },
     ]
@@ -45,6 +48,9 @@ const plans = [
       { text: "Email + чат поддержка", included: true },
       { text: "Лаборатория", included: true },
       { text: "Стационар", included: true },
+      { text: "Программа лояльности", included: true },
+      { text: "CRM и сегментация", included: true },
+      { text: "Электронная подпись", included: true },
       { text: "Мобильное приложение", included: true },
       { text: "Все интеграции", included: true },
     ]

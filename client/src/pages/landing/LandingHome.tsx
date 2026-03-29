@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Cloud, Shield, Smartphone, Zap, BarChart3, Puzzle,
   Users, Calendar, Stethoscope, Microscope, Bed, CreditCard, FileText, Tablet,
-  CheckCircle2, ArrowRight, Star, Quote
+  CheckCircle2, ArrowRight, Star, Heart, PenLine
 } from "lucide-react"
 
 import heroImage from "@assets/kotenok_1767873477980.jpg"
@@ -53,6 +53,9 @@ const modules = [
   { icon: Microscope, title: "Лаборатория", description: "Анализы и исследования" },
   { icon: Bed, title: "Стационар", description: "Госпитализация и уход" },
   { icon: CreditCard, title: "Финансы", description: "Счета, оплаты, касса" },
+  { icon: Heart, title: "Программа лояльности", description: "Бонусы, уровни, кешбэк" },
+  { icon: BarChart3, title: "CRM и сегментация", description: "Работа с клиентской базой" },
+  { icon: PenLine, title: "Электронная подпись", description: "Подписание документов онлайн" },
   { icon: FileText, title: "Отчёты", description: "Аналитика и статистика" },
   { icon: Tablet, title: "Мобильные приложения", description: "Для владельцев и врачей" },
 ]
@@ -214,7 +217,7 @@ export default function LandingHome() {
             </p>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {modules.map((module) => (
               <div 
                 key={module.title}
