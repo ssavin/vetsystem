@@ -38,19 +38,19 @@ export function OwnerCardDialog({ ownerId, open, onOpenChange }: OwnerCardDialog
   const [, navigate] = useLocation()
 
   // Fetch owner details
-  const { data: owner, isLoading: ownerLoading } = useQuery({
+  const { data: owner, isLoading: ownerLoading } = useQuery<{ id: string; name: string; phone?: string; email?: string; address?: string; avatar?: string; createdAt?: string; bonusPoints?: number; loyaltyCardNumber?: string }>({
     queryKey: [`/api/owners/${ownerId}`],
     enabled: !!ownerId && open,
   })
 
   // Fetch owner's patients
-  const { data: patients = [], isLoading: patientsLoading } = useQuery<any[]>({
+  const { data: patients = [], isLoading: patientsLoading } = useQuery<Array<{ id: string; name: string; species: string; breed: string; branchId?: string }>>({
     queryKey: [`/api/owners/${ownerId}/patients`],
     enabled: !!ownerId && open,
   })
 
   // Fetch loyalty data
-  const { data: loyaltyTransactions = [] } = useQuery<any[]>({
+  const { data: loyaltyTransactions = [] } = useQuery<Array<{ id: string; type: string; points: number; balanceBefore: number; balanceAfter: number; description: string; createdAt: string }>>({
     queryKey: [`/api/loyalty/transactions/${ownerId}`],
     enabled: !!ownerId && open,
   })
@@ -108,7 +108,7 @@ export function OwnerCardDialog({ ownerId, open, onOpenChange }: OwnerCardDialog
                         {owner.name}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        Клиент с {new Date(owner.createdAt).toLocaleDateString('ru-RU')}
+                        Клиент с {owner.createdAt ? new Date(owner.createdAt).toLocaleDateString('ru-RU') : '—'}
                       </p>
                     </div>
                   </div>

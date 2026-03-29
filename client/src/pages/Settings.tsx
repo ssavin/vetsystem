@@ -2766,7 +2766,7 @@ function LoyaltySettingsTab() {
     }
   })
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: { isActive: boolean; earnRatePercent: string; pointsValue: string; minBalanceToSpend: number; maxSpendPercent: string }) => {
     saveMutation.mutate(data)
   }
 

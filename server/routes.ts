@@ -2314,6 +2314,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "ownerId не соответствует пациенту" });
       }
 
+      // 🔒 SECURITY: Verify resolved owner belongs to the current tenant before any loyalty operation
+      // Prevents cross-tenant IDOR when ownerId is supplied directly (no patientId)
+      if (resolvedOwnerId && tenantId) {
+        const ownerRecord = await storage.getOwner(resolvedOwnerId);
+        if (!ownerRecord || ownerRecord.tenantId !== tenantId) {
+          return res.status(403).json({ error: "Владелец не принадлежит данной клинике" });
+        }
+      }
+
       // If bonus points requested, validate atomically before creating invoice
       let loyaltySettings: LoyaltySettings | undefined;
       let finalTotal = parseFloat(String(validation.data.total ?? '0'));

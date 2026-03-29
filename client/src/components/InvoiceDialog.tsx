@@ -84,7 +84,7 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
   const { toast } = useToast()
 
   // Fetch data for dropdowns with reasonable limits
-  const { data: patients = [] } = useQuery({
+  const { data: patients = [] } = useQuery<Array<{ id: string; name: string; species: string; breed: string; ownerId?: string }>>({
     queryKey: ['/api/patients'],
     queryFn: async () => {
       const res = await fetch('/api/patients?limit=200', {
@@ -97,7 +97,7 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
     enabled: open
   })
 
-  const { data: owners = [] } = useQuery({
+  const { data: owners = [] } = useQuery<Array<{ id: string; name: string; phone?: string; bonusPoints?: number }>>({
     queryKey: ['/api/owners'],
     queryFn: async () => {
       const res = await fetch('/api/owners?limit=100', {
@@ -144,15 +144,15 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
 
   // Loyalty: get selected patient's owner
   const selectedPatientId = form.watch('patientId')
-  const selectedPatient = (patients as any[]).find((p: any) => p.id === selectedPatientId)
-  const selectedOwner = selectedPatient ? (owners as any[]).find((o: any) => o.id === selectedPatient.ownerId) : null
+  const selectedPatient = patients.find(p => p.id === selectedPatientId)
+  const selectedOwner = selectedPatient ? owners.find(o => o.id === selectedPatient.ownerId) : null
 
   // Fetch owner's current loyalty balance (separate query — owners list may not include bonusPoints)
   const { data: ownerLoyaltyBalance } = useQuery<{ balance: number }>({
     queryKey: ['/api/loyalty/balance', selectedOwner?.id],
     enabled: open && !!selectedOwner?.id && loyaltySettings?.isActive,
     queryFn: async () => {
-      const res = await fetch(`/api/loyalty/balance/${selectedOwner.id}`, { credentials: 'include' })
+      const res = await fetch(`/api/loyalty/balance/${selectedOwner!.id}`, { credentials: 'include' })
       if (!res.ok) return { balance: 0 }
       return res.json()
     },
@@ -291,8 +291,8 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                         <SelectValue placeholder="Выберите пациента" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(patients as any[]).map((patient: any) => {
-                          const owner = (owners as any[]).find((o: any) => o.id === patient.ownerId)
+                        {patients.map((patient) => {
+                          const owner = owners.find(o => o.id === patient.ownerId)
                           return (
                             <SelectItem key={patient.id} value={patient.id}>
                               <div className="flex flex-col">
