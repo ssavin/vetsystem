@@ -788,7 +788,7 @@ export interface IStorage {
   getLoyaltyTransactionStats(tenantId: string): Promise<{ totalIssued: number; totalRedeemed: number; totalBurned: number; currentCirculation: number; activeOwners: number }>;
   earnLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId?: string; invoiceTotal: number; manualPoints?: number; description?: string }): Promise<LoyaltyTransaction | null>;
   spendLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number }): Promise<LoyaltyTransaction>;
-  spendLoyaltyPointsWithInvoiceUpdate(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number; pointsValue: number; alreadyUsed: number }): Promise<LoyaltyTransaction>;
+  spendLoyaltyPointsWithInvoiceUpdate(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number; pointsValue: number }): Promise<LoyaltyTransaction>;
   createInvoiceWithLoyaltySpend(invoiceData: InsertInvoice, loyaltyParams: { ownerId: string; tenantId: string; branchId: string; points: number }): Promise<{ invoice: Invoice; loyaltyTx: LoyaltyTransaction }>;
 }
 
@@ -7432,18 +7432,20 @@ export class DatabaseStorage implements IStorage {
 
   async upsertLoyaltySettings(tenantId: string, data: Partial<InsertLoyaltySettings>): Promise<LoyaltySettings> {
     return withTenantContext(tenantId, async (dbInstance) => {
+      // Strip system-owned fields from body to prevent cross-tenant attacks via mass-assignment
+      const { tenantId: _stripTenant, id: _stripId, createdAt: _stripCreated, updatedAt: _stripUpdated, ...safeData } = data as any;
       const existing = await this.getLoyaltySettings(tenantId);
       if (existing) {
         const [updated] = await dbInstance
           .update(loyaltySettings)
-          .set({ ...data, updatedAt: new Date() })
+          .set({ ...safeData, updatedAt: new Date() })
           .where(eq(loyaltySettings.tenantId, tenantId))
           .returning();
         return updated;
       } else {
         const [created] = await dbInstance
           .insert(loyaltySettings)
-          .values({ tenantId, ...data })
+          .values({ tenantId, ...safeData })
           .returning();
         return created;
       }
@@ -7596,7 +7598,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async spendLoyaltyPointsWithInvoiceUpdate(
-    params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number; pointsValue: number; alreadyUsed: number }
+    params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number; pointsValue: number }
   ): Promise<LoyaltyTransaction> {
     return withTenantContext(params.tenantId, async (dbInstance) => {
       return dbInstance.transaction(async (tx) => {
@@ -7623,13 +7625,15 @@ export class DatabaseStorage implements IStorage {
           description: `Списание ${params.points} баллов при оплате счёта`,
         }).returning();
 
-        // Atomically update invoice total + bonusPointsUsed in the same transaction
-        const [currentInvoice] = await tx.select({ total: invoices.total }).from(invoices)
-          .where(eq(invoices.id, params.invoiceId)).limit(1);
+        // Atomically update invoice total + bonusPointsUsed using SQL arithmetic (race-safe)
+        // Read invoice inside tx so we get consistent state
+        const [currentInvoice] = await tx.select({ total: invoices.total, bonusPointsUsed: invoices.bonusPointsUsed })
+          .from(invoices).where(eq(invoices.id, params.invoiceId)).limit(1);
         const bonusDiscount = params.points * params.pointsValue;
         const newTotal = Math.max(0, parseFloat(String(currentInvoice?.total ?? 0)) - bonusDiscount);
+        // Use SQL arithmetic for bonusPointsUsed increment to prevent concurrent overwrites
         await tx.update(invoices).set({
-          bonusPointsUsed: params.alreadyUsed + params.points,
+          bonusPointsUsed: sql`COALESCE(${invoices.bonusPointsUsed}, 0) + ${params.points}`,
           total: newTotal.toFixed(2),
         }).where(eq(invoices.id, params.invoiceId));
 

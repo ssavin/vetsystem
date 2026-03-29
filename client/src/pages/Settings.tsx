@@ -2725,11 +2725,11 @@ export default function Settings() {
 function LoyaltySettingsTab() {
   const { toast } = useToast()
 
-  const { data: settings, isLoading } = useQuery<any>({
+  const { data: settings, isLoading } = useQuery<{ isActive: boolean; pointsValue: string; maxSpendPercent: string; minBalanceToSpend: number; earnRatePercent: string } | null>({
     queryKey: ['/api/loyalty/settings'],
   })
 
-  const { data: stats } = useQuery<any>({
+  const { data: stats } = useQuery<{ totalIssued: number; totalRedeemed: number; totalBurned: number; currentCirculation: number; activeOwners: number } | null>({
     queryKey: ['/api/loyalty/stats'],
   })
 

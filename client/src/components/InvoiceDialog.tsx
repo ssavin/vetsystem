@@ -121,7 +121,7 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
   })
 
   // Fetch loyalty settings to know if program is active
-  const { data: loyaltySettings } = useQuery<any>({
+  const { data: loyaltySettings } = useQuery<{ isActive: boolean; pointsValue: string; maxSpendPercent: string; minBalanceToSpend: number; earnRatePercent: string } | null>({
     queryKey: ['/api/loyalty/settings'],
     enabled: open
   })

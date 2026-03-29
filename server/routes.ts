@@ -14,7 +14,8 @@ import {
   insertCashOperationSchema, insertUserRoleSchema, insertUserRoleAssignmentSchema,
   insertSubscriptionPlanSchema, insertClinicSubscriptionSchema, insertTenantSchema,
   insertLegalEntitySchema,
-  insertDicomDeviceSchema, insertDicomStudySchema, insertDicomSeriesSchema, insertDicomInstanceSchema
+  insertDicomDeviceSchema, insertDicomStudySchema, insertDicomSeriesSchema, insertDicomInstanceSchema,
+  type LoyaltySettings, type Invoice
 } from "@shared/schema";
 import { z } from "zod";
 import { seedDatabase } from "./seed-data";
@@ -2314,7 +2315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // If bonus points requested, validate atomically before creating invoice
-      let loyaltySettings: any = null;
+      let loyaltySettings: LoyaltySettings | undefined;
       let finalTotal = parseFloat(String(validation.data.total ?? '0'));
       if (bonusPoints > 0) {
         if (!resolvedOwnerId) {
@@ -2350,7 +2351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bonusPointsUsed: bonusPoints > 0 ? bonusPoints : undefined,
       };
 
-      let invoice: any;
+      let invoice: Invoice;
       if (bonusPoints > 0 && resolvedOwnerId && tenantId) {
         // Use fully atomic DB transaction: invoice creation + loyalty deduction in one transaction
         const result = await storage.createInvoiceWithLoyaltySpend(invoiceData, {
@@ -11401,7 +11402,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         invoiceId,
         points,
         pointsValue,
-        alreadyUsed: invoice.bonusPointsUsed || 0,
       });
       
       res.json(tx);

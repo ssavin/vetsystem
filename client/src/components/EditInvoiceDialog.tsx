@@ -68,7 +68,7 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
   })
 
   // Fetch loyalty settings to know pointsValue
-  const { data: loyaltySettings } = useQuery<any>({
+  const { data: loyaltySettings } = useQuery<{ isActive: boolean; pointsValue: string; maxSpendPercent: string; minBalanceToSpend: number; earnRatePercent: string } | null>({
     queryKey: ['/api/loyalty/settings'],
     enabled: !!invoice.ownerId && open && !isPaid,
   })
@@ -110,19 +110,19 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
   })
 
   // Загрузка позиций счёта
-  const { data: invoiceItems = [], refetch: refetchItems } = useQuery({
+  const { data: invoiceItems = [], refetch: refetchItems } = useQuery<Array<{ id: string; itemType: string; itemId: string; itemName: string; quantity: number; price: string; total: string; vatRate: string }>>({
     queryKey: ['/api/invoices', invoice.id, 'items'],
     enabled: !!invoice.id && open,
   })
 
   // Загрузка услуг
-  const { data: services = [] } = useQuery({
+  const { data: services = [] } = useQuery<Array<{ id: string; name: string; price: string; vatRate: string }>>({
     queryKey: ['/api/services'],
     enabled: open && newItemType === 'service',
   })
 
   // Загрузка товаров
-  const { data: products = [] } = useQuery({
+  const { data: products = [] } = useQuery<Array<{ id: string; name: string; price: string; vatRate: string }>>({
     queryKey: ['/api/products'],
     enabled: open && newItemType === 'product',
   })
@@ -183,8 +183,8 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
   const addItemMutation = useMutation({
     mutationFn: async () => {
       const item = newItemType === 'service' 
-        ? services.find((s: any) => s.id === selectedItemId)
-        : products.find((p: any) => p.id === selectedItemId)
+        ? services.find(s => s.id === selectedItemId)
+        : products.find(p => p.id === selectedItemId)
       
       if (!item) throw new Error('Товар/услуга не найдена')
 
@@ -284,7 +284,7 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
                         <SelectValue placeholder={`Выберите ${newItemType === 'service' ? 'услугу' : 'товар'}`} />
                       </SelectTrigger>
                       <SelectContent>
-                        {(newItemType === 'service' ? services : products).map((item: any) => (
+                        {(newItemType === 'service' ? services : products).map((item) => (
                           <SelectItem key={item.id} value={item.id}>
                             {item.name} - {parseFloat(item.price || '0').toLocaleString('ru-RU')} ₽
                           </SelectItem>
@@ -328,7 +328,7 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {invoiceItems.map((item: any) => (
+                      {invoiceItems.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell className="text-sm">{item.itemName}</TableCell>
                           <TableCell className="text-sm">{item.quantity}</TableCell>
