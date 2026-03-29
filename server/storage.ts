@@ -7402,63 +7402,62 @@ export class DatabaseStorage implements IStorage {
   async recalculateClientSegments(): Promise<{ updated: number }> {
     return withPerformanceLogging('recalculateClientSegments', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        let updatedCount = 0;
-        const sixtyDaysAgo = new Date();
-        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-        const oneEightyDaysAgo = new Date();
-        oneEightyDaysAgo.setDate(oneEightyDaysAgo.getDate() - 180);
-
-        // Step 1: Lost — no visits in 180+ days (highest priority downgrade)
-        const lostResult = await dbInstance.execute(sql`
-          UPDATE owners SET segment = 'lost', updated_at = now()
-          WHERE last_visit_at IS NOT NULL
-          AND last_visit_at < ${oneEightyDaysAgo}
-          AND segment != 'lost'
+        // Single deterministic pass: each owner is classified by highest-priority matching rule.
+        // Priority: lost > at_risk > vip > regular > new
+        // No sticky segment exclusions — every run re-evaluates based purely on current metrics.
+        const result = await dbInstance.execute(sql`
+          UPDATE owners
+          SET segment = CASE
+            WHEN last_visit_at IS NOT NULL AND last_visit_at < now() - interval '180 days'
+              THEN 'lost'
+            WHEN last_visit_at IS NOT NULL AND last_visit_at < now() - interval '60 days'
+              THEN 'at_risk'
+            WHEN visit_count > 0 AND CAST(total_spent AS numeric) > COALESCE((
+              SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(o2.total_spent AS numeric))
+              FROM owners o2
+              WHERE o2.tenant_id = owners.tenant_id
+                AND o2.visit_count > 0
+                AND CAST(o2.total_spent AS numeric) > 0
+            ), 0)
+              THEN 'vip'
+            WHEN visit_count >= 2 AND last_visit_at IS NOT NULL AND last_visit_at >= now() - interval '60 days'
+              THEN 'regular'
+            ELSE 'new'
+          END,
+          updated_at = now()
         `);
-        updatedCount += (lostResult as any).rowCount || 0;
+        return { updated: (result as any).rowCount || 0 };
+      });
+    });
+  }
 
-        // Step 2: At Risk (Sleeping) — no visits in 60-179 days
-        const atRiskResult = await dbInstance.execute(sql`
-          UPDATE owners SET segment = 'at_risk', updated_at = now()
-          WHERE last_visit_at IS NOT NULL
-          AND last_visit_at < ${sixtyDaysAgo}
-          AND last_visit_at >= ${oneEightyDaysAgo}
-          AND segment NOT IN ('lost', 'at_risk')
+  async recalculateOwnerSegments(tenantId: string): Promise<{ updated: number }> {
+    return withPerformanceLogging('recalculateOwnerSegments', async () => {
+      return withTenantContext(undefined, async (dbInstance) => {
+        // Same deterministic single-pass logic, scoped to one tenant.
+        const result = await dbInstance.execute(sql`
+          UPDATE owners
+          SET segment = CASE
+            WHEN last_visit_at IS NOT NULL AND last_visit_at < now() - interval '180 days'
+              THEN 'lost'
+            WHEN last_visit_at IS NOT NULL AND last_visit_at < now() - interval '60 days'
+              THEN 'at_risk'
+            WHEN visit_count > 0 AND CAST(total_spent AS numeric) > COALESCE((
+              SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(o2.total_spent AS numeric))
+              FROM owners o2
+              WHERE o2.tenant_id = owners.tenant_id
+                AND o2.visit_count > 0
+                AND CAST(o2.total_spent AS numeric) > 0
+            ), 0)
+              THEN 'vip'
+            WHEN visit_count >= 2 AND last_visit_at IS NOT NULL AND last_visit_at >= now() - interval '60 days'
+              THEN 'regular'
+            ELSE 'new'
+          END,
+          updated_at = now()
+          WHERE tenant_id = ${tenantId}
         `);
-        updatedCount += (atRiskResult as any).rowCount || 0;
-
-        // Step 3: VIP — top 10% by total_spent among active owners (visited in last 60 days or more)
-        // Using percentile: owners whose total_spent > 90th percentile of all owners with visits
-        const vipResult = await dbInstance.execute(sql`
-          UPDATE owners SET segment = 'vip', updated_at = now()
-          WHERE visit_count > 0
-          AND CAST(total_spent AS numeric) > (
-            SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(total_spent AS numeric))
-            FROM owners
-            WHERE visit_count > 0 AND CAST(total_spent AS numeric) > 0
-          )
-          AND segment NOT IN ('lost', 'at_risk', 'vip')
-        `);
-        updatedCount += (vipResult as any).rowCount || 0;
-
-        // Step 4: Active (regular) — has at least 2 visits and last visit within 60 days
-        const regularResult = await dbInstance.execute(sql`
-          UPDATE owners SET segment = 'regular', updated_at = now()
-          WHERE visit_count >= 2
-          AND last_visit_at >= ${sixtyDaysAgo}
-          AND segment NOT IN ('vip', 'lost', 'at_risk', 'regular')
-        `);
-        updatedCount += (regularResult as any).rowCount || 0;
-
-        // Step 5: New — never visited or only 1 visit
-        const newResult = await dbInstance.execute(sql`
-          UPDATE owners SET segment = 'new', updated_at = now()
-          WHERE (last_visit_at IS NULL OR visit_count <= 1)
-          AND segment NOT IN ('new')
-        `);
-        updatedCount += (newResult as any).rowCount || 0;
-
-        return { updated: updatedCount };
+        return { updated: (result as any).rowCount || 0 };
       });
     });
   }

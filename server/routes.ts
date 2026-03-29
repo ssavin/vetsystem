@@ -10802,6 +10802,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = Math.min(req.query.limit ? parseInt(req.query.limit as string) : 50, 100);
       const offset = (page - 1) * limit;
 
+      // Auto-trigger per-tenant segment recalculation on each page load (async, non-blocking)
+      if (user.tenantId) {
+        storage.recalculateOwnerSegments(user.tenantId).catch((err: Error) => {
+          console.error('[CRM] Background segment recalculation error:', err.message);
+        });
+      }
+
       const result = await storage.getCrmOwners({
         tenantId: user.tenantId,
         segment,
@@ -10834,9 +10841,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PATCH manual segment override
+  // PATCH manual segment override (admin only)
   app.patch("/api/crm/owners/:id/segment", authenticateToken, async (req, res) => {
     try {
+      const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
       const { segment } = req.body;
       if (!segment) return res.status(400).json({ error: "segment is required" });
       const allowed = ['new', 'regular', 'vip', 'at_risk', 'lost'];
@@ -10987,6 +10998,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/crm/campaigns/:id", authenticateToken, async (req, res) => {
     try {
+      const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
       const campaign = await storage.updateMarketingCampaign(req.params.id, req.body);
       res.json(campaign);
     } catch (error: any) {
@@ -10997,6 +11012,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/crm/campaigns/:id", authenticateToken, async (req, res) => {
     try {
+      const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
       await storage.deleteMarketingCampaign(req.params.id);
       res.status(204).send();
     } catch (error: any) {

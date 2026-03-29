@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -190,14 +190,13 @@ function OwnersTab() {
   const [newSegment, setNewSegment] = useState("")
   const LIMIT = 50
 
-  const handleSearchChange = (val: string) => {
-    setSearch(val)
-    clearTimeout((handleSearchChange as any)._timer)
-    ;(handleSearchChange as any)._timer = setTimeout(() => {
-      setDebouncedSearch(val)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
       setPage(1)
     }, 400)
-  }
+    return () => clearTimeout(timer)
+  }, [search])
 
   const { data: ownersData, isLoading } = useQuery<{ data: Owner[]; total: number; totalPages: number }>({
     queryKey: ['/api/crm/owners', segmentFilter, debouncedSearch, page, LIMIT],
@@ -265,7 +264,7 @@ function OwnersTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Поиск по имени, телефону, email..."
             className="pl-9"
           />
