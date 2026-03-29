@@ -8750,6 +8750,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           context = await documentService.buildInformedConsentGeneralContext(effectiveEntityId, tenantId, validBranchId);
           break;
         case 'lab_results_report': {
+          // Enforce branch isolation before generating — same guard as /api/lab-orders/:id/print
+          const labOrder = await storage.getLabOrder(entityId);
+          if (!labOrder) return res.status(404).json({ error: "Lab order not found" });
+          if (labOrder.branchId && labOrder.branchId !== validBranchId) {
+            return res.status(403).json({ error: "Access denied: lab order belongs to a different branch" });
+          }
           // Lab results have their own rich HTML builder — return directly without template lookup
           let labHtml = await documentService.buildLabResultsHtml(entityId);
           if (signatureData) {
