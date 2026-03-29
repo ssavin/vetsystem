@@ -30,23 +30,18 @@ export class DocumentService {
    * Get Chromium executable path — tries multiple possible binary names and paths
    */
   private getChromiumPath(): string {
-    // Candidate binary names (in order of preference)
-    const candidates = [
-      'google-chrome-stable',
-      'google-chrome',
-      'chromium-browser',
-      'chromium',
-    ];
+    const log = (msg: string) => console.log(`[ChromiumFinder] ${msg}`);
 
-    // 1. Try `which <name>` for each candidate
+    // 1. Try `which <name>` for each candidate binary
+    const candidates = ['google-chrome-stable', 'google-chrome', 'chromium-browser', 'chromium'];
     for (const name of candidates) {
       try {
-        const p = execSync(`which ${name}`, { encoding: 'utf-8' }).trim();
-        if (p) return p;
-      } catch { /* not found — continue */ }
+        const p = execSync(`which ${name} 2>/dev/null`, { encoding: 'utf-8' }).trim();
+        if (p) { log(`Found via which: ${p}`); return p; }
+      } catch { /* continue */ }
     }
 
-    // 2. Try common hard-coded paths (Debian/Ubuntu, CentOS, Nix, macOS)
+    // 2. Try hard-coded system paths
     const hardcoded = [
       '/usr/bin/google-chrome-stable',
       '/usr/bin/google-chrome',
@@ -56,53 +51,52 @@ export class DocumentService {
       '/opt/google/chrome/google-chrome',
       '/snap/bin/chromium',
     ];
-
     for (const p of hardcoded) {
       try {
         execSync(`test -x "${p}"`, { encoding: 'utf-8' });
+        log(`Found at hardcoded path: ${p}`);
         return p;
-      } catch { /* not found — continue */ }
+      } catch { /* continue */ }
     }
 
-    // 3. Try puppeteer's own bundled browser path
-    try {
-      // puppeteer v20+ uses executablePath() from the package
-      const { executablePath } = require('puppeteer');
-      const puppeteerPath: string = typeof executablePath === 'function' ? executablePath() : '';
-      if (puppeteerPath) {
-        execSync(`test -x "${puppeteerPath}"`, { encoding: 'utf-8' });
-        return puppeteerPath;
-      }
-    } catch { /* ignore */ }
+    // 3. Search puppeteer cache in all likely home directories
+    const homeDirs = [
+      process.env.HOME,
+      '/root',
+      '/home/ubuntu',
+      '/home/user',
+    ].filter(Boolean) as string[];
 
-    // 3b. Try common puppeteer cache locations (~/.cache/puppeteer)
-    try {
-      const homeDir = process.env.HOME || '/root';
-      const cacheBase = `${homeDir}/.cache/puppeteer/chrome`;
-      const chromeDir = execSync(`ls "${cacheBase}" 2>/dev/null | head -1`, { encoding: 'utf-8' }).trim();
-      if (chromeDir) {
+    for (const home of homeDirs) {
+      try {
+        const cacheBase = `${home}/.cache/puppeteer/chrome`;
+        // find any executable named "chrome" or "chromium" inside the cache
         const chromeBin = execSync(
-          `find "${cacheBase}/${chromeDir}" -name "chrome" -type f 2>/dev/null | head -1`,
+          `find "${cacheBase}" \\( -name "chrome" -o -name "chromium" \\) 2>/dev/null | head -1`,
           { encoding: 'utf-8' }
         ).trim();
-        if (chromeBin) return chromeBin;
-      }
-    } catch { /* ignore */ }
+        if (chromeBin) {
+          log(`Found in puppeteer cache: ${chromeBin}`);
+          return chromeBin;
+        }
+      } catch { /* continue */ }
+    }
 
-    // 4. Try `find` as a last resort in common dirs
+    // 4. Last resort: broad find across /root /home /usr /opt /snap
     try {
       const found = execSync(
-        'find /usr /opt /snap -name "chromium" -o -name "google-chrome" -o -name "chromium-browser" 2>/dev/null | head -1',
+        `find /root /home /usr /opt /snap \\( -name "chrome" -o -name "google-chrome" -o -name "chromium-browser" -o -name "chromium" \\) -type f 2>/dev/null | head -1`,
         { encoding: 'utf-8' }
       ).trim();
-      if (found) return found;
+      if (found) { log(`Found via broad find: ${found}`); return found; }
     } catch { /* ignore */ }
 
-    console.error('Chromium not found. Tried:', [...candidates, ...hardcoded].join(', '));
+    const tried = [...candidates, ...hardcoded].join(', ');
+    console.error(`[ChromiumFinder] NOT FOUND. Tried: ${tried}`);
     throw new Error(
-      'Chromium not found. Install it on the server:\n' +
-      '  Ubuntu/Debian: apt-get install -y chromium-browser\n' +
-      '  or:            apt-get install -y google-chrome-stable'
+      'Chromium not found. Run on the server:\n' +
+      '  cd /var/www/vetsystem && node_modules/.bin/puppeteer browsers install chrome\n' +
+      '  then: pm2 restart vetsystem'
     );
   }
 
@@ -336,6 +330,7 @@ export class DocumentService {
     try {
       // Get system Chromium path
       const chromiumPath = this.getChromiumPath();
+      console.log(`[PDF] Using Chrome: ${chromiumPath}`);
       
       // Launch headless browser with system Chromium
       browser = await puppeteer.launch({
@@ -346,9 +341,11 @@ export class DocumentService {
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
           '--disable-gpu',
-          '--disable-software-rasterizer'
+          '--disable-software-rasterizer',
+          '--single-process',
         ]
       });
+      console.log('[PDF] Browser launched');
 
       const page = await browser.newPage();
       
@@ -356,6 +353,7 @@ export class DocumentService {
       await page.setContent(html, {
         waitUntil: 'networkidle0'
       });
+      console.log('[PDF] Content set, generating...');
 
       // Generate PDF with A4 format
       const pdfBuffer = await page.pdf({
@@ -369,7 +367,11 @@ export class DocumentService {
         }
       });
 
+      console.log(`[PDF] Done, size: ${pdfBuffer.byteLength} bytes`);
       return Buffer.from(pdfBuffer);
+    } catch (err) {
+      console.error('[PDF] Generation failed:', err);
+      throw err;
     } finally {
       if (browser) {
         await browser.close();
