@@ -66,6 +66,7 @@ import {
   Gift,
   Star,
   TrendingUp,
+  TrendingDown,
   Loader2
 } from "lucide-react"
 import { useState, useMemo, useEffect, useRef } from "react"
@@ -2785,7 +2786,7 @@ function LoyaltySettingsTab() {
     <div className="space-y-6">
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -2793,9 +2794,9 @@ function LoyaltySettingsTab() {
                   <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Начислено всего</p>
-                  <p className="text-2xl font-bold">{(stats.totalEarned || 0).toLocaleString('ru-RU')}</p>
-                  <p className="text-xs text-muted-foreground">баллов</p>
+                  <p className="text-sm text-muted-foreground">Выдано баллов</p>
+                  <p className="text-2xl font-bold">{(stats.totalIssued || 0).toLocaleString('ru-RU')}</p>
+                  <p className="text-xs text-muted-foreground">начислено всего</p>
                 </div>
               </div>
             </CardContent>
@@ -2807,9 +2808,23 @@ function LoyaltySettingsTab() {
                   <Gift className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Потрачено всего</p>
-                  <p className="text-2xl font-bold">{(stats.totalSpent || 0).toLocaleString('ru-RU')}</p>
-                  <p className="text-xs text-muted-foreground">баллов</p>
+                  <p className="text-sm text-muted-foreground">Использовано баллов</p>
+                  <p className="text-2xl font-bold">{(stats.totalRedeemed || 0).toLocaleString('ru-RU')}</p>
+                  <p className="text-xs text-muted-foreground">погашено при оплате</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-md bg-orange-100 dark:bg-orange-900/30">
+                  <TrendingDown className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Сожжено баллов</p>
+                  <p className="text-2xl font-bold">{(stats.totalBurned || 0).toLocaleString('ru-RU')}</p>
+                  <p className="text-xs text-muted-foreground">баллов погашено (burned)</p>
                 </div>
               </div>
             </CardContent>
@@ -2821,9 +2836,9 @@ function LoyaltySettingsTab() {
                   <Star className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Активных клиентов</p>
-                  <p className="text-2xl font-bold">{(stats.activeOwners || 0).toLocaleString('ru-RU')}</p>
-                  <p className="text-xs text-muted-foreground">в программе</p>
+                  <p className="text-sm text-muted-foreground">В обороте</p>
+                  <p className="text-2xl font-bold">{(stats.currentCirculation || 0).toLocaleString('ru-RU')}</p>
+                  <p className="text-xs text-muted-foreground">баллов у клиентов (активных: {stats.activeOwners || 0})</p>
                 </div>
               </div>
             </CardContent>

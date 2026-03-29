@@ -146,7 +146,18 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
   const selectedPatientId = form.watch('patientId')
   const selectedPatient = (patients as any[]).find((p: any) => p.id === selectedPatientId)
   const selectedOwner = selectedPatient ? (owners as any[]).find((o: any) => o.id === selectedPatient.ownerId) : null
-  const ownerBonusPoints: number = selectedOwner?.bonusPoints ?? 0
+
+  // Fetch owner's current loyalty balance (separate query — owners list may not include bonusPoints)
+  const { data: ownerLoyaltyBalance } = useQuery<{ balance: number }>({
+    queryKey: ['/api/loyalty/balance', selectedOwner?.id],
+    enabled: open && !!selectedOwner?.id && loyaltySettings?.isActive,
+    queryFn: async () => {
+      const res = await fetch(`/api/loyalty/balance/${selectedOwner.id}`, { credentials: 'include' })
+      if (!res.ok) return { balance: 0 }
+      return res.json()
+    },
+  })
+  const ownerBonusPoints: number = ownerLoyaltyBalance?.balance ?? 0
   const loyaltyActive = loyaltySettings?.isActive && ownerBonusPoints >= (loyaltySettings?.minBalanceToSpend ?? 100)
 
   const createMutation = useMutation({

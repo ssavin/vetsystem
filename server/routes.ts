@@ -2308,7 +2308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // If bonus points requested, validate atomically before creating invoice
       let loyaltySettings: any = null;
-      let finalTotal = parseFloat(validation.data.total as any);
+      let finalTotal = parseFloat(String(validation.data.total ?? '0'));
       if (bonusPoints > 0) {
         if (!resolvedOwnerId) {
           return res.status(400).json({ error: "Бонусные баллы можно применить только к счёту с владельцем" });
@@ -2326,7 +2326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         const pointsValue = parseFloat(loyaltySettings.pointsValue || '1');
         const bonusDiscount = bonusPoints * pointsValue;
-        const subtotalForLimit = parseFloat(validation.data.subtotal as any) || finalTotal;
+        const subtotalForLimit = parseFloat(String(validation.data.subtotal ?? validation.data.total ?? '0')) || finalTotal;
         const maxAllowed = subtotalForLimit * parseFloat(loyaltySettings.maxSpendPercent || '50') / 100;
         if (bonusDiscount > maxAllowed) {
           return res.status(400).json({ error: `Максимально можно списать ${Math.floor(maxAllowed / pointsValue)} баллов по этому счёту` });
@@ -11331,13 +11331,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: `Недостаточно баллов: доступно ${balance}` });
       }
       
-      // Check max spend limit against original invoice subtotal
-      const invoiceSubtotal = parseFloat(invoice.subtotal || invoice.total);
+      // Check max spend limit against original invoice subtotal (cumulative — account for already used points)
+      const invoiceSubtotal = parseFloat(String(invoice.subtotal || invoice.total));
       const pointsValue = parseFloat(settings.pointsValue || '1');
       const maxSpendAmount = invoiceSubtotal * parseFloat(settings.maxSpendPercent || '50') / 100;
       const maxPointsToSpend = Math.floor(maxSpendAmount / pointsValue);
-      if (points > maxPointsToSpend) {
-        return res.status(400).json({ error: `Максимально можно списать ${maxPointsToSpend} баллов по этому счёту` });
+      const alreadyUsed = invoice.bonusPointsUsed || 0;
+      const remainingAllowed = maxPointsToSpend - alreadyUsed;
+      if (remainingAllowed <= 0) {
+        return res.status(400).json({ error: `Лимит списания по этому счёту уже исчерпан` });
+      }
+      if (points > remainingAllowed) {
+        return res.status(400).json({ error: `Максимально можно ещё списать ${remainingAllowed} баллов по этому счёту` });
       }
       
       const tx = await storage.spendLoyaltyPoints({ ownerId, tenantId, branchId, invoiceId, points });

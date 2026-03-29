@@ -785,7 +785,7 @@ export interface IStorage {
   upsertLoyaltySettings(tenantId: string, data: Partial<InsertLoyaltySettings>): Promise<LoyaltySettings>;
   getLoyaltyBalance(ownerId: string): Promise<number>;
   getLoyaltyTransactions(ownerId: string, limit?: number, offset?: number): Promise<LoyaltyTransaction[]>;
-  getLoyaltyTransactionStats(tenantId: string): Promise<{ totalEarned: number; totalSpent: number; activeOwners: number }>;
+  getLoyaltyTransactionStats(tenantId: string): Promise<{ totalIssued: number; totalRedeemed: number; totalBurned: number; currentCirculation: number; activeOwners: number }>;
   earnLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId?: string; invoiceTotal: number; manualPoints?: number; description?: string }): Promise<LoyaltyTransaction | null>;
   spendLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number }): Promise<LoyaltyTransaction>;
 }
@@ -7471,7 +7471,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getLoyaltyTransactionStats(tenantId: string): Promise<{ totalEarned: number; totalSpent: number; activeOwners: number }> {
+  async getLoyaltyTransactionStats(tenantId: string): Promise<{ totalIssued: number; totalRedeemed: number; totalBurned: number; currentCirculation: number; activeOwners: number }> {
     return withTenantContext(tenantId, async (dbInstance) => {
       const earnResult = await dbInstance
         .select({ total: sql<string>`COALESCE(SUM(${loyaltyTransactions.points}), 0)` })
@@ -7491,9 +7491,17 @@ export class DatabaseStorage implements IStorage {
         .select({ count: sql<string>`COUNT(DISTINCT ${loyaltyTransactions.ownerId})` })
         .from(loyaltyTransactions)
         .where(eq(loyaltyTransactions.tenantId, tenantId));
+      const totalIssued = parseInt(earnResult[0]?.total || '0');
+      const totalRedeemed = parseInt(spendResult[0]?.total || '0');
+      // "Burned" = redeemed/spent points (permanently consumed toward payments)
+      // In a system without expiry, burned equals redeemed
+      const totalBurned = totalRedeemed;
+      const currentCirculation = Math.max(0, totalIssued - totalRedeemed);
       return {
-        totalEarned: parseInt(earnResult[0]?.total || '0'),
-        totalSpent: parseInt(spendResult[0]?.total || '0'),
+        totalIssued,
+        totalRedeemed,
+        totalBurned,
+        currentCirculation,
         activeOwners: parseInt(activeResult[0]?.count || '0'),
       };
     });
