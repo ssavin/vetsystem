@@ -77,14 +77,21 @@ export class DocumentService {
     for (const home of homeDirs) {
       try {
         const cacheBase = `${home}/.cache/puppeteer/chrome`;
-        // find the actual chrome binary (file, not directory) inside the cache
-        const chromeBin = execSync(
-          `find "${cacheBase}" -name "chrome" -type f 2>/dev/null | grep -v '.crx' | head -1`,
+        // Try ls glob first (simpler and avoids find permission issues)
+        let chromeBin = execSync(
+          `ls ${cacheBase}/*/chrome-linux64/chrome 2>/dev/null | head -1`,
           { encoding: 'utf-8' }
         ).trim();
+        if (!chromeBin) {
+          // Fallback to find
+          chromeBin = execSync(
+            `find "${cacheBase}" -name "chrome" -type f 2>/dev/null | grep -v '\\.crx' | head -1`,
+            { encoding: 'utf-8' }
+          ).trim();
+        }
         if (chromeBin) {
           execSync(`chmod +x "${chromeBin}" 2>/dev/null || true`);
-          log(`Found in puppeteer cache: ${chromeBin}`);
+          log(`Found in puppeteer cache (${home}): ${chromeBin}`);
           return chromeBin;
         }
       } catch { /* continue */ }
