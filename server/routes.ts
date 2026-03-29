@@ -10796,6 +10796,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/crm/owners", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
       // Auto-recalculate segments on every load (skips owners with manual overrides)
       await storage.recalculateOwnerSegments(user.tenantId).catch((err: any) =>
         console.error('[CRM] auto-recalculate segments failed:', err.message)
@@ -10830,6 +10833,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/crm/stats", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
       // Recalculate before reading stats so counts are always fresh,
       // regardless of whether /api/crm/owners was fetched first.
       await storage.recalculateOwnerSegments(user.tenantId).catch((err: any) =>
@@ -10953,6 +10959,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/crm/campaigns", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
       const filters: any = { tenantId: user.tenantId };
       if (req.query.status) filters.status = req.query.status;
       if (req.query.channel) filters.channel = req.query.channel;
@@ -10967,6 +10976,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/crm/campaigns/:id", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
       const campaign = await storage.getMarketingCampaign(req.params.id, user.tenantId);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
@@ -10981,6 +10993,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/crm/campaigns", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
       const campaign = await storage.createMarketingCampaign({
         ...req.body,
         tenantId: user.tenantId,
