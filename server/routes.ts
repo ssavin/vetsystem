@@ -3421,7 +3421,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Доступ запрещён" });
       }
       
-      const legalEntities = await storage.getLegalEntities();
+      // Superadmin sees all; regular users only see their tenant's legal entities
+      const tenantFilter = req.user?.isSuperAdmin ? undefined : req.user?.tenantId ?? undefined;
+      const legalEntities = await storage.getLegalEntities(tenantFilter);
       res.json(legalEntities);
     } catch (error) {
       console.error("Error fetching legal entities:", error);
@@ -3437,7 +3439,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Доступ запрещён" });
       }
       
-      const legalEntities = await storage.getActiveLegalEntities();
+      // Superadmin sees all; regular users only see their tenant's legal entities
+      const tenantFilter = req.user?.isSuperAdmin ? undefined : req.user?.tenantId ?? undefined;
+      const legalEntities = await storage.getActiveLegalEntities(tenantFilter);
       res.json(legalEntities);
     } catch (error) {
       console.error("Error fetching active legal entities:", error);

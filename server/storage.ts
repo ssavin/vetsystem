@@ -189,8 +189,8 @@ export interface IStorage {
   }): Promise<Patient>;
 
   // Legal Entity methods
-  getLegalEntities(): Promise<LegalEntity[]>;
-  getActiveLegalEntities(): Promise<LegalEntity[]>;
+  getLegalEntities(tenantId?: string): Promise<LegalEntity[]>;
+  getActiveLegalEntities(tenantId?: string): Promise<LegalEntity[]>;
   getLegalEntity(id: string): Promise<LegalEntity | undefined>;
   createLegalEntity(legalEntity: InsertLegalEntity): Promise<LegalEntity>;
   updateLegalEntity(id: string, legalEntity: Partial<InsertLegalEntity>): Promise<LegalEntity>;
@@ -932,24 +932,30 @@ export class DatabaseStorage implements IStorage {
   // Legal Entity Methods
   // ========================================
 
-  async getLegalEntities(): Promise<LegalEntity[]> {
+  async getLegalEntities(tenantId?: string): Promise<LegalEntity[]> {
     return withPerformanceLogging('getLegalEntities', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        return await dbInstance
-          .select()
-          .from(legalEntities)
-          .orderBy(desc(legalEntities.createdAt));
+        const query = dbInstance.select().from(legalEntities);
+        if (tenantId) {
+          return await query
+            .where(eq(legalEntities.tenantId, tenantId))
+            .orderBy(desc(legalEntities.createdAt));
+        }
+        return await query.orderBy(desc(legalEntities.createdAt));
       });
     });
   }
 
-  async getActiveLegalEntities(): Promise<LegalEntity[]> {
+  async getActiveLegalEntities(tenantId?: string): Promise<LegalEntity[]> {
     return withPerformanceLogging('getActiveLegalEntities', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
+        const conditions = tenantId
+          ? and(eq(legalEntities.isActive, true), eq(legalEntities.tenantId, tenantId))
+          : eq(legalEntities.isActive, true);
         return await dbInstance
           .select()
           .from(legalEntities)
-          .where(eq(legalEntities.isActive, true))
+          .where(conditions)
           .orderBy(legalEntities.shortName);
       });
     });
