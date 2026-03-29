@@ -2280,7 +2280,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Creating invoice with data:", JSON.stringify(req.body, null, 2));
       
       const { bonusPointsToSpend, ...invoiceBody } = req.body;
-      const bonusPoints = parseInt(bonusPointsToSpend || '0') || 0;
+      const rawBonusPoints = Number(bonusPointsToSpend ?? 0);
+      const bonusPoints = Number.isFinite(rawBonusPoints) && rawBonusPoints > 0 ? Math.floor(rawBonusPoints) : 0;
 
       // Validate request body
       const validation = insertInvoiceSchema.safeParse(invoiceBody);
@@ -2342,30 +2343,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total: finalTotal.toFixed(2),
         bonusPointsUsed: bonusPoints > 0 ? bonusPoints : undefined,
       };
-      const invoice = await storage.createInvoice(invoiceData);
 
-      // Atomically deduct loyalty points after invoice is created
-      if (bonusPoints > 0 && invoice.id && invoice.ownerId && tenantId) {
-        try {
-          await storage.spendLoyaltyPoints({
-            ownerId: invoice.ownerId,
-            tenantId,
-            branchId: userBranchId,
-            invoiceId: invoice.id,
-            points: bonusPoints,
-          });
-        } catch (loyaltyError: any) {
-          // Roll back: delete the just-created invoice and return error
-          console.error("Loyalty spend failed after invoice creation — rolling back:", loyaltyError);
-          await storage.deleteInvoice(invoice.id).catch(() => {});
-          return res.status(400).json({ error: loyaltyError.message || "Ошибка списания баллов — счёт не создан" });
-        }
+      let invoice: any;
+      if (bonusPoints > 0 && resolvedOwnerId && tenantId) {
+        // Use fully atomic DB transaction: invoice creation + loyalty deduction in one transaction
+        const result = await storage.createInvoiceWithLoyaltySpend(invoiceData, {
+          ownerId: resolvedOwnerId,
+          tenantId,
+          branchId: userBranchId,
+          points: bonusPoints,
+        });
+        invoice = result.invoice;
+      } else {
+        invoice = await storage.createInvoice(invoiceData);
       }
 
       res.status(201).json(invoice);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating invoice:", error);
-      res.status(500).json({ error: "Failed to create invoice" });
+      // Surface loyalty errors (balance check, etc.) as 400; other errors as 500
+      const isLoyaltyError = error?.message?.includes('баллов') || error?.message?.includes('Недостаточно');
+      res.status(isLoyaltyError ? 400 : 500).json({ error: error?.message || "Failed to create invoice" });
     }
   });
 
@@ -11218,8 +11216,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/loyalty/earn — ручное начисление баллов
   app.post("/api/loyalty/earn", authenticateToken, requireRole('admin'), async (req, res) => {
     try {
-      const { ownerId, points, description } = req.body;
-      if (!ownerId || !points) return res.status(400).json({ error: "ownerId и points обязательны" });
+      const { ownerId, points: rawPoints, description } = req.body;
+      if (!ownerId || !rawPoints) return res.status(400).json({ error: "ownerId и points обязательны" });
+      const points = Math.floor(Number(rawPoints));
+      if (!Number.isFinite(points) || points <= 0) {
+        return res.status(400).json({ error: "points должно быть положительным целым числом" });
+      }
       const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
       const branchId = (req as any).user?.branchId;
       if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
@@ -11298,10 +11300,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/loyalty/spend — применить баллы к существующему счёту
-  app.post("/api/loyalty/spend", authenticateToken, async (req, res) => {
+  app.post("/api/loyalty/spend", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
-      const { ownerId, invoiceId, points } = req.body;
-      if (!ownerId || !invoiceId || !points) return res.status(400).json({ error: "ownerId, invoiceId и points обязательны" });
+      const { ownerId, invoiceId, points: rawPoints } = req.body;
+      if (!ownerId || !invoiceId || !rawPoints) return res.status(400).json({ error: "ownerId, invoiceId и points обязательны" });
+      const points = Math.floor(Number(rawPoints));
+      if (!Number.isFinite(points) || points <= 0) {
+        return res.status(400).json({ error: "points должно быть положительным целым числом" });
+      }
       const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
       const branchId = (req as any).user?.branchId;
       if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
