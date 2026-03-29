@@ -28,9 +28,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
-import { Trash2, Plus } from "lucide-react"
+import { Trash2, Plus, Gift } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 const editInvoiceSchema = z.object({
@@ -56,6 +57,47 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
   const [newItemType, setNewItemType] = useState<'service' | 'product'>('service')
   const [selectedItemId, setSelectedItemId] = useState('')
   const [quantity, setQuantity] = useState(1)
+  const [bonusPointsToSpend, setBonusPointsToSpend] = useState(0)
+
+  const isPaid = invoice.status === 'paid' || invoice.status === 'cancelled'
+
+  // Fetch loyalty balance if invoice has owner and is not already paid
+  const { data: loyaltyBalance } = useQuery<{ balance: number; ownerId: string }>({
+    queryKey: ['/api/loyalty/balance', invoice.ownerId],
+    enabled: !!invoice.ownerId && open && !isPaid,
+  })
+
+  // Fetch loyalty settings to know pointsValue
+  const { data: loyaltySettings } = useQuery<any>({
+    queryKey: ['/api/loyalty/settings'],
+    enabled: !!invoice.ownerId && open && !isPaid,
+  })
+
+  const spendPointsMutation = useMutation({
+    mutationFn: async (points: number) => {
+      return await apiRequest('POST', '/api/loyalty/spend', {
+        ownerId: invoice.ownerId,
+        invoiceId: invoice.id,
+        points,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/loyalty/balance', invoice.ownerId] })
+      setBonusPointsToSpend(0)
+      toast({
+        title: "Баллы применены",
+        description: `${bonusPointsToSpend} баллов списано со счёта клиента`,
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Ошибка списания баллов",
+        description: error.message || "Не удалось применить бонусные баллы",
+      })
+    },
+  })
 
   const form = useForm<EditInvoiceFormData>({
     resolver: zodResolver(editInvoiceSchema),
@@ -400,6 +442,56 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
               )}
             />
 
+            {/* Loyalty widget — apply bonus points to existing invoice (payment flow) */}
+            {!isPaid && invoice.ownerId && loyaltySettings?.isActive && loyaltyBalance && loyaltyBalance.balance > 0 && (
+              <div className="p-3 border rounded-md space-y-2">
+                <div className="flex items-center gap-2">
+                  <Gift className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium">Бонусные баллы клиента</span>
+                  <span className="text-sm text-muted-foreground ml-auto">
+                    Доступно: {loyaltyBalance.balance.toLocaleString('ru-RU')} бал.
+                  </span>
+                </div>
+                {(invoice.bonusPointsUsed ?? 0) > 0 && (
+                  <p className="text-xs text-green-600">
+                    Уже применено: {invoice.bonusPointsUsed} бал.
+                    = -{(invoice.bonusPointsUsed * parseFloat(loyaltySettings?.pointsValue || '1')).toLocaleString('ru-RU')} ₽
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    max={loyaltyBalance.balance}
+                    step={1}
+                    value={bonusPointsToSpend || ''}
+                    onChange={(e) => {
+                      const val = Math.min(Math.floor(parseInt(e.target.value) || 0), loyaltyBalance.balance)
+                      setBonusPointsToSpend(val)
+                    }}
+                    placeholder="Кол-во баллов"
+                    className="w-36"
+                  />
+                  <span className="text-sm text-muted-foreground">баллов</span>
+                  {bonusPointsToSpend > 0 && (
+                    <span className="text-sm text-green-600 font-medium ml-auto">
+                      = -{(bonusPointsToSpend * parseFloat(loyaltySettings?.pointsValue || '1')).toLocaleString('ru-RU')} ₽
+                    </span>
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={bonusPointsToSpend <= 0 || spendPointsMutation.isPending}
+                    onClick={() => spendPointsMutation.mutate(bonusPointsToSpend)}
+                    data-testid="button-apply-loyalty-points"
+                  >
+                    {spendPointsMutation.isPending ? "..." : "Применить"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Итоговая сумма */}
             <div className="p-3 bg-muted rounded-md space-y-1">
               <div className="flex justify-between items-center">
@@ -412,10 +504,19 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
                   <span className="text-sm">-{form.watch('discount').toLocaleString('ru-RU')} ₽</span>
                 </div>
               )}
-              <div className="flex justify-between items-center pt-1 border-t">
+              {(invoice.bonusPointsUsed ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Бонусные баллы:</span>
+                  <span className="text-sm text-green-600">
+                    -{((invoice.bonusPointsUsed ?? 0) * parseFloat(loyaltySettings?.pointsValue || '1')).toLocaleString('ru-RU')} ₽
+                  </span>
+                </div>
+              )}
+              <Separator />
+              <div className="flex justify-between items-center pt-1">
                 <span className="text-sm font-medium">Итого к оплате:</span>
                 <span className="text-lg font-bold">
-                  {Math.max(0, itemsTotal - form.watch('discount')).toLocaleString('ru-RU')} ₽
+                  {parseFloat(invoice.total || '0').toLocaleString('ru-RU')} ₽
                 </span>
               </div>
             </div>

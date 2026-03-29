@@ -11365,6 +11365,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!invoice) return res.status(404).json({ error: "Счёт не найден" });
       if (invoice.tenantId !== tenantId) return res.status(403).json({ error: "Счёт не принадлежит данной клинике" });
       if (invoice.ownerId !== ownerId) return res.status(400).json({ error: "Счёт не принадлежит указанному владельцу" });
+      // Block spending on non-payable statuses: only pending/draft invoices can have points applied
+      if (invoice.status === 'paid' || invoice.status === 'cancelled') {
+        return res.status(400).json({ error: `Нельзя списать баллы с счёта со статусом «${invoice.status}»` });
+      }
 
       // Check min balance
       const balance = await storage.getLoyaltyBalance(ownerId);
