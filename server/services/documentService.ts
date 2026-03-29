@@ -113,6 +113,39 @@ export class DocumentService {
   }
 
   /**
+   * Resolve owner info for a patient — returns empty fields instead of throwing when no owner is linked
+   */
+  private async resolveOwnerInfo(patientId: string): Promise<Record<string, string>> {
+    const empty = {
+      name: '', phone: '', email: '',
+      passportSeries: '', passportNumber: '', passportIssuedBy: '',
+      passportIssueDate: '', registrationAddress: '', residenceAddress: ''
+    };
+    try {
+      const ownerLinks = await storage.getPatientOwners(patientId);
+      const primaryOwnerLink = ownerLinks.find((o: any) => o.isPrimary) || ownerLinks[0];
+      if (!primaryOwnerLink) return empty;
+      const owner = await storage.getOwner(primaryOwnerLink.ownerId);
+      if (!owner) return empty;
+      return {
+        name: owner.name || '',
+        phone: owner.phone || '',
+        email: owner.email || '',
+        passportSeries: owner.passportSeries || '',
+        passportNumber: owner.passportNumber || '',
+        passportIssuedBy: owner.passportIssuedBy || '',
+        passportIssueDate: owner.passportIssueDate
+          ? new Date(owner.passportIssueDate).toLocaleDateString('ru-RU')
+          : '',
+        registrationAddress: owner.registrationAddress || '',
+        residenceAddress: owner.residenceAddress || ''
+      };
+    } catch {
+      return empty;
+    }
+  }
+
+  /**
    * Generate contract number in format ДОГ-YYYYMMDD-XXXX
    */
   private generateContractNumber(): string {
@@ -832,34 +865,8 @@ export class DocumentService {
       throw new Error('Access denied: Patient belongs to different tenant');
     }
 
-    // Fetch owner info (get primary owner)
-    const ownerLinks = await storage.getPatientOwners(patientId);
-    const primaryOwnerLink = ownerLinks.find((o: any) => o.isPrimary) || ownerLinks[0];
-    
-    if (!primaryOwnerLink) {
-      throw new Error('Owner not found for patient');
-    }
-
-    // Fetch full owner data with passport information
-    const owner = await storage.getOwner(primaryOwnerLink.ownerId);
-    if (!owner) {
-      throw new Error('Owner data not found');
-    }
-
-    // Build owner info with all personal data
-    const ownerInfo = {
-      name: owner.name,
-      phone: owner.phone || '',
-      email: owner.email || '',
-      passportSeries: owner.passportSeries || '',
-      passportNumber: owner.passportNumber || '',
-      passportIssuedBy: owner.passportIssuedBy || '',
-      passportIssueDate: owner.passportIssueDate 
-        ? new Date(owner.passportIssueDate).toLocaleDateString('ru-RU') 
-        : '',
-      registrationAddress: owner.registrationAddress || '',
-      residenceAddress: owner.residenceAddress || ''
-    };
+    // Fetch owner info — graceful: returns empty fields if no owner linked
+    const ownerInfo = await this.resolveOwnerInfo(patientId);
 
     // Calculate patient age
     const calculateAge = (birthDate: Date | null) => {
@@ -921,34 +928,8 @@ export class DocumentService {
       throw new Error('Access denied: Patient belongs to different tenant');
     }
 
-    // Fetch owner info (get primary owner)
-    const ownerLinks = await storage.getPatientOwners(patientId);
-    const primaryOwnerLink = ownerLinks.find((o: any) => o.isPrimary) || ownerLinks[0];
-    
-    if (!primaryOwnerLink) {
-      throw new Error('Owner not found for patient');
-    }
-
-    // Fetch full owner data with passport information
-    const owner = await storage.getOwner(primaryOwnerLink.ownerId);
-    if (!owner) {
-      throw new Error('Owner data not found');
-    }
-
-    // Build owner info with all personal data
-    const ownerInfo = {
-      name: owner.name,
-      phone: owner.phone || '',
-      email: owner.email || '',
-      passportSeries: owner.passportSeries || '',
-      passportNumber: owner.passportNumber || '',
-      passportIssuedBy: owner.passportIssuedBy || '',
-      passportIssueDate: owner.passportIssueDate 
-        ? new Date(owner.passportIssueDate).toLocaleDateString('ru-RU') 
-        : '',
-      registrationAddress: owner.registrationAddress || '',
-      residenceAddress: owner.residenceAddress || ''
-    };
+    // Fetch owner info — graceful: returns empty fields if no owner linked
+    const ownerInfo = await this.resolveOwnerInfo(patientId);
 
     // Calculate patient age
     const calculateAge = (birthDate: Date | null) => {
@@ -1010,34 +991,8 @@ export class DocumentService {
       throw new Error('Access denied: Patient belongs to different tenant');
     }
 
-    // Fetch owner info (get primary owner)
-    const ownerLinks = await storage.getPatientOwners(patientId);
-    const primaryOwnerLink = ownerLinks.find((o: any) => o.isPrimary) || ownerLinks[0];
-    
-    if (!primaryOwnerLink) {
-      throw new Error('Owner not found for patient');
-    }
-
-    // Fetch full owner data with passport information
-    const owner = await storage.getOwner(primaryOwnerLink.ownerId);
-    if (!owner) {
-      throw new Error('Owner data not found');
-    }
-
-    // Build owner info with all personal data
-    const ownerInfo = {
-      name: owner.name,
-      phone: owner.phone || '',
-      email: owner.email || '',
-      passportSeries: owner.passportSeries || '',
-      passportNumber: owner.passportNumber || '',
-      passportIssuedBy: owner.passportIssuedBy || '',
-      passportIssueDate: owner.passportIssueDate 
-        ? new Date(owner.passportIssueDate).toLocaleDateString('ru-RU') 
-        : '',
-      registrationAddress: owner.registrationAddress || '',
-      residenceAddress: owner.residenceAddress || ''
-    };
+    // Fetch owner info — graceful: returns empty fields if no owner linked
+    const ownerInfo = await this.resolveOwnerInfo(patientId);
 
     // Calculate patient age
     const calculateAge = (birthDate: Date | null) => {
