@@ -222,7 +222,7 @@ export interface IStorage {
 
   // Owner methods - 🔒 SECURITY: branchId required for PHI isolation
   getOwners(branchId: string): Promise<Owner[]>;
-  getOwnersPaginated(params: { branchId: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }>;
+  getOwnersPaginated(params: { branchId?: string; tenantId?: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }>;
   getAllOwners(limit?: number, offset?: number, tenantId?: string): Promise<Owner[]>; // 🔒 All owners from all branches within tenant
   getOwner(id: string): Promise<Owner | undefined>;
   createOwner(owner: InsertOwner): Promise<Owner>;
@@ -232,7 +232,7 @@ export interface IStorage {
 
   // Patient methods - 🔒 SECURITY: branchId required for PHI isolation
   getPatients(limit: number | undefined, offset: number | undefined, branchId: string): Promise<Patient[]>;
-  getPatientsPaginated(params: { branchId: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }>;
+  getPatientsPaginated(params: { branchId?: string; tenantId?: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }>;
   getAllPatients(limit: number | undefined, offset: number | undefined): Promise<Patient[]>; // 🔒 All patients from all branches within tenant
   getPatient(id: string): Promise<Patient | undefined>;
   getPatientsByOwner(ownerId: string, branchId: string): Promise<Patient[]>;
@@ -1154,11 +1154,22 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getOwnersPaginated(params: { branchId: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }> {
-    const { branchId, search, limit = 50, offset = 0 } = params;
+  async getOwnersPaginated(params: { branchId?: string; tenantId?: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }> {
+    const { branchId, tenantId, search, limit = 50, offset = 0 } = params;
     return withPerformanceLogging('getOwnersPaginated', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         // Build query with search and branch filter through patients, include lastVisit from medical_records
+        const branchFilter = branchId
+          ? sql`EXISTS (
+              SELECT 1 
+              FROM patient_owners po2
+              JOIN patients p2 ON po2.patient_id = p2.id
+              WHERE po2.owner_id = o.id 
+                AND (p2.branch_id = ${branchId} OR p2.branch_id IS NULL)
+            )`
+          : tenantId
+          ? sql`o.tenant_id = ${tenantId}`
+          : sql`1=1`;
         const result = await dbInstance.execute(sql`
           WITH owner_last_visit AS (
             SELECT 
@@ -1175,13 +1186,7 @@ export class DatabaseStorage implements IStorage {
             LEFT JOIN patient_owners po ON o.id = po.owner_id
             LEFT JOIN patients p ON po.patient_id = p.id
             LEFT JOIN medical_records mr ON p.id = mr.patient_id
-            WHERE EXISTS (
-              SELECT 1 
-              FROM patient_owners po2
-              JOIN patients p2 ON po2.patient_id = p2.id
-              WHERE po2.owner_id = o.id 
-                AND (p2.branch_id = ${branchId} OR p2.branch_id IS NULL)
-            )
+            WHERE ${branchFilter}
               ${search ? sql`AND (o.name ILIKE ${`%${search}%`} OR o.phone ILIKE ${`%${search}%`})` : sql``}
             GROUP BY o.id, o.name, o.phone, o.email, o.address, o.created_at, o.updated_at
             ORDER BY last_visit DESC NULLS LAST, o.name ASC
@@ -1448,10 +1453,20 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getPatientsPaginated(params: { branchId: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }> {
-    const { branchId, search, limit = 50, offset = 0 } = params;
+  async getPatientsPaginated(params: { branchId?: string; tenantId?: string; search?: string; limit?: number; offset?: number }): Promise<{ data: any[]; total: number }> {
+    const { branchId, tenantId, search, limit = 50, offset = 0 } = params;
     return withPerformanceLogging('getPatientsPaginated', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
+        const cteFilter = branchId
+          ? sql`(p_filter.branch_id = ${branchId} OR p_filter.branch_id IS NULL)`
+          : tenantId
+          ? sql`p_filter.tenant_id = ${tenantId}`
+          : sql`1=1`;
+        const mainFilter = branchId
+          ? sql`(p.branch_id = ${branchId} OR p.branch_id IS NULL)`
+          : tenantId
+          ? sql`p.tenant_id = ${tenantId}`
+          : sql`1=1`;
         const result = await dbInstance.execute(sql`
           WITH patient_owners_agg AS (
             SELECT 
@@ -1470,7 +1485,7 @@ export class DatabaseStorage implements IStorage {
             FROM patient_owners po
             JOIN owners o ON po.owner_id = o.id
             JOIN patients p_filter ON po.patient_id = p_filter.id
-            WHERE (p_filter.branch_id = ${branchId} OR p_filter.branch_id IS NULL)
+            WHERE ${cteFilter}
             GROUP BY po.patient_id
           )
           SELECT 
@@ -1498,8 +1513,8 @@ export class DatabaseStorage implements IStorage {
           FROM patients p
           LEFT JOIN patient_owners_agg poa ON p.id = poa.patient_id
           LEFT JOIN owners legacy_owner ON p.owner_id = legacy_owner.id
-          WHERE (p.branch_id = ${branchId} OR p.branch_id IS NULL)
-            ${search ? sql`AND (p.name ILIKE ${`%${search}%`} OR COALESCE(poa.primary_owner_name, legacy_owner.name) ILIKE ${`%${search}%`} OR COALESCE(poa.primary_owner_phone, legacy_owner.phone) ILIKE ${`%${search}%`})` : sql``}
+          WHERE ${mainFilter}
+            ${search ? sql`AND (p.name ILIKE ${`%${search}%`} OR p.microchip_number ILIKE ${`%${search}%`} OR COALESCE(poa.primary_owner_name, legacy_owner.name) ILIKE ${`%${search}%`} OR COALESCE(poa.primary_owner_phone, legacy_owner.phone) ILIKE ${`%${search}%`})` : sql``}
           ORDER BY "lastVisit" DESC NULLS LAST, p.name ASC
           LIMIT ${limit}
           OFFSET ${offset}

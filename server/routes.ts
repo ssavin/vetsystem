@@ -222,7 +222,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/owners", authenticateToken, requireModuleAccess('owners'), async (req, res) => {
     try {
       const user = (req as any).user;
-      const requestedBranchId = req.query.branchId as string;
+      const rawBranchId = req.query.branchId as string;
+      // 'all' means tenant-wide search
+      const requestedBranchId = (rawBranchId && rawBranchId !== 'all') ? rawBranchId : undefined;
+      const allBranches = rawBranchId === 'all';
       const page = req.query.page ? parseInt(req.query.page as string) : undefined;
       const isPaginated = page !== undefined;
       
@@ -232,7 +235,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const search = req.query.search as string || undefined;
         const offset = (page - 1) * limit;
         
-        if (requestedBranchId) {
+        if (allBranches) {
+          // Tenant-wide search across all branches
+          const result = await storage.getOwnersPaginated({ tenantId: user.tenantId, search, limit, offset });
+          res.json({ data: result.data, page, limit, total: result.total, totalPages: Math.ceil(result.total / limit) });
+        } else if (requestedBranchId) {
           const hasAccess = await storage.canUserAccessBranch(user.id, requestedBranchId);
           if (!hasAccess) {
             return res.status(403).json({ error: "Access denied: Branch not accessible" });
@@ -418,10 +425,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/patients", authenticateToken, requireModuleAccess('patients'), async (req, res) => {
     try {
       const user = (req as any).user;
-      const requestedBranchId = req.query.branchId as string;
+      const rawBranchId = req.query.branchId as string;
+      // 'all' means tenant-wide search
+      const requestedBranchId = (rawBranchId && rawBranchId !== 'all') ? rawBranchId : undefined;
+      const allBranches = rawBranchId === 'all';
       const page = req.query.page ? parseInt(req.query.page as string) : undefined;
       const isPaginated = page !== undefined;
-      console.log('GET /api/patients - requestedBranchId:', requestedBranchId, 'isPaginated:', isPaginated, 'userId:', user.id);
       
       if (isPaginated) {
         // Paginated response
@@ -429,7 +438,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const search = req.query.search as string || undefined;
         const offset = (page - 1) * limit;
         
-        if (requestedBranchId) {
+        if (allBranches) {
+          // Tenant-wide search across all branches
+          const result = await storage.getPatientsPaginated({ tenantId: user.tenantId, search, limit, offset });
+          res.json({ data: result.data, page, limit, total: result.total, totalPages: Math.ceil(result.total / limit) });
+        } else if (requestedBranchId) {
           const hasAccess = await storage.canUserAccessBranch(user.id, requestedBranchId);
           if (!hasAccess) {
             return res.status(403).json({ error: "Access denied: Branch not accessible" });
