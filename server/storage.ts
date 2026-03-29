@@ -788,6 +788,7 @@ export interface IStorage {
   getLoyaltyTransactionStats(tenantId: string): Promise<{ totalIssued: number; totalRedeemed: number; totalBurned: number; currentCirculation: number; activeOwners: number }>;
   earnLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId?: string; invoiceTotal: number; manualPoints?: number; description?: string }): Promise<LoyaltyTransaction | null>;
   spendLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number }): Promise<LoyaltyTransaction>;
+  spendLoyaltyPointsWithInvoiceUpdate(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number; pointsValue: number; alreadyUsed: number }): Promise<LoyaltyTransaction>;
   createInvoiceWithLoyaltySpend(invoiceData: InsertInvoice, loyaltyParams: { ownerId: string; tenantId: string; branchId: string; points: number }): Promise<{ invoice: Invoice; loyaltyTx: LoyaltyTransaction }>;
 }
 
@@ -7576,6 +7577,49 @@ export class DatabaseStorage implements IStorage {
           invoiceId: params.invoiceId,
           description: `Списание ${params.points} баллов при оплате счёта`,
         }).returning();
+        return loyaltyTx;
+      });
+    });
+  }
+
+  async spendLoyaltyPointsWithInvoiceUpdate(
+    params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number; pointsValue: number; alreadyUsed: number }
+  ): Promise<LoyaltyTransaction> {
+    return withTenantContext(params.tenantId, async (dbInstance) => {
+      return dbInstance.transaction(async (tx) => {
+        // Deduct owner balance
+        const [owner] = await tx.select({ bonusPoints: owners.bonusPoints }).from(owners)
+          .where(eq(owners.id, params.ownerId)).limit(1);
+        const balanceBefore = owner?.bonusPoints ?? 0;
+        if (balanceBefore < params.points) {
+          throw new Error(`Недостаточно баллов: доступно ${balanceBefore}, запрошено ${params.points}`);
+        }
+        const balanceAfter = balanceBefore - params.points;
+        await tx.update(owners).set({ bonusPoints: balanceAfter }).where(eq(owners.id, params.ownerId));
+
+        // Create loyalty transaction record
+        const [loyaltyTx] = await tx.insert(loyaltyTransactions).values({
+          tenantId: params.tenantId,
+          branchId: params.branchId,
+          ownerId: params.ownerId,
+          type: 'spend',
+          points: params.points,
+          balanceBefore,
+          balanceAfter,
+          invoiceId: params.invoiceId,
+          description: `Списание ${params.points} баллов при оплате счёта`,
+        }).returning();
+
+        // Atomically update invoice total + bonusPointsUsed in the same transaction
+        const [currentInvoice] = await tx.select({ total: invoices.total }).from(invoices)
+          .where(eq(invoices.id, params.invoiceId)).limit(1);
+        const bonusDiscount = params.points * params.pointsValue;
+        const newTotal = Math.max(0, parseFloat(String(currentInvoice?.total ?? 0)) - bonusDiscount);
+        await tx.update(invoices).set({
+          bonusPointsUsed: params.alreadyUsed + params.points,
+          total: newTotal.toFixed(2),
+        }).where(eq(invoices.id, params.invoiceId));
+
         return loyaltyTx;
       });
     });

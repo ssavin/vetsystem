@@ -2299,12 +2299,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const tenantId = user?.tenantId || (req as any).tenantId;
 
-      // Derive ownerId server-side from patientId (trusted DB relation, not client input)
-      let resolvedOwnerId: string | undefined = validation.data.ownerId;
-      if (!resolvedOwnerId && validation.data.patientId) {
+      // Derive ownerId server-side from patientId (trusted DB relation — always authoritative)
+      let resolvedOwnerId: string | undefined;
+      if (validation.data.patientId) {
         const patientOwnerLinks = await storage.getPatientOwners(validation.data.patientId);
         const primaryLink = patientOwnerLinks.find((po: any) => po.isPrimary) || patientOwnerLinks[0];
         if (primaryLink) resolvedOwnerId = primaryLink.ownerId;
+      }
+      // If patientId not provided fall back to client-supplied ownerId, but reject if mismatch
+      if (!resolvedOwnerId) {
+        resolvedOwnerId = validation.data.ownerId;
+      } else if (validation.data.ownerId && resolvedOwnerId !== validation.data.ownerId) {
+        return res.status(400).json({ error: "ownerId не соответствует пациенту" });
       }
 
       // If bonus points requested, validate atomically before creating invoice
@@ -11351,14 +11357,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: `Максимально можно ещё списать ${remainingAllowed} баллов по этому счёту` });
       }
       
-      const tx = await storage.spendLoyaltyPoints({ ownerId, tenantId, branchId, invoiceId, points });
-      
-      // Atomically update invoice: reduce total and set bonusPointsUsed
-      const bonusDiscount = points * pointsValue;
-      const newTotal = Math.max(0, parseFloat(invoice.total) - bonusDiscount);
-      await storage.updateInvoice(invoiceId, { 
-        bonusPointsUsed: (invoice.bonusPointsUsed || 0) + points,
-        total: newTotal.toFixed(2),
+      // Atomically deduct points + update invoice in a single DB transaction
+      const tx = await storage.spendLoyaltyPointsWithInvoiceUpdate({
+        ownerId,
+        tenantId,
+        branchId,
+        invoiceId,
+        points,
+        pointsValue,
+        alreadyUsed: invoice.bonusPointsUsed || 0,
       });
       
       res.json(tx);
