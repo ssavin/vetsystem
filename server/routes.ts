@@ -10830,7 +10830,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/crm/stats", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
-      // No recalculation here — GET /api/crm/owners already handles recalc on page load
+      // Also recalculate here so stats are always fresh (independent of owners load order)
+      await storage.recalculateOwnerSegments(user.tenantId).catch((err: any) =>
+        console.error('[CRM] auto-recalculate segments (stats) failed:', err.message)
+      );
       const stats = await storage.getCrmStats(user.tenantId);
       res.json(stats);
     } catch (error: any) {

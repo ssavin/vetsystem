@@ -7422,6 +7422,7 @@ export class DatabaseStorage implements IStorage {
       return withTenantContext(undefined, async (dbInstance) => {
         // Single deterministic pass: each owner is classified by highest-priority matching rule.
         // Priority: lost > at_risk > vip > regular > new
+        // VIP: top 10% by spend, only when tenant has positive-spend owners (avoids all-VIP edge case).
         // Owners with segment_manual = true are skipped (manual override preserved).
         const result = await dbInstance.execute(sql`
           UPDATE owners
@@ -7430,13 +7431,21 @@ export class DatabaseStorage implements IStorage {
               THEN 'lost'
             WHEN last_visit_at IS NOT NULL AND last_visit_at < now() - interval '60 days'
               THEN 'at_risk'
-            WHEN visit_count > 0 AND CAST(total_spent AS numeric) >= COALESCE((
-              SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(o2.total_spent AS numeric))
-              FROM owners o2
-              WHERE o2.tenant_id = owners.tenant_id
-                AND o2.visit_count > 0
-                AND CAST(o2.total_spent AS numeric) > 0
-            ), 0)
+            WHEN visit_count > 0
+              AND CAST(total_spent AS numeric) > 0
+              AND (
+                SELECT COUNT(*) FROM owners o2
+                WHERE o2.tenant_id = owners.tenant_id
+                  AND o2.visit_count > 0
+                  AND CAST(o2.total_spent AS numeric) > 0
+              ) >= 10
+              AND CAST(total_spent AS numeric) >= (
+                SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(o2.total_spent AS numeric))
+                FROM owners o2
+                WHERE o2.tenant_id = owners.tenant_id
+                  AND o2.visit_count > 0
+                  AND CAST(o2.total_spent AS numeric) > 0
+              )
               THEN 'vip'
             WHEN visit_count >= 2 AND last_visit_at IS NOT NULL AND last_visit_at >= now() - interval '60 days'
               THEN 'regular'
@@ -7454,6 +7463,7 @@ export class DatabaseStorage implements IStorage {
     return withPerformanceLogging('recalculateOwnerSegments', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         // Same deterministic single-pass logic, scoped to one tenant.
+        // VIP: top 10% by spend, only when tenant has >= 10 positive-spend owners.
         // Owners with segment_manual = true are skipped (manual override preserved).
         const result = await dbInstance.execute(sql`
           UPDATE owners
@@ -7462,13 +7472,21 @@ export class DatabaseStorage implements IStorage {
               THEN 'lost'
             WHEN last_visit_at IS NOT NULL AND last_visit_at < now() - interval '60 days'
               THEN 'at_risk'
-            WHEN visit_count > 0 AND CAST(total_spent AS numeric) >= COALESCE((
-              SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(o2.total_spent AS numeric))
-              FROM owners o2
-              WHERE o2.tenant_id = owners.tenant_id
-                AND o2.visit_count > 0
-                AND CAST(o2.total_spent AS numeric) > 0
-            ), 0)
+            WHEN visit_count > 0
+              AND CAST(total_spent AS numeric) > 0
+              AND (
+                SELECT COUNT(*) FROM owners o2
+                WHERE o2.tenant_id = ${tenantId}
+                  AND o2.visit_count > 0
+                  AND CAST(o2.total_spent AS numeric) > 0
+              ) >= 10
+              AND CAST(total_spent AS numeric) >= (
+                SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(o2.total_spent AS numeric))
+                FROM owners o2
+                WHERE o2.tenant_id = ${tenantId}
+                  AND o2.visit_count > 0
+                  AND CAST(o2.total_spent AS numeric) > 0
+              )
               THEN 'vip'
             WHEN visit_count >= 2 AND last_visit_at IS NOT NULL AND last_visit_at >= now() - interval '60 days'
               THEN 'regular'
