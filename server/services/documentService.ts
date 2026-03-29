@@ -39,12 +39,20 @@ export class DocumentService {
       return envPath;
     }
 
-    // 1. Try `which <name>` for each candidate binary
+    // 1. Try `which <name>` for each candidate binary — reject shell completion scripts
     const candidates = ['google-chrome-stable', 'google-chrome', 'chromium-browser', 'chromium'];
     for (const name of candidates) {
       try {
         const p = execSync(`which ${name} 2>/dev/null`, { encoding: 'utf-8' }).trim();
-        if (p) { log(`Found via which: ${p}`); return p; }
+        if (p && !p.includes('completion') && !p.includes('bash')) {
+          // Verify it is actually an ELF executable, not a shell script
+          const fileType = execSync(`file "${p}" 2>/dev/null`, { encoding: 'utf-8' });
+          if (fileType.includes('ELF')) {
+            log(`Found via which: ${p}`);
+            return p;
+          }
+          log(`Skipping non-ELF path from which: ${p}`);
+        }
       } catch { /* continue */ }
     }
 
