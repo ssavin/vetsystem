@@ -79,6 +79,9 @@ import {
   type CampaignRecipient, type InsertCampaignRecipient,
   clientInteractions, healthReminders, marketingCampaigns, campaignRecipients,
   faceDescriptors, type FaceDescriptor, type InsertFaceDescriptor,
+  loyaltySettings, loyaltyTransactions,
+  type LoyaltySettings, type InsertLoyaltySettings,
+  type LoyaltyTransaction, type InsertLoyaltyTransaction,
 } from "@shared/schema";
 import { db } from "./db-local";
 import { pool } from "./db-local";
@@ -776,6 +779,15 @@ export interface IStorage {
   createDicomInstance(instance: InsertDicomInstance & { tenantId: string }): Promise<DicomInstance>;
   updateDicomInstance(id: string, updates: Partial<InsertDicomInstance>): Promise<DicomInstance>;
   deleteDicomInstance(id: string): Promise<void>;
+
+  // === LOYALTY PROGRAM ===
+  getLoyaltySettings(tenantId: string): Promise<LoyaltySettings | undefined>;
+  upsertLoyaltySettings(tenantId: string, data: Partial<InsertLoyaltySettings>): Promise<LoyaltySettings>;
+  getLoyaltyBalance(ownerId: string): Promise<number>;
+  getLoyaltyTransactions(ownerId: string, limit?: number, offset?: number): Promise<LoyaltyTransaction[]>;
+  getLoyaltyTransactionStats(tenantId: string): Promise<{ totalEarned: number; totalSpent: number; activeOwners: number }>;
+  earnLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; invoiceTotal: number }): Promise<LoyaltyTransaction | null>;
+  spendLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number }): Promise<LoyaltyTransaction>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7400,6 +7412,152 @@ export class DatabaseStorage implements IStorage {
             eq(faceDescriptors.branchId, branchId),
           ));
       });
+    });
+  }
+
+  // === LOYALTY PROGRAM IMPLEMENTATION ===
+
+  async getLoyaltySettings(tenantId: string): Promise<LoyaltySettings | undefined> {
+    return withTenantContext(tenantId, async (dbInstance) => {
+      const [settings] = await dbInstance
+        .select()
+        .from(loyaltySettings)
+        .where(eq(loyaltySettings.tenantId, tenantId))
+        .limit(1);
+      return settings;
+    });
+  }
+
+  async upsertLoyaltySettings(tenantId: string, data: Partial<InsertLoyaltySettings>): Promise<LoyaltySettings> {
+    return withTenantContext(tenantId, async (dbInstance) => {
+      const existing = await this.getLoyaltySettings(tenantId);
+      if (existing) {
+        const [updated] = await dbInstance
+          .update(loyaltySettings)
+          .set({ ...data, updatedAt: new Date() })
+          .where(eq(loyaltySettings.tenantId, tenantId))
+          .returning();
+        return updated;
+      } else {
+        const [created] = await dbInstance
+          .insert(loyaltySettings)
+          .values({ tenantId, ...data })
+          .returning();
+        return created;
+      }
+    });
+  }
+
+  async getLoyaltyBalance(ownerId: string): Promise<number> {
+    return withTenantContext(undefined, async (dbInstance) => {
+      const [owner] = await dbInstance
+        .select({ bonusPoints: owners.bonusPoints })
+        .from(owners)
+        .where(eq(owners.id, ownerId))
+        .limit(1);
+      return owner?.bonusPoints ?? 0;
+    });
+  }
+
+  async getLoyaltyTransactions(ownerId: string, limit = 50, offset = 0): Promise<LoyaltyTransaction[]> {
+    return withTenantContext(undefined, async (dbInstance) => {
+      return dbInstance
+        .select()
+        .from(loyaltyTransactions)
+        .where(eq(loyaltyTransactions.ownerId, ownerId))
+        .orderBy(desc(loyaltyTransactions.createdAt))
+        .limit(limit)
+        .offset(offset);
+    });
+  }
+
+  async getLoyaltyTransactionStats(tenantId: string): Promise<{ totalEarned: number; totalSpent: number; activeOwners: number }> {
+    return withTenantContext(tenantId, async (dbInstance) => {
+      const earnResult = await dbInstance
+        .select({ total: sql<string>`COALESCE(SUM(${loyaltyTransactions.points}), 0)` })
+        .from(loyaltyTransactions)
+        .where(and(
+          eq(loyaltyTransactions.tenantId, tenantId),
+          eq(loyaltyTransactions.type, 'earn')
+        ));
+      const spendResult = await dbInstance
+        .select({ total: sql<string>`COALESCE(SUM(${loyaltyTransactions.points}), 0)` })
+        .from(loyaltyTransactions)
+        .where(and(
+          eq(loyaltyTransactions.tenantId, tenantId),
+          eq(loyaltyTransactions.type, 'spend')
+        ));
+      const activeResult = await dbInstance
+        .select({ count: sql<string>`COUNT(DISTINCT ${loyaltyTransactions.ownerId})` })
+        .from(loyaltyTransactions)
+        .where(eq(loyaltyTransactions.tenantId, tenantId));
+      return {
+        totalEarned: parseInt(earnResult[0]?.total || '0'),
+        totalSpent: parseInt(spendResult[0]?.total || '0'),
+        activeOwners: parseInt(activeResult[0]?.count || '0'),
+      };
+    });
+  }
+
+  async earnLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; invoiceTotal: number }): Promise<LoyaltyTransaction | null> {
+    const settings = await this.getLoyaltySettings(params.tenantId);
+    if (!settings || !settings.isActive) return null;
+
+    const earnRate = parseFloat(settings.earnRatePercent || '5');
+    const points = Math.floor(params.invoiceTotal * earnRate / 100);
+    if (points <= 0) return null;
+
+    return withTenantContext(params.tenantId, async (dbInstance) => {
+      // Get current balance
+      const [owner] = await dbInstance.select({ bonusPoints: owners.bonusPoints }).from(owners).where(eq(owners.id, params.ownerId)).limit(1);
+      const balanceBefore = owner?.bonusPoints ?? 0;
+      const balanceAfter = balanceBefore + points;
+
+      // Update owner balance
+      await dbInstance.update(owners).set({ bonusPoints: balanceAfter }).where(eq(owners.id, params.ownerId));
+
+      // Create transaction record
+      const [tx] = await dbInstance.insert(loyaltyTransactions).values({
+        tenantId: params.tenantId,
+        branchId: params.branchId,
+        ownerId: params.ownerId,
+        type: 'earn',
+        points,
+        balanceBefore,
+        balanceAfter,
+        invoiceId: params.invoiceId,
+        description: `Начисление за оплату счёта на сумму ${params.invoiceTotal} ₽`,
+      }).returning();
+      return tx;
+    });
+  }
+
+  async spendLoyaltyPoints(params: { ownerId: string; tenantId: string; branchId: string; invoiceId: string; points: number }): Promise<LoyaltyTransaction> {
+    return withTenantContext(params.tenantId, async (dbInstance) => {
+      // Get current balance
+      const [owner] = await dbInstance.select({ bonusPoints: owners.bonusPoints }).from(owners).where(eq(owners.id, params.ownerId)).limit(1);
+      const balanceBefore = owner?.bonusPoints ?? 0;
+      if (balanceBefore < params.points) {
+        throw new Error(`Недостаточно баллов: доступно ${balanceBefore}, запрошено ${params.points}`);
+      }
+      const balanceAfter = balanceBefore - params.points;
+
+      // Update owner balance
+      await dbInstance.update(owners).set({ bonusPoints: balanceAfter }).where(eq(owners.id, params.ownerId));
+
+      // Create transaction record
+      const [tx] = await dbInstance.insert(loyaltyTransactions).values({
+        tenantId: params.tenantId,
+        branchId: params.branchId,
+        ownerId: params.ownerId,
+        type: 'spend',
+        points: params.points,
+        balanceBefore,
+        balanceAfter,
+        invoiceId: params.invoiceId,
+        description: `Списание ${params.points} баллов при оплате счёта`,
+      }).returning();
+      return tx;
     });
   }
 }

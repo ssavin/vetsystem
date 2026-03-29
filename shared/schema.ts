@@ -350,6 +350,10 @@ export const owners = pgTable("owners", {
   pushOptIn: boolean("push_opt_in").default(true), // Push notification consent
   notes: text("notes"), // Internal CRM notes
   
+  // Loyalty program fields
+  bonusPoints: integer("bonus_points").default(0), // Current bonus balance in points
+  loyaltyCardNumber: varchar("loyalty_card_number", { length: 50 }), // Loyalty card number
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -976,6 +980,7 @@ export const invoices = pgTable("invoices", {
   fiscalReceiptId: varchar("fiscal_receipt_id", { length: 255 }), // Receipt ID for 54-FZ
   fiscalReceiptUrl: varchar("fiscal_receipt_url", { length: 500 }), // Receipt URL
   notes: text("notes"),
+  bonusPointsUsed: integer("bonus_points_used").default(0), // Bonus points redeemed for this invoice
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -3777,3 +3782,55 @@ export const insertFaceDescriptorSchema = createInsertSchema(faceDescriptors).om
 export type FaceDescriptor = typeof faceDescriptors.$inferSelect;
 export type InsertFaceDescriptor = z.infer<typeof insertFaceDescriptorSchema>;
 export type InsertDemoRequest = z.infer<typeof insertDemoRequestSchema>;
+
+// ─── ПРОГРАММА ЛОЯЛЬНОСТИ ────────────────────────────────────────────────────
+
+// Настройки программы лояльности (одна запись на тенант)
+export const loyaltySettings = pgTable('loyalty_settings', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').notNull().unique().references(() => tenants.id),
+  isActive: boolean('is_active').default(true).notNull(),
+  earnRatePercent: decimal('earn_rate_percent', { precision: 5, scale: 2 }).default('5'), // % от суммы счёта → баллы (5% = 100₽ → 5 баллов)
+  pointsValue: decimal('points_value', { precision: 8, scale: 4 }).default('1.0000'), // стоимость 1 балла в рублях
+  minBalanceToSpend: integer('min_balance_to_spend').default(100), // мин. баллов для списания
+  maxSpendPercent: decimal('max_spend_percent', { precision: 5, scale: 2 }).default('50'), // макс % оплаты баллами
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index('loyalty_settings_tenant_idx').on(table.tenantId),
+}));
+
+export const insertLoyaltySettingsSchema = createInsertSchema(loyaltySettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type LoyaltySettings = typeof loyaltySettings.$inferSelect;
+export type InsertLoyaltySettings = z.infer<typeof insertLoyaltySettingsSchema>;
+
+// История транзакций лояльности
+export const loyaltyTransactions = pgTable('loyalty_transactions', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').notNull().references(() => tenants.id),
+  branchId: varchar('branch_id').references(() => branches.id),
+  ownerId: varchar('owner_id').notNull().references(() => owners.id),
+  type: varchar('type', { length: 10 }).notNull(), // 'earn' | 'spend'
+  points: integer('points').notNull(), // положительное значение
+  balanceBefore: integer('balance_before').notNull(),
+  balanceAfter: integer('balance_after').notNull(),
+  invoiceId: varchar('invoice_id').references(() => invoices.id),
+  description: text('description'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index('loyalty_tx_tenant_idx').on(table.tenantId),
+  ownerIdx: index('loyalty_tx_owner_idx').on(table.ownerId),
+  invoiceIdx: index('loyalty_tx_invoice_idx').on(table.invoiceId),
+  createdAtIdx: index('loyalty_tx_created_at_idx').on(table.createdAt),
+}));
+
+export const insertLoyaltyTransactionSchema = createInsertSchema(loyaltyTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+export type LoyaltyTransaction = typeof loyaltyTransactions.$inferSelect;
+export type InsertLoyaltyTransaction = z.infer<typeof insertLoyaltyTransactionSchema>;

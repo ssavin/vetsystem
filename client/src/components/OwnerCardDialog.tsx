@@ -11,11 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { Phone, Mail, MapPin, User, Pencil, PawPrint, Calendar } from "lucide-react"
+import { Phone, Mail, MapPin, User, Pencil, PawPrint, Calendar, Gift, TrendingUp, TrendingDown } from "lucide-react"
 import { CallLogsWidget } from "./CallLogsWidget"
 import { useLocation } from "wouter"
 import { Skeleton } from "@/components/ui/skeleton"
 import { translateSpecies } from "@/lib/utils"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface OwnerCardDialogProps {
   ownerId: string | null
@@ -45,6 +46,12 @@ export function OwnerCardDialog({ ownerId, open, onOpenChange }: OwnerCardDialog
   // Fetch owner's patients
   const { data: patients = [], isLoading: patientsLoading } = useQuery<any[]>({
     queryKey: [`/api/owners/${ownerId}/patients`],
+    enabled: !!ownerId && open,
+  })
+
+  // Fetch loyalty data
+  const { data: loyaltyTransactions = [] } = useQuery<any[]>({
+    queryKey: [`/api/loyalty/transactions/${ownerId}`],
     enabled: !!ownerId && open,
   })
 
@@ -201,6 +208,60 @@ export function OwnerCardDialog({ ownerId, open, onOpenChange }: OwnerCardDialog
                 )}
               </CardContent>
             </Card>
+
+            {/* Loyalty Card */}
+            {owner.bonusPoints !== undefined && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Gift className="h-5 w-5" />
+                      Программа лояльности
+                    </div>
+                    <Badge variant="outline" className="text-base font-bold px-3 py-1">
+                      {(owner.bonusPoints || 0).toLocaleString('ru-RU')} баллов
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                {loyaltyTransactions.length > 0 && (
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Дата</TableHead>
+                          <TableHead>Операция</TableHead>
+                          <TableHead className="text-right">Баллы</TableHead>
+                          <TableHead className="text-right">Остаток</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {loyaltyTransactions.slice(0, 10).map((tx: any) => (
+                          <TableRow key={tx.id}>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {new Date(tx.createdAt).toLocaleDateString('ru-RU')}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              <div className="flex items-center gap-1">
+                                {tx.type === 'earn'
+                                  ? <TrendingUp className="h-3 w-3 text-green-500" />
+                                  : <TrendingDown className="h-3 w-3 text-blue-500" />}
+                                {tx.description}
+                              </div>
+                            </TableCell>
+                            <TableCell className={`text-right font-medium text-sm ${tx.type === 'earn' ? 'text-green-600' : 'text-blue-600'}`}>
+                              {tx.type === 'earn' ? '+' : '-'}{tx.points}
+                            </TableCell>
+                            <TableCell className="text-right text-sm text-muted-foreground">
+                              {tx.balanceAfter}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                )}
+              </Card>
+            )}
 
             <Separator />
 

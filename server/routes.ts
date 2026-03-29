@@ -2305,7 +2305,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/invoices/:id", authenticateToken, requireModuleAccess('finance'), validateBody(insertInvoiceSchema.partial()), async (req, res) => {
     try {
+      const user = (req as any).user;
+      const prevInvoice = await storage.getInvoice(req.params.id);
       const invoice = await storage.updateInvoice(req.params.id, req.body);
+      
+      // Auto-earn loyalty points when invoice status changes to 'paid'
+      if (req.body.status === 'paid' && prevInvoice?.status !== 'paid' && invoice.ownerId) {
+        try {
+          const tenantId = user?.tenantId || (req as any).tenantId;
+          const branchId = user?.branchId;
+          if (tenantId && branchId) {
+            await storage.earnLoyaltyPoints({
+              ownerId: invoice.ownerId,
+              tenantId,
+              branchId,
+              invoiceId: invoice.id,
+              invoiceTotal: parseFloat(invoice.total),
+            });
+          }
+        } catch (loyaltyError) {
+          console.warn('Loyalty earn failed (non-critical):', loyaltyError);
+        }
+      }
+      
       res.json(invoice);
     } catch (error) {
       console.error("Error updating invoice:", error);
@@ -11079,6 +11101,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try { const data = await r.json(); res.json(data); } catch { res.json({ ok: true }); }
     } catch (e: any) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  // =================== LOYALTY PROGRAM API ===================
+  
+  // GET /api/loyalty/settings — настройки программы лояльности
+  app.get("/api/loyalty/settings", authenticateToken, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
+      if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+      const settings = await storage.getLoyaltySettings(tenantId);
+      if (!settings) {
+        // Return defaults if not configured
+        return res.json({ isActive: false, earnRatePercent: "5", pointsValue: "1.0000", minBalanceToSpend: 100, maxSpendPercent: "50" });
+      }
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching loyalty settings:", error);
+      res.status(500).json({ error: "Failed to fetch loyalty settings" });
+    }
+  });
+
+  // PUT /api/loyalty/settings — сохранить настройки
+  app.put("/api/loyalty/settings", authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
+      if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+      const settings = await storage.upsertLoyaltySettings(tenantId, req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating loyalty settings:", error);
+      res.status(500).json({ error: "Failed to update loyalty settings" });
+    }
+  });
+
+  // GET /api/loyalty/balance/:ownerId — баланс владельца
+  app.get("/api/loyalty/balance/:ownerId", authenticateToken, async (req, res) => {
+    try {
+      const balance = await storage.getLoyaltyBalance(req.params.ownerId);
+      res.json({ balance });
+    } catch (error) {
+      console.error("Error fetching loyalty balance:", error);
+      res.status(500).json({ error: "Failed to fetch loyalty balance" });
+    }
+  });
+
+  // GET /api/loyalty/transactions/:ownerId — история транзакций
+  app.get("/api/loyalty/transactions/:ownerId", authenticateToken, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string || '50');
+      const offset = parseInt(req.query.offset as string || '0');
+      const transactions = await storage.getLoyaltyTransactions(req.params.ownerId, limit, offset);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching loyalty transactions:", error);
+      res.status(500).json({ error: "Failed to fetch loyalty transactions" });
+    }
+  });
+
+  // GET /api/loyalty/stats — статистика программы
+  app.get("/api/loyalty/stats", authenticateToken, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
+      if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+      const stats = await storage.getLoyaltyTransactionStats(tenantId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching loyalty stats:", error);
+      res.status(500).json({ error: "Failed to fetch loyalty stats" });
+    }
+  });
+
+  // POST /api/loyalty/spend — применить баллы к счёту
+  app.post("/api/loyalty/spend", authenticateToken, async (req, res) => {
+    try {
+      const { ownerId, invoiceId, points } = req.body;
+      if (!ownerId || !invoiceId || !points) return res.status(400).json({ error: "ownerId, invoiceId и points обязательны" });
+      const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
+      const branchId = (req as any).user?.branchId;
+      if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+      
+      // Verify loyalty is enabled
+      const settings = await storage.getLoyaltySettings(tenantId);
+      if (!settings?.isActive) return res.status(400).json({ error: "Программа лояльности не активна" });
+      
+      // Check min balance
+      const balance = await storage.getLoyaltyBalance(ownerId);
+      if (balance < (settings.minBalanceToSpend || 100)) {
+        return res.status(400).json({ error: `Минимальный баланс для списания: ${settings.minBalanceToSpend} баллов` });
+      }
+      
+      // Get invoice to check max spend limit
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) return res.status(404).json({ error: "Счёт не найден" });
+      const maxSpendAmount = parseFloat(invoice.total) * parseFloat(settings.maxSpendPercent || '50') / 100;
+      const pointsValue = parseFloat(settings.pointsValue || '1');
+      const maxPointsToSpend = Math.floor(maxSpendAmount / pointsValue);
+      if (points > maxPointsToSpend) {
+        return res.status(400).json({ error: `Максимально можно списать ${maxPointsToSpend} баллов по этому счёту` });
+      }
+      
+      const tx = await storage.spendLoyaltyPoints({ ownerId, tenantId, branchId, invoiceId, points });
+      
+      // Update invoice bonusPointsUsed
+      await storage.updateInvoice(invoiceId, { bonusPointsUsed: points });
+      
+      res.json(tx);
+    } catch (error: any) {
+      console.error("Error spending loyalty points:", error);
+      res.status(400).json({ error: error.message || "Failed to spend loyalty points" });
     }
   });
 

@@ -62,7 +62,11 @@ import {
   Search,
   Users,
   FileText,
-  TestTube
+  TestTube,
+  Gift,
+  Star,
+  TrendingUp,
+  Loader2
 } from "lucide-react"
 import { useState, useMemo, useEffect, useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -951,6 +955,10 @@ export default function Settings() {
           <TabsTrigger value="lab-integrations" data-testid="tab-lab-integrations">
             <TestTube className="h-4 w-4 mr-2" />
             Лаборатории
+          </TabsTrigger>
+          <TabsTrigger value="loyalty" data-testid="tab-loyalty">
+            <Gift className="h-4 w-4 mr-2" />
+            Лояльность
           </TabsTrigger>
         </TabsList>
 
@@ -2703,7 +2711,229 @@ export default function Settings() {
         <TabsContent value="lab-integrations">
           <LabIntegrationsSettings />
         </TabsContent>
+
+        <TabsContent value="loyalty">
+          <LoyaltySettingsTab />
+        </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+// ─── LOYALTY SETTINGS TAB ────────────────────────────────────────────────────
+function LoyaltySettingsTab() {
+  const { toast } = useToast()
+
+  const { data: settings, isLoading } = useQuery<any>({
+    queryKey: ['/api/loyalty/settings'],
+  })
+
+  const { data: stats } = useQuery<any>({
+    queryKey: ['/api/loyalty/stats'],
+  })
+
+  const form = useForm({
+    defaultValues: {
+      isActive: false,
+      earnRatePercent: '5',
+      pointsValue: '1.0000',
+      minBalanceToSpend: 100,
+      maxSpendPercent: '50',
+    }
+  })
+
+  useEffect(() => {
+    if (settings) {
+      form.reset({
+        isActive: settings.isActive ?? false,
+        earnRatePercent: settings.earnRatePercent ?? '5',
+        pointsValue: settings.pointsValue ?? '1.0000',
+        minBalanceToSpend: settings.minBalanceToSpend ?? 100,
+        maxSpendPercent: settings.maxSpendPercent ?? '50',
+      })
+    }
+  }, [settings, form])
+
+  const saveMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('PUT', '/api/loyalty/settings', data).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/loyalty/settings'] })
+      toast({ title: 'Настройки лояльности сохранены' })
+    },
+    onError: () => {
+      toast({ title: 'Ошибка сохранения', variant: 'destructive' })
+    }
+  })
+
+  const onSubmit = (data: any) => {
+    saveMutation.mutate(data)
+  }
+
+  const isActive = form.watch('isActive')
+  const earnRate = parseFloat(form.watch('earnRatePercent') || '5')
+  const pointsValue = parseFloat(form.watch('pointsValue') || '1')
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-md bg-green-100 dark:bg-green-900/30">
+                  <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Начислено всего</p>
+                  <p className="text-2xl font-bold">{(stats.totalEarned || 0).toLocaleString('ru-RU')}</p>
+                  <p className="text-xs text-muted-foreground">баллов</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                  <Gift className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Потрачено всего</p>
+                  <p className="text-2xl font-bold">{(stats.totalSpent || 0).toLocaleString('ru-RU')}</p>
+                  <p className="text-xs text-muted-foreground">баллов</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-md bg-purple-100 dark:bg-purple-900/30">
+                  <Star className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Активных клиентов</p>
+                  <p className="text-2xl font-bold">{(stats.activeOwners || 0).toLocaleString('ru-RU')}</p>
+                  <p className="text-xs text-muted-foreground">в программе</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Settings form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gift className="h-5 w-5" />
+            Параметры программы лояльности
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="flex items-center justify-between p-4 rounded-md border">
+              <div>
+                <p className="font-medium">Программа лояльности активна</p>
+                <p className="text-sm text-muted-foreground">Баллы будут начисляться и списываться при оплате счетов</p>
+              </div>
+              <Switch
+                checked={form.watch('isActive')}
+                onCheckedChange={(v) => form.setValue('isActive', v)}
+              />
+            </div>
+
+            {isActive && (
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="earnRate">Процент начисления баллов</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="earnRate"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      {...form.register('earnRatePercent')}
+                    />
+                    <span className="text-muted-foreground">%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    За каждые 100 ₽ клиент получит {isNaN(earnRate) ? 0 : earnRate} баллов
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pointsValue">Стоимость 1 балла</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="pointsValue"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      {...form.register('pointsValue')}
+                    />
+                    <span className="text-muted-foreground">₽</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    1 балл = {isNaN(pointsValue) ? 0 : pointsValue} ₽ при оплате
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="minBalance">Минимальный баланс для списания</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="minBalance"
+                      type="number"
+                      min="0"
+                      {...form.register('minBalanceToSpend', { valueAsNumber: true })}
+                    />
+                    <span className="text-muted-foreground">баллов</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Клиент должен накопить не менее этого числа баллов для списания
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="maxSpend">Максимальная доля оплаты баллами</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="maxSpend"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="5"
+                      {...form.register('maxSpendPercent')}
+                    />
+                    <span className="text-muted-foreground">%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Не более этого % суммы счёта можно оплатить баллами
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Сохранить настройки
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

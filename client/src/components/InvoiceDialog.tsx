@@ -43,7 +43,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Receipt, Trash2, Calculator, Check } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Plus, Receipt, Trash2, Calculator, Check, Gift } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 import { translateSpecies, cn } from "@/lib/utils"
@@ -79,6 +80,7 @@ interface InvoiceDialogProps {
 export default function InvoiceDialog({ children }: InvoiceDialogProps) {
   const [open, setOpen] = useState(false)
   const [itemPopoverStates, setItemPopoverStates] = useState<Record<number, boolean>>({})
+  const [bonusPointsToSpend, setBonusPointsToSpend] = useState(0)
   const { toast } = useToast()
 
   // Fetch data for dropdowns with reasonable limits
@@ -118,6 +120,12 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
     enabled: open
   })
 
+  // Fetch loyalty settings to know if program is active
+  const { data: loyaltySettings } = useQuery<any>({
+    queryKey: ['/api/loyalty/settings'],
+    enabled: open
+  })
+
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceFormSchema),
     defaultValues: {
@@ -134,29 +142,57 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
     name: "items"
   })
 
+  // Loyalty: get selected patient's owner
+  const selectedPatientId = form.watch('patientId')
+  const selectedPatient = (patients as any[]).find((p: any) => p.id === selectedPatientId)
+  const selectedOwner = selectedPatient ? (owners as any[]).find((o: any) => o.id === selectedPatient.ownerId) : null
+  const ownerBonusPoints: number = selectedOwner?.bonusPoints ?? 0
+  const loyaltyActive = loyaltySettings?.isActive && ownerBonusPoints >= (loyaltySettings?.minBalanceToSpend ?? 100)
+
   const createMutation = useMutation({
     mutationFn: async (data: InvoiceFormData) => {
       // Calculate totals (ensure numbers, not strings)
       const subtotal = data.items.reduce((sum, item) => sum + Number(item.total), 0)
-      const total = subtotal - Number(data.discount)
+      const pointsValue = parseFloat(loyaltySettings?.pointsValue || '1')
+      const bonusDiscount = bonusPointsToSpend * pointsValue
+      const total = subtotal - Number(data.discount) - bonusDiscount
 
       const processedData = {
         ...data,
         subtotal,
-        total,
+        total: Math.max(0, total),
         status: "pending" as const,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        bonusPointsUsed: bonusPointsToSpend > 0 ? bonusPointsToSpend : undefined,
       }
       
-      return apiRequest('POST', '/api/invoices', processedData)
+      const invoiceRes = await apiRequest('POST', '/api/invoices', processedData)
+      const invoice = await invoiceRes.json()
+      
+      // Spend bonus points if applied
+      if (bonusPointsToSpend > 0 && selectedOwner && invoice.id) {
+        try {
+          await apiRequest('POST', '/api/loyalty/spend', {
+            ownerId: selectedOwner.id,
+            invoiceId: invoice.id,
+            points: bonusPointsToSpend,
+          })
+        } catch (e) {
+          console.warn('Failed to spend loyalty points:', e)
+        }
+      }
+      
+      return invoice
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/owners'] })
       toast({
         title: "Успех",
         description: "Счет успешно создан"
       })
       form.reset()
+      setBonusPointsToSpend(0)
       setOpen(false)
     },
     onError: (error: Error) => {
@@ -195,7 +231,9 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
     const items = form.getValues("items")
     const discount = form.getValues("discount")
     const subtotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0)
-    return { subtotal, total: subtotal - Number(discount || 0) }
+    const pointsValue = parseFloat(loyaltySettings?.pointsValue || '1')
+    const bonusDiscount = bonusPointsToSpend * pointsValue
+    return { subtotal, bonusDiscount, total: Math.max(0, subtotal - Number(discount || 0) - bonusDiscount) }
   }
 
   const addServiceOrProduct = (itemType: "service" | "product", itemId: string) => {
@@ -620,6 +658,47 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
               )}
             />
 
+            {/* Loyalty Points Redemption */}
+            {loyaltyActive && (
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Gift className="h-4 w-4 text-amber-500" />
+                    <span className="font-medium">Списание бонусных баллов</span>
+                    <Badge variant="outline" className="ml-auto">
+                      Доступно: {ownerBonusPoints.toLocaleString('ru-RU')} баллов
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max={ownerBonusPoints}
+                      step={loyaltySettings?.minSpendIncrement || 100}
+                      value={bonusPointsToSpend}
+                      onChange={(e) => {
+                        const val = Math.min(parseInt(e.target.value) || 0, ownerBonusPoints)
+                        setBonusPointsToSpend(val)
+                      }}
+                      placeholder="0"
+                      className="w-36"
+                    />
+                    <span className="text-sm text-muted-foreground">баллов</span>
+                    {bonusPointsToSpend > 0 && (
+                      <span className="text-sm text-green-600 font-medium ml-auto">
+                        = -{(bonusPointsToSpend * parseFloat(loyaltySettings?.pointsValue || '1')).toLocaleString('ru-RU')} ₽
+                      </span>
+                    )}
+                    {bonusPointsToSpend > 0 && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setBonusPointsToSpend(0)}>
+                        Сбросить
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Totals Summary */}
             <Card className="bg-muted/50">
               <CardContent className="pt-4">
@@ -632,6 +711,15 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                     <span>Скидка:</span>
                     <span data-testid="text-discount">-{form.getValues("discount").toLocaleString('ru-RU')} ₽</span>
                   </div>
+                  {totals.bonusDiscount > 0 && (
+                    <div className="flex justify-between text-amber-600">
+                      <span className="flex items-center gap-1">
+                        <Gift className="h-3 w-3" />
+                        Бонусные баллы ({bonusPointsToSpend} бал.):
+                      </span>
+                      <span data-testid="text-bonus-discount">-{totals.bonusDiscount.toLocaleString('ru-RU')} ₽</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-lg font-bold border-t pt-2">
                     <span>Итого:</span>
                     <span data-testid="text-total">{totals.total.toLocaleString('ru-RU')} ₽</span>
