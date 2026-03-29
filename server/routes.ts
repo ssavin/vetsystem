@@ -2379,8 +2379,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const prevInvoice = await storage.getInvoice(req.params.id);
       if (!prevInvoice) return res.status(404).json({ error: "Счёт не найден" });
 
-      // Strip immutable fields: ownerId, tenantId, branchId cannot be changed via update
-      const { ownerId: _ignoreOwner, tenantId: _ignoreTenant, branchId: _ignoreBranch, ...updateData } = req.body;
+      // Strip immutable fields: ownerId, tenantId, branchId, bonusPointsUsed cannot be changed via update
+      // bonusPointsUsed is managed exclusively by /api/loyalty/spend to maintain loyalty tx consistency
+      const { ownerId: _ignoreOwner, tenantId: _ignoreTenant, branchId: _ignoreBranch, bonusPointsUsed: _ignoreBonusUsed, ...updateData } = req.body;
       const invoice = await storage.updateInvoice(req.params.id, updateData);
       
       // Auto-earn loyalty points when invoice status changes to 'paid'
@@ -11198,11 +11199,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Validate loyalty settings payload (ranges, types)
+  function validateLoyaltySettingsPayload(body: any): string | null {
+    const { earnRatePercent, maxSpendPercent, pointsValue, minBalanceToSpend } = body;
+    if (earnRatePercent !== undefined) {
+      const v = parseFloat(earnRatePercent);
+      if (!Number.isFinite(v) || v < 0 || v > 100) return "earnRatePercent должен быть от 0 до 100";
+    }
+    if (maxSpendPercent !== undefined) {
+      const v = parseFloat(maxSpendPercent);
+      if (!Number.isFinite(v) || v < 0 || v > 100) return "maxSpendPercent должен быть от 0 до 100";
+    }
+    if (pointsValue !== undefined) {
+      const v = parseFloat(pointsValue);
+      if (!Number.isFinite(v) || v <= 0) return "pointsValue должен быть положительным числом";
+    }
+    if (minBalanceToSpend !== undefined) {
+      const v = parseInt(minBalanceToSpend);
+      if (!Number.isFinite(v) || v < 0) return "minBalanceToSpend должен быть неотрицательным целым числом";
+    }
+    return null;
+  }
+
   // PUT /api/loyalty/settings — сохранить настройки
   app.put("/api/loyalty/settings", authenticateToken, requireRole('admin'), async (req, res) => {
     try {
       const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
       if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+      const validationError = validateLoyaltySettingsPayload(req.body);
+      if (validationError) return res.status(400).json({ error: validationError });
       const settings = await storage.upsertLoyaltySettings(tenantId, req.body);
       res.json(settings);
     } catch (error) {
@@ -11216,6 +11241,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const tenantId = (req as any).tenantId || (req as any).user?.tenantId;
       if (!tenantId) return res.status(403).json({ error: "Tenant не определён" });
+      const validationError = validateLoyaltySettingsPayload(req.body);
+      if (validationError) return res.status(400).json({ error: validationError });
       const settings = await storage.upsertLoyaltySettings(tenantId, req.body);
       res.json(settings);
     } catch (error) {

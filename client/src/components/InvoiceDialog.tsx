@@ -671,7 +671,7 @@ export default function InvoiceDialog({ children }: InvoiceDialogProps) {
                       type="number"
                       min="0"
                       max={ownerBonusPoints}
-                      step={loyaltySettings?.minSpendIncrement || 100}
+                      step={1}
                       value={bonusPointsToSpend}
                       onChange={(e) => {
                         const val = Math.min(parseInt(e.target.value) || 0, ownerBonusPoints)
