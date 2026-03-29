@@ -36,6 +36,7 @@ import { AIAssistantWidget } from "@/components/AIAssistantWidget"
 import { CallLogsWidget } from "@/components/CallLogsWidget"
 import { OwnerCardDialog } from "@/components/OwnerCardDialog"
 import { useLocation } from "wouter"
+import { useAuth } from "@/contexts/AuthContext"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { apiRequest, queryClient } from "@/lib/queryClient"
@@ -413,20 +414,17 @@ export default function Registry() {
     return () => clearTimeout(timer)
   }, [searchTerm])
   
-  // Get current user and branch info
-  const { data: authData } = useQuery<{ user: any, currentBranch: { id: string, name: string } | null }>({
-    queryKey: ['/api/auth/me'],
-  })
-  
+  // Get current branch directly from AuthContext (updates immediately on switchBranch)
+  const { currentBranch: authCurrentBranch } = useAuth()
+
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
 
-  // Set default branch to current user branch when loaded
+  // Sync selected branch whenever global branch changes
   useEffect(() => {
-    const branchId = authData?.currentBranch?.id
-    if (branchId && !selectedBranchId) {
-      setSelectedBranchId(branchId)
+    if (authCurrentBranch?.id) {
+      setSelectedBranchId(authCurrentBranch.id)
     }
-  }, [authData?.currentBranch?.id])
+  }, [authCurrentBranch?.id])
 
   // Handle patient edit - load full patient data
   useEffect(() => {
