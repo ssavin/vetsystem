@@ -1,0 +1,51 @@
+cd /var/www/vetsystem && git pull origin main && npm run build && \
+pm2 delete vetsystem && \
+PUPPETEER_EXECUTABLE_PATH="/root/.cache/puppeteer/chrome/linux-141.0.7390.54/chrome-linux64/chrome" \
+DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem" \
+SESSION_SECRET="vetsystem_secret_key_2024" \
+NODE_ENV=production HOME=/root \
+pm2 start dist/index.js --name vetsystem && \
+pm2 save
+From https://github.com/ssavin/vetsystem
+ * branch            main       -> FETCH_HEAD
+Already up to date.
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+vite v5.4.19 building for production...
+transforming (25) src/pages/Reports.tsx
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+✓ 3862 modules transformed.
+../dist/public/assets/favicon-CireZCZ5.ico                                  0.32 kB
+../dist/public/index.html                                                   2.52 kB │ gzip:   1.12 kB
+../dist/public/assets/kotenok_1767873477980-DEBbqJGe.jpg                  131.79 kB
+../dist/public/assets/logo_1759553178604-NzdhIcyc.png                     163.15 kB
+../dist/public/assets/veterinary_clinic_in_690194f4-C6PvmFPK.jpg          178.73 kB
+../dist/public/assets/generated-image-1_(2)_1767847944466-Cavxdj8G.jpg    214.09 kB
+../dist/public/assets/index-BWbQiSNZ.css                                  111.05 kB │ gzip:  17.28 kB
+../dist/public/assets/index-DDqMsgbv.js                                 2,989.75 kB │ gzip: 798.44 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 19.56s
+
+  dist/index.js  1.1mb ⚠️
+
+⚡ Done in 57ms
+[PM2] Applying action deleteProcessId on app [vetsystem](ids: [ 0 ])
+[PM2] [vetsystem](0) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[PM2] Starting /var/www/vetsystem/dist/index.js in fork_mode (1 instance)
+[PM2] Done.
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ vetsystem          │ fork     │ 0    │ online    │ 0%       │ 16.6mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
