@@ -32,6 +32,13 @@ export class DocumentService {
   private getChromiumPath(): string {
     const log = (msg: string) => console.log(`[ChromiumFinder] ${msg}`);
 
+    // 0. Use explicit env variable if set (highest priority)
+    const envPath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH;
+    if (envPath) {
+      log(`Using env path: ${envPath}`);
+      return envPath;
+    }
+
     // 1. Try `which <name>` for each candidate binary
     const candidates = ['google-chrome-stable', 'google-chrome', 'chromium-browser', 'chromium'];
     for (const name of candidates) {
