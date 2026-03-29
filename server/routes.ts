@@ -8700,7 +8700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // For patient-based templates, convert medical_record ID to patientId if needed
       let effectiveEntityId = entityId;
-      if (['service_agreement', 'hospitalization_agreement', 'informed_consent_general'].includes(templateType)) {
+      if (['service_agreement', 'hospitalization_agreement', 'informed_consent_general', 'informed_consent_surgery', 'informed_consent_anesthesia'].includes(templateType)) {
         // Try to interpret entityId as a medical record ID first
         try {
           const record = await storage.getMedicalRecord(entityId);
