@@ -391,7 +391,7 @@ export interface IStorage {
   createLabResultDetail(detail: InsertLabResultDetail): Promise<LabResultDetail>;
   updateLabResultDetail(id: string, detail: Partial<InsertLabResultDetail>): Promise<LabResultDetail>;
   deleteLabResultDetail(id: string): Promise<void>;
-  getLabResultsByParameter(parameterId: string): Promise<LabResultDetail[]>;
+  getLabResultsByParameter(parameterId: string, branchId?: string): Promise<LabResultDetail[]>;
 
   // Payment Intent methods
   createPaymentIntent(paymentIntent: {
@@ -3842,9 +3842,22 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getLabResultsByParameter(parameterId: string): Promise<LabResultDetail[]> {
+  async getLabResultsByParameter(parameterId: string, branchId?: string): Promise<LabResultDetail[]> {
     return withPerformanceLogging('getLabResultsByParameter', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
+        if (branchId) {
+          // Join with labOrders to enforce branch isolation
+          const results = await dbInstance
+            .select({ detail: labResultDetails })
+            .from(labResultDetails)
+            .innerJoin(labOrders, eq(labResultDetails.orderId, labOrders.id))
+            .where(and(
+              eq(labResultDetails.parameterId, parameterId),
+              eq(labOrders.branchId, branchId),
+            ))
+            .orderBy(desc(labResultDetails.createdAt));
+          return results.map(r => r.detail);
+        }
         return await dbInstance
           .select()
           .from(labResultDetails)

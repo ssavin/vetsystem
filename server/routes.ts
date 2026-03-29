@@ -4497,7 +4497,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/lab-result-details/parameter/:parameterId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
     try {
-      const details = await storage.getLabResultsByParameter(req.params.parameterId);
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const details = await storage.getLabResultsByParameter(req.params.parameterId, userBranchId);
       res.json(details);
     } catch (error) {
       console.error("Error fetching lab results by parameter:", error);
@@ -8771,6 +8773,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           html += signatureBlock;
         }
 
+        // Derive entityType from templateType for signature record
+        const signatureEntityType = (() => {
+          if (templateType === 'invoice') return 'invoice';
+          if (templateType === 'personal_data_consent') return 'owner';
+          return 'medical_record'; // encounter_summary, prescription, lab_results_report, informed_consent_*, service_agreement, hospitalization_agreement
+        })();
+
         // Save signature to DB asynchronously (non-blocking)
         try {
           const { db } = await import('./db');
@@ -8778,7 +8787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.insert(documentSignatures).values({
             tenantId,
             branchId: branchId ?? undefined,
-            entityType,
+            entityType: signatureEntityType,
             entityId,
             templateType,
             signatureData,
