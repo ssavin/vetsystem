@@ -1,0 +1,107 @@
+pm2 logs vetsystem --lines 50
+[TAILING] Tailing last 50 lines for [vetsystem] process (change the value with --lines option)
+/root/.pm2/logs/vetsystem-out.log last 50 lines:
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 19ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 3ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 17ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 18ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 8ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 15ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 14ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 16ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 9ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 2ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 12ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 10ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 13ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+0|vetsyste | ⚡ Query: expireOldQueueCalls completed in 11ms
+
+/root/.pm2/logs/vetsystem-error.log last 50 lines:
+0|vetsyste |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0|vetsyste |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+0|vetsyste |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+0|vetsyste |
+0|vetsyste | Node.js v20.19.6
+0|vetsyste | file:///var/www/vetsystem/dist/index.js:3720
+0|vetsyste |       throw new Error(
+0|vetsyste |             ^
+0|vetsyste |
+0|vetsyste | Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|vetsyste |     at server/db-local.ts (file:///var/www/vetsystem/dist/index.js:3720:13)
+0|vetsyste |     at __init (file:///var/www/vetsystem/dist/index.js:4:56)
+0|vetsyste |     at server/storage.ts (file:///var/www/vetsystem/dist/index.js:3831:5)
+0|vetsyste |     at __init (file:///var/www/vetsystem/dist/index.js:4:56)
+0|vetsyste |     at file:///var/www/vetsystem/dist/index.js:10972:1
+0|vetsyste |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0|vetsyste |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+0|vetsyste |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+0|vetsyste |
+0|vetsyste | Node.js v20.19.6
+0|vetsyste | file:///var/www/vetsystem/dist/index.js:3720
+0|vetsyste |       throw new Error(
+0|vetsyste |             ^
+0|vetsyste |
+0|vetsyste | Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|vetsyste |     at server/db-local.ts (file:///var/www/vetsystem/dist/index.js:3720:13)
+0|vetsyste |     at __init (file:///var/www/vetsystem/dist/index.js:4:56)
+0|vetsyste |     at server/storage.ts (file:///var/www/vetsystem/dist/index.js:3831:5)
+0|vetsyste |     at __init (file:///var/www/vetsystem/dist/index.js:4:56)
+0|vetsyste |     at file:///var/www/vetsystem/dist/index.js:10972:1
+0|vetsyste |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0|vetsyste |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+0|vetsyste |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+0|vetsyste |
+0|vetsyste | Node.js v20.19.6
+0|vetsyste | file:///var/www/vetsystem/dist/index.js:3720
+0|vetsyste |       throw new Error(
+0|vetsyste |             ^
+0|vetsyste |
+0|vetsyste | Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|vetsyste |     at server/db-local.ts (file:///var/www/vetsystem/dist/index.js:3720:13)
+0|vetsyste |     at __init (file:///var/www/vetsystem/dist/index.js:4:56)
+0|vetsyste |     at server/storage.ts (file:///var/www/vetsystem/dist/index.js:3831:5)
+0|vetsyste |     at __init (file:///var/www/vetsystem/dist/index.js:4:56)
+0|vetsyste |     at file:///var/www/vetsystem/dist/index.js:10972:1
+0|vetsyste |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0|vetsyste |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+0|vetsyste |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+0|vetsyste |
+0|vetsyste | Node.js v20.19.6
+
+
