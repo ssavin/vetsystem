@@ -3834,4 +3834,27 @@ export const insertLoyaltyTransactionSchema = createInsertSchema(loyaltyTransact
   createdAt: true,
 });
 export type LoyaltyTransaction = typeof loyaltyTransactions.$inferSelect;
-export type InsertLoyaltyTransaction = z.infer<typeof insertLoyaltyTransactionSchema>;
+
+// Электронные подписи к документам
+export const documentSignatures = pgTable('document_signatures', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar('tenant_id').notNull(),
+  branchId: varchar('branch_id'),
+  entityType: varchar('entity_type', { length: 50 }).notNull(), // 'medical_record' | 'invoice' | 'encounter' | 'owner'
+  entityId: varchar('entity_id').notNull(),
+  templateType: varchar('template_type', { length: 100 }).notNull(),
+  signatureData: text('signature_data').notNull(), // base64 PNG
+  signerName: varchar('signer_name', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdByUserId: varchar('created_by_user_id'),
+}, (table) => ({
+  tenantIdx: index('doc_signatures_tenant_idx').on(table.tenantId),
+  entityIdx: index('doc_signatures_entity_idx').on(table.entityType, table.entityId),
+}));
+
+export const insertDocumentSignatureSchema = createInsertSchema(documentSignatures).omit({
+  id: true,
+  createdAt: true,
+});
+export type DocumentSignature = typeof documentSignatures.$inferSelect;
+export type InsertDocumentSignature = z.infer<typeof insertDocumentSignatureSchema>;

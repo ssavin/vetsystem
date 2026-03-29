@@ -8639,7 +8639,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'hospitalization_agreement'
     ]),
     entityId: z.string().uuid(),
-    outputFormat: z.enum(['pdf', 'html']).default('pdf')
+    outputFormat: z.enum(['pdf', 'html']).default('pdf'),
+    signatureData: z.string().optional(), // base64 PNG
+    signerName: z.string().optional(),
   });
 
   // POST /api/documents/generate - Generate document (PDF or HTML) from template
@@ -8656,7 +8658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate request body
       const validatedData = generateDocumentSchema.parse(req.body);
-      const { templateType, entityId, outputFormat } = validatedData;
+      const { templateType, entityId, outputFormat, signatureData, signerName } = validatedData;
 
       // Build context based on template type with tenant/branch validation
       let context: any;
@@ -8727,7 +8729,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Render HTML from template
-      const html = await documentService.renderTemplate(templateType, tenantId, context);
+      let html = await documentService.renderTemplate(templateType, tenantId, context);
+
+      // Inject client signature into HTML if provided
+      if (signatureData) {
+        const signatureBlock = `
+          <div style="margin-top: 40px; border-top: 1px solid #ccc; padding-top: 20px; page-break-inside: avoid;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="width: 50%; padding-right: 20px; vertical-align: bottom;">
+                  <p style="margin: 0 0 4px 0; font-size: 12px; color: #555;">Подпись клиента:</p>
+                  <img src="${signatureData}" alt="Подпись клиента" style="max-width: 240px; height: 80px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; background: #fff;" />
+                  ${signerName ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: #333;">${signerName}</p>` : ''}
+                </td>
+                <td style="width: 50%; vertical-align: bottom; text-align: right;">
+                  <p style="margin: 0; font-size: 12px; color: #555;">Дата: ${new Date().toLocaleDateString('ru-RU')}</p>
+                </td>
+              </tr>
+            </table>
+          </div>`;
+
+        // Insert before closing </body> tag, or append if not found
+        if (html.includes('</body>')) {
+          html = html.replace('</body>', `${signatureBlock}</body>`);
+        } else {
+          html += signatureBlock;
+        }
+
+        // Save signature to DB asynchronously (non-blocking)
+        try {
+          const { db } = await import('./db');
+          const { documentSignatures } = await import('../shared/schema');
+          await db.insert(documentSignatures).values({
+            tenantId,
+            branchId: branchId ?? undefined,
+            entityType,
+            entityId,
+            templateType,
+            signatureData,
+            signerName: signerName ?? undefined,
+            createdByUserId: user.id,
+          });
+        } catch (sigErr) {
+          console.error('[DocumentSign] Failed to save signature record:', sigErr);
+        }
+      }
 
       if (outputFormat === 'html') {
         // Return HTML directly
