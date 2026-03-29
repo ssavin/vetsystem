@@ -577,9 +577,9 @@ async function migrateInvoices(
       const branchId = branchMap.get(parseInt(r.clinic_id)) || DEFAULT_BRANCH_ID;
       const issueDate = safeDt(r.datetime_create) || new Date();
       const paidDate  = safeDt(r.datetime_tax);
-      const total     = parseFloat(r.price_to_pay) || parseFloat(r.price_sum) || 0;
+      const total     = Math.max(0, parseFloat(r.price_to_pay) || parseFloat(r.price_sum) || 0);
       const discount  = parseFloat(r.price_discount) || 0;
-      const subtotal  = total + discount;
+      const subtotal  = Math.max(0, total + discount); // защита от отрицательных значений
 
       // status: 0=draft, 1=paid, 2=cancelled
       const statusMap: Record<number, string> = { 0: 'draft', 1: 'paid', 2: 'cancelled' };
@@ -677,7 +677,7 @@ async function migrateInvoices(
           ON CONFLICT DO NOTHING
         `, [
           uuid(), invoiceId, itemType, itemKey,
-          truncate(r.item_name, 500) || 'Услуга/Товар',
+          truncate(r.item_name, 255) || 'Услуга/Товар',
           qty, price, total, vatRate
         ]);
         doneItems.add(itemKey);
