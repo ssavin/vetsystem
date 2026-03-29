@@ -7147,10 +7147,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Marketing Campaigns
-  async getMarketingCampaigns(filters?: { status?: string; channel?: string }): Promise<MarketingCampaign[]> {
+  async getMarketingCampaigns(filters?: { status?: string; channel?: string; tenantId?: string }): Promise<MarketingCampaign[]> {
     return withPerformanceLogging('getMarketingCampaigns', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        const conditions = [];
+        const conditions: any[] = [];
+        if (filters?.tenantId) conditions.push(eq(marketingCampaigns.tenantId, filters.tenantId));
         if (filters?.status) conditions.push(eq(marketingCampaigns.status, filters.status));
         if (filters?.channel) conditions.push(eq(marketingCampaigns.channel, filters.channel));
 
@@ -7163,13 +7164,15 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getMarketingCampaign(id: string): Promise<MarketingCampaign | undefined> {
+  async getMarketingCampaign(id: string, tenantId?: string): Promise<MarketingCampaign | undefined> {
     return withPerformanceLogging('getMarketingCampaign', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
+        const conditions: any[] = [eq(marketingCampaigns.id, id)];
+        if (tenantId) conditions.push(eq(marketingCampaigns.tenantId, tenantId));
         const [campaign] = await dbInstance
           .select()
           .from(marketingCampaigns)
-          .where(eq(marketingCampaigns.id, id));
+          .where(and(...conditions));
         return campaign;
       });
     });

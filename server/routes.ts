@@ -10802,15 +10802,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = Math.min(req.query.limit ? parseInt(req.query.limit as string) : 50, 100);
       const offset = (page - 1) * limit;
 
-      // Recalculate segments for this tenant before returning data (ensures consistent first render)
-      if (user.tenantId) {
-        try {
-          await storage.recalculateOwnerSegments(user.tenantId);
-        } catch (err: any) {
-          console.error('[CRM] Segment recalculation error:', err.message);
-        }
-      }
-
       const result = await storage.getCrmOwners({
         tenantId: user.tenantId,
         segment,
@@ -10949,7 +10940,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Marketing Campaigns
   app.get("/api/crm/campaigns", authenticateToken, async (req, res) => {
     try {
-      const filters: any = {};
+      const user = (req as any).user;
+      const filters: any = { tenantId: user.tenantId };
       if (req.query.status) filters.status = req.query.status;
       if (req.query.channel) filters.channel = req.query.channel;
       const campaigns = await storage.getMarketingCampaigns(filters);
@@ -10962,7 +10954,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/crm/campaigns/:id", authenticateToken, async (req, res) => {
     try {
-      const campaign = await storage.getMarketingCampaign(req.params.id);
+      const user = (req as any).user;
+      const campaign = await storage.getMarketingCampaign(req.params.id, user.tenantId);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
@@ -11013,7 +11006,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
         return res.status(403).json({ error: 'Access denied' });
       }
+      // Enforce same status whitelist as PATCH
+      const allowedStatuses = ['draft', 'scheduled', 'sent', 'cancelled'];
+      if (req.body.status && !allowedStatuses.includes(req.body.status)) {
+        return res.status(400).json({ error: `status must be one of: ${allowedStatuses.join(', ')}` });
+      }
       const campaign = await storage.updateMarketingCampaign(req.params.id, req.body, user.tenantId);
+      if (!campaign) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
       res.json(campaign);
     } catch (error: any) {
       console.error("Error updating campaign:", error);
