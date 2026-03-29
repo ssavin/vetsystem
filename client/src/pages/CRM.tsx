@@ -223,7 +223,7 @@ function OwnersTab() {
       const res = await apiRequest('POST', '/api/crm/segments/recalculate')
       return res.json()
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: { updated: number }) => {
       toast({ title: "Сегменты обновлены", description: `Обновлено клиентов: ${data.updated}` })
       queryClient.invalidateQueries({ queryKey: ['/api/crm/owners'] })
       queryClient.invalidateQueries({ queryKey: ['/api/crm/stats'] })
