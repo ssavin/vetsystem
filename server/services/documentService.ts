@@ -397,12 +397,16 @@ export class DocumentService {
     try {
       // Get system Chromium path
       const chromiumPath = this.getChromiumPath();
-      console.log(`[PDF] Using Chrome: ${chromiumPath}`);
+      // Always prefer explicit env var over search result (belt-and-suspenders)
+      const finalChromePath = process.env.PUPPETEER_EXECUTABLE_PATH
+        || process.env.CHROME_PATH
+        || chromiumPath;
+      console.log(`[PDF] Using Chrome: ${finalChromePath}`);
       
       // Launch headless browser with system Chromium
       browser = await puppeteer.launch({
         headless: true,
-        executablePath: chromiumPath,
+        executablePath: finalChromePath,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
