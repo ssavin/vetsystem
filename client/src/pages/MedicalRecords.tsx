@@ -343,6 +343,7 @@ interface QuickCreateLabFormData {
   studyId: string
   urgency: string
   notes: string
+  medicalRecordId: string
 }
 
 // Inline create lab order dialog used from MedicalRecords
@@ -350,14 +351,25 @@ function QuickCreateLabOrderDialog({ open, onClose, patientId }: { open: boolean
   const { toast } = useToast()
   const { data: doctors = [] } = useQuery<Doctor[]>({ queryKey: ["/api/doctors"] })
   const { data: labStudies = [] } = useQuery<LabStudyInfo[]>({ queryKey: ["/api/lab-studies"] })
+  const { data: patientRecords = [] } = useQuery<MedicalRecord[]>({
+    queryKey: ["/api/medical-records", patientId],
+    queryFn: async () => {
+      if (!patientId) return []
+      const res = await fetch(`/api/medical-records?patientId=${patientId}&limit=20`, { credentials: "include" })
+      return res.ok ? res.json() : []
+    },
+    enabled: !!patientId && open,
+  })
 
   const form = useForm<QuickCreateLabFormData>({
-    defaultValues: { doctorId: "", studyId: "", urgency: "routine", notes: "" },
+    defaultValues: { doctorId: "", studyId: "", urgency: "routine", notes: "", medicalRecordId: "" },
   })
 
   const createMutation = useMutation({
     mutationFn: async (data: QuickCreateLabFormData) => {
-      const payload = { ...data, patientId, orderedDate: new Date().toISOString() }
+      const payload: Record<string, unknown> = { ...data, patientId, orderedDate: new Date().toISOString() }
+      // Only include medicalRecordId if explicitly selected
+      if (!data.medicalRecordId) delete payload.medicalRecordId
       const res = await apiRequest("POST", "/api/lab-orders", payload)
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -418,6 +430,22 @@ function QuickCreateLabOrderDialog({ open, onClose, patientId }: { open: boolean
               </SelectContent>
             </Select>
           </div>
+          {patientRecords.length > 0 && (
+            <div>
+              <label className="text-sm font-medium">Привязать к визиту (необязательно)</label>
+              <Select onValueChange={(v) => form.setValue("medicalRecordId", v === "__none__" ? "" : v)} value={form.watch("medicalRecordId") || "__none__"}>
+                <SelectTrigger><SelectValue placeholder="Без привязки к визиту" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Без привязки к визиту</SelectItem>
+                  {patientRecords.slice(0, 20).map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.visitDate ? new Date(r.visitDate).toLocaleDateString("ru-RU") : "—"}{r.chiefComplaint ? ` — ${String(r.chiefComplaint).slice(0, 40)}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <label className="text-sm font-medium">Примечания</label>
             <Textarea placeholder="..." rows={2} {...form.register("notes")} />

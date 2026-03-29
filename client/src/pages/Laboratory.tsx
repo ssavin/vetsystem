@@ -54,6 +54,9 @@ import {
   AlertTriangle,
   X,
   Edit,
+  Settings,
+  Trash2,
+  FlaskConical,
 } from "lucide-react"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
@@ -929,9 +932,331 @@ function StudyDialog({ study, onClose }: StudyDialogProps) {
   )
 }
 
+// ─── Parameter + ReferenceRange management dialog ────────────────────────────
+
+const parameterFormSchema = z.object({
+  name: z.string().min(1, "Название обязательно"),
+  unit: z.string().optional(),
+  dataType: z.enum(["numeric", "text", "boolean"]).default("numeric"),
+})
+
+type ParameterFormData = z.infer<typeof parameterFormSchema>
+
+const refRangeFormSchema = z.object({
+  species: z.string().min(1, "Вид обязателен"),
+  breed: z.string().optional(),
+  rangeMin: z.string().optional(),
+  rangeMax: z.string().optional(),
+  criticalMin: z.string().optional(),
+  criticalMax: z.string().optional(),
+})
+
+type RefRangeFormData = z.infer<typeof refRangeFormSchema>
+
+function LabParamForm({ param, studyId, onDone }: { param: LabParameter | null; studyId: string; onDone: () => void }) {
+  const { toast } = useToast()
+  const form = useForm<ParameterFormData>({
+    resolver: zodResolver(parameterFormSchema),
+    defaultValues: {
+      name: param?.name ?? "",
+      unit: param?.unit ?? "",
+      dataType: (param?.dataType as "numeric" | "text" | "boolean") ?? "numeric",
+    },
+  })
+  const saveMutation = useMutation({
+    mutationFn: async (data: ParameterFormData) => {
+      const payload = { ...data, studyId, isActive: true }
+      const res = param
+        ? await apiRequest("PUT", `/api/lab-parameters/${param.id}`, payload)
+        : await apiRequest("POST", "/api/lab-parameters", payload)
+      if (!res.ok) throw new Error("Ошибка сохранения")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lab-parameters", studyId] })
+      toast({ title: param ? "Параметр обновлён" : "Параметр добавлен" })
+      onDone()
+    },
+    onError: (e: Error) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  })
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit((d) => saveMutation.mutate(d))} className="space-y-3">
+        <FormField control={form.control} name="name" render={({ field }) => (
+          <FormItem><FormLabel>Название *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+        <div className="grid grid-cols-2 gap-3">
+          <FormField control={form.control} name="unit" render={({ field }) => (
+            <FormItem><FormLabel>Единица</FormLabel><FormControl><Input placeholder="мг/дл, МЕ/л..." {...field} /></FormControl></FormItem>
+          )} />
+          <FormField control={form.control} name="dataType" render={({ field }) => (
+            <FormItem><FormLabel>Тип данных</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                <SelectContent>
+                  <SelectItem value="numeric">Числовой</SelectItem>
+                  <SelectItem value="text">Текстовый</SelectItem>
+                  <SelectItem value="boolean">Да/Нет</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )} />
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onDone}>Отмена</Button>
+          <Button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? "..." : "Сохранить"}</Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  )
+}
+
+function LabRangeForm({ range, parameterId, studyId, onDone }: { range: ReferenceRange | null; parameterId: string; studyId: string; onDone: () => void }) {
+  const { toast } = useToast()
+  const form = useForm<RefRangeFormData>({
+    resolver: zodResolver(refRangeFormSchema),
+    defaultValues: {
+      species: range?.species ?? "",
+      breed: range?.breed ?? "",
+      rangeMin: range?.rangeMin != null ? String(range.rangeMin) : "",
+      rangeMax: range?.rangeMax != null ? String(range.rangeMax) : "",
+      criticalMin: range?.criticalMin != null ? String(range.criticalMin) : "",
+      criticalMax: range?.criticalMax != null ? String(range.criticalMax) : "",
+    },
+  })
+  const saveMutation = useMutation({
+    mutationFn: async (data: RefRangeFormData) => {
+      const payload = {
+        parameterId,
+        species: data.species,
+        breed: data.breed || null,
+        rangeMin: data.rangeMin || null,
+        rangeMax: data.rangeMax || null,
+        criticalMin: data.criticalMin || null,
+        criticalMax: data.criticalMax || null,
+      }
+      const res = range
+        ? await apiRequest("PUT", `/api/reference-ranges/${range.id}`, payload)
+        : await apiRequest("POST", "/api/reference-ranges", payload)
+      if (!res.ok) throw new Error("Ошибка")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reference-ranges", "study", studyId] })
+      toast({ title: range ? "Диапазон обновлён" : "Диапазон добавлен" })
+      onDone()
+    },
+    onError: (e: Error) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  })
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit((d) => saveMutation.mutate(d))} className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <FormField control={form.control} name="species" render={({ field }) => (
+            <FormItem><FormLabel>Вид *</FormLabel><FormControl><Input placeholder="кошка, собака..." {...field} /></FormControl><FormMessage /></FormItem>
+          )} />
+          <FormField control={form.control} name="breed" render={({ field }) => (
+            <FormItem><FormLabel>Порода</FormLabel><FormControl><Input placeholder="любая" {...field} /></FormControl></FormItem>
+          )} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField control={form.control} name="rangeMin" render={({ field }) => (
+            <FormItem><FormLabel>Норма мин.</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>
+          )} />
+          <FormField control={form.control} name="rangeMax" render={({ field }) => (
+            <FormItem><FormLabel>Норма макс.</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>
+          )} />
+          <FormField control={form.control} name="criticalMin" render={({ field }) => (
+            <FormItem><FormLabel>Крит. мин.</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>
+          )} />
+          <FormField control={form.control} name="criticalMax" render={({ field }) => (
+            <FormItem><FormLabel>Крит. макс.</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>
+          )} />
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onDone}>Отмена</Button>
+          <Button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? "..." : "Сохранить"}</Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  )
+}
+
+function StudyParametersDialog({ study, onClose }: { study: Record<string, unknown>; onClose: () => void }) {
+  const { toast } = useToast()
+  const [editingParam, setEditingParam] = useState<LabParameter | null | "new">(null)
+  const [editingRange, setEditingRange] = useState<{ range: ReferenceRange | null; parameterId: string } | null>(null)
+
+  const { data: parameters = [] } = useQuery<LabParameter[]>({
+    queryKey: ["/api/lab-parameters", study.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/lab-parameters?studyId=${study.id}`, { credentials: "include" })
+      return res.ok ? res.json() : []
+    },
+  })
+
+  const { data: allRanges = [] } = useQuery<ReferenceRange[]>({
+    queryKey: ["/api/reference-ranges", "study", study.id],
+    queryFn: async () => {
+      if (parameters.length === 0) return []
+      const results = await Promise.all(
+        parameters.map((p) =>
+          fetch(`/api/reference-ranges?parameterId=${p.id}`, { credentials: "include" })
+            .then((r) => r.ok ? r.json() as Promise<ReferenceRange[]> : [] as ReferenceRange[])
+        )
+      )
+      return results.flat()
+    },
+    enabled: parameters.length > 0,
+  })
+
+  const rangesForParam = (parameterId: string) => allRanges.filter((r) => r.parameterId === parameterId)
+
+  const deleteParamMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/lab-parameters/${id}`)
+      if (!res.ok) throw new Error("Ошибка удаления")
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/lab-parameters", study.id] }),
+    onError: () => toast({ title: "Ошибка", variant: "destructive" }),
+  })
+
+  const deleteRangeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/reference-ranges/${id}`)
+      if (!res.ok) throw new Error("Ошибка удаления")
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/reference-ranges", "study", study.id] }),
+    onError: () => toast({ title: "Ошибка", variant: "destructive" }),
+  })
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-[680px] max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FlaskConical className="h-5 w-5 text-primary" />
+            Параметры: {study.name as string}
+          </DialogTitle>
+        </DialogHeader>
+
+        {editingParam ? (
+          <div className="flex-1 overflow-y-auto">
+            <h4 className="text-sm font-medium mb-3">
+              {editingParam === "new" ? "Новый параметр" : "Редактировать параметр"}
+            </h4>
+            <LabParamForm
+              param={editingParam === "new" ? null : editingParam}
+              studyId={study.id as string}
+              onDone={() => setEditingParam(null)}
+            />
+          </div>
+        ) : editingRange ? (
+          <div className="flex-1 overflow-y-auto">
+            <h4 className="text-sm font-medium mb-3">
+              {editingRange.range ? "Редактировать диапазон" : "Новый референсный диапазон"}
+            </h4>
+            <LabRangeForm
+              range={editingRange.range}
+              parameterId={editingRange.parameterId}
+              studyId={study.id as string}
+              onDone={() => setEditingRange(null)}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto space-y-4">
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => setEditingParam("new")} className="gap-1">
+                <Plus className="h-4 w-4" />
+                Добавить параметр
+              </Button>
+            </div>
+
+            {parameters.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground text-sm">
+                Параметры не добавлены. Нажмите «Добавить параметр».
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {parameters.map((param) => (
+                  <Card key={param.id}>
+                    <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-sm font-semibold">{param.name}</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          {param.unit ? `Ед.: ${param.unit}` : "Без единицы"} · {param.dataType === "numeric" ? "числовой" : param.dataType === "text" ? "текстовый" : "да/нет"}
+                        </p>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <Button size="icon" variant="ghost" onClick={() => setEditingParam(param)} title="Редактировать">
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => deleteParamMutation.mutate(param.id)} title="Удалить">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Референсные диапазоны</p>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingRange({ range: null, parameterId: param.id })} className="gap-1 text-xs h-6">
+                          <Plus className="h-3 w-3" />
+                          Добавить
+                        </Button>
+                      </div>
+                      {rangesForParam(param.id).length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">Диапазоны не заданы</p>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Вид / Порода</TableHead>
+                              <TableHead className="text-xs">Норма</TableHead>
+                              <TableHead className="text-xs">Крит.</TableHead>
+                              <TableHead className="text-xs"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {rangesForParam(param.id).map((r) => (
+                              <TableRow key={r.id}>
+                                <TableCell className="text-xs">{r.species}{r.breed ? ` / ${r.breed}` : ""}</TableCell>
+                                <TableCell className="text-xs">{formatReferenceRange(r)}</TableCell>
+                                <TableCell className="text-xs">
+                                  {(r.criticalMin != null || r.criticalMax != null)
+                                    ? `${r.criticalMin ?? "—"} – ${r.criticalMax ?? "—"}`
+                                    : "—"}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  <div className="flex gap-0.5">
+                                    <Button size="icon" variant="ghost" onClick={() => setEditingRange({ range: r, parameterId: param.id })}>
+                                      <Edit className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" onClick={() => deleteRangeMutation.mutate(r.id)}>
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function StudiesTab({ searchTerm }: { searchTerm: string }) {
   const { toast } = useToast()
   const [dialogStudy, setDialogStudy] = useState<Record<string, unknown> | null | "new">(null)
+  const [paramsStudy, setParamsStudy] = useState<Record<string, unknown> | null>(null)
 
   const { data: labStudies = [], isLoading } = useQuery({ queryKey: ["/api/lab-studies"] })
 
@@ -1026,6 +1351,14 @@ function StudiesTab({ searchTerm }: { searchTerm: string }) {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => setParamsStudy(s)}
+                          title="Параметры и диапазоны"
+                        >
+                          <Settings className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => setDialogStudy(s)}
                           title="Редактировать"
                         >
@@ -1054,6 +1387,13 @@ function StudiesTab({ searchTerm }: { searchTerm: string }) {
         <StudyDialog
           study={dialogStudy === "new" ? null : dialogStudy}
           onClose={() => setDialogStudy(null)}
+        />
+      )}
+
+      {paramsStudy && (
+        <StudyParametersDialog
+          study={paramsStudy}
+          onClose={() => setParamsStudy(null)}
         />
       )}
     </div>

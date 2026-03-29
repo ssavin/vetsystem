@@ -4291,6 +4291,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // REST path aliases: /api/lab/orders and /api/lab/studies
+  // These forward to the existing kebab-case handlers for contract compatibility
+  app.use("/api/lab/orders", (req, res, next) => {
+    req.url = req.url === "/" ? "" : req.url;
+    req.originalUrl = req.originalUrl.replace("/api/lab/orders", "/api/lab-orders");
+    res.redirect(307, req.originalUrl);
+  });
+  app.use("/api/lab/studies", (req, res, next) => {
+    req.url = req.url === "/" ? "" : req.url;
+    req.originalUrl = req.originalUrl.replace("/api/lab/studies", "/api/lab-studies");
+    res.redirect(307, req.originalUrl);
+  });
+
   // LAB ORDERS ROUTES
   app.get("/api/lab-orders", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
     try {
