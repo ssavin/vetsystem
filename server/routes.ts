@@ -10830,10 +10830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/crm/stats", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
-      // Auto-recalculate segments before computing stats (skips manual overrides)
-      await storage.recalculateOwnerSegments(user.tenantId).catch((err: any) =>
-        console.error('[CRM] auto-recalculate segments failed:', err.message)
-      );
+      // No recalculation here — GET /api/crm/owners already handles recalc on page load
       const stats = await storage.getCrmStats(user.tenantId);
       res.json(stats);
     } catch (error: any) {
@@ -11001,6 +10998,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: `status must be one of: ${allowedStatuses.join(', ')}` });
       }
       const campaign = await storage.updateMarketingCampaign(req.params.id, req.body, user.tenantId);
+      if (!campaign) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
       res.json(campaign);
     } catch (error: any) {
       console.error("Error updating campaign:", error);
