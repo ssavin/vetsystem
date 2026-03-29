@@ -567,7 +567,9 @@ async function migrateInvoices(
       const invNum = `VT-${r.id}`;
       if (done.has(invNum)) { S.invoices.skipped++; continue; }
 
-      const patId    = patientMap.get(parseInt(r.patient_id)) || null;
+      const patId    = r.patient_id ? patientMap.get(parseInt(r.patient_id)) || null : null;
+      if (!patId) { S.invoices.skipped++; continue; } // patient_id NOT NULL
+
       const branchId = branchMap.get(parseInt(r.clinic_id)) || DEFAULT_BRANCH_ID;
       const issueDate = safeDt(r.datetime_create) || new Date();
       const paidDate  = safeDt(r.datetime_tax);
@@ -655,9 +657,11 @@ async function migrateInvoices(
       const invoiceId = invoiceIdMap.get(parseInt(r.account_header_id));
       if (!invoiceId) { S.inv_items.skipped++; continue; }
 
-      const qty   = parseFloat(r.sold_amount) || 1;
+      // quantity — INTEGER в БД, Vetais хранит дробные (0.5, 0.9) → округляем вверх, минимум 1
+      const qtyRaw = parseFloat(r.sold_amount) || 1;
+      const qty   = Math.max(1, Math.ceil(qtyRaw));
       const price = parseFloat(r.sale_price)  || 0;
-      const total = parseFloat(r.sum_with_vat) || (qty * price);
+      const total = parseFloat(r.sum_with_vat) || (qtyRaw * price);
       const vatRate = r.vat_sale_perc ? `${r.vat_sale_perc}%` : '0%';
       // item_type_id: 1=услуга, 2=товар
       const itemType = parseInt(r.item_type_id) === 2 ? 'product' : 'service';
