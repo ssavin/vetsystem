@@ -2416,6 +2416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Auto-earn loyalty points when invoice status changes to 'paid'
       // Use prevInvoice.ownerId (immutable, pre-update) to prevent ownerId manipulation
+      // Use post-update invoice.total so same-request total changes are reflected in earn amount
       if (req.body.status === 'paid' && prevInvoice.status !== 'paid' && prevInvoice.ownerId) {
         try {
           const tenantId = user?.tenantId || (req as any).tenantId;
@@ -2426,7 +2427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               tenantId,
               branchId,
               invoiceId: prevInvoice.id,
-              invoiceTotal: parseFloat(prevInvoice.total),  // use pre-update total for correct earn amount
+              invoiceTotal: parseFloat(String(invoice?.total ?? prevInvoice.total)),
             });
           }
         } catch (loyaltyError) {
