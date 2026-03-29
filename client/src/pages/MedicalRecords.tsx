@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Plus, Filter, Calendar, Brain, X, FileText, Edit, FileCheck } from "lucide-react"
+import { Search, Plus, Filter, Calendar, Brain, X, FileText, Edit, FileCheck, Microscope, ChevronRight, Printer } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import MedicalRecordCard from "@/components/MedicalRecordCard"
 import MedicalRecordForm from "@/components/MedicalRecordForm"
@@ -35,6 +35,113 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: "Ожидает",
+  sample_taken: "Забор взят",
+  in_progress: "В работе",
+  completed: "Готов",
+  cancelled: "Отменён",
+}
+
+const ORDER_STATUS_BADGE: Record<string, "secondary" | "default" | "destructive" | "outline"> = {
+  pending: "secondary",
+  sample_taken: "outline",
+  in_progress: "default",
+  completed: "default",
+  cancelled: "destructive",
+}
+
+// Mini lab orders panel shown when a patient is selected
+function PatientLabOrdersPanel({ patientId, onCreateOrder }: { patientId: string; onCreateOrder: () => void }) {
+  const { data: rawOrders = [], isLoading } = useQuery({
+    queryKey: ["/api/lab-orders/patient", patientId],
+    queryFn: async () => {
+      const res = await fetch(`/api/lab-orders/patient/${patientId}`, { credentials: "include" })
+      if (!res.ok) return []
+      return res.json()
+    },
+    enabled: !!patientId,
+  })
+
+  const { data: labStudies = [] } = useQuery({ queryKey: ["/api/lab-studies"] })
+
+  const studyMap = useMemo(() => {
+    const m: Record<string, any> = {}
+    ;(labStudies as any[]).forEach((s: any) => { m[s.id] = s })
+    return m
+  }, [labStudies])
+
+  const orders = useMemo(() => {
+    return (rawOrders as any[]).map((row: any) => (row.lab_orders ? row.lab_orders : row))
+  }, [rawOrders])
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Microscope className="h-4 w-4 text-primary" />
+            Лабораторные анализы
+          </CardTitle>
+          <Button size="sm" variant="outline" onClick={onCreateOrder} className="gap-1">
+            <Plus className="h-3 w-3" />
+            Назначить анализ
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+          </div>
+        ) : orders.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Анализы не назначались</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Номер</TableHead>
+                <TableHead>Исследование</TableHead>
+                <TableHead>Дата</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orders.map((o: any) => (
+                <TableRow key={o.id} className="text-sm">
+                  <TableCell className="font-mono">{o.orderNumber}</TableCell>
+                  <TableCell>{studyMap[o.studyId]?.name ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {o.orderedDate ? format(new Date(o.orderedDate), "dd.MM.yyyy", { locale: ru }) : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={ORDER_STATUS_BADGE[o.status ?? "pending"] ?? "outline"}>
+                      {ORDER_STATUS_LABELS[o.status ?? "pending"] ?? o.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {o.status === "completed" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => window.open(`/api/lab-orders/${o.id}/print`, "_blank")}
+                        title="Распечатать результаты"
+                      >
+                        <Printer className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 // Table row component for medical records
 function MedicalRecordTableRow({ record }: { record: any }) {
@@ -210,6 +317,95 @@ function MedicalRecordTableRow({ record }: { record: any }) {
   )
 }
 
+// Inline create lab order dialog used from MedicalRecords
+function QuickCreateLabOrderDialog({ open, onClose, patientId }: { open: boolean; onClose: () => void; patientId: string | null }) {
+  const { toast } = useToast()
+  const { data: doctors = [] } = useQuery<any[]>({ queryKey: ["/api/doctors"] })
+  const { data: labStudies = [] } = useQuery({ queryKey: ["/api/lab-studies"] })
+
+  const form = useForm({
+    defaultValues: { doctorId: "", studyId: "", urgency: "routine", notes: "" },
+  })
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const payload = { ...data, patientId, orderedDate: new Date().toISOString() }
+      const res = await apiRequest("POST", "/api/lab-orders", payload)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Ошибка создания заказа")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lab-orders"] })
+      if (patientId) queryClient.invalidateQueries({ queryKey: ["/api/lab-orders/patient", patientId] })
+      toast({ title: "Анализ назначен" })
+      form.reset()
+      onClose()
+    },
+    onError: (e: Error) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Microscope className="h-5 w-5 text-primary" />
+            Назначить анализ
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-3">
+          <div>
+            <label className="text-sm font-medium">Врач *</label>
+            <Select onValueChange={(v) => form.setValue("doctorId", v)} value={form.watch("doctorId")}>
+              <SelectTrigger><SelectValue placeholder="Выберите врача" /></SelectTrigger>
+              <SelectContent>
+                {(doctors as any[]).map((d: any) => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Исследование *</label>
+            <Select onValueChange={(v) => form.setValue("studyId", v)} value={form.watch("studyId")}>
+              <SelectTrigger><SelectValue placeholder="Выберите исследование" /></SelectTrigger>
+              <SelectContent>
+                {(labStudies as any[]).filter((s: any) => s.isActive !== false).map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Срочность</label>
+            <Select onValueChange={(v) => form.setValue("urgency", v)} value={form.watch("urgency")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="routine">Плановый</SelectItem>
+                <SelectItem value="urgent">Срочный</SelectItem>
+                <SelectItem value="stat">Немедленно</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Примечания</label>
+            <Textarea placeholder="..." rows={2} {...form.register("notes")} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Отмена</Button>
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "..." : "Назначить"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function MedicalRecords() {
   const { t } = useTranslation('medicalRecords')
   const [searchTerm, setSearchTerm] = useState("")
@@ -219,6 +415,7 @@ export default function MedicalRecords() {
   const [page, setPage] = useState(0)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [autoOpenTriggered, setAutoOpenTriggered] = useState(false)
+  const [createLabOrderOpen, setCreateLabOrderOpen] = useState(false)
   const pageSize = 50
   const { toast } = useToast()
   
@@ -491,6 +688,14 @@ export default function MedicalRecords() {
             Очистить все
           </Button>
         </div>
+      )}
+
+      {/* Lab orders panel shown when a patient filter is active */}
+      {selectedPatientId && (
+        <PatientLabOrdersPanel
+          patientId={selectedPatientId}
+          onCreateOrder={() => setCreateLabOrderOpen(true)}
+        />
       )}
 
       <Card>
@@ -768,6 +973,13 @@ export default function MedicalRecords() {
 
       {/* AI Assistant for voice-activated medical record input */}
       <AIAssistantWidget role="doctor" />
+
+      {/* Quick create lab order dialog */}
+      <QuickCreateLabOrderDialog
+        open={createLabOrderOpen}
+        onClose={() => setCreateLabOrderOpen(false)}
+        patientId={selectedPatientId}
+      />
     </div>
   )
 }

@@ -4306,6 +4306,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Specific sub-routes must come BEFORE generic /:id to prevent route shadowing
+  app.get("/api/lab-orders/doctor/:doctorId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const orders = await storage.getLabOrdersByDoctor(req.params.doctorId, userBranchId);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching lab orders by doctor:", error);
+      res.status(500).json({ error: "Failed to fetch lab orders by doctor" });
+    }
+  });
+
+  app.get("/api/lab-orders/appointment/:appointmentId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const orders = await storage.getLabOrdersByAppointment(req.params.appointmentId, userBranchId);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching lab orders by appointment:", error);
+      res.status(500).json({ error: "Failed to fetch lab orders by appointment" });
+    }
+  });
+
+  app.get("/api/lab-orders/patient/:patientId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const orders = await storage.getLabOrders(req.params.patientId, undefined, userBranchId);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching lab orders by patient:", error);
+      res.status(500).json({ error: "Failed to fetch lab orders by patient" });
+    }
+  });
+
   app.get("/api/lab-orders/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
     try {
       const order = await storage.getLabOrder(req.params.id);
@@ -4319,35 +4356,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/lab-orders/doctor/:doctorId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
-    try {
-      const user = (req as any).user;
-      const userBranchId = requireValidBranchId(req, res);
-      if (!userBranchId) return;
-      const orders = await storage.getLabOrdersByDoctor(req.params.doctorId, userBranchId);
-      res.json(orders);
-    } catch (error) {
-      console.error("Error fetching lab orders by doctor:", error);
-      res.status(500).json({ error: "Failed to fetch lab orders by doctor" });
-    }
-  });
-
-  app.get("/api/lab-orders/appointment/:appointmentId", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
-    try {
-      const user = (req as any).user;
-      const userBranchId = requireValidBranchId(req, res);
-      if (!userBranchId) return;
-      const orders = await storage.getLabOrdersByAppointment(req.params.appointmentId, userBranchId);
-      res.json(orders);
-    } catch (error) {
-      console.error("Error fetching lab orders by appointment:", error);
-      res.status(500).json({ error: "Failed to fetch lab orders by appointment" });
-    }
-  });
-
   app.post("/api/lab-orders", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabOrderSchema), async (req, res) => {
     try {
-      const order = await storage.createLabOrder(req.body);
+      const user = (req as any).user;
+      // Auto-generate orderNumber if not provided
+      const orderData = { ...req.body };
+      if (!orderData.orderNumber) {
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+        const seq = String(now.getTime()).slice(-4);
+        orderData.orderNumber = `LAB-${dateStr}-${seq}`;
+      }
+      // Inject tenant/branch from token
+      if (!orderData.tenantId && user?.tenantId) orderData.tenantId = user.tenantId;
+      if (!orderData.branchId && user?.branchId) orderData.branchId = user.branchId;
+      const order = await storage.createLabOrder(orderData);
       res.status(201).json(order);
     } catch (error) {
       console.error("Error creating lab order:", error);
@@ -4372,6 +4395,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting lab order:", error);
       res.status(500).json({ error: "Failed to delete lab order" });
+    }
+  });
+
+  // Print lab order results as PDF
+  app.get("/api/lab-orders/:id/print", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const order = await storage.getLabOrder(req.params.id);
+      if (!order) return res.status(404).json({ error: "Lab order not found" });
+
+      const patient = await storage.getPatient(order.patientId);
+      const owners = patient ? await storage.getPatientOwners(patient.id) : [];
+      const primaryOwner = owners.find((o: any) => o.isPrimary) || owners[0];
+      let ownerName = 'Не указан';
+      if (primaryOwner) {
+        const ownerData = await storage.getOwner(primaryOwner.ownerId);
+        ownerName = ownerData?.name || primaryOwner.name || 'Не указан';
+      }
+      const doctor = order.doctorId ? await storage.getDoctor(order.doctorId) : null;
+      const study = order.studyId ? await storage.getLabStudy(order.studyId) : null;
+      const resultDetails = await storage.getLabResultDetails(order.id);
+      const parameters = await storage.getLabParameters(order.studyId);
+
+      const paramMap: Record<string, any> = {};
+      parameters.forEach((p: any) => { paramMap[p.id] = p; });
+
+      const STATUS_LABELS: Record<string, string> = {
+        normal: 'Норма', low: 'Понижен', high: 'Повышен',
+        critical_low: 'Критично низкий', critical_high: 'Критично высокий'
+      };
+      const URGENCY_LABELS: Record<string, string> = { routine: 'Плановый', urgent: 'Срочный', stat: 'Немедленно' };
+
+      const results = resultDetails.map((r: any) => {
+        const param = paramMap[r.parameterId];
+        const statusLabel = STATUS_LABELS[r.status || 'normal'] || r.status || 'Норма';
+        const isAbnormal = r.status && r.status !== 'normal';
+        const isCritical = r.status === 'critical_low' || r.status === 'critical_high';
+        return {
+          paramName: param?.name || 'Параметр',
+          value: r.numericValue ?? r.value ?? '—',
+          unit: param?.unit || '',
+          status: statusLabel,
+          isAbnormal,
+          isCritical,
+          notes: r.notes || ''
+        };
+      });
+
+      const html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+h1 { font-size: 18pt; text-align: center; margin-bottom: 4px; }
+.subtitle { text-align: center; font-size: 12pt; color: #666; margin-bottom: 20px; }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; font-size: 10pt; }
+.info-item { padding: 4px 0; }
+.info-label { color: #666; font-size: 9pt; }
+.info-value { font-weight: bold; }
+table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+th { background: #f0f4f8; padding: 8px; text-align: left; border: 1px solid #ddd; font-size: 9pt; }
+td { padding: 6px 8px; border: 1px solid #ddd; }
+.normal { color: #16a34a; }
+.abnormal { background: #fef9c3; color: #92400e; }
+.critical { background: #fee2e2; color: #dc2626; font-weight: bold; }
+.footer { margin-top: 24px; font-size: 9pt; color: #888; border-top: 1px solid #ddd; padding-top: 8px; }
+.badge-urgent { background: #fef9c3; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 9pt; }
+.badge-stat { background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; font-size: 9pt; }
+</style>
+</head>
+<body>
+<h1>Результаты лабораторного исследования</h1>
+<div class="subtitle">${study?.name || 'Исследование'}</div>
+<div class="info-grid">
+  <div class="info-item"><div class="info-label">Номер заказа</div><div class="info-value">${order.orderNumber}</div></div>
+  <div class="info-item"><div class="info-label">Срочность</div><div class="info-value">${URGENCY_LABELS[order.urgency || 'routine'] || order.urgency || 'Плановый'}</div></div>
+  <div class="info-item"><div class="info-label">Пациент</div><div class="info-value">${patient?.name || '—'}</div></div>
+  <div class="info-item"><div class="info-label">Вид животного</div><div class="info-value">${patient?.species || '—'}${patient?.breed ? ` (${patient.breed})` : ''}</div></div>
+  <div class="info-item"><div class="info-label">Владелец</div><div class="info-value">${ownerName}</div></div>
+  <div class="info-item"><div class="info-label">Врач</div><div class="info-value">${doctor?.name || '—'}</div></div>
+  <div class="info-item"><div class="info-label">Дата назначения</div><div class="info-value">${new Date(order.orderedDate).toLocaleDateString('ru-RU')}</div></div>
+  <div class="info-item"><div class="info-label">Дата выполнения</div><div class="info-value">${order.completedDate ? new Date(order.completedDate).toLocaleDateString('ru-RU') : '—'}</div></div>
+</div>
+${results.length > 0 ? `
+<table>
+  <thead>
+    <tr>
+      <th>Параметр</th>
+      <th>Значение</th>
+      <th>Ед. изм.</th>
+      <th>Статус</th>
+      <th>Примечания</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${results.map(r => `
+    <tr class="${r.isCritical ? 'critical' : r.isAbnormal ? 'abnormal' : ''}">
+      <td>${r.paramName}</td>
+      <td><strong>${r.value}</strong></td>
+      <td>${r.unit}</td>
+      <td class="${r.isCritical ? 'critical' : r.isAbnormal ? '' : 'normal'}">${r.status}</td>
+      <td>${r.notes}</td>
+    </tr>`).join('')}
+  </tbody>
+</table>` : '<p><em>Результаты ещё не введены</em></p>'}
+${order.notes ? `<p style="margin-top:12px"><strong>Примечания:</strong> ${order.notes}</p>` : ''}
+<div class="footer">
+  Распечатано: ${new Date().toLocaleDateString('ru-RU')} ${new Date().toLocaleTimeString('ru-RU')}&nbsp;&nbsp;|&nbsp;&nbsp;Форма носит информационный характер.
+</div>
+</body></html>`;
+
+      try {
+        const pdfBuffer = await documentService.generatePDF(html);
+        res.set({
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="lab-order-${order.orderNumber}.pdf"`,
+          'Content-Length': pdfBuffer.length
+        });
+        res.send(pdfBuffer);
+      } catch (pdfErr: any) {
+        console.error('[lab print] PDF generation failed, returning HTML:', pdfErr.message);
+        res.set('Content-Type', 'text/html; charset=utf-8');
+        res.send(html);
+      }
+    } catch (error: any) {
+      console.error("Error printing lab order:", error);
+      res.status(500).json({ error: "Failed to generate lab order print", message: error.message });
     }
   });
 
