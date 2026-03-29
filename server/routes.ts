@@ -10830,10 +10830,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/crm/stats", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
-      // Also recalculate here so stats are always fresh (independent of owners load order)
-      await storage.recalculateOwnerSegments(user.tenantId).catch((err: any) =>
-        console.error('[CRM] auto-recalculate segments (stats) failed:', err.message)
-      );
+      // Recalculation is handled by GET /api/crm/owners (called first on CRM page load).
+      // Stats endpoint reads the already-updated segments directly.
       const stats = await storage.getCrmStats(user.tenantId);
       res.json(stats);
     } catch (error: any) {
@@ -10856,6 +10854,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: `segment must be one of: ${allowed.join(', ')}` });
       }
       const owner = await storage.updateOwnerSegment(req.params.id, segment, user.tenantId);
+      if (!owner) {
+        return res.status(404).json({ error: 'Owner not found' });
+      }
       res.json(owner);
     } catch (error: any) {
       console.error("Error updating owner segment:", error);

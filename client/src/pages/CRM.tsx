@@ -120,8 +120,8 @@ function formatMoney(value: string | number | null | undefined): string {
 function StatsCards({ stats, isLoading }: { stats: CrmStats | undefined; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+        {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-28" />)}
       </div>
     )
   }
@@ -129,36 +129,18 @@ function StatsCards({ stats, isLoading }: { stats: CrmStats | undefined; isLoadi
   const segMap: Record<string, number> = {}
   stats?.segmentCounts.forEach(s => { segMap[s.segment] = s.count })
 
-  const cards = [
-    {
-      label: "Всего клиентов",
-      value: stats?.totalOwners?.toLocaleString('ru-RU') || "0",
-      icon: Users,
-      sub: `VIP: ${segMap['vip'] || 0} · Активных: ${segMap['regular'] || 0}`
-    },
-    {
-      label: "Общий LTV",
-      value: stats ? formatMoney(stats.totalLTV) : "—",
-      icon: Wallet,
-      sub: `Средний чек: ${stats ? formatMoney(stats.averageCheck) : "—"}`
-    },
-    {
-      label: "Спящие / Потерянные",
-      value: `${(segMap['at_risk'] || 0) + (segMap['lost'] || 0)}`,
-      icon: AlertTriangle,
-      sub: `Спящих: ${segMap['at_risk'] || 0} · Потерянных: ${segMap['lost'] || 0}`
-    },
-    {
-      label: "Новые клиенты",
-      value: `${segMap['new'] || 0}`,
-      icon: TrendingUp,
-      sub: "За всё время"
-    }
+  const segCards = [
+    { label: "Всего клиентов", value: stats?.totalOwners?.toLocaleString('ru-RU') || "0", icon: Users, sub: `Средний чек: ${stats ? formatMoney(stats.averageCheck) : "—"}` },
+    { label: "Новые", value: `${segMap['new'] || 0}`, icon: UserPlus, sub: "Новые клиенты" },
+    { label: "Активные", value: `${segMap['regular'] || 0}`, icon: Users, sub: "Регулярные посещения" },
+    { label: "VIP", value: `${segMap['vip'] || 0}`, icon: Crown, sub: "Топ 10% по выручке" },
+    { label: "Спящие", value: `${segMap['at_risk'] || 0}`, icon: AlertTriangle, sub: "60–180 дней без визита" },
+    { label: "Потерянные", value: `${segMap['lost'] || 0}`, icon: UserMinus, sub: "Более 180 дней без визита" },
   ]
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {cards.map((c) => (
+    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+      {segCards.map((c) => (
         <Card key={c.label}>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{c.label}</CardTitle>
