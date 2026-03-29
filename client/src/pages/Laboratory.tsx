@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -45,27 +45,21 @@ import {
   ClipboardList,
   Plus,
   Search,
-  Filter,
   AlertCircle,
   CheckCircle,
   ChevronRight,
   Printer,
-  RefreshCw,
   User,
-  Stethoscope,
-  Calendar,
   ArrowRight,
-  TrendingUp,
-  TrendingDown,
   AlertTriangle,
   X,
+  Edit,
 } from "lucide-react"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 
 const ORDER_STATUSES = [
   { value: "pending", label: "Ожидает", color: "secondary" as const },
@@ -107,13 +101,11 @@ const RESULT_STATUS_CONFIG: Record<string, { label: string; className: string }>
   critical_high: { label: "Крит. высокий", className: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-semibold" },
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getStatusConfig(status: string) {
   return ORDER_STATUSES.find((s) => s.value === status) ?? ORDER_STATUSES[0]
 }
 
-// ─── Forms ────────────────────────────────────────────────────────────────────
 
 const createOrderSchema = z.object({
   patientId: z.string().min(1, "Пациент обязателен"),
@@ -137,7 +129,6 @@ const resultEntrySchema = z.object({
 
 type ResultEntryData = z.infer<typeof resultEntrySchema>
 
-// ─── Create Order Dialog ──────────────────────────────────────────────────────
 
 interface CreateOrderDialogProps {
   open: boolean
@@ -342,7 +333,6 @@ function CreateOrderDialog({ open, onClose, prefillPatientId, prefillMedicalReco
   )
 }
 
-// ─── Order Detail Dialog (view + results entry) ───────────────────────────────
 
 interface OrderDetailDialogProps {
   orderId: string | null
@@ -616,7 +606,6 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
   )
 }
 
-// ─── Result Row (inline edit) ─────────────────────────────────────────────────
 
 interface ResultRowProps {
   param: any
@@ -731,27 +720,148 @@ function ResultRow({ param, existing, isEditing, statusCfg, isSaving, onEdit, on
   )
 }
 
-// ─── Studies Tab ──────────────────────────────────────────────────────────────
+
+const studyFormSchema = z.object({
+  name: z.string().min(1, "Название обязательно"),
+  category: z.string().optional(),
+  description: z.string().optional(),
+  sampleType: z.string().optional(),
+  estimatedDuration: z.string().optional(),
+})
+
+type StudyFormData = z.infer<typeof studyFormSchema>
+
+interface StudyDialogProps {
+  study: Record<string, unknown> | null
+  onClose: () => void
+}
+
+function StudyDialog({ study, onClose }: StudyDialogProps) {
+  const { toast } = useToast()
+  const isEdit = !!study
+
+  const form = useForm<StudyFormData>({
+    resolver: zodResolver(studyFormSchema),
+    defaultValues: {
+      name: (study?.name as string) ?? "",
+      category: (study?.category as string) ?? "",
+      description: (study?.description as string) ?? "",
+      sampleType: (study?.sampleType as string) ?? "",
+      estimatedDuration: study?.estimatedDuration != null ? String(study.estimatedDuration) : "",
+    },
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: StudyFormData) => {
+      const payload = {
+        ...data,
+        estimatedDuration: data.estimatedDuration ? Number(data.estimatedDuration) : undefined,
+        isActive: true,
+      }
+      if (isEdit) {
+        const res = await apiRequest("PUT", `/api/lab-studies/${study.id}`, payload)
+        if (!res.ok) throw new Error("Ошибка сохранения")
+        return res.json()
+      }
+      const res = await apiRequest("POST", "/api/lab-studies", payload)
+      if (!res.ok) throw new Error("Ошибка создания")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lab-studies"] })
+      toast({ title: isEdit ? "Исследование обновлено" : "Исследование создано" })
+      onClose()
+    },
+    onError: (e: Error) => toast({ title: "Ошибка", description: e.message, variant: "destructive" }),
+  })
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Редактировать исследование" : "Новое исследование"}</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((d) => saveMutation.mutate(d))} className="space-y-3">
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Название *</FormLabel>
+                <FormControl><Input {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="category" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Категория</FormLabel>
+                <FormControl><Input placeholder="Биохимия, ОАК, ОАМ..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="sampleType" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Тип материала</FormLabel>
+                <FormControl><Input placeholder="Кровь, моча, мазок..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="estimatedDuration" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Время выполнения (ч)</FormLabel>
+                <FormControl><Input type="number" min={0} {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="description" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Описание</FormLabel>
+                <FormControl><Textarea rows={2} {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>Отмена</Button>
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? "Сохранение..." : "Сохранить"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 function StudiesTab({ searchTerm }: { searchTerm: string }) {
+  const { toast } = useToast()
+  const [dialogStudy, setDialogStudy] = useState<Record<string, unknown> | null | "new">(null)
+
   const { data: labStudies = [], isLoading } = useQuery({ queryKey: ["/api/lab-studies"] })
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const res = await apiRequest("PUT", `/api/lab-studies/${id}`, { isActive: !isActive })
+      if (!res.ok) throw new Error("Ошибка")
+      return res.json()
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/lab-studies"] }),
+    onError: () => toast({ title: "Ошибка", variant: "destructive" }),
+  })
 
   const filtered = useMemo(() => {
     if (!Array.isArray(labStudies)) return []
     const q = searchTerm.toLowerCase()
-    return (labStudies as any[]).filter(
-      (s: any) =>
-        !q ||
-        s.name.toLowerCase().includes(q) ||
-        s.category?.toLowerCase().includes(q) ||
-        s.description?.toLowerCase().includes(q)
+    return (labStudies as Record<string, unknown>[]).filter((s) =>
+      !q ||
+      (s.name as string)?.toLowerCase().includes(q) ||
+      (s.category as string)?.toLowerCase().includes(q) ||
+      (s.description as string)?.toLowerCase().includes(q)
     )
   }, [labStudies, searchTerm])
 
   const grouped = useMemo(() => {
-    const m: Record<string, any[]> = {}
-    filtered.forEach((s: any) => {
-      const cat = s.category || "Прочее"
+    const m: Record<string, Record<string, unknown>[]> = {}
+    filtered.forEach((s) => {
+      const cat = (s.category as string) || "Прочее"
       if (!m[cat]) m[cat] = []
       m[cat].push(s)
     })
@@ -764,59 +874,94 @@ function StudiesTab({ searchTerm }: { searchTerm: string }) {
     </div>
   )
 
-  if (filtered.length === 0) return (
-    <div className="py-12 text-center text-muted-foreground">
-      <Microscope className="h-12 w-12 mx-auto mb-3 opacity-30" />
-      <p>Исследования не найдены</p>
-    </div>
-  )
-
   return (
     <div className="space-y-4">
-      {Object.entries(grouped).map(([category, studies]) => (
-        <div key={category}>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{category}</h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Исследование</TableHead>
-                <TableHead>Материал</TableHead>
-                <TableHead>Длит.</TableHead>
-                <TableHead>Статус</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {studies.map((s: any) => (
-                <TableRow key={s.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Microscope className="h-4 w-4 text-primary shrink-0" />
-                      <div>
-                        <div className="font-medium">{s.name}</div>
-                        {s.description && <div className="text-xs text-muted-foreground">{s.description}</div>}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm">{s.sampleType || "—"}</TableCell>
-                  <TableCell className="text-sm">
-                    {s.estimatedDuration ? `${s.estimatedDuration} ч` : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={s.isActive ? "default" : "secondary"}>
-                      {s.isActive ? "Активно" : "Неактивно"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      <div className="flex justify-end">
+        <Button size="sm" className="gap-1" onClick={() => setDialogStudy("new")}>
+          <Plus className="h-4 w-4" />
+          Добавить исследование
+        </Button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="py-12 text-center text-muted-foreground">
+          <Microscope className="h-12 w-12 mx-auto mb-3 opacity-30" />
+          <p>Исследования не найдены</p>
         </div>
-      ))}
+      ) : (
+        Object.entries(grouped).map(([category, studies]) => (
+          <div key={category}>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{category}</h3>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Исследование</TableHead>
+                  <TableHead>Материал</TableHead>
+                  <TableHead>Длит.</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {studies.map((s) => (
+                  <TableRow key={s.id as string}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Microscope className="h-4 w-4 text-primary shrink-0" />
+                        <div>
+                          <div className="font-medium">{s.name as string}</div>
+                          {s.description && <div className="text-xs text-muted-foreground">{s.description as string}</div>}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">{(s.sampleType as string) || "—"}</TableCell>
+                    <TableCell className="text-sm">
+                      {s.estimatedDuration != null ? `${s.estimatedDuration} ч` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={s.isActive ? "default" : "secondary"}>
+                        {s.isActive ? "Активно" : "Неактивно"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setDialogStudy(s)}
+                          title="Редактировать"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => toggleActiveMutation.mutate({ id: s.id as string, isActive: s.isActive as boolean })}
+                          title={s.isActive ? "Деактивировать" : "Активировать"}
+                          disabled={toggleActiveMutation.isPending}
+                        >
+                          {s.isActive ? <X className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ))
+      )}
+
+      {dialogStudy && (
+        <StudyDialog
+          study={dialogStudy === "new" ? null : dialogStudy}
+          onClose={() => setDialogStudy(null)}
+        />
+      )}
     </div>
   )
 }
 
-// ─── Orders Tab ───────────────────────────────────────────────────────────────
 
 function OrdersTab({
   searchTerm,
@@ -990,7 +1135,6 @@ function OrdersTab({
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Laboratory() {
   const [searchTerm, setSearchTerm] = useState("")
