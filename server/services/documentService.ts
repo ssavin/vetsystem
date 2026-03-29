@@ -59,7 +59,18 @@ export class DocumentService {
       } catch { /* continue */ }
     }
 
-    // 3. Search puppeteer cache in all likely home directories
+    // 3. Use puppeteer's own executablePath() — most reliable
+    try {
+      const puppeteerExec = puppeteer.executablePath();
+      if (puppeteerExec) {
+        log(`Found via puppeteer.executablePath(): ${puppeteerExec}`);
+        // ensure the binary is executable
+        execSync(`chmod +x "${puppeteerExec}" 2>/dev/null || true`);
+        return puppeteerExec;
+      }
+    } catch { /* ignore */ }
+
+    // 4. Search puppeteer cache in all likely home directories
     const homeDirs = [
       process.env.HOME,
       '/root',
@@ -70,22 +81,23 @@ export class DocumentService {
     for (const home of homeDirs) {
       try {
         const cacheBase = `${home}/.cache/puppeteer/chrome`;
-        // find any executable named "chrome" or "chromium" inside the cache
+        // find the actual chrome binary (file, not directory) inside the cache
         const chromeBin = execSync(
-          `find "${cacheBase}" \\( -name "chrome" -o -name "chromium" \\) 2>/dev/null | head -1`,
+          `find "${cacheBase}" -name "chrome" -type f 2>/dev/null | grep -v '.crx' | head -1`,
           { encoding: 'utf-8' }
         ).trim();
         if (chromeBin) {
+          execSync(`chmod +x "${chromeBin}" 2>/dev/null || true`);
           log(`Found in puppeteer cache: ${chromeBin}`);
           return chromeBin;
         }
       } catch { /* continue */ }
     }
 
-    // 4. Last resort: broad find across /root /home /usr /opt /snap
+    // 5. Last resort: broad find across /root /home /usr /opt /snap
     try {
       const found = execSync(
-        `find /root /home /usr /opt /snap \\( -name "chrome" -o -name "google-chrome" -o -name "chromium-browser" -o -name "chromium" \\) -type f 2>/dev/null | head -1`,
+        `find /root /home /usr /opt /snap \\( -name "google-chrome" -o -name "chromium-browser" -o -name "chromium" \\) -type f 2>/dev/null | head -1`,
         { encoding: 'utf-8' }
       ).trim();
       if (found) { log(`Found via broad find: ${found}`); return found; }
