@@ -221,15 +221,19 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
     },
   })
 
-  const itemsTotal = invoiceItems.reduce((sum: number, item: any) => sum + parseFloat(item.total || '0'), 0)
+  const itemsTotal = invoiceItems.reduce((sum: number, item) => sum + parseFloat(item.total || '0'), 0)
+
+  // Compute the live total: items - discount - already-applied bonus points discount
+  const bonusAlreadyUsed = invoice.bonusPointsUsed ?? 0
+  const pointsValue = parseFloat(loyaltySettings?.pointsValue || '1')
+  const bonusDiscount = bonusAlreadyUsed * pointsValue
   
   const onSubmit = (data: EditInvoiceFormData) => {
-    // Пересчитываем итоговую сумму на основе позиций счёта и скидки
     const discount = data.discount || 0
     const subtotal = itemsTotal
-    const total = subtotal - discount
+    // Preserve loyalty discount: subtract bonusDiscount from total so it's not wiped on save
+    const total = Math.max(0, subtotal - discount - bonusDiscount)
     
-    // Отправляем обновлённые данные вместе с пересчитанным total
     updateInvoiceMutation.mutate({
       ...data,
       subtotal,
@@ -516,7 +520,7 @@ export default function EditInvoiceDialog({ invoice, open, onClose }: EditInvoic
               <div className="flex justify-between items-center pt-1">
                 <span className="text-sm font-medium">Итого к оплате:</span>
                 <span className="text-lg font-bold">
-                  {parseFloat(invoice.total || '0').toLocaleString('ru-RU')} ₽
+                  {Math.max(0, itemsTotal - (form.watch('discount') || 0) - bonusDiscount).toLocaleString('ru-RU')} ₽
                 </span>
               </div>
             </div>

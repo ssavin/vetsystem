@@ -2383,6 +2383,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Strip immutable fields: ownerId, tenantId, branchId, bonusPointsUsed cannot be changed via update
       // bonusPointsUsed is managed exclusively by /api/loyalty/spend to maintain loyalty tx consistency
       const { ownerId: _ignoreOwner, tenantId: _ignoreTenant, branchId: _ignoreBranch, bonusPointsUsed: _ignoreBonusUsed, ...updateData } = req.body;
+
+      // If the request includes a new total, re-apply any existing loyalty discount on the server side
+      // to ensure the loyalty discount is never wiped by a concurrent save without recalculating it
+      if (updateData.total !== undefined && prevInvoice.bonusPointsUsed && prevInvoice.bonusPointsUsed > 0) {
+        try {
+          const tenantId = req.user?.tenantId || (req as any).tenantId;
+          const loyaltyCfg = tenantId ? await storage.getLoyaltySettings(tenantId) : undefined;
+          const pv = parseFloat(loyaltyCfg?.pointsValue || '1');
+          const loyaltyDiscount = prevInvoice.bonusPointsUsed * pv;
+          // Recompute: subtotal - discount - loyalty. Guard against client sending a total that
+          // already includes or excludes the loyalty discount.
+          const subtotal = parseFloat(String(updateData.subtotal ?? prevInvoice.subtotal ?? updateData.total ?? '0'));
+          const discount = parseFloat(String(updateData.discount ?? prevInvoice.discount ?? '0'));
+          const correctTotal = Math.max(0, subtotal - discount - loyaltyDiscount);
+          updateData.total = correctTotal.toFixed(2);
+        } catch {
+          // Non-critical: proceed with client-supplied total if lookup fails
+        }
+      }
+
       const invoice = await storage.updateInvoice(req.params.id, updateData);
       
       // Auto-earn loyalty points when invoice status changes to 'paid'
