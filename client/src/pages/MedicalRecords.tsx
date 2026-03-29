@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Plus, Filter, Calendar, Brain, X, FileText, Edit, FileCheck, Microscope, ChevronRight, Printer } from "lucide-react"
+import { Search, Plus, Filter, Calendar, Brain, X, FileText, Edit, FileCheck, Microscope, ChevronRight, Printer, FlaskConical } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import MedicalRecordCard from "@/components/MedicalRecordCard"
 import MedicalRecordForm from "@/components/MedicalRecordForm"
@@ -33,6 +33,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
 
@@ -52,9 +53,29 @@ const ORDER_STATUS_BADGE: Record<string, "secondary" | "default" | "destructive"
   cancelled: "destructive",
 }
 
+interface Doctor {
+  id: string
+  name: string
+}
+
+interface LabOrderRow {
+  id: string
+  orderNumber: string
+  studyId: string
+  status: string
+  orderedDate?: string
+  lab_orders?: LabOrderRow
+}
+
+interface LabStudyInfo {
+  id: string
+  name: string
+  isActive?: boolean
+}
+
 // Mini lab orders panel shown when a patient is selected
 function PatientLabOrdersPanel({ patientId, onCreateOrder }: { patientId: string; onCreateOrder: () => void }) {
-  const { data: rawOrders = [], isLoading } = useQuery({
+  const { data: rawOrders = [], isLoading } = useQuery<LabOrderRow[]>({
     queryKey: ["/api/lab-orders/patient", patientId],
     queryFn: async () => {
       const res = await fetch(`/api/lab-orders/patient/${patientId}`, { credentials: "include" })
@@ -64,16 +85,16 @@ function PatientLabOrdersPanel({ patientId, onCreateOrder }: { patientId: string
     enabled: !!patientId,
   })
 
-  const { data: labStudies = [] } = useQuery({ queryKey: ["/api/lab-studies"] })
+  const { data: labStudies = [] } = useQuery<LabStudyInfo[]>({ queryKey: ["/api/lab-studies"] })
 
   const studyMap = useMemo(() => {
-    const m: Record<string, any> = {}
-    ;(labStudies as any[]).forEach((s: any) => { m[s.id] = s })
+    const m: Record<string, LabStudyInfo> = {}
+    labStudies.forEach((s) => { m[s.id] = s })
     return m
   }, [labStudies])
 
   const orders = useMemo(() => {
-    return (rawOrders as any[]).map((row: any) => (row.lab_orders ? row.lab_orders : row))
+    return rawOrders.map((row) => (row.lab_orders ? row.lab_orders : row))
   }, [rawOrders])
 
   return (
@@ -109,7 +130,7 @@ function PatientLabOrdersPanel({ patientId, onCreateOrder }: { patientId: string
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((o: any) => (
+              {orders.map((o) => (
                 <TableRow key={o.id} className="text-sm">
                   <TableCell className="font-mono">{o.orderNumber}</TableCell>
                   <TableCell>{studyMap[o.studyId]?.name ?? "—"}</TableCell>
@@ -317,18 +338,25 @@ function MedicalRecordTableRow({ record }: { record: any }) {
   )
 }
 
+interface QuickCreateLabFormData {
+  doctorId: string
+  studyId: string
+  urgency: string
+  notes: string
+}
+
 // Inline create lab order dialog used from MedicalRecords
 function QuickCreateLabOrderDialog({ open, onClose, patientId }: { open: boolean; onClose: () => void; patientId: string | null }) {
   const { toast } = useToast()
-  const { data: doctors = [] } = useQuery<any[]>({ queryKey: ["/api/doctors"] })
-  const { data: labStudies = [] } = useQuery({ queryKey: ["/api/lab-studies"] })
+  const { data: doctors = [] } = useQuery<Doctor[]>({ queryKey: ["/api/doctors"] })
+  const { data: labStudies = [] } = useQuery<LabStudyInfo[]>({ queryKey: ["/api/lab-studies"] })
 
-  const form = useForm({
+  const form = useForm<QuickCreateLabFormData>({
     defaultValues: { doctorId: "", studyId: "", urgency: "routine", notes: "" },
   })
 
   const createMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: QuickCreateLabFormData) => {
       const payload = { ...data, patientId, orderedDate: new Date().toISOString() }
       const res = await apiRequest("POST", "/api/lab-orders", payload)
       if (!res.ok) {
@@ -362,7 +390,7 @@ function QuickCreateLabOrderDialog({ open, onClose, patientId }: { open: boolean
             <Select onValueChange={(v) => form.setValue("doctorId", v)} value={form.watch("doctorId")}>
               <SelectTrigger><SelectValue placeholder="Выберите врача" /></SelectTrigger>
               <SelectContent>
-                {(doctors as any[]).map((d: any) => (
+                {doctors.map((d) => (
                   <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -373,7 +401,7 @@ function QuickCreateLabOrderDialog({ open, onClose, patientId }: { open: boolean
             <Select onValueChange={(v) => form.setValue("studyId", v)} value={form.watch("studyId")}>
               <SelectTrigger><SelectValue placeholder="Выберите исследование" /></SelectTrigger>
               <SelectContent>
-                {(labStudies as any[]).filter((s: any) => s.isActive !== false).map((s: any) => (
+                {labStudies.filter((s) => s.isActive !== false).map((s) => (
                   <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -690,30 +718,21 @@ export default function MedicalRecords() {
         </div>
       )}
 
-      {/* Lab orders panel shown when a patient filter is active */}
-      {selectedPatientId && (
-        <PatientLabOrdersPanel
-          patientId={selectedPatientId}
-          onCreateOrder={() => setCreateLabOrderOpen(true)}
-        />
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('searchTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t('searchPlaceholder')}
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-records"
-              />
-            </div>
+      <Tabs defaultValue="records">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <TabsList>
+            <TabsTrigger value="records" className="gap-1.5">
+              <FileText className="h-4 w-4" />
+              Записи
+            </TabsTrigger>
+            {selectedPatientId && (
+              <TabsTrigger value="lab" className="gap-1.5" data-testid="tab-lab-orders">
+                <FlaskConical className="h-4 w-4" />
+                Анализы
+              </TabsTrigger>
+            )}
+          </TabsList>
+          <div className="flex gap-2 flex-wrap">
             <Button variant="outline" onClick={handleFiltersClick} data-testid="button-filter-records">
               <Filter className="h-4 w-4 mr-2" />
               {t('filtersButton')}
@@ -731,120 +750,143 @@ export default function MedicalRecords() {
               {t('aiAssistant')}
             </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      {showAIAssistant && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-blue-500" />
-              {t('aiAssistantTitle')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AIAssistant 
-              patientData={selectedPatientForAI}
-              onSuggestionApply={(suggestion) => {
-                console.log('Применяем рекомендацию ИИ:', suggestion)
-              }}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Medical Records List */}
-      {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <Card key={i}>
-              <CardContent className="pt-6">
-                <div className="space-y-3">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-8 w-full" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
         </div>
-      ) : error ? (
-        <Card className="text-center py-8">
-          <CardContent>
-            <p className="text-destructive">
-              Ошибка загрузки медицинских записей: {error instanceof Error ? error.message : 'Неизвестная ошибка'}
-            </p>
-          </CardContent>
-        </Card>
-      ) : filteredRecords.length === 0 ? (
-        <Card className="text-center py-8">
-          <CardContent>
-            <p className="text-muted-foreground">
-              {searchTerm ? 'Медицинские записи не найдены' : 'Медицинские записи отсутствуют'}
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Дата</TableHead>
-                    <TableHead>Пациент</TableHead>
-                    <TableHead>Владелец</TableHead>
-                    <TableHead>Врач</TableHead>
-                    <TableHead>Тип визита</TableHead>
-                    <TableHead>Диагноз</TableHead>
-                    <TableHead>Статус</TableHead>
-                    <TableHead className="text-center w-16">Случай</TableHead>
-                    <TableHead className="text-right">Действия</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRecords.map((record, index) => (
-                    <MedicalRecordTableRow key={record.id || `record-${index}`} record={record} />
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
 
-          {/* Pagination Controls */}
-          {pagination.total > pageSize && (
+        <TabsContent value="records" className="mt-4 space-y-4">
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={t('searchPlaceholder')}
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-records"
+            />
+          </div>
+
+          {showAIAssistant && (
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Показано {page * pageSize + 1}-{Math.min((page + 1) * pageSize, pagination.total)} из {pagination.total}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(p => Math.max(0, p - 1))}
-                      disabled={page === 0}
-                      data-testid="button-prev-page"
-                    >
-                      Назад
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(p => p + 1)}
-                      disabled={!pagination.hasMore}
-                      data-testid="button-next-page"
-                    >
-                      Вперёд
-                    </Button>
-                  </div>
-                </div>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-blue-500" />
+                  {t('aiAssistantTitle')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AIAssistant
+                  patientData={selectedPatientForAI}
+                  onSuggestionApply={(suggestion) => {
+                    console.log('Применяем рекомендацию ИИ:', suggestion)
+                  }}
+                />
               </CardContent>
             </Card>
           )}
-        </>
-      )}
+
+          {/* Medical Records List */}
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => (
+                <Card key={i}>
+                  <CardContent className="pt-6">
+                    <div className="space-y-3">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-8 w-full" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : error ? (
+            <Card className="text-center py-8">
+              <CardContent>
+                <p className="text-destructive">
+                  Ошибка загрузки медицинских записей: {error instanceof Error ? error.message : 'Неизвестная ошибка'}
+                </p>
+              </CardContent>
+            </Card>
+          ) : filteredRecords.length === 0 ? (
+            <Card className="text-center py-8">
+              <CardContent>
+                <p className="text-muted-foreground">
+                  {searchTerm ? 'Медицинские записи не найдены' : 'Медицинские записи отсутствуют'}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <Card>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Дата</TableHead>
+                        <TableHead>Пациент</TableHead>
+                        <TableHead>Владелец</TableHead>
+                        <TableHead>Врач</TableHead>
+                        <TableHead>Тип визита</TableHead>
+                        <TableHead>Диагноз</TableHead>
+                        <TableHead>Статус</TableHead>
+                        <TableHead className="text-center w-16">Случай</TableHead>
+                        <TableHead className="text-right">Действия</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRecords.map((record, index) => (
+                        <MedicalRecordTableRow key={record.id || `record-${index}`} record={record} />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Pagination Controls */}
+              {pagination.total > pageSize && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        Показано {page * pageSize + 1}-{Math.min((page + 1) * pageSize, pagination.total)} из {pagination.total}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPage(p => Math.max(0, p - 1))}
+                          disabled={page === 0}
+                          data-testid="button-prev-page"
+                        >
+                          Назад
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPage(p => p + 1)}
+                          disabled={!pagination.hasMore}
+                          data-testid="button-next-page"
+                        >
+                          Вперёд
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        {selectedPatientId && (
+          <TabsContent value="lab" className="mt-4">
+            <PatientLabOrdersPanel
+              patientId={selectedPatientId}
+              onCreateOrder={() => setCreateLabOrderOpen(true)}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
 
       {/* Filters Dialog */}
       <Dialog open={showFilters} onOpenChange={setShowFilters}>

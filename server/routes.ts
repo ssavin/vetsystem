@@ -4385,6 +4385,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/lab-orders/:id", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabOrderSchema.partial()), async (req, res) => {
     try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const existing = await storage.getLabOrder(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Lab order not found" });
+      if (existing.branchId && existing.branchId !== userBranchId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
       const order = await storage.updateLabOrder(req.params.id, req.body);
       res.json(order);
     } catch (error) {
@@ -4395,6 +4402,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/lab-orders/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
     try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const existing = await storage.getLabOrder(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Lab order not found" });
+      if (existing.branchId && existing.branchId !== userBranchId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
       await storage.deleteLabOrder(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4478,6 +4492,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/lab-result-details", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabResultDetailSchema), async (req, res) => {
     try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const parentOrder = await storage.getLabOrder(req.body.orderId);
+      if (!parentOrder) return res.status(404).json({ error: "Lab order not found" });
+      if (parentOrder.branchId && parentOrder.branchId !== userBranchId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
       const detail = await storage.createLabResultDetail(req.body);
       res.status(201).json(detail);
     } catch (error) {
@@ -4488,6 +4509,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/lab-result-details/:id", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabResultDetailSchema.partial()), async (req, res) => {
     try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const existing = await storage.getLabResultDetail(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Lab result detail not found" });
+      const parentOrder = await storage.getLabOrder(existing.orderId);
+      if (parentOrder && parentOrder.branchId && parentOrder.branchId !== userBranchId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
       const detail = await storage.updateLabResultDetail(req.params.id, req.body);
       res.json(detail);
     } catch (error) {
@@ -4498,6 +4527,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/lab-result-details/:id", authenticateToken, requireModuleAccess('laboratory'), async (req, res) => {
     try {
+      const userBranchId = requireValidBranchId(req, res);
+      if (!userBranchId) return;
+      const existing = await storage.getLabResultDetail(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Lab result detail not found" });
+      const parentOrder = await storage.getLabOrder(existing.orderId);
+      if (parentOrder && parentOrder.branchId && parentOrder.branchId !== userBranchId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
       await storage.deleteLabResultDetail(req.params.id);
       res.status(204).send();
     } catch (error) {

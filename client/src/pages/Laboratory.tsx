@@ -102,8 +102,100 @@ const RESULT_STATUS_CONFIG: Record<string, { label: string; className: string }>
 }
 
 
+interface LabOrder {
+  id: string
+  orderNumber: string
+  patientId: string
+  doctorId: string
+  studyId: string
+  status: string
+  urgency: string
+  orderedDate: string
+  sampleTakenDate?: string
+  completedDate?: string
+  branchId?: string
+  tenantId?: string
+  notes?: string
+}
+
+interface LabStudy {
+  id: string
+  name: string
+  category?: string
+  sampleType?: string
+  estimatedDuration?: number
+  description?: string
+  isActive: boolean
+}
+
+interface LabParameter {
+  id: string
+  studyId: string
+  name: string
+  unit: string
+  dataType?: string
+  isActive: boolean
+}
+
+interface ReferenceRange {
+  id: string
+  parameterId: string
+  species: string
+  breed?: string
+  rangeMin?: string
+  rangeMax?: string
+  criticalMin?: string
+  criticalMax?: string
+}
+
+interface LabResultDetail {
+  id: string
+  orderId: string
+  parameterId: string
+  numericValue?: number
+  value?: string
+  status: string
+  notes?: string
+}
+
+interface Patient {
+  id: string
+  name: string
+  species?: string
+  breed?: string
+}
+
+interface Doctor {
+  id: string
+  name: string
+}
+
 function getStatusConfig(status: string) {
   return ORDER_STATUSES.find((s) => s.value === status) ?? ORDER_STATUSES[0]
+}
+
+function computeResultStatus(numericValue: number | null | undefined, range: ReferenceRange | null): string {
+  if (numericValue == null || !range) return "normal"
+  const min = range.rangeMin != null ? Number(range.rangeMin) : null
+  const max = range.rangeMax != null ? Number(range.rangeMax) : null
+  const critMin = range.criticalMin != null ? Number(range.criticalMin) : null
+  const critMax = range.criticalMax != null ? Number(range.criticalMax) : null
+
+  if (critMin != null && numericValue < critMin) return "critical_low"
+  if (critMax != null && numericValue > critMax) return "critical_high"
+  if (min != null && numericValue < min) return "low"
+  if (max != null && numericValue > max) return "high"
+  return "normal"
+}
+
+function formatReferenceRange(range: ReferenceRange | null): string {
+  if (!range) return "—"
+  const min = range.rangeMin != null ? Number(range.rangeMin) : null
+  const max = range.rangeMax != null ? Number(range.rangeMax) : null
+  if (min != null && max != null) return `${min} – ${max}`
+  if (min != null) return `≥ ${min}`
+  if (max != null) return `≤ ${max}`
+  return "—"
 }
 
 
@@ -151,18 +243,18 @@ function CreateOrderDialog({ open, onClose, prefillPatientId, prefillMedicalReco
     },
   })
 
-  const { data: patients = [] } = useQuery({ queryKey: ["/api/patients"] })
-  const { data: doctors = [] } = useQuery({ queryKey: ["/api/doctors"] })
-  const { data: labStudies = [] } = useQuery({ queryKey: ["/api/lab-studies"] })
+  const { data: patients = [] } = useQuery<Patient[]>({ queryKey: ["/api/patients"] })
+  const { data: doctors = [] } = useQuery<Doctor[]>({ queryKey: ["/api/doctors"] })
+  const { data: labStudies = [] } = useQuery<LabStudy[]>({ queryKey: ["/api/lab-studies"] })
 
   const activeStudies = useMemo(
-    () => (labStudies as any[]).filter((s: any) => s.isActive !== false),
+    () => labStudies.filter((s) => s.isActive !== false),
     [labStudies]
   )
 
   const createMutation = useMutation({
     mutationFn: async (data: CreateOrderData) => {
-      const payload: any = {
+      const payload = {
         ...data,
         orderedDate: new Date().toISOString(),
         ...(prefillMedicalRecordId ? { medicalRecordId: prefillMedicalRecordId } : {}),
@@ -209,7 +301,7 @@ function CreateOrderDialog({ open, onClose, prefillPatientId, prefillMedicalReco
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {(patients as any[]).map((p: any) => (
+                      {patients.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.name}
                         </SelectItem>
@@ -234,7 +326,7 @@ function CreateOrderDialog({ open, onClose, prefillPatientId, prefillMedicalReco
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {(doctors as any[]).map((d: any) => (
+                      {doctors.map((d) => (
                         <SelectItem key={d.id} value={d.id}>
                           {d.name}
                         </SelectItem>
@@ -259,7 +351,7 @@ function CreateOrderDialog({ open, onClose, prefillPatientId, prefillMedicalReco
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {activeStudies.map((s: any) => (
+                      {activeStudies.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           <div>
                             <div className="font-medium">{s.name}</div>
@@ -343,7 +435,7 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
   const { toast } = useToast()
   const [editingResultId, setEditingResultId] = useState<string | null>(null)
 
-  const { data: order, isLoading: orderLoading } = useQuery({
+  const { data: order, isLoading: orderLoading } = useQuery<LabOrder>({
     queryKey: ["/api/lab-orders", orderId],
     queryFn: async () => {
       const res = await fetch(`/api/lab-orders/${orderId}`, { credentials: "include" })
@@ -353,7 +445,7 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
     enabled: !!orderId,
   })
 
-  const { data: resultDetails = [], isLoading: resultsLoading } = useQuery({
+  const { data: resultDetails = [] } = useQuery<LabResultDetail[]>({
     queryKey: ["/api/lab-result-details", orderId],
     queryFn: async () => {
       const res = await fetch(`/api/lab-result-details?orderId=${orderId}`, { credentials: "include" })
@@ -363,47 +455,54 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
     enabled: !!orderId,
   })
 
-  const { data: parameters = [] } = useQuery({
+  const { data: parameters = [] } = useQuery<LabParameter[]>({
     queryKey: ["/api/lab-parameters", order?.studyId],
     queryFn: async () => {
-      const res = await fetch(`/api/lab-parameters?studyId=${order.studyId}`, { credentials: "include" })
+      const res = await fetch(`/api/lab-parameters?studyId=${order!.studyId}`, { credentials: "include" })
       if (!res.ok) return []
       return res.json()
     },
     enabled: !!order?.studyId,
   })
 
-  const { data: patients = [] } = useQuery({ queryKey: ["/api/patients"] })
-  const { data: doctors = [] } = useQuery({ queryKey: ["/api/doctors"] })
-  const { data: labStudies = [] } = useQuery({ queryKey: ["/api/lab-studies"] })
+  const { data: patients = [] } = useQuery<Patient[]>({ queryKey: ["/api/patients"] })
+  const { data: doctors = [] } = useQuery<Doctor[]>({ queryKey: ["/api/doctors"] })
+  const { data: labStudies = [] } = useQuery<LabStudy[]>({ queryKey: ["/api/lab-studies"] })
 
-  const patientMap = useMemo(() => {
-    const m: Record<string, any> = {}
-    ;(patients as any[]).forEach((p: any) => { m[p.id] = p })
-    return m
-  }, [patients])
+  const patient = useMemo(() => patients.find((p) => p.id === order?.patientId) ?? null, [patients, order?.patientId])
+  const doctor = useMemo(() => doctors.find((d) => d.id === order?.doctorId) ?? null, [doctors, order?.doctorId])
+  const study = useMemo(() => labStudies.find((s) => s.id === order?.studyId) ?? null, [labStudies, order?.studyId])
 
-  const doctorMap = useMemo(() => {
-    const m: Record<string, any> = {}
-    ;(doctors as any[]).forEach((d: any) => { m[d.id] = d })
-    return m
-  }, [doctors])
-
-  const studyMap = useMemo(() => {
-    const m: Record<string, any> = {}
-    ;(labStudies as any[]).forEach((s: any) => { m[s.id] = s })
-    return m
-  }, [labStudies])
+  const { data: referenceRanges = [] } = useQuery<ReferenceRange[]>({
+    queryKey: ["/api/reference-ranges", "params", parameters.map((p) => p.id).join(","), patient?.species ?? ""],
+    queryFn: async () => {
+      if (!patient?.species || parameters.length === 0) return []
+      const results = await Promise.all(
+        parameters.map((p) =>
+          fetch(`/api/reference-ranges/applicable/${p.id}?species=${encodeURIComponent(patient.species!)}`, { credentials: "include" })
+            .then((r) => r.ok ? r.json() as Promise<ReferenceRange[]> : [] as ReferenceRange[])
+        )
+      )
+      return results.flat()
+    },
+    enabled: !!patient?.species && parameters.length > 0,
+  })
 
   const resultMap = useMemo(() => {
-    const m: Record<string, any> = {}
-    ;(resultDetails as any[]).forEach((r: any) => { m[r.parameterId] = r })
+    const m: Record<string, LabResultDetail> = {}
+    resultDetails.forEach((r) => { m[r.parameterId] = r })
     return m
   }, [resultDetails])
 
+  const refRangeMap = useMemo(() => {
+    const m: Record<string, ReferenceRange> = {}
+    referenceRanges.forEach((r) => { m[r.parameterId] = r })
+    return m
+  }, [referenceRanges])
+
   const updateStatusMutation = useMutation({
     mutationFn: async (newStatus: string) => {
-      const payload: any = { status: newStatus }
+      const payload: Record<string, string> = { status: newStatus }
       if (newStatus === "sample_taken") payload.sampleTakenDate = new Date().toISOString()
       if (newStatus === "completed") payload.completedDate = new Date().toISOString()
       const res = await apiRequest("PUT", `/api/lab-orders/${orderId}`, payload)
@@ -421,13 +520,20 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
   })
 
   const saveResultMutation = useMutation({
-    mutationFn: async ({ parameterId, data, existingId }: { parameterId: string; data: ResultEntryData; existingId?: string }) => {
+    mutationFn: async ({ parameterId, data, existingId, refRange }: {
+      parameterId: string
+      data: ResultEntryData
+      existingId?: string
+      refRange: ReferenceRange | null
+    }) => {
+      const numVal = data.numericValue ? Number(data.numericValue) : undefined
+      const autoStatus = (numVal != null) ? computeResultStatus(numVal, refRange) : data.status
       const payload = {
         orderId,
         parameterId,
-        numericValue: data.numericValue ? Number(data.numericValue) : undefined,
+        numericValue: numVal,
         value: data.value || undefined,
-        status: data.status,
+        status: autoStatus,
         notes: data.notes,
         reportedDate: new Date().toISOString(),
       }
@@ -453,16 +559,13 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
 
   if (!orderId) return null
 
-  const patient = order ? patientMap[order.patientId] : null
-  const doctor = order ? doctorMap[order.doctorId] : null
-  const study = order ? studyMap[order.studyId] : null
   const statusConfig = order ? getStatusConfig(order.status) : null
   const nextStatus = order?.status ? NEXT_STATUS[order.status] : null
   const nextLabel = order?.status ? NEXT_STATUS_LABELS[order.status] : null
 
   return (
     <Dialog open={!!orderId} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[760px] max-h-[90vh] overflow-y-auto">
         {orderLoading ? (
           <div className="space-y-3 p-4">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -537,7 +640,7 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
             {/* Results table */}
             <div>
               <h3 className="text-sm font-semibold mb-2">Параметры и результаты</h3>
-              {(parameters as any[]).length === 0 ? (
+              {parameters.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Параметры исследования не заданы. Добавьте их в справочнике.
                 </p>
@@ -547,14 +650,16 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
                     <TableRow>
                       <TableHead>Параметр</TableHead>
                       <TableHead>Ед.</TableHead>
+                      <TableHead>Норма</TableHead>
                       <TableHead>Значение</TableHead>
                       <TableHead>Статус</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(parameters as any[]).map((param: any) => {
+                    {parameters.map((param) => {
                       const existing = resultMap[param.id]
+                      const refRange = refRangeMap[param.id] ?? null
                       const isEditing = editingResultId === param.id
                       const statusCfg = existing ? RESULT_STATUS_CONFIG[existing.status] ?? RESULT_STATUS_CONFIG["normal"] : null
 
@@ -562,7 +667,8 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
                         <ResultRow
                           key={param.id}
                           param={param}
-                          existing={existing}
+                          existing={existing ?? null}
+                          refRange={refRange}
                           isEditing={isEditing}
                           statusCfg={statusCfg}
                           isSaving={saveResultMutation.isPending}
@@ -573,6 +679,7 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
                               parameterId: param.id,
                               data,
                               existingId: existing?.id,
+                              refRange,
                             })
                           }
                         />
@@ -608,8 +715,9 @@ function OrderDetailDialog({ orderId, onClose }: OrderDetailDialogProps) {
 
 
 interface ResultRowProps {
-  param: any
-  existing: any
+  param: LabParameter
+  existing: LabResultDetail | null
+  refRange: ReferenceRange | null
   isEditing: boolean
   statusCfg: { label: string; className: string } | null
   isSaving: boolean
@@ -618,7 +726,7 @@ interface ResultRowProps {
   onSave: (data: ResultEntryData) => void
 }
 
-function ResultRow({ param, existing, isEditing, statusCfg, isSaving, onEdit, onCancel, onSave }: ResultRowProps) {
+function ResultRow({ param, existing, refRange, isEditing, statusCfg, isSaving, onEdit, onCancel, onSave }: ResultRowProps) {
   const form = useForm<ResultEntryData>({
     resolver: zodResolver(resultEntrySchema),
     defaultValues: {
@@ -629,14 +737,17 @@ function ResultRow({ param, existing, isEditing, statusCfg, isSaving, onEdit, on
     },
   })
 
+  const normaDisplay = formatReferenceRange(refRange)
+
   return isEditing ? (
     <TableRow className="bg-muted/20">
-      <TableCell colSpan={5}>
+      <TableCell colSpan={6}>
         <form
           onSubmit={form.handleSubmit(onSave)}
           className="grid grid-cols-12 gap-2 items-end py-1"
         >
           <div className="col-span-2 text-sm font-medium">{param.name}</div>
+          <div className="col-span-1 text-xs text-muted-foreground">{normaDisplay}</div>
           <div className="col-span-2">
             <Input
               placeholder="Число"
@@ -656,22 +767,8 @@ function ResultRow({ param, existing, isEditing, statusCfg, isSaving, onEdit, on
               className="h-8 text-sm"
             />
           </div>
-          <div className="col-span-3">
-            <Select
-              onValueChange={(v) => form.setValue("status", v)}
-              defaultValue={form.getValues("status")}
-            >
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="normal">Норма</SelectItem>
-                <SelectItem value="low">Понижен</SelectItem>
-                <SelectItem value="high">Повышен</SelectItem>
-                <SelectItem value="critical_low">Крит. низкий</SelectItem>
-                <SelectItem value="critical_high">Крит. высокий</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="col-span-2 text-xs text-muted-foreground italic">
+            {refRange ? "Статус вычисляется автоматически" : "Ручной выбор статуса"}
           </div>
           <div className="col-span-3 flex gap-1">
             <Button type="submit" size="sm" disabled={isSaving} className="h-8">
@@ -691,6 +788,7 @@ function ResultRow({ param, existing, isEditing, statusCfg, isSaving, onEdit, on
     >
       <TableCell className="font-medium text-sm">{param.name}</TableCell>
       <TableCell className="text-sm text-muted-foreground">{param.unit}</TableCell>
+      <TableCell className="text-xs text-muted-foreground">{normaDisplay}</TableCell>
       <TableCell className="font-semibold">
         {existing
           ? (existing.numericValue != null
@@ -975,42 +1073,41 @@ function OrdersTab({
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [urgencyFilter, setUrgencyFilter] = useState<string>("all")
 
-  const { data: rawOrders = [], isLoading } = useQuery({ queryKey: ["/api/lab-orders"] })
-  const { data: patients = [] } = useQuery({ queryKey: ["/api/patients"] })
-  const { data: doctors = [] } = useQuery({ queryKey: ["/api/doctors"] })
-  const { data: labStudies = [] } = useQuery({ queryKey: ["/api/lab-studies"] })
+  const { data: rawOrders = [], isLoading } = useQuery<(LabOrder | { lab_orders: LabOrder })[]>({ queryKey: ["/api/lab-orders"] })
+  const { data: patients = [] } = useQuery<Patient[]>({ queryKey: ["/api/patients"] })
+  const { data: doctors = [] } = useQuery<Doctor[]>({ queryKey: ["/api/doctors"] })
+  const { data: labStudies = [] } = useQuery<LabStudy[]>({ queryKey: ["/api/lab-studies"] })
 
   const patientMap = useMemo(() => {
-    const m: Record<string, any> = {}
-    ;(patients as any[]).forEach((p: any) => { m[p.id] = p })
+    const m: Record<string, Patient> = {}
+    patients.forEach((p) => { m[p.id] = p })
     return m
   }, [patients])
 
   const doctorMap = useMemo(() => {
-    const m: Record<string, any> = {}
-    ;(doctors as any[]).forEach((d: any) => { m[d.id] = d })
+    const m: Record<string, Doctor> = {}
+    doctors.forEach((d) => { m[d.id] = d })
     return m
   }, [doctors])
 
   const studyMap = useMemo(() => {
-    const m: Record<string, any> = {}
-    ;(labStudies as any[]).forEach((s: any) => { m[s.id] = s })
+    const m: Record<string, LabStudy> = {}
+    labStudies.forEach((s) => { m[s.id] = s })
     return m
   }, [labStudies])
 
   // getLabOrders returns rows with both labOrders.* and patients.* joined – need to normalize
-  const orders = useMemo(() => {
-    const raw = rawOrders as any[]
-    return raw.map((row: any) => {
+  const orders = useMemo((): LabOrder[] => {
+    return rawOrders.map((row) => {
       // row might be { lab_orders: {...}, patients: {...} } from leftJoin OR flat
-      if (row.lab_orders) return row.lab_orders
-      return row
+      if ("lab_orders" in row && row.lab_orders) return row.lab_orders
+      return row as LabOrder
     })
   }, [rawOrders])
 
   const filtered = useMemo(() => {
     const q = searchTerm.toLowerCase()
-    return orders.filter((o: any) => {
+    return orders.filter((o: LabOrder) => {
       if (statusFilter !== "all" && o.status !== statusFilter) return false
       if (urgencyFilter !== "all" && o.urgency !== urgencyFilter) return false
       if (q) {
@@ -1086,7 +1183,7 @@ function OrdersTab({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((order: any) => {
+            {filtered.map((order) => {
               const patient = patientMap[order.patientId]
               const doctor = doctorMap[order.doctorId]
               const study = studyMap[order.studyId]
@@ -1142,15 +1239,14 @@ export default function Laboratory() {
   const [createOrderOpen, setCreateOrderOpen] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
 
-  const { data: rawOrders = [] } = useQuery({ queryKey: ["/api/lab-orders"] })
-  const orders = useMemo(() => {
-    const raw = rawOrders as any[]
-    return raw.map((row: any) => (row.lab_orders ? row.lab_orders : row))
+  const { data: rawOrders = [] } = useQuery<(LabOrder | { lab_orders: LabOrder })[]>({ queryKey: ["/api/lab-orders"] })
+  const orders = useMemo((): LabOrder[] => {
+    return rawOrders.map((row) => ("lab_orders" in row && row.lab_orders ? row.lab_orders : row as LabOrder))
   }, [rawOrders])
 
   const statsMap = useMemo(() => {
     const counts: Record<string, number> = {}
-    orders.forEach((o: any) => {
+    orders.forEach((o) => {
       counts[o.status ?? "pending"] = (counts[o.status ?? "pending"] ?? 0) + 1
     })
     return counts
@@ -1180,8 +1276,8 @@ export default function Laboratory() {
         {[
           { label: "Ожидают", value: statsMap["pending"] ?? 0, color: "text-muted-foreground" },
           { label: "В работе", value: (statsMap["sample_taken"] ?? 0) + (statsMap["in_progress"] ?? 0), color: "text-blue-600 dark:text-blue-400" },
-          { label: "Срочные", value: orders.filter((o: any) => o.urgency === "urgent" || o.urgency === "stat").length, color: "text-orange-600 dark:text-orange-400" },
-          { label: "Готово сегодня", value: orders.filter((o: any) => o.status === "completed" && o.completedDate && new Date(o.completedDate).toDateString() === new Date().toDateString()).length, color: "text-green-600 dark:text-green-400" },
+          { label: "Срочные", value: orders.filter((o) => o.urgency === "urgent" || o.urgency === "stat").length, color: "text-orange-600 dark:text-orange-400" },
+          { label: "Готово сегодня", value: orders.filter((o) => o.status === "completed" && o.completedDate && new Date(o.completedDate).toDateString() === new Date().toDateString()).length, color: "text-green-600 dark:text-green-400" },
         ].map((stat) => (
           <Card key={stat.label}>
             <CardContent className="p-4">
@@ -1210,9 +1306,9 @@ export default function Laboratory() {
           <TabsTrigger value="orders">
             <ClipboardList className="h-4 w-4 mr-1" />
             Заказы
-            {orders.filter((o: any) => o.status !== "completed" && o.status !== "cancelled").length > 0 && (
+            {orders.filter((o) => o.status !== "completed" && o.status !== "cancelled").length > 0 && (
               <Badge variant="secondary" className="ml-1 text-xs">
-                {orders.filter((o: any) => o.status !== "completed" && o.status !== "cancelled").length}
+                {orders.filter((o) => o.status !== "completed" && o.status !== "cancelled").length}
               </Badge>
             )}
           </TabsTrigger>
