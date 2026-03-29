@@ -59,23 +59,23 @@ export class DocumentService {
       } catch { /* continue */ }
     }
 
-    // 3. Use puppeteer's own executablePath() — most reliable
+    // 3. Use puppeteer's own executablePath() — only if the file actually exists
     try {
       const puppeteerExec = puppeteer.executablePath();
       if (puppeteerExec) {
-        log(`Found via puppeteer.executablePath(): ${puppeteerExec}`);
-        // ensure the binary is executable
+        execSync(`test -f "${puppeteerExec}"`, { encoding: 'utf-8' }); // throws if not found
         execSync(`chmod +x "${puppeteerExec}" 2>/dev/null || true`);
+        log(`Found via puppeteer.executablePath(): ${puppeteerExec}`);
         return puppeteerExec;
       }
-    } catch { /* ignore */ }
+    } catch { /* file doesn't exist at that path, continue */ }
 
-    // 4. Search puppeteer cache in all likely home directories
+    // 4. Search puppeteer cache in all likely home directories (covers root, ubuntu, etc.)
     const homeDirs = [
-      process.env.HOME,
       '/root',
       '/home/ubuntu',
       '/home/user',
+      process.env.HOME,
     ].filter(Boolean) as string[];
 
     for (const home of homeDirs) {
