@@ -27,16 +27,83 @@ export class DocumentService {
   }
 
   /**
-   * Get Chromium executable path
+   * Get Chromium executable path — tries multiple possible binary names and paths
    */
   private getChromiumPath(): string {
-    try {
-      const chromiumPath = execSync('which chromium', { encoding: 'utf-8' }).trim();
-      return chromiumPath;
-    } catch (error) {
-      console.error('Failed to find chromium executable:', error);
-      throw new Error('Chromium not found. Please ensure chromium is installed.');
+    // Candidate binary names (in order of preference)
+    const candidates = [
+      'google-chrome-stable',
+      'google-chrome',
+      'chromium-browser',
+      'chromium',
+    ];
+
+    // 1. Try `which <name>` for each candidate
+    for (const name of candidates) {
+      try {
+        const p = execSync(`which ${name}`, { encoding: 'utf-8' }).trim();
+        if (p) return p;
+      } catch { /* not found — continue */ }
     }
+
+    // 2. Try common hard-coded paths (Debian/Ubuntu, CentOS, Nix, macOS)
+    const hardcoded = [
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/usr/local/bin/chromium',
+      '/opt/google/chrome/google-chrome',
+      '/snap/bin/chromium',
+    ];
+
+    for (const p of hardcoded) {
+      try {
+        execSync(`test -x "${p}"`, { encoding: 'utf-8' });
+        return p;
+      } catch { /* not found — continue */ }
+    }
+
+    // 3. Try puppeteer's own bundled browser path
+    try {
+      // puppeteer v20+ uses executablePath() from the package
+      const { executablePath } = require('puppeteer');
+      const puppeteerPath: string = typeof executablePath === 'function' ? executablePath() : '';
+      if (puppeteerPath) {
+        execSync(`test -x "${puppeteerPath}"`, { encoding: 'utf-8' });
+        return puppeteerPath;
+      }
+    } catch { /* ignore */ }
+
+    // 3b. Try common puppeteer cache locations (~/.cache/puppeteer)
+    try {
+      const homeDir = process.env.HOME || '/root';
+      const cacheBase = `${homeDir}/.cache/puppeteer/chrome`;
+      const chromeDir = execSync(`ls "${cacheBase}" 2>/dev/null | head -1`, { encoding: 'utf-8' }).trim();
+      if (chromeDir) {
+        const chromeBin = execSync(
+          `find "${cacheBase}/${chromeDir}" -name "chrome" -type f 2>/dev/null | head -1`,
+          { encoding: 'utf-8' }
+        ).trim();
+        if (chromeBin) return chromeBin;
+      }
+    } catch { /* ignore */ }
+
+    // 4. Try `find` as a last resort in common dirs
+    try {
+      const found = execSync(
+        'find /usr /opt /snap -name "chromium" -o -name "google-chrome" -o -name "chromium-browser" 2>/dev/null | head -1',
+        { encoding: 'utf-8' }
+      ).trim();
+      if (found) return found;
+    } catch { /* ignore */ }
+
+    console.error('Chromium not found. Tried:', [...candidates, ...hardcoded].join(', '));
+    throw new Error(
+      'Chromium not found. Install it on the server:\n' +
+      '  Ubuntu/Debian: apt-get install -y chromium-browser\n' +
+      '  or:            apt-get install -y google-chrome-stable'
+    );
   }
 
   /**
