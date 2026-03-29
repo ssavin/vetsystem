@@ -86,7 +86,7 @@ export const CLIENT_SEGMENT = ['new', 'regular', 'vip', 'lost', 'at_risk'] as co
 export const INTERACTION_TYPE = ['call', 'sms', 'email', 'push', 'visit', 'note', 'complaint', 'feedback'] as const;
 export const REMINDER_TYPE = ['vaccination', 'deworming', 'flea_tick', 'checkup', 'surgery_followup', 'dental', 'custom'] as const;
 export const REMINDER_STATUS = ['pending', 'sent', 'acknowledged', 'completed', 'cancelled'] as const;
-export const CAMPAIGN_STATUS = ['draft', 'scheduled', 'running', 'completed', 'paused', 'cancelled'] as const;
+export const CAMPAIGN_STATUS = ['draft', 'scheduled', 'sent', 'cancelled'] as const;
 export const CAMPAIGN_CHANNEL = ['sms', 'email', 'push'] as const;
 
 // ========================================
@@ -3605,7 +3605,7 @@ export const marketingCampaigns = pgTable('marketing_campaigns', {
   description: text('description'),
   
   channel: varchar('channel', { length: 20 }).notNull(), // sms, email, push
-  status: varchar('status', { length: 20 }).default('draft'), // draft, scheduled, running, completed, paused, cancelled
+  status: varchar('status', { length: 20 }).default('draft'), // draft, scheduled, sent, cancelled
   
   // Targeting
   targetSegments: text('target_segments').array(), // ['vip', 'regular', 'lost']

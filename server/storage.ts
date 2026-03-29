@@ -7433,12 +7433,6 @@ export class DatabaseStorage implements IStorage {
               THEN 'at_risk'
             WHEN visit_count > 0
               AND CAST(total_spent AS numeric) > 0
-              AND (
-                SELECT COUNT(*) FROM owners o2
-                WHERE o2.tenant_id = owners.tenant_id
-                  AND o2.visit_count > 0
-                  AND CAST(o2.total_spent AS numeric) > 0
-              ) >= 10
               AND CAST(total_spent AS numeric) >= (
                 SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(o2.total_spent AS numeric))
                 FROM owners o2
@@ -7454,7 +7448,7 @@ export class DatabaseStorage implements IStorage {
           updated_at = now()
           WHERE COALESCE(segment_manual, false) = false
         `);
-        return { updated: (result as any).rowCount || 0 };
+        return { updated: result.rowCount ?? 0 };
       });
     });
   }
@@ -7463,7 +7457,9 @@ export class DatabaseStorage implements IStorage {
     return withPerformanceLogging('recalculateOwnerSegments', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         // Same deterministic single-pass logic, scoped to one tenant.
-        // VIP: top 10% by spend, only when tenant has >= 10 positive-spend owners.
+        // VIP: >= PERCENTILE_CONT(0.9) of positive-spend owners in tenant.
+        //   - total_spent > 0 prevents null/zero-spend owners from matching on an empty subquery.
+        //   - PERCENTILE_CONT returns NULL when subquery has no rows → condition fails safely.
         // Owners with segment_manual = true are skipped (manual override preserved).
         const result = await dbInstance.execute(sql`
           UPDATE owners
@@ -7474,12 +7470,6 @@ export class DatabaseStorage implements IStorage {
               THEN 'at_risk'
             WHEN visit_count > 0
               AND CAST(total_spent AS numeric) > 0
-              AND (
-                SELECT COUNT(*) FROM owners o2
-                WHERE o2.tenant_id = ${tenantId}
-                  AND o2.visit_count > 0
-                  AND CAST(o2.total_spent AS numeric) > 0
-              ) >= 10
               AND CAST(total_spent AS numeric) >= (
                 SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(o2.total_spent AS numeric))
                 FROM owners o2
@@ -7496,7 +7486,7 @@ export class DatabaseStorage implements IStorage {
           WHERE tenant_id = ${tenantId}
             AND COALESCE(segment_manual, false) = false
         `);
-        return { updated: (result as any).rowCount || 0 };
+        return { updated: result.rowCount ?? 0 };
       });
     });
   }

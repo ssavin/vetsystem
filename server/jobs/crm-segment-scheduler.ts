@@ -12,7 +12,9 @@ export function startCrmSegmentScheduler() {
       const rows = await db.execute(sql`
         SELECT DISTINCT tenant_id FROM owners WHERE tenant_id IS NOT NULL
       `);
-      const tenantIds: string[] = (rows as any).rows?.map((r: any) => r.tenant_id) || [];
+      const tenantIds: string[] = (rows.rows as Array<{ tenant_id: string }>)
+        .map((r) => r.tenant_id)
+        .filter(Boolean);
 
       if (tenantIds.length === 0) {
         console.log('[CRM Segments] No tenants found, skipping.');
