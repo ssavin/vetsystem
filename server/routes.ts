@@ -4364,17 +4364,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/lab-orders", authenticateToken, requireModuleAccess('laboratory'), validateBody(insertLabOrderSchema), async (req, res) => {
     try {
       const user = (req as any).user;
-      // Auto-generate orderNumber if not provided
       const orderData = { ...req.body };
+      // Auto-generate orderNumber if not provided
       if (!orderData.orderNumber) {
         const now = new Date();
         const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
         const seq = String(now.getTime()).slice(-4);
         orderData.orderNumber = `LAB-${dateStr}-${seq}`;
       }
-      // Inject tenant/branch from token
-      if (!orderData.tenantId && user?.tenantId) orderData.tenantId = user.tenantId;
-      if (!orderData.branchId && user?.branchId) orderData.branchId = user.branchId;
+      // Always enforce tenant/branch from token — client-supplied values are not trusted
+      orderData.tenantId = user?.tenantId;
+      orderData.branchId = user?.branchId;
       const order = await storage.createLabOrder(orderData);
       res.status(201).json(order);
     } catch (error) {
@@ -4387,12 +4387,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userBranchId = requireValidBranchId(req, res);
       if (!userBranchId) return;
+      const user = (req as any).user;
       const existing = await storage.getLabOrder(req.params.id);
       if (!existing) return res.status(404).json({ error: "Lab order not found" });
       if (existing.branchId && existing.branchId !== userBranchId) {
         return res.status(403).json({ error: "Access denied" });
       }
-      const order = await storage.updateLabOrder(req.params.id, req.body);
+      // Strip immutable isolation fields from client payload
+      const { tenantId: _t, branchId: _b, ...safeUpdate } = req.body;
+      const order = await storage.updateLabOrder(req.params.id, safeUpdate);
       res.json(order);
     } catch (error) {
       console.error("Error updating lab order:", error);
@@ -4534,7 +4537,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (parentOrder && parentOrder.branchId && parentOrder.branchId !== userBranchId) {
         return res.status(403).json({ error: "Access denied" });
       }
-      const detail = await storage.updateLabResultDetail(req.params.id, req.body);
+      // Strip orderId — disallow cross-branch reassignment after authorization
+      const { orderId: _oid, ...safeDetailUpdate } = req.body;
+      const detail = await storage.updateLabResultDetail(req.params.id, safeDetailUpdate);
       res.json(detail);
     } catch (error) {
       console.error("Error updating lab result detail:", error);
@@ -8739,8 +8744,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           context = await documentService.buildHospitalizationAgreementContext(effectiveEntityId, tenantId, validBranchId);
           break;
         case 'informed_consent_general':
+        case 'informed_consent_surgery':
+        case 'informed_consent_anesthesia':
+          // Surgery and anesthesia consent share the same patient/owner context as general consent
           context = await documentService.buildInformedConsentGeneralContext(effectiveEntityId, tenantId, validBranchId);
           break;
+        case 'lab_results_report': {
+          // Lab results have their own rich HTML builder — return directly without template lookup
+          let labHtml = await documentService.buildLabResultsHtml(entityId);
+          if (signatureData) {
+            const sigBlock = `<div style="margin-top:40px;border-top:1px solid #ccc;padding-top:20px;page-break-inside:avoid;"><table style="width:100%;border-collapse:collapse;"><tr><td style="width:50%;padding-right:20px;vertical-align:bottom;"><p style="margin:0 0 4px 0;font-size:12px;color:#555;">Подпись клиента:</p><img src="${signatureData}" alt="Подпись" style="max-width:240px;height:80px;object-fit:contain;border:1px solid #ddd;border-radius:4px;background:#fff;" />${signerName ? `<p style="margin:6px 0 0 0;font-size:12px;color:#333;">${signerName}</p>` : ''}</td><td style="width:50%;vertical-align:bottom;text-align:right;"><p style="margin:0;font-size:12px;color:#555;">Дата: ${new Date().toLocaleDateString('ru-RU')}</p></td></tr></table></div>`;
+            labHtml = labHtml.includes('</body>') ? labHtml.replace('</body>', `${sigBlock}</body>`) : labHtml + sigBlock;
+          }
+          if (outputFormat === 'pdf') {
+            const pdfBuffer = await documentService.generatePDF(labHtml);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="lab-results-${entityId}.pdf"`);
+            return res.send(pdfBuffer);
+          }
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          return res.send(labHtml);
+        }
         default:
           return res.status(400).json({ error: `Context builder not implemented for template type: ${templateType}` });
       }
