@@ -1911,14 +1911,16 @@ export const insertLabOrderSchema = createInsertSchema(labOrders).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  orderNumber: true, // auto-generated on server
 }).extend({
-  orderDate: z.coerce.date(),
-  status: z.enum(["ordered", "collected", "processing", "completed", "cancelled"] as const).default("ordered"),
-  urgency: z.enum(["normal", "urgent", "stat"] as const).default("normal"),
-  sampleId: z.string().optional(),
-  sampleCollectedDate: z.coerce.date().optional(),
+  orderNumber: z.string().optional(), // can be supplied by client, otherwise server auto-generates
+  status: z.enum(["pending", "sample_taken", "in_progress", "completed", "cancelled"] as const).default("pending"),
+  urgency: z.enum(["routine", "urgent", "stat"] as const).default("routine"),
+  orderedDate: z.coerce.date().optional(),
+  sampleTakenDate: z.coerce.date().optional(),
+  expectedDate: z.coerce.date().optional(),
+  completedDate: z.coerce.date().optional(),
   notes: z.string().optional(),
-  requestedBy: z.string().optional(),
 });
 
 export const insertLabResultDetailSchema = createInsertSchema(labResultDetails).omit({
@@ -1926,13 +1928,12 @@ export const insertLabResultDetailSchema = createInsertSchema(labResultDetails).
   createdAt: true,
   updatedAt: true,
 }).extend({
-  value: z.string().min(1, "Значение результата обязательно"),
+  value: z.string().optional(), // текстовое значение (необязательно, если есть numericValue)
   numericValue: z.coerce.number().optional(),
-  flag: z.enum(["normal", "low", "high", "critical", "abnormal"] as const).default("normal"),
-  isAbnormal: z.boolean().default(false),
-  testedDate: z.coerce.date().optional(),
-  comments: z.string().optional(),
-  qualityControl: z.record(z.string(), z.any()).optional(),
+  status: z.enum(["normal", "low", "high", "critical_low", "critical_high"] as const).default("normal"),
+  flags: z.string().optional(),
+  notes: z.string().optional(),
+  reportedDate: z.coerce.date().optional(),
 });
 
 // Integration and fiscal schemas
