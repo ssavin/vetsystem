@@ -66,18 +66,7 @@ export class DocumentService {
       } catch { /* continue */ }
     }
 
-    // 3. Use puppeteer's own executablePath() — only if the file actually exists
-    try {
-      const puppeteerExec = puppeteer.executablePath();
-      if (puppeteerExec) {
-        execSync(`test -f "${puppeteerExec}"`, { encoding: 'utf-8' }); // throws if not found
-        execSync(`chmod +x "${puppeteerExec}" 2>/dev/null || true`);
-        log(`Found via puppeteer.executablePath(): ${puppeteerExec}`);
-        return puppeteerExec;
-      }
-    } catch { /* file doesn't exist at that path, continue */ }
-
-    // 4. Search puppeteer cache in all likely home directories (covers root, ubuntu, etc.)
+    // 3. Search puppeteer cache — /root FIRST (before puppeteer.executablePath() which uses $HOME)
     const homeDirs = [
       '/root',
       '/home/ubuntu',
@@ -100,6 +89,17 @@ export class DocumentService {
         }
       } catch { /* continue */ }
     }
+
+    // 4. Use puppeteer's own executablePath() — only if the file actually exists (last resort)
+    try {
+      const puppeteerExec = puppeteer.executablePath();
+      if (puppeteerExec) {
+        execSync(`test -f "${puppeteerExec}"`, { encoding: 'utf-8' }); // throws if not found
+        execSync(`chmod +x "${puppeteerExec}" 2>/dev/null || true`);
+        log(`Found via puppeteer.executablePath(): ${puppeteerExec}`);
+        return puppeteerExec;
+      }
+    } catch { /* file doesn't exist at that path, continue */ }
 
     // 5. Last resort: broad find across /root /home /usr /opt /snap
     try {
