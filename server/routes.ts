@@ -10796,6 +10796,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/crm/owners", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
+      // Auto-recalculate segments on every load (skips owners with manual overrides)
+      await storage.recalculateOwnerSegments(user.tenantId).catch((err: any) =>
+        console.error('[CRM] auto-recalculate segments failed:', err.message)
+      );
       const segment = req.query.segment as string | undefined;
       const search = req.query.search as string | undefined;
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
@@ -10826,6 +10830,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/crm/stats", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
+      // Auto-recalculate segments before computing stats (skips manual overrides)
+      await storage.recalculateOwnerSegments(user.tenantId).catch((err: any) =>
+        console.error('[CRM] auto-recalculate segments failed:', err.message)
+      );
       const stats = await storage.getCrmStats(user.tenantId);
       res.json(stats);
     } catch (error: any) {

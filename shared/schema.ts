@@ -340,6 +340,7 @@ export const owners = pgTable("owners", {
   
   // CRM fields
   segment: varchar("segment", { length: 20 }).default("new"), // Client segment: new, regular, vip, lost, at_risk
+  segmentManual: boolean("segment_manual").default(false), // If true, segment was manually set — skip auto-recalculation
   totalSpent: decimal("total_spent", { precision: 12, scale: 2 }).default("0"), // Lifetime value
   visitCount: integer("visit_count").default(0), // Total visits
   lastVisitAt: timestamp("last_visit_at"), // Last visit date

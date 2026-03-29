@@ -7381,7 +7381,7 @@ export class DatabaseStorage implements IStorage {
         if (tenantId) conditions.push(eq(owners.tenantId, tenantId));
         const [updated] = await dbInstance
           .update(owners)
-          .set({ segment, updatedAt: new Date() })
+          .set({ segment, segmentManual: true, updatedAt: new Date() })
           .where(and(...conditions))
           .returning();
         return updated;
@@ -7422,7 +7422,7 @@ export class DatabaseStorage implements IStorage {
       return withTenantContext(undefined, async (dbInstance) => {
         // Single deterministic pass: each owner is classified by highest-priority matching rule.
         // Priority: lost > at_risk > vip > regular > new
-        // No sticky segment exclusions — every run re-evaluates based purely on current metrics.
+        // Owners with segment_manual = true are skipped (manual override preserved).
         const result = await dbInstance.execute(sql`
           UPDATE owners
           SET segment = CASE
@@ -7430,7 +7430,7 @@ export class DatabaseStorage implements IStorage {
               THEN 'lost'
             WHEN last_visit_at IS NOT NULL AND last_visit_at < now() - interval '60 days'
               THEN 'at_risk'
-            WHEN visit_count > 0 AND CAST(total_spent AS numeric) > COALESCE((
+            WHEN visit_count > 0 AND CAST(total_spent AS numeric) >= COALESCE((
               SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(o2.total_spent AS numeric))
               FROM owners o2
               WHERE o2.tenant_id = owners.tenant_id
@@ -7443,6 +7443,7 @@ export class DatabaseStorage implements IStorage {
             ELSE 'new'
           END,
           updated_at = now()
+          WHERE COALESCE(segment_manual, false) = false
         `);
         return { updated: (result as any).rowCount || 0 };
       });
@@ -7453,6 +7454,7 @@ export class DatabaseStorage implements IStorage {
     return withPerformanceLogging('recalculateOwnerSegments', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
         // Same deterministic single-pass logic, scoped to one tenant.
+        // Owners with segment_manual = true are skipped (manual override preserved).
         const result = await dbInstance.execute(sql`
           UPDATE owners
           SET segment = CASE
@@ -7460,7 +7462,7 @@ export class DatabaseStorage implements IStorage {
               THEN 'lost'
             WHEN last_visit_at IS NOT NULL AND last_visit_at < now() - interval '60 days'
               THEN 'at_risk'
-            WHEN visit_count > 0 AND CAST(total_spent AS numeric) > COALESCE((
+            WHEN visit_count > 0 AND CAST(total_spent AS numeric) >= COALESCE((
               SELECT PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY CAST(o2.total_spent AS numeric))
               FROM owners o2
               WHERE o2.tenant_id = owners.tenant_id
@@ -7474,6 +7476,7 @@ export class DatabaseStorage implements IStorage {
           END,
           updated_at = now()
           WHERE tenant_id = ${tenantId}
+            AND COALESCE(segment_manual, false) = false
         `);
         return { updated: (result as any).rowCount || 0 };
       });
