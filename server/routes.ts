@@ -11069,6 +11069,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Campaign Recipients
   app.get("/api/crm/campaigns/:id/recipients", authenticateToken, async (req, res) => {
     try {
+      const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      // Verify campaign belongs to tenant before returning recipients (IDOR guard)
+      const campaign = await storage.getMarketingCampaign(req.params.id, user.tenantId);
+      if (!campaign) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
       const recipients = await storage.getCampaignRecipients(req.params.id);
       res.json(recipients);
     } catch (error: any) {
@@ -11079,6 +11088,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/crm/campaigns/:id/recipients", authenticateToken, async (req, res) => {
     try {
+      const user = (req as any).user;
+      if (!user?.isSuperAdmin && user?.role !== 'руководитель' && user?.role !== 'администратор' && user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      // Verify campaign belongs to tenant before adding recipients (IDOR guard)
+      const campaign = await storage.getMarketingCampaign(req.params.id, user.tenantId);
+      if (!campaign) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
       const { ownerIds } = req.body;
       await storage.addCampaignRecipients(req.params.id, ownerIds);
       res.status(201).json({ success: true, count: ownerIds.length });
