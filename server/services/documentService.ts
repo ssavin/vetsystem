@@ -413,7 +413,11 @@ export class DocumentService {
           '--disable-dev-shm-usage',
           '--disable-gpu',
           '--disable-software-rasterizer',
-          '--single-process',
+          '--no-zygote',
+          '--disable-extensions',
+          '--disable-background-networking',
+          '--no-first-run',
+          '--disable-default-apps',
         ]
       });
       console.log('[PDF] Browser launched');
