@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { SystemSetting } from "@shared/schema"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -126,13 +127,27 @@ const mockInvoices = [
   }
 ]
 
+const PAGE_SIZE = 50
+
 export default function Finance() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [page, setPage] = useState(1)
   const [activeTab, setActiveTab] = useState("invoices")
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const { toast } = useToast()
+
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setPage(1)
+    }, 400)
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current) }
+  }, [searchTerm])
 
   // Обработчики событий для кнопок действий
   const handleViewInvoice = (invoiceId: string) => {
@@ -232,7 +247,7 @@ export default function Finance() {
           description: "Счет успешно удален из системы",
         })
         // Обновляем список счетов
-        queryClient.invalidateQueries({ queryKey: ['/api/invoices'] })
+        queryClient.invalidateQueries({ queryKey: ['/api/invoices'] as const })
       } else {
         throw new Error('Не удалось удалить счет')
       }
@@ -245,16 +260,21 @@ export default function Finance() {
     }
   }
 
-  // Fetch real invoices from API
-  const { data: invoices = [], isLoading: isLoadingInvoices, error } = useQuery({
-    queryKey: ['/api/invoices'],
-    queryFn: () => fetch('/api/invoices').then(res => {
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      return res.json();
-    })
+  // Fetch paginated invoices from API
+  const invoicesQueryUrl = `/api/invoices?page=${page}&limit=${PAGE_SIZE}${debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''}`
+  const { data: invoicesResponse, isLoading: isLoadingInvoices, error } = useQuery({
+    queryKey: ['/api/invoices', page, debouncedSearch],
+    queryFn: () => fetch(invoicesQueryUrl, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+    }).then(res => {
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+      return res.json()
+    }),
+    placeholderData: (prev) => prev,
   })
+  const invoices: any[] = invoicesResponse?.data ?? []
+  const totalInvoices: number = invoicesResponse?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(totalInvoices / PAGE_SIZE))
 
   // Fetch system settings for fiscal receipt configuration
   const { data: systemSettings = [] } = useQuery<SystemSetting[]>({
@@ -362,13 +382,8 @@ export default function Finance() {
     }
   }
 
-  // Фильтрация по номеру счета, имени пациента, имени владельца и заметкам
-  const filteredInvoices = Array.isArray(invoices) ? invoices.filter((invoice: any) =>
-    (invoice.invoiceNumber && invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (invoice.patientName && invoice.patientName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (invoice.ownerName && invoice.ownerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (invoice.notes && invoice.notes.toLowerCase().includes(searchTerm.toLowerCase()))
-  ) : []
+  // Сервер уже фильтрует и пагинирует — просто используем данные страницы
+  const filteredInvoices = invoices
 
 
   return (
@@ -417,7 +432,7 @@ export default function Finance() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="invoices" data-testid="tab-invoices">
-            Счета ({filteredInvoices.length})
+            Счета ({totalInvoices.toLocaleString('ru-RU')})
           </TabsTrigger>
         </TabsList>
 
@@ -632,6 +647,38 @@ export default function Finance() {
                 </Table>
               </CardContent>
             </Card>
+          )}
+
+          {/* Пагинация */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-sm text-muted-foreground">
+                Показано {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, totalInvoices)} из {totalInvoices.toLocaleString('ru-RU')} счетов
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page <= 1 || isLoadingInvoices}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Назад
+                </Button>
+                <span className="text-sm">
+                  Страница {page} из {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages || isLoadingInvoices}
+                >
+                  Вперёд
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </TabsContent>
       </Tabs>

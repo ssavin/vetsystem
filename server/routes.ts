@@ -2221,14 +2221,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/invoices", authenticateToken, requireModuleAccess('finance'), async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
-      const user = (req as any).user;
+      const search = req.query.search as string | undefined;
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+
       const userBranchId = requireValidBranchId(req, res);
       if (!userBranchId) return;
-      const invoices = await storage.getInvoicesWithDetails(status, userBranchId);
-      console.log("=== GET /api/invoices response ===");
-      console.log("Number of invoices found:", invoices.length);
-      console.log("Sample invoice structure:", invoices[0] ? JSON.stringify(invoices[0], null, 2) : "No invoices");
-      res.json(invoices);
+
+      const result = await storage.getInvoicesWithDetails(status, userBranchId, { limit, offset, search });
+      res.json({ data: result.data, total: result.total, page, limit });
     } catch (error) {
       console.error("Error fetching invoices:", error);
       res.status(500).json({ error: "Failed to fetch invoices" });
