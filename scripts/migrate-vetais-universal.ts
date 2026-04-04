@@ -304,7 +304,7 @@ async function migrateOwners(vsDb: Client, vtDb: Client, branchMap: Map<number, 
     const name = buildName(r.nazev_kado, r.poznamka_kado, r.jmeno);
     if (!name) { stats.owners.skipped_no_name++; continue; }
 
-    const phone   = cleanPhone(r.mobil) || cleanPhone(r.telefon) || null;
+    const phone   = cleanPhone(r.mobil) || cleanPhone(r.telefon) || 'не указан';
     const email   = cleanEmail(r.email);
     const address = buildAddress(r.mesto_k, r.adresar);
 
