@@ -11816,6 +11816,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Временный endpoint для скачивания скрипта миграции Динго на прод сервер
+  app.get("/api/dl/migrate-dingo", (_req, res) => {
+    const fs = require("fs");
+    const path = require("path");
+    const file = path.join(process.cwd(), "scripts", "migrate-dingo-prod.js");
+    res.setHeader("Content-Type", "application/javascript");
+    res.setHeader("Content-Disposition", "attachment; filename=migrate-dingo-prod.js");
+    res.send(fs.readFileSync(file, "utf8"));
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
