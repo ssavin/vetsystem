@@ -1,0 +1,44 @@
+psql "postgresql://postgres:ASPI6rin@localhost:5432/vetsystem" -c "\d patients"
+                                           Table "public.patients"
+        Column         |            Type             | Collation | Nullable |             Default
+-----------------------+-----------------------------+-----------+----------+---------------------------------
+ id                    | character varying           |           | not null | gen_random_uuid()
+ name                  | character varying(255)      |           | not null |
+ species               | character varying(100)      |           | not null |
+ breed                 | character varying(255)      |           |          |
+ gender                | character varying(10)       |           |          |
+ birth_date            | timestamp without time zone |           |          |
+ color                 | character varying(255)      |           |          |
+ weight                | numeric(5,2)                |           |          |
+ microchip_number      | character varying(255)      |           |          |
+ is_neutered           | boolean                     |           |          | false
+ allergies             | text                        |           |          |
+ chronic_conditions    | text                        |           |          |
+ special_marks         | text                        |           |          |
+ status                | character varying(20)       |           |          | 'healthy'::character varying
+ owner_id              | character varying           |           |          |
+ created_at            | timestamp without time zone |           | not null | now()
+ updated_at            | timestamp without time zone |           | not null | now()
+ branch_id             | character varying           |           |          |
+ tenant_id             | character varying           |           | not null |
+ vetais_id             | character varying(50)       |           |          |
+ galen_uuid            | character varying(36)       |           |          |
+ galen_sync_status     | character varying(20)       |           |          | 'not_synced'::character varying
+ galen_last_sync_error | text                        |           |          |
+ galen_last_sync_at    | timestamp without time zone |           |          |
+ tattoo_number         | character varying(50)       |           |          |
+Indexes:
+    "patients_pkey" PRIMARY KEY, btree (id)
+    "patients_branch_id_idx" btree (branch_id)
+    "patients_breed_idx" btree (breed)
+    "patients_created_at_idx" btree (created_at)
+    "patients_microchip_idx" btree (microchip_number)
+    "patients_name_idx" btree (name)
+    "patients_owner_id_idx" btree (owner_id)
+    "patients_species_idx" btree (species)
+    "patients_status_idx" btree (status)
+    "patients_tenant_id_idx" btree (tenant_id)
+    "patients_tenant_microchip_unique_idx" btree (tenant_id, microchip_number)
+    "patients_vetais_id_idx" btree (vetais_id)
+    "patients_vetais_id_unique_idx" UNIQUE, btree (vetais_id) WHERE vetais_id IS NOT NULL
+Check constraints:
