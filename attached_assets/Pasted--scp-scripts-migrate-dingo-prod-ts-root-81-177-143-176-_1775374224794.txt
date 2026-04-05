@@ -1,0 +1,43 @@
+ scp scripts/migrate-dingo-prod.ts root@81.177.143.176:/var/www/vetsystem/scripts/
+^Croot@mail:/var/www/vetsystemcurl -o /var/www/vetsystem/scripts/migrate-dingo-prod.ts https://raw.githubusercontent.com/.../migrate-dingo-prod.tsts
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    20  100    20    0     0     79      0 --:--:-- --:--:-- --:--:--    80
+root@mail:/var/www/vetsystem# cd /var/www/vetsystem && npx tsx scripts/migrate-dingo-prod.ts owners
+
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+Error [TransformError]: Transform failed with 1 error:
+/var/www/vetsystem/scripts/migrate-dingo-prod.ts:1:3: ERROR: Expected ";" but found ":"
+    at failureErrorWithLog (/var/www/vetsystem/node_modules/tsx/node_modules/esbuild/lib/main.js:1476:15)
+    at /var/www/vetsystem/node_modules/tsx/node_modules/esbuild/lib/main.js:755:50
+    at responseCallbacks.<computed> (/var/www/vetsystem/node_modules/tsx/node_modules/esbuild/lib/main.js:622:9)
+    at handleIncomingPacket (/var/www/vetsystem/node_modules/tsx/node_modules/esbuild/lib/main.js:677:12)
+    at Socket.readFromStdout (/var/www/vetsystem/node_modules/tsx/node_modules/esbuild/lib/main.js:600:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+
+Node.js v20.19.6
+root@mail:/var/www/vetsystem# cd /var/www/vetsystem && npx tsx scripts/migrate-dingo-prod.ts ownersscripts/migrate-dingo-prod.js → /var/www/vetsystem/scripts/migrate-dingo-prod.js
+
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+Error [TransformError]: Transform failed with 1 error:
+/var/www/vetsystem/scripts/migrate-dingo-prod.ts:1:3: ERROR: Expected ";" but found ":"
+    at failureErrorWithLog (/var/www/vetsystem/node_modules/tsx/node_modules/esbuild/lib/main.js:1476:15)
+    at /var/www/vetsystem/node_modules/tsx/node_modules/esbuild/lib/main.js:755:50
+    at responseCallbacks.<computed> (/var/www/vetsystem/node_modules/tsx/node_modules/esbuild/lib/main.js:622:9)
+    at handleIncomingPacket (/var/www/vetsystem/node_modules/tsx/node_modules/esbuild/lib/main.js:677:12)
+    at Socket.readFromStdout (/var/www/vetsystem/node_modules/tsx/node_modules/esbuild/lib/main.js:600:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+
+Node.js v20.19.6
