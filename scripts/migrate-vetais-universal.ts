@@ -41,7 +41,7 @@ const VETAIS_DB   = getArg('db')     || process.env.VETAIS_DB_NAME || 'vetais_al
 const VETAIS_HOST = getArg('host')   || process.env.VETAIS_DB_HOST || '45.128.206.134';
 const VETAIS_PORT = parseInt(getArg('port') || process.env.VETAIS_DB_PORT || '5454');
 const VETAIS_USER = getArg('user')   || process.env.VETAIS_DB_USER || 'postgres';
-const VETAIS_PASS = getArg('password') || process.env.VETAIS_DB_PASSWORD || '';
+const VETAIS_PASS: string = String(getArg('password') ?? process.env.VETAIS_DB_PASSWORD ?? '');
 const BATCH_SIZE  = parseInt(getArg('batch') || '1000');
 const PHASE       = (getArg('phase') || 'all') as 'owners' | 'patients' | 'doctors' | 'all';
 
