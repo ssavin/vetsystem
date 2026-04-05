@@ -155,7 +155,7 @@ async function migratePatients(branchMap) {
       try {
         await vsDb.query(
           `INSERT INTO patients (id,tenant_id,vetais_id,owner_id,name,species,
-             date_of_birth,microchip_number,branch_id,created_at,updated_at)
+             birth_date,microchip_number,branch_id,created_at,updated_at)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW()) ON CONFLICT DO NOTHING`,
           [uuid(), TENANT_ID, vetaisId, ownerId, truncate(name,100), species,
            safeBirthDate(p.narozen), p.cip ? p.cip.trim() : null, branchId]
