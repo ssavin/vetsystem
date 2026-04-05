@@ -136,7 +136,8 @@ async function migratePatients(branchMap) {
     offset += BATCH_SIZE;
 
     for (const p of res.rows) {
-      const vetaisId = p.id_pacienta.toString();
+      const rawId  = p.id_pacienta.toString();
+      const vetaisId = 'DNG_' + rawId; // префикс для уникальности среди всех тенантов
       if (existing.has(vetaisId)) { skipped++; continue; }
 
       const ownersList = p.owner_ids || [];

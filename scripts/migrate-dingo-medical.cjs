@@ -42,8 +42,9 @@ const S = {
 };
 
 async function buildMaps() {
-  const patRes = await vs.query('SELECT vetais_id::int AS vid, id FROM patients WHERE tenant_id=$1 AND vetais_id IS NOT NULL', [TENANT_ID]);
-  const patientMap = new Map(patRes.rows.map(r => [r.vid, r.id]));
+  // Пациенты Динго хранятся с префиксом 'DNG_' в vetais_id
+  const patRes = await vs.query("SELECT REPLACE(vetais_id,'DNG_','')::int AS vid, id FROM patients WHERE tenant_id=$1 AND vetais_id LIKE 'DNG_%'", [TENANT_ID]);
+  const patientMap = new Map(patRes.rows.map(r => [parseInt(r.vid), r.id]));
 
   const owRes = await vs.query('SELECT vetais_id::int AS vid, id FROM owners WHERE tenant_id=$1 AND vetais_id IS NOT NULL', [TENANT_ID]);
   const ownerMap = new Map(owRes.rows.map(r => [r.vid, r.id]));
