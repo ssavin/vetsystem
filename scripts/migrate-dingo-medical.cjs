@@ -221,7 +221,8 @@ async function migrateInvoices(maps) {
 
   const invCols = new Set((await vs.query(`SELECT column_name FROM information_schema.columns WHERE table_name='invoices'`)).rows.map(r => r.column_name));
 
-  const done = new Set((await vs.query(`SELECT invoice_number FROM invoices WHERE tenant_id=$1 AND invoice_number LIKE 'VT-%'`, [TENANT_ID])).rows.map(r => r.invoice_number));
+  const INV_PREFIX = 'DINGO-VT-';
+  const done = new Set((await vs.query(`SELECT invoice_number FROM invoices WHERE tenant_id=$1 AND invoice_number LIKE '${INV_PREFIX}%'`, [TENANT_ID])).rows.map(r => r.invoice_number));
   console.log(`  Счетов уже есть: ${done.size}`);
 
   const SM = { 0: 'draft', 1: 'paid', 2: 'cancelled' };
@@ -232,7 +233,7 @@ async function migrateInvoices(maps) {
     const rows = (await vt.query(`SELECT id, client_id, patient_id, clinic_id, datetime_create, datetime_tax, price_sum, price_to_pay, price_discount, status_id FROM accounts_headers WHERE deleted=0 ORDER BY id LIMIT $1 OFFSET $2`, [BATCH, off])).rows;
     if (!rows.length) break; off += BATCH;
     for (const r of rows) {
-      const invNum = `VT-${r.id}`;
+      const invNum = `${INV_PREFIX}${r.id}`;
       if (done.has(invNum)) { S.invoices.sk++; continue; }
       const ownerId = r.client_id ? ownerMap.get(parseInt(r.client_id)) || null : null;
       if (!ownerId) { S.invoices.sk++; continue; }
@@ -256,16 +257,18 @@ async function migrateInvoices(maps) {
   }
   console.log(`\n  Счета готово: ${S.invoices.ins} вставлено`);
 
-  // Загрузить маппинг уже существующих счетов
-  const allInv = (await vs.query(`SELECT invoice_number, id FROM invoices WHERE tenant_id=$1 AND invoice_number LIKE 'VT-%'`, [TENANT_ID])).rows;
+  // Перезагрузить маппинг из БД (перезаписать, чтобы избежать фейковых ID при ON CONFLICT DO NOTHING)
+  invoiceIdMap.clear();
+  const allInv = (await vs.query(`SELECT invoice_number, id FROM invoices WHERE tenant_id=$1 AND invoice_number LIKE '${INV_PREFIX}%'`, [TENANT_ID])).rows;
   for (const row of allInv) {
-    const vtId = parseInt(row.invoice_number.replace('VT-', ''));
-    if (!isNaN(vtId) && !invoiceIdMap.has(vtId)) invoiceIdMap.set(vtId, row.id);
+    const vtId = parseInt(row.invoice_number.replace(INV_PREFIX, ''));
+    if (!isNaN(vtId)) invoiceIdMap.set(vtId, row.id);
   }
+  console.log(`  Маппинг счетов загружен: ${invoiceIdMap.size}`);
 
   // Позиции
   console.log('  Позиции счетов...');
-  const doneItems = new Set((await vs.query(`SELECT item_id FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE tenant_id=$1 AND invoice_number LIKE 'VT-%') AND item_id LIKE 'VTI-%'`, [TENANT_ID])).rows.map(r => r.item_id));
+  const doneItems = new Set((await vs.query(`SELECT item_id FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE tenant_id=$1 AND invoice_number LIKE '${INV_PREFIX}%') AND item_id LIKE 'DINGO-VTI-%'`, [TENANT_ID])).rows.map(r => r.item_id));
   console.log(`  Позиций уже есть: ${doneItems.size}`);
 
   let iOff = 0;
@@ -273,7 +276,7 @@ async function migrateInvoices(maps) {
     const rows = (await vt.query(`SELECT ai.id, ai.account_header_id, ai.item_name, ai.sold_amount, ai.sale_price, ai.sum_with_vat, ai.vat_sale_perc, ai.item_type_id FROM accounts_items ai WHERE ai.deleted=0 AND ai.account_header_id>0 ORDER BY ai.id LIMIT $1 OFFSET $2`, [BATCH * 2, iOff])).rows;
     if (!rows.length) break; iOff += BATCH * 2;
     for (const r of rows) {
-      const itemKey = `VTI-${r.id}`;
+      const itemKey = `DINGO-VTI-${r.id}`;
       if (doneItems.has(itemKey)) { S.inv_items.sk++; continue; }
       const invoiceId = invoiceIdMap.get(parseInt(r.account_header_id));
       if (!invoiceId) { S.inv_items.sk++; continue; }
