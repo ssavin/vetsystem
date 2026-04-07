@@ -1,0 +1,68 @@
+
+# Выпустить wildcard через DNS-challenge
+certbot certonly --manual --preferred-challenges dns \
+  -d vetsystemai.ru -d "*.vetsystemai.ru"
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Found the following certs:
+  Certificate Name: vetsystemai.ru
+    Serial Number: 55e9c9e6fcf4ddc0cb9e1ef6cdb2fd9eac1
+    Key Type: RSA
+    Domains: vetsystemai.ru www.vetsystemai.ru
+    Expiry Date: 2026-05-18 15:12:55+00:00 (VALID: 41 days)
+    Certificate Path: /etc/letsencrypt/live/vetsystemai.ru/fullchain.pem
+    Private Key Path: /etc/letsencrypt/live/vetsystemai.ru/privkey.pem
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+Requesting a certificate for vetsystemai.ru and *.vetsystemai.ru
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Please deploy a DNS TXT record under the name:
+
+_acme-challenge.vetsystemai.ru.
+
+with the following value:
+
+b2R8TQYAZ2YvSP5dAMsu7trpRtIF77aHEqyeTuaLZ74
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Press Enter to Continue
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Please deploy a DNS TXT record under the name:
+
+_acme-challenge.vetsystemai.ru.
+
+with the following value:
+
+jA46f3k9LJ5k_gVNrFXCUJq5yMoh0GIYsIZ8h4Wx3vg
+
+(This must be set up in addition to the previous challenges; do not remove,
+replace, or undo the previous challenge tasks yet. Note that you might be
+asked to create multiple distinct TXT records with the same name. This is
+permitted by DNS standards.)
+
+Before continuing, verify the TXT record has been deployed. Depending on the DNS
+provider, this may take some time, from a few seconds to multiple minutes. You can
+check if it has finished deploying with aid of online tools, such as the Google
+Admin Toolbox: https://toolbox.googleapps.com/apps/dig/#TXT/_acme-challenge.vetsystemai.ru.
+Look for one or more bolded line(s) below the line ';ANSWER'. It should show the
+value(s) you've just added.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Press Enter to Continue
+
+Certbot failed to authenticate some domains (authenticator: manual). The Certificate Authority reported these problems:
+  Domain: vetsystemai.ru
+  Type:   unauthorized
+  Detail: No TXT record found at _acme-challenge.vetsystemai.ru
+
+  Domain: vetsystemai.ru
+  Type:   unauthorized
+  Detail: No TXT record found at _acme-challenge.vetsystemai.ru
+
+Hint: The Certificate Authority failed to verify the manually created DNS TXT records. Ensure that you created these in the correct location, or try waiting longer for DNS propagation on the next attempt.
+
+Some challenges have failed.
+Ask for help or search for solutions at https://community.letsencrypt.org. See the logfile /var/log/letsencrypt/letsencrypt.log or re-run Certbot with -v for more details.
