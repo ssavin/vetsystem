@@ -1542,9 +1542,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   role: z.enum(["admin", "user", "врач", "администратор", "менеджер"] as const),
   status: z.enum(["active", "inactive"] as const).default("active"),
   password: z.string()
-    .min(10, "Пароль должен содержать минимум 10 символов для медицинских систем")
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/, 
-           "Пароль должен содержать: строчные буквы (a-z), заглавные буквы (A-Z), цифры (0-9) и специальные символы (@$!%*?&)"),
+    .min(6, "Пароль должен содержать минимум 6 символов"),
   username: z.string().min(3, "Имя пользователя должно содержать минимум 3 символа"),
   fullName: z.string().min(2, "Полное имя должно содержать минимум 2 символа"),
   email: z.string().email("Неверный формат email").optional(),

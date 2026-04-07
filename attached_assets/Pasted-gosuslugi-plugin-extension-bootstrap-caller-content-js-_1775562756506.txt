@@ -1,0 +1,43 @@
+gosuslugi.plugin.extension.bootstrap: caller: content.js
+formats.js:235 gosuslugi.plugin.extension.formats: caller: content.js
+error_handler.js:174 gosuslugi.plugin.extension.error_handler:  load error_data.json completed
+error_handler.js:259 gosuslugi.plugin.extension.error_handler: error_handler ready
+bootstrap.js:128 gosuslugi.plugin.extension.bootstrap: gosuslugi.plugin.extension.content registered in web page
+content.js:702 gosuslugi.plugin.extension.content send to background message, id: cc3bde89-b19d-4c25-932c-3c704ea14e87
+content.js:969 gosuslugi.plugin.extension.content get from background message id: cc3bde89-b19d-4c25-932c-3c704ea14e87
+api/integration-credentials/moysklad:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+api/integration-credentials/yookassa:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+api/integration-credentials/mango:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+api/integration-credentials/dreamkas:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+api/integration-credentials/smsru:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+api/integration-credentials/email:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+4bootstrap-autofill-overlay-notifications.js:8041 Uncaught (in promise) TypeError: Cannot read properties of null (reading 'includes')
+    at AutofillOverlayContentService.<anonymous> (bootstrap-autofill-overlay-notifications.js:8041:81)
+    at Generator.next (<anonymous>)
+    at bootstrap-autofill-overlay-notifications.js:7001:71
+    at new Promise (<anonymous>)
+    at autofill_overlay_content_service_awaiter (bootstrap-autofill-overlay-notifications.js:6997:12)
+    at AutofillOverlayContentService.setQualifiedLoginFillType (bootstrap-autofill-overlay-notifications.js:8034:16)
+    at AutofillOverlayContentService.isIgnoredField (bootstrap-autofill-overlay-notifications.js:8009:23)
+    at AutofillOverlayContentService.<anonymous> (bootstrap-autofill-overlay-notifications.js:7460:22)
+    at Generator.next (<anonymous>)
+    at bootstrap-autofill-overlay-notifications.js:7001:71
+api/loyalty/stats:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/loyalty/settings:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/integration-credentials/yookassa:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+api/integration-credentials/moysklad:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+api/integration-credentials/smsru:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+api/integration-credentials/dreamkas:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+api/integration-credentials/mango:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+api/integration-credentials/email:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+bootstrap-autofill-overlay-notifications.js:8041 Uncaught (in promise) TypeError: Cannot read properties of null (reading 'includes')
+    at AutofillOverlayContentService.<anonymous> (bootstrap-autofill-overlay-notifications.js:8041:81)
+    at Generator.next (<anonymous>)
+    at bootstrap-autofill-overlay-notifications.js:7001:71
+    at new Promise (<anonymous>)
+    at autofill_overlay_content_service_awaiter (bootstrap-autofill-overlay-notifications.js:6997:12)
+    at AutofillOverlayContentService.setQualifiedLoginFillType (bootstrap-autofill-overlay-notifications.js:8034:16)
+    at AutofillOverlayContentService.isIgnoredField (bootstrap-autofill-overlay-notifications.js:8009:23)
+    at AutofillOverlayContentService.<anonymous> (bootstrap-autofill-overlay-notifications.js:7460:22)
+    at Generator.next (<anonymous>)
+    at bootstrap-autofill-overlay-notifications.js:7001:71

@@ -113,13 +113,12 @@ export default function UserManagement() {
 
   const onSubmit = (values: UserFormValues) => {
     if (editingUser) {
-      // For updates, password is optional but if provided must be valid
+      // For updates, password is optional but if provided must be at least 6 chars
       if (values.password && values.password.trim() !== '') {
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
-        if (values.password.length < 10 || !passwordRegex.test(values.password)) {
+        if (values.password.length < 6) {
           form.setError('password', {
             type: 'manual',
-            message: 'Пароль должен содержать: строчные буквы (a-z), заглавные буквы (A-Z), цифры (0-9) и специальные символы (@$!%*?&)'
+            message: 'Пароль должен содержать минимум 6 символов'
           });
           return;
         }
@@ -147,11 +146,10 @@ export default function UserManagement() {
         return;
       }
       
-      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
-      if (values.password.length < 10 || !passwordRegex.test(values.password)) {
+      if (values.password.length < 6) {
         form.setError('password', {
           type: 'manual',
-          message: 'Пароль должен содержать: строчные буквы (a-z), заглавные буквы (A-Z), цифры (0-9) и специальные символы (@$!%*?&)'
+          message: 'Пароль должен содержать минимум 6 символов'
         });
         return;
       }
