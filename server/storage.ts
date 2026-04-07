@@ -1070,13 +1070,13 @@ export class DatabaseStorage implements IStorage {
 
   async getUsers(tenantId?: string): Promise<User[]> {
     return withPerformanceLogging('getUsers', async () => {
-      return withTenantContext(undefined, async (dbInstance) => {
-        const query = dbInstance.select().from(users);
-        if (tenantId) {
-          return await query.where(eq(users.tenantId, tenantId)).orderBy(users.createdAt);
-        }
-        return await query.orderBy(users.createdAt);
-      });
+      // Use db directly (no tenant context) - same pattern as getUser/getUserByUsername
+      if (tenantId) {
+        return await db.select().from(users)
+          .where(eq(users.tenantId, tenantId))
+          .orderBy(users.createdAt);
+      }
+      return await db.select().from(users).orderBy(users.createdAt);
     });
   }
 
