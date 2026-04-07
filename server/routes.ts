@@ -3760,7 +3760,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Доступ запрещён" });
       }
       
-      const users = await storage.getUsers();
+      const tenantId = req.user?.isSuperAdmin ? undefined : req.user?.tenantId ?? undefined;
+      const users = await storage.getUsers(tenantId);
       // Remove passwords from response
       const safeUsers = users.map(({ password, ...user }) => user);
       res.json(safeUsers);
@@ -3773,7 +3774,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all doctors (users with role 'врач') for clinical forms
   app.get("/api/users/doctors", authenticateToken, async (req, res) => {
     try {
-      const users = await storage.getUsers();
+      const tenantId = req.user?.isSuperAdmin ? undefined : req.user?.tenantId ?? undefined;
+      const users = await storage.getUsers(tenantId);
       
       // Filter users with doctor role (show all active doctors regardless of branch)
       const doctors = users
@@ -3827,9 +3829,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create update schema that allows partial updates and optional password
       const updateUserSchema = insertUserSchema.partial().extend({
         password: z.string()
-          .min(10, "Пароль должен содержать минимум 10 символов для медицинских систем")
-          .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 
-                 "Пароль должен содержать: строчные и заглавные буквы, цифры и символы")
+          .min(6, "Пароль должен содержать минимум 6 символов")
           .optional() // Make password optional for updates
       });
       

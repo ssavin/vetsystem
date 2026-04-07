@@ -204,7 +204,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   verifyPassword(password: string, hashedPassword: string): Promise<boolean>;
   createUser(user: InsertUser): Promise<User>;
-  getUsers(): Promise<User[]>;
+  getUsers(tenantId?: string): Promise<User[]>;
   updateUser(id: string, updateData: Partial<InsertUser>): Promise<User>;
   updateUserLastLogin(id: string): Promise<void>;
   updateUserLocale(id: string, locale: string): Promise<void>;
@@ -1068,10 +1068,14 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getUsers(): Promise<User[]> {
+  async getUsers(tenantId?: string): Promise<User[]> {
     return withPerformanceLogging('getUsers', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        return await dbInstance.select().from(users).orderBy(users.createdAt);
+        const query = dbInstance.select().from(users);
+        if (tenantId) {
+          return await query.where(eq(users.tenantId, tenantId)).orderBy(users.createdAt);
+        }
+        return await query.orderBy(users.createdAt);
       });
     });
   }
