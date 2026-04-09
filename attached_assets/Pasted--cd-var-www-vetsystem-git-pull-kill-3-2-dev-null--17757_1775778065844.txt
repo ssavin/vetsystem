@@ -1,0 +1,54 @@
+ cd /var/www/vetsystem
+git pull
+
+# Убить предыдущий процесс если ещё висит
+kill %3 2>/dev/null; pkill -f "run-migration-probiko" 2>/dev/null
+
+# Запустить заново
+nohup bash scripts/run-migration-probiko.sh > /tmp/probiko_migration.log 2>&1 &
+echo "PID: $!"
+
+tail -f /tmp/probiko_migration.log
+remote: Enumerating objects: 11, done.
+remote: Counting objects: 100% (11/11), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 7 (delta 6), reused 7 (delta 6), pack-reused 0 (from 0)
+Unpacking objects: 100% (7/7), 1.72 KiB | 352.00 KiB/s, done.
+From https://github.com/ssavin/vetsystem
+   8760f45..dce8490  main       -> origin/main
+Updating 8760f45..dce8490
+Fast-forward
+ replit.md                        | 4 ++++
+ scripts/run-migration-probiko.sh | 6 ++++++
+ 2 files changed, 10 insertions(+)
+[5] 256691
+PID: 256691
+nohup: ignoring input
+[23:40:27] === ЗАПУСК ПОЛНОЙ МИГРАЦИИ PROBIKO ===
+[23:40:27] Тенант: cc7d6b45-4a05-425d-890e-a5cb1bd89266
+[23:40:27] База: localhost:5432/vetais_probiko_local
+[23:40:27] >>> Владельцы
+[23:40:27] --- Фаза: owners ---
+╔══════════════════════════════════════════════════════════════════════╗
+║        УНИВЕРСАЛЬНЫЙ СКРИПТ МИГРАЦИИ ИЗ VETAIS                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  База Vetais : vetais_probiko_local @ localhost:5432
+  Tenant ID   : cc7d6b45-4a05-425d-890e-a5cb1bd89266
+  Фаза        : owners
+  Batch size  : 300
+
+🔌 Подключение к базам данных...
+
+❌ Критическая ошибка: SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+Error: SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+    at Object.continueSession (/var/www/vetsystem/node_modules/pg/lib/crypto/sasl.js:36:11)
+    at Client._handleAuthSASLContinue (/var/www/vetsystem/node_modules/pg/lib/client.js:276:18)
+    at Connection.emit (node:events:524:28)
+    at /var/www/vetsystem/node_modules/pg/lib/connection.js:116:12
+    at Parser.parse (/var/www/vetsystem/node_modules/pg-protocol/src/parser.ts:103:9)
+    at Socket.<anonymous> (/var/www/vetsystem/node_modules/pg-protocol/src/index.ts:7:48)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
