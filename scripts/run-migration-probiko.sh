@@ -12,6 +12,12 @@ BATCH=300
 
 export NODE_OPTIONS="--max-old-space-size=4096"
 
+# Экспортируем переменные окружения для vetais-config.ts
+export VETAIS_DB_HOST="$HOST"
+export VETAIS_DB_PORT="$PORT"
+export VETAIS_DB_USER="$USER"
+export VETAIS_DB_PASSWORD="$PASS"
+
 log() { echo "[$(date '+%H:%M:%S')] $1"; }
 
 log "=== ЗАПУСК ПОЛНОЙ МИГРАЦИИ PROBIKO ==="
