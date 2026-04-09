@@ -6,3 +6,9 @@ id = "oPiNfUdJ1XH_nVCl3Qcom"
 uri = "file://VetSystem_Инвестиционное_описание.md"
 type = "text"
 title = "VetSystem — Инвестиционное описание"
+
+[[outputs]]
+id = "jgR4kpQNBUSaLQ__EBl3T"
+uri = "file://docs/user-manual.md"
+type = "text"
+title = "Инструкция пользователя VetSystemAI"
