@@ -12,3 +12,9 @@ id = "jgR4kpQNBUSaLQ__EBl3T"
 uri = "file://docs/user-manual.md"
 type = "text"
 title = "Инструкция пользователя VetSystemAI"
+
+[[outputs]]
+id = "Ew4-3UB6AXb6u5xJRKo4n"
+uri = "file://docs/VetSystemAI_User_Manual.docx"
+type = "word_document"
+title = "VetSystemAI — Руководство пользователя (.docx)"

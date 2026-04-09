@@ -7,5 +7,6 @@ dependencies = [
     "bcrypt>=5.0.0",
     "pillow>=11.3.0",
     "pyserial>=3.5",
+    "python-docx>=1.2.0",
     "requests>=2.32.5",
 ]
