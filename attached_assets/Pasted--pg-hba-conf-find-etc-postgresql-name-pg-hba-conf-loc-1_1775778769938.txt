@@ -1,0 +1,33 @@
+ # Найти pg_hba.conf
+find /etc/postgresql -name pg_hba.conf
+
+# Посмотреть текущие правила для localhost
+grep -E "local|127.0.0.1" /etc/postgresql/*/main/pg_hba.conf
+/etc/postgresql/16/main/pg_hba.conf
+/etc/postgresql/18/main/pg_hba.conf
+/etc/postgresql/16/main/pg_hba.conf:# local         DATABASE  USER  METHOD  [OPTIONS]
+/etc/postgresql/16/main/pg_hba.conf:# - "local" is a Unix-domain socket
+/etc/postgresql/16/main/pg_hba.conf:# If you want to allow non-local connections, you need to add more
+/etc/postgresql/16/main/pg_hba.conf:# listen on a non-local interface via the listen_addresses
+/etc/postgresql/16/main/pg_hba.conf:local   all             postgres                                peer
+/etc/postgresql/16/main/pg_hba.conf:# "local" is for Unix domain socket connections only
+/etc/postgresql/16/main/pg_hba.conf:local   all             all                                     peer
+/etc/postgresql/16/main/pg_hba.conf:# IPv4 local connections:
+/etc/postgresql/16/main/pg_hba.conf:host    all             all             127.0.0.1/32            scram-sha-256
+/etc/postgresql/16/main/pg_hba.conf:# IPv6 local connections:
+/etc/postgresql/16/main/pg_hba.conf:# Allow replication connections from localhost, by a user with the
+/etc/postgresql/16/main/pg_hba.conf:local   replication     all                                     peer
+/etc/postgresql/16/main/pg_hba.conf:host    replication     all             127.0.0.1/32            scram-sha-256
+/etc/postgresql/18/main/pg_hba.conf:# local         DATABASE  USER  METHOD  [OPTIONS]
+/etc/postgresql/18/main/pg_hba.conf:# - "local" is a Unix-domain socket
+/etc/postgresql/18/main/pg_hba.conf:# If you want to allow non-local connections, you need to add more
+/etc/postgresql/18/main/pg_hba.conf:# listen on a non-local interface via the listen_addresses
+/etc/postgresql/18/main/pg_hba.conf:local   all             postgres                                peer
+/etc/postgresql/18/main/pg_hba.conf:# "local" is for Unix domain socket connections only
+/etc/postgresql/18/main/pg_hba.conf:local   all             all                                     peer
+/etc/postgresql/18/main/pg_hba.conf:# IPv4 local connections:
+/etc/postgresql/18/main/pg_hba.conf:host    all             all             127.0.0.1/32            scram-sha-256
+/etc/postgresql/18/main/pg_hba.conf:# IPv6 local connections:
+/etc/postgresql/18/main/pg_hba.conf:# Allow replication connections from localhost, by a user with the
+/etc/postgresql/18/main/pg_hba.conf:local   replication     all                                     peer
+/etc/postgresql/18/main/pg_hba.conf:host    replication     all             127.0.0.1/32            scram-sha-256
