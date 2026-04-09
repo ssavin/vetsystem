@@ -18,3 +18,15 @@ id = "Ew4-3UB6AXb6u5xJRKo4n"
 uri = "file://docs/VetSystemAI_User_Manual.docx"
 type = "word_document"
 title = "VetSystemAI — Руководство пользователя (.docx)"
+
+[[outputs]]
+id = "Cyists6K3hboVxAiEBzpI"
+uri = "file://docs/VetSystemAI_Technologies.docx"
+type = "word_document"
+title = "VetSystemAI — Описание технологического стека"
+
+[[outputs]]
+id = "eWkk_B9T5jD71ZUBl4M9z"
+uri = "file://docs/VetSystemAI_Website_Specification.docx"
+type = "word_document"
+title = "VetSystemAI — Спецификация веб-приложения"
