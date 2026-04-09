@@ -38,6 +38,10 @@ args = "Migrate Vasilek Data"
 task = "workflow.run"
 args = "Migrate Dingo Data"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Migrate Probiko Data"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -65,6 +69,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "bash scripts/run-migration-dingo.sh"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Migrate Probiko Data"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/run-migration-probiko.sh"
 
 [workflows.workflow.metadata]
 outputType = "console"

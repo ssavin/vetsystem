@@ -19,14 +19,16 @@ export function createVetaisClient(dbName?: string): Client {
 export const VETAIS_DATABASES = {
   alisavet: 'vetais_alisavet',
   haks: 'vetais_haks',
-  vasilek: 'vetais_vasilek', // host: 94.198.53.52, password: vetais
-  dingo: 'vetais',           // host: 109.173.124.18, password: vetais
+  vasilek: 'vetais_vasilek',         // host: 94.198.53.52, password: vetais
+  dingo: 'vetais',                   // host: 109.173.124.18, password: vetais
+  probiko: 'vetais_probiko_local',   // localhost:5432, password: ASPI6rin (локальный бэкап)
 } as const;
 
 export const TENANT_VETAIS_MAPPING: Record<string, string> = {
   'default-tenant-001': 'vetais_alisavet',
   'e7c3459d-599b-4570-858f-1674dbd8db82': 'vetais_haks',
-  '06d235e4-e7ba-4b2c-87a2-77afc72c4358': 'arutyn1', // Усатый Полосатый
-  'bd89523e-47e7-4d4b-8b94-e98c6d3e1959': 'vetais_vasilek', // Василёк (host: 94.198.53.52)
-  'e556ed34-71a7-4003-a2cd-b5cf274bae12': 'vetais',         // Динго (host: 109.173.124.18)
+  '06d235e4-e7ba-4b2c-87a2-77afc72c4358': 'arutyn1',            // Усатый Полосатый
+  'bd89523e-47e7-4d4b-8b94-e98c6d3e1959': 'vetais_vasilek',     // Василёк (host: 94.198.53.52)
+  'e556ed34-71a7-4003-a2cd-b5cf274bae12': 'vetais',             // Динго (host: 109.173.124.18)
+  'cc7d6b45-4a05-425d-890e-a5cb1bd89266': 'vetais_probiko_local', // Probiko (localhost)
 };
