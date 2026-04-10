@@ -188,9 +188,18 @@ async function buildOwnerMap(vs: Client): Promise<Map<number, string>> {
 
 async function buildDoctorMap(vs: Client, vt: Client): Promise<Map<number, string>> {
   // Vetais system_users id → VetSystem doctor id (по имени)
-  const vtDocs = await vt.query(
-    'SELECT kod_uzivatele AS vid, jmeno, prijmeni, otcestvo FROM system_users WHERE vymaz=0'
-  );
+  let vtDocs: { rows: any[] };
+  try {
+    vtDocs = await vt.query(
+      'SELECT kod_uzivatele AS vid, jmeno, prijmeni, otcestvo FROM system_users WHERE vymaz=0'
+    );
+  } catch (e: any) {
+    if (e.code === '42P01') {
+      console.log('  ⚠️  Таблица system_users не найдена в Vetais, пропуск маппинга врачей');
+      return new Map();
+    }
+    throw e;
+  }
   const vsDocs = await vs.query(
     'SELECT id, name FROM doctors WHERE tenant_id=$1', [TENANT_ID]
   );

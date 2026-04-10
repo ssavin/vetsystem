@@ -1,0 +1,196 @@
+sed -i '5a export DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem"' \
+  /var/www/vetsystem/scripts/run-migration-probiko.sh
+
+# Проверить
+head -20 /var/www/vetsystem/scripts/run-migration-probiko.sh
+
+# Запустить снова
+pkill -f "run-migration-probiko" 2>/dev/null; sleep 1
+nohup bash /var/www/vetsystem/scripts/run-migration-probiko.sh > /tmp/probiko_migration.log 2>&1 &
+echo "PID: $!"
+tail -f /tmp/probiko_migration.log
+#!/bin/bash
+# Полная миграция данных Probiko в VetSystem (локальная база vetais_probiko_local)
+set -e
+
+TENANT="cc7d6b45-4a05-425d-890e-a5cb1bd89266"
+export DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem"
+HOST="localhost"
+PORT="5432"
+DB="vetais_probiko_local"
+USER="postgres"
+PASS="ASPI6rin"
+BATCH=300
+
+export NODE_OPTIONS="--max-old-space-size=4096"
+
+# Экспортируем переменные окружения для vetais-config.ts
+export VETAIS_DB_HOST="$HOST"
+export VETAIS_DB_PORT="$PORT"
+export VETAIS_DB_USER="$USER"
+export VETAIS_DB_PASSWORD="$PASS"
+[15] 257370
+PID: 257370
+nohup: ignoring input
+[00:05:22] === ЗАПУСК ПОЛНОЙ МИГРАЦИИ PROBIKO ===
+[00:05:22] Тенант: cc7d6b45-4a05-425d-890e-a5cb1bd89266
+[00:05:22] База: localhost:5432/vetais_probiko_local
+[00:05:22] >>> Владельцы
+[00:05:22] --- Фаза: owners ---
+╔══════════════════════════════════════════════════════════════════════╗
+║        УНИВЕРСАЛЬНЫЙ СКРИПТ МИГРАЦИИ ИЗ VETAIS                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  База Vetais : vetais_probiko_local @ localhost:5432
+  Tenant ID   : cc7d6b45-4a05-425d-890e-a5cb1bd89266
+  Фаза        : owners
+  Batch size  : 300
+
+🔌 Подключение к базам данных...
+✅ Подключено!
+
+🏥 Клиника: Probiko
+
+📍 Филиалов с маппингом: 0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 ФАЗА 1: ВЛАДЕЛЬЦЫ (file_clients)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Уже в системе: 0
+   Загрузка данных из Vetais...
+   Найдено в Vetais: 25760
+   Подготовлено к вставке: 25760
+   ✅ 25760/25760 (100%)
+   ✅ Владельцы завершены
+
+
+════════════════════════════════════════════════════════════════════════
+📊 ИТОГИ МИГРАЦИИ
+════════════════════════════════════════════════════════════════════════
+
+👤 ВЛАДЕЛЬЦЫ
+   ✅ Добавлено:          25760
+   ⏭️  Уже было:           0
+   ⚠️  Пропущено (нет имени): 0
+   ❌ Ошибок:             0
+
+✨ Миграция завершена!
+
+[00:05:26] >>> Пациенты
+[00:05:26] --- Фаза: patients ---
+╔══════════════════════════════════════════════════════════════════════╗
+║        УНИВЕРСАЛЬНЫЙ СКРИПТ МИГРАЦИИ ИЗ VETAIS                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  База Vetais : vetais_probiko_local @ localhost:5432
+  Tenant ID   : cc7d6b45-4a05-425d-890e-a5cb1bd89266
+  Фаза        : patients
+  Batch size  : 300
+
+🔌 Подключение к базам данных...
+✅ Подключено!
+
+🏥 Клиника: Probiko
+
+📍 Филиалов с маппингом: 0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐾 ФАЗА 2: ПАЦИЕНТЫ (file_patients + bridge)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Владельцев в системе: 25760
+   Уже в системе: 0
+   Загрузка пациентов батчами...
+
+   ✅ Всего обработано: 30743авлено: 30500 | Пропущено: 0
+   ✅ Пациенты завершены
+
+
+════════════════════════════════════════════════════════════════════════
+📊 ИТОГИ МИГРАЦИИ
+════════════════════════════════════════════════════════════════════════
+
+🐾 ПАЦИЕНТЫ
+   ✅ Добавлено:          30743
+   ⏭️  Уже было:           0
+   ⚠️  Без владельца:      26
+   ⚠️  Без филиала:        30743
+   ❌ Ошибок:             0
+
+✨ Миграция завершена!
+
+[00:05:38] >>> Врачи
+[00:05:38] --- Фаза: doctors ---
+╔══════════════════════════════════════════════════════════════════════╗
+║        УНИВЕРСАЛЬНЫЙ СКРИПТ МИГРАЦИИ ИЗ VETAIS                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  База Vetais : vetais_probiko_local @ localhost:5432
+  Tenant ID   : cc7d6b45-4a05-425d-890e-a5cb1bd89266
+  Фаза        : doctors
+  Batch size  : 300
+
+🔌 Подключение к базам данных...
+✅ Подключено!
+
+🏥 Клиника: Probiko
+
+📍 Филиалов с маппингом: 0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👨‍⚕️ ФАЗА 3: ВРАЧИ (system_users)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ⚠️  Таблица system_users не найдена, пропуск
+
+
+════════════════════════════════════════════════════════════════════════
+📊 ИТОГИ МИГРАЦИИ
+════════════════════════════════════════════════════════════════════════
+
+👨‍⚕️ ВРАЧИ
+   ✅ Добавлено:          0
+   ⏭️  Уже было:           0
+   ❌ Ошибок:             0
+
+✨ Миграция завершена!
+
+[00:05:39] >>> Медицинские записи и история болезней
+[00:05:39] --- Фаза медданных: records ---
+╔══════════════════════════════════════════════════════════════════════╗
+║       МИГРАЦИЯ МЕДИЦИНСКИХ ДАННЫХ ИЗ VETAIS                         ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  База Vetais : vetais_probiko_local @ localhost:5432
+  Tenant ID   : cc7d6b45-4a05-425d-890e-a5cb1bd89266
+  Фаза        : records
+  Batch size  : 300
+
+✅ Подключено!
+
+🏥 Клиника: Probiko
+
+  Дефолтный пользователь: 414497d8-5c19-40bf-ac7a-b6cd6e574321
+  Дефолтный филиал: 74f7f1f0-8d20-4ae7-b0ca-62b4ea80ac5d
+
+Fatal: error: relation "system_users" does not exist
+    at /var/www/vetsystem/node_modules/pg/lib/client.js:545:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async buildDoctorMap (/var/www/vetsystem/scripts/migrate-medical-data.ts:191:18)
+    at async main (/var/www/vetsystem/scripts/migrate-medical-data.ts:125:22) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '61',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
