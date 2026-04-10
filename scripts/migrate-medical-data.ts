@@ -241,6 +241,14 @@ async function migrateCases(
   console.log('🗂️  ФАЗА 1: СЛУЧАИ (medical_cases → clinical_cases)');
   console.log('━'.repeat(70));
 
+  const casesTableCheck = await vt.query(
+    `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='medical_cases') AS exists`
+  );
+  if (!casesTableCheck.rows[0].exists) {
+    console.log('  ⚠️  Таблица medical_cases не найдена в Vetais, пропуск фазы');
+    return;
+  }
+
   // Уже мигрированные
   const existing = await vs.query(
     'SELECT vetais_id FROM clinical_cases WHERE tenant_id=$1 AND vetais_id IS NOT NULL', [TENANT_ID]
@@ -309,6 +317,15 @@ async function migrateRecords(
   console.log('━'.repeat(70));
   console.log('📋 ФАЗА 2: ОСМОТРЫ (medical_exams + medical_documents → medical_records)');
   console.log('━'.repeat(70));
+
+  // Проверить наличие таблицы medical_exams
+  const tableCheck = await vt.query(
+    `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='medical_exams') AS exists`
+  );
+  if (!tableCheck.rows[0].exists) {
+    console.log('  ⚠️  Таблица medical_exams не найдена в Vetais, пропуск фазы');
+    return;
+  }
 
   // Уже мигрированные (храним только строки-id, не весь контент)
   const existing = await vs.query(
@@ -427,6 +444,14 @@ async function migrateVaccinations(
   console.log('💉 ФАЗА 3: ВАКЦИНАЦИИ (vaccination_patient → health_reminders)');
   console.log('━'.repeat(70));
 
+  const vaccTableCheck = await vt.query(
+    `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='vaccination_patient') AS exists`
+  );
+  if (!vaccTableCheck.rows[0].exists) {
+    console.log('  ⚠️  Таблица vaccination_patient не найдена в Vetais, пропуск фазы');
+    return;
+  }
+
   // Проверить наличие таблицы health_reminders
   const exists = await vs.query(
     `SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name='health_reminders') AS e`
@@ -539,6 +564,14 @@ async function migrateInvoices(
   console.log('━'.repeat(70));
   console.log('🧾 ФАЗА 4: СЧЕТА (accounts_headers/items → invoices/invoice_items)');
   console.log('━'.repeat(70));
+
+  const invTableCheck = await vt.query(
+    `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='accounts_headers') AS exists`
+  );
+  if (!invTableCheck.rows[0].exists) {
+    console.log('  ⚠️  Таблица accounts_headers не найдена в Vetais, пропуск фазы');
+    return;
+  }
 
   // Уже мигрированные invoice
   const existingRes = await vs.query(
