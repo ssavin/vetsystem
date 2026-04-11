@@ -1,0 +1,50 @@
+ psql "postgresql://postgres:ASPI6rin@localhost:5432/vetais_probiko_local" -c "
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name='accounts_headers'
+  AND (data_type ILIKE '%timestamp%' OR data_type ILIKE '%date%' OR column_name ILIKE '%dat%' OR column_name ILIKE '%date%')
+ORDER BY ordinal_position;
+"
+     column_name     |          data_type
+---------------------+-----------------------------
+ datetime_create     | timestamp without time zone
+ datetime_tax        | timestamp without time zone
+ datetime_lastupdate | timestamp without time zone
+ debt_start_dt_from  | date
+ debt_start_dt_till  | date
+ debt_close_dt       | date
+ cashprinted_dt      | timestamp without time zone
+ cashprinting_dt     | timestamp without time zone
+ cashprinterr_dt     | timestamp without time zone
+ accountlock         | timestamp without time zone
+(10 rows)
+
+root@mail:~# psql "postgresql://postgres:ASPI6rin@localhost:5432/vetais_probiko_local" << 'EOF'
+-- Меняйте даты здесь:
+\set date_from '2025-01-01'
+\set date_to   '2025-12-31'
+
+WITH totals AS (
+  SELECT
+    sum(ai.sum_with_vat) FILTER (WHERE it.id_type = 1) AS tovary,
+    sum(ai.sum_with_vat) FILTER (WHERE it.id_type = 2) AS uslugi,
+    sum(ai.sum_with_vat)                                AS itogo
+  FROM accounts_items ai
+  JOIN accounts_headers ah ON ah.id = ai.account_header_id
+  LEFT JOIN items_type it ON it.id = ai.item_type_id
+  WHERE ai.deleted = 0
+    AND ah.deleted = 0
+    AND ah.datetime_create::date BETWEEN :'date_from' AND :'date_to'
+)
+SELECT
+  'дата с ' || :'date_from' ||
+  ' по '    || :'date_to'   ||
+  ' на сумму ' || round(itogo::numeric, 2) ||
+  ', услуги: ' || round(coalesce(uslugi, 0)::numeric, 2) ||
+  ', товары: ' || round(coalesce(tovary, 0)::numeric, 2)
+EOFM totals;для 1С"
+                                         Отчёт для 1С                           
+-----------------------------------------------------------------------------------------------
+ дата с 2025-01-01 по 2025-12-31 на сумму 52061595.60, услуги: 46655104.50, товары: 3150232.60
+(1 row)
+
