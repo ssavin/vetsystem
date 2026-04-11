@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses"
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               name="ExternalDataProcessor"
+               id="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+               version="4">
+  <ExternalDataProcessor>
+    <Properties>
+      <Name>ОтчётРозничныхПродажВетаис</Name>
+      <ObjectPresentation>Отчёт розничных продаж Ветаис</ObjectPresentation>
+      <Comment>Формирует строку отчёта о розничных продажах из базы Vetais для 1С:Бухгалтерия</Comment>
+      <DefaultForm>Form.ОсновнаяФорма</DefaultForm>
+      <UseStandardCommands>true</UseStandardCommands>
+    </Properties>
+    <ChildObjects>
+      <Form id="b2c3d4e5-f6a7-8901-bcde-f12345678901">
+        <Properties>
+          <Name>ОсновнаяФорма</Name>
+          <Synonym>
+            <key>ru</key>
+            <value>Отчёт Розничных Продаж Ветаис</value>
+          </Synonym>
+        </Properties>
+        <Form>
+          <Attributes>
+            <Attribute id="00000001" name="Хост">
+              <TypeDescription>
+                <Type>xs:string</Type>
+              </TypeDescription>
+            </Attribute>
+            <Attribute id="00000002" name="Порт">
+              <TypeDescription>
+                <Type>xs:string</Type>
+              </TypeDescription>
+            </Attribute>
+            <Attribute id="00000003" name="База">
+              <TypeDescription>
+                <Type>xs:string</Type>
+              </TypeDescription>
+            </Attribute>
+            <Attribute id="00000004" name="Пользователь">
+              <TypeDescription>
+                <Type>xs:string</Type>
+              </TypeDescription>
+            </Attribute>
+            <Attribute id="00000005" name="Пароль">
+              <TypeDescription>
+                <Type>xs:string</Type>
+              </TypeDescription>
+            </Attribute>
+            <Attribute id="00000006" name="ДатаС">
+              <TypeDescription>
+                <Type>xs:date</Type>
+              </TypeDescription>
+            </Attribute>
+            <Attribute id="00000007" name="ДатаПо">
+              <TypeDescription>
+                <Type>xs:date</Type>
+              </TypeDescription>
+            </Attribute>
+            <Attribute id="00000008" name="РезультатОтчета">
+              <TypeDescription>
+                <Type>xs:string</Type>
+              </TypeDescription>
+            </Attribute>
+          </Attributes>
+          <Items>
+            <GroupBox id="10000001" name="ГруппаПодключение">
+              <Title>Параметры подключения к Vetais</Title>
+              <Items>
+                <InputField id="10000002" name="ПолеХост" DataPath="Хост">
+                  <Title>Хост (сервер)</Title>
+                  <ToolTip>Например: localhost или 45.128.206.134</ToolTip>
+                </InputField>
+                <InputField id="10000003" name="ПолеПорт" DataPath="Порт">
+                  <Title>Порт</Title>
+                  <ToolTip>Например: 5432 или 5454</ToolTip>
+                </InputField>
+                <InputField id="10000004" name="ПолеБаза" DataPath="База">
+                  <Title>Имя базы данных</Title>
+                  <ToolTip>Например: vetais_probiko_local</ToolTip>
+                </InputField>
+                <InputField id="10000005" name="ПолеПользователь" DataPath="Пользователь">
+                  <Title>Пользователь</Title>
+                  <ToolTip>Например: postgres</ToolTip>
+                </InputField>
+                <InputField id="10000006" name="ПолеПароль" DataPath="Пароль">
+                  <Title>Пароль</Title>
+                  <PasswordMode>true</PasswordMode>
+                </InputField>
+              </Items>
+            </GroupBox>
+            <GroupBox id="10000007" name="ГруппаПериод">
+              <Title>Период</Title>
+              <Items>
+                <InputField id="10000008" name="ПолеДатаС" DataPath="ДатаС">
+                  <Title>Дата с</Title>
+                </InputField>
+                <InputField id="10000009" name="ПолеДатаПо" DataPath="ДатаПо">
+                  <Title>Дата по</Title>
+                </InputField>
+              </Items>
+            </GroupBox>
+            <Button id="10000010" name="КнопкаСформировать" CommandName="СформироватьОтчет">
+              <Title>Сформировать</Title>
+            </Button>
+            <InputField id="10000011" name="ПолеРезультат" DataPath="РезультатОтчета">
+              <Title>Строка для 1С</Title>
+              <Multiline>true</Multiline>
+              <ReadOnly>true</ReadOnly>
+              <Height>3</Height>
+            </InputField>
+          </Items>
+          <Commands>
+            <Command id="20000001" name="СформироватьОтчет">
+              <Title>Сформировать</Title>
+              <Action>СформироватьОтчет</Action>
+            </Command>
+          </Commands>
+        </Form>
+        <Module><![CDATA[
+// =====================================================================
+// ВНЕШНЯЯ ОБРАБОТКА: Отчёт розничных продаж из Vetais для 1С
+// Требует: PostgreSQL ODBC Driver (psqlODBC) на компьютере с 1С
+// Скачать: https://www.postgresql.org/ftp/odbc/versions/msi/
+// =====================================================================
+
+#Область ПрограммныйИнтерфейс
+
+&НаСервереБезКонтекста
+Функция ВыполнитьЗапросВетаис(Хост, Порт, База, Пользователь, Пароль, ДатаОт, ДатаДо)
+
+    СтрокаПодключения =
+        "Driver={PostgreSQL ANSI(x64)};"
+        + "Server=" + Хост + ";"
+        + "Port=" + Порт + ";"
+        + "Database=" + База + ";"
+        + "Uid=" + Пользователь + ";"
+        + "Pwd=" + Пароль + ";"
+        + "UseServerSidePrepare=0;";
+
+    ДатаОтФорм = Формат(ДатаОт, "ДФ=yyyy-MM-dd");
+    ДатаДоФорм = Формат(ДатаДо, "ДФ=yyyy-MM-dd");
+
+    ТекстЗапроса =
+        "WITH totals AS (" +
+        "  SELECT" +
+        "    sum(ai.sum_with_vat) FILTER (WHERE it.id_type = 1) AS tovary," +
+        "    sum(ai.sum_with_vat) FILTER (WHERE it.id_type = 2) AS uslugi," +
+        "    sum(ai.sum_with_vat) AS itogo" +
+        "  FROM accounts_items ai" +
+        "  JOIN accounts_headers ah ON ah.id = ai.account_header_id" +
+        "  LEFT JOIN items_type it ON it.id = ai.item_type_id" +
+        "  WHERE ai.deleted = 0 AND ah.deleted = 0" +
+        "    AND ah.datetime_create::date BETWEEN '" + ДатаОтФорм + "' AND '" + ДатаДоФорм + "'" +
+        ") " +
+        "SELECT" +
+        "  round(coalesce(itogo,  0)::numeric, 2) AS itogo," +
+        "  round(coalesce(uslugi, 0)::numeric, 2) AS uslugi," +
+        "  round(coalesce(tovary, 0)::numeric, 2) AS tovary" +
+        " FROM totals";
+
+    Попытка
+        Соединение = Новый COMОбъект("ADODB.Connection");
+        Соединение.ConnectionString = СтрокаПодключения;
+        Соединение.Open();
+
+        Команда = Новый COMОбъект("ADODB.Command");
+        Команда.ActiveConnection = Соединение;
+        Команда.CommandText = ТекстЗапроса;
+
+        РезультатАДО = Команда.Execute();
+
+        Если Не РезультатАДО.EOF Тогда
+            Итого   = РезультатАДО.Fields.Item("itogo").Value;
+            Услуги  = РезультатАДО.Fields.Item("uslugi").Value;
+            Товары  = РезультатАДО.Fields.Item("tovary").Value;
+
+            Результат =
+                "дата с " + ДатаОтФорм +
+                " по "    + ДатаДоФорм +
+                " на сумму " + Итого +
+                ", услуги: " + Услуги +
+                ", товары: " + Товары;
+        Иначе
+            Результат = "Нет данных за выбранный период";
+        КонецЕсли;
+
+        Соединение.Close();
+        Возврат Результат;
+
+    Исключение
+        Возврат "ОШИБКА ПОДКЛЮЧЕНИЯ: " + ОписаниеОшибки() +
+            Символы.ПС +
+            "Проверьте: 1) установлен ли psqlODBC драйвер, 2) доступен ли сервер " + Хост + ":" + Порт;
+    КонецПопытки;
+
+КонецФункции
+
+&НаКлиенте
+Процедура СформироватьОтчет(Команда)
+
+    Если ПустаяСтрока(Хост) Тогда
+        Сообщить("Укажите Хост (сервер)!", СтатусСообщения.Важное);
+        Возврат;
+    КонецЕсли;
+
+    Если ПустаяСтрока(База) Тогда
+        Сообщить("Укажите имя базы данных!", СтатусСообщения.Важное);
+        Возврат;
+    КонецЕсли;
+
+    Если Не ЗначениеЗаполнено(ДатаС) Или Не ЗначениеЗаполнено(ДатаПо) Тогда
+        Сообщить("Укажите период (Дата С и Дата По)!", СтатусСообщения.Важное);
+        Возврат;
+    КонецЕсли;
+
+    Если ДатаПо < ДатаС Тогда
+        Сообщить("Дата По не может быть раньше Даты С!", СтатусСообщения.Важное);
+        Возврат;
+    КонецЕсли;
+
+    ИспользуемыйПорт = ?(ПустаяСтрока(Порт), "5432", Порт);
+    ИспользуемыйПользователь = ?(ПустаяСтрока(Пользователь), "postgres", Пользователь);
+
+    РезультатОтчета = ВыполнитьЗапросВетаис(
+        Хост,
+        ИспользуемыйПорт,
+        База,
+        ИспользуемыйПользователь,
+        Пароль,
+        ДатаС,
+        ДатаПо
+    );
+
+КонецПроцедуры
+
+&НаСоздании
+Процедура ПриСозданииНаСервере(Отказ, СтандартнаяОбработка)
+    // Значения по умолчанию
+    Хост        = "localhost";
+    Порт        = "5432";
+    Пользователь = "postgres";
+    ДатаС       = НачалоМесяца(ДобавитьМесяц(ТекущаяДата(), -1));
+    ДатаПо      = КонецМесяца(ДобавитьМесяц(ТекущаяДата(), -1));
+КонецПроцедуры
+
+#КонецОбласти
+        ]]></Module>
+      </Form>
+    </ChildObjects>
+  </ExternalDataProcessor>
+</MetaDataObject>
