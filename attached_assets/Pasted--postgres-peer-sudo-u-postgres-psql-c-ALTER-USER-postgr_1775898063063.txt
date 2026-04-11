@@ -1,0 +1,64 @@
+Сбросить пароль postgres через peer-сокет (без пароля)
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'ASPI6rin';"
+
+# Вернуть scram-sha-256 в pg_hba.conf (md5 не работает со scram-паролями)
+sed -i 's/host    all             all             127.0.0.1\/32            md5/host    all             all             127.0.0.1\/32            scram-sha-256/' \
+  /etc/postgresql/16/main/pg_hba.conf \
+  /etc/postgresql/18/main/pg_hba.conf
+
+pg_ctlcluster 16 main reload 2>/dev/null || true
+pg_ctlcluster 18 main reload 2>/dev/null || true
+
+# Удалить оставшийся глобальный constraint на invoice_number
+psql postgresql://postgres:ASPI6rin@localhost:5432/vetsystem -c \
+  "ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_invoice_number_unique;"
+
+# Запустить миграцию счетов
+cd /var/www/vetsystem
+DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem" \
+PGPASSWORD="ASPI6rin" \
+./node_modules/.bin/tsx scripts/migrate-medical-data.ts \
+d89266';" count(*) FROM invoices WHERE tenant_id='cc7d6b45-4a05-425d-890e-a5cb1b
+ALTER ROLE
+ALTER TABLE
+╔══════════════════════════════════════════════════════════════════════╗
+║       МИГРАЦИЯ МЕДИЦИНСКИХ ДАННЫХ ИЗ VETAIS                         ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  База Vetais : vetais_probiko_local @ localhost:5432
+  Tenant ID   : cc7d6b45-4a05-425d-890e-a5cb1bd89266
+  Фаза        : invoices
+  Batch size  : 300
+
+Fatal: error: password authentication failed for user "postgres"
+    at Parser.parseErrorMessage (/var/www/vetsystem/node_modules/pg-protocol/src/parser.ts:369:69)
+    at Parser.handlePacket (/var/www/vetsystem/node_modules/pg-protocol/src/parser.ts:187:21)
+    at Parser.parse (/var/www/vetsystem/node_modules/pg-protocol/src/parser.ts:102:30)
+    at Socket.<anonymous> (/var/www/vetsystem/node_modules/pg-protocol/src/index.ts:7:48)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+  length: 104,
+  severity: 'FATAL',
+  code: '28P01',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '317',
+  routine: 'auth_failed'
+}
+ count
+-------
+   884
+(1 row)
