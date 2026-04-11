@@ -1,0 +1,65 @@
+cd /var/www/vetsystem
+
+# Запустить только пациентов через shell-скрипт (с правильными env vars)
+DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem" \
+PGPASSWORD="ASPI6rin" \
+VETAIS_DB_HOST="localhost" \
+VETAIS_DB_PORT="5432" \
+VETAIS_DB_USER="postgres" \
+VETAIS_DB_PASSWORD="ASPI6rin" \
+./node_modules/.bin/tsx scripts/migrate-vetais-universal.ts \
+  --tenant "cc7d6b45-4a05-425d-890e-a5cb1bd89266" \
+  --db "vetais_probiko_local" \
+  --host "localhost" \
+  --port "5432" \
+  --user "postgres" \
+  --phase "patients" \
+  --batch "300" 2>&1
+
+# Сразу проверить счёт
+psql postgresql://postgres:ASPI6rin@localhost:5432/vetsystem -c \
+  "SELECT count(*) FROM patients WHERE tenant_id='cc7d6b45-4a05-425d-890e-a5cb1bd89266';"
+╔══════════════════════════════════════════════════════════════════════╗
+║        УНИВЕРСАЛЬНЫЙ СКРИПТ МИГРАЦИИ ИЗ VETAIS                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  База Vetais : vetais_probiko_local @ localhost:5432
+  Tenant ID   : cc7d6b45-4a05-425d-890e-a5cb1bd89266
+  Фаза        : patients
+  Batch size  : 300
+
+🔌 Подключение к базам данных...
+✅ Подключено!
+
+🏥 Клиника: Probiko
+
+📍 Филиалов с маппингом: 0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐾 ФАЗА 2: ПАЦИЕНТЫ (file_patients + bridge)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Владельцев в системе: 25760
+   Уже в системе: 29
+   Загрузка пациентов батчами...
+
+   ✅ Всего обработано: 30714авлено: 30500 | Пропущено: 29
+   ✅ Пациенты завершены
+
+
+════════════════════════════════════════════════════════════════════════
+📊 ИТОГИ МИГРАЦИИ
+════════════════════════════════════════════════════════════════════════
+
+🐾 ПАЦИЕНТЫ
+   ✅ Добавлено:          30714
+   ⏭️  Уже было:           29
+   ⚠️  Без владельца:      26
+   ⚠️  Без филиала:        30714
+   ❌ Ошибок:             0
+
+✨ Миграция завершена!
+
+ count
+-------
+    29
+(1 row)
