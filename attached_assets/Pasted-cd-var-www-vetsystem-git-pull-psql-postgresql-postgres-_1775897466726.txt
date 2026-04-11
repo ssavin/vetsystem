@@ -1,0 +1,152 @@
+cd /var/www/vetsystem
+git pull
+
+psql postgresql://postgres:ASPI6rin@localhost:5432/vetsystem << 'EOF'
+-- Найти имя глобального уникального ограничения
+SELECT constraint_name
+FROM information_schema.table_constraints
+WHERE table_name='invoices' AND constraint_type='UNIQUE';
+
+-- Удалить глобальный unique (замените имя если другое)
+ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_invoice_number_key;
+
+-- Создать новый составной уникальный индекс (per tenant)
+CREATE UNIQUE INDEX IF NOT EXISTS invoices_tenant_invoice_number_unique_idx
+  ON invoices(tenant_id, invoice_number);
+
+\d invoices | grep invoice_number
+EOF
+remote: Enumerating objects: 12, done.
+remote: Counting objects: 100% (12/12), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 8 (delta 5), reused 8 (delta 5), pack-reused 0 (from 0)
+Unpacking objects: 100% (8/8), 2.34 KiB | 266.00 KiB/s, done.
+From https://github.com/ssavin/vetsystem
+   f4bfa1a..67b9af0  main       -> origin/main
+Updating f4bfa1a..67b9af0
+Fast-forward
+ ...SPI6rin-localhost-5432-vetais_1775897218994.txt | 103 +++++++++++++++++++++
+ shared/schema.ts                                   |   3 +-
+ 2 files changed, 105 insertions(+), 1 deletion(-)
+ create mode 100644 attached_assets/Pasted-psql-postgresql-postgres-ASPI6rin-localhost-5432-vetais_1775897218994.txt
+        constraint_name
+--------------------------------
+ invoices_invoice_number_unique
+(1 row)
+
+NOTICE:  constraint "invoices_invoice_number_key" of relation "invoices" does not exist, skipping
+ALTER TABLE
+CREATE INDEX
+                                        Table "public.invoices"
+       Column       |            Type             | Collation | Nullable |           Default
+--------------------+-----------------------------+-----------+----------+------------------------------
+ id                 | character varying           |           | not null | gen_random_uuid()
+ invoice_number     | character varying(255)      |           | not null |
+ patient_id         | character varying           |           |          |
+ appointment_id     | character varying           |           |          |
+ issue_date         | timestamp without time zone |           | not null | now()
+ due_date           | timestamp without time zone |           |          |
+ subtotal           | numeric(10,2)               |           | not null |
+ discount           | numeric(10,2)               |           |          | '0'::numeric
+ total              | numeric(10,2)               |           | not null |
+ status             | character varying(20)       |           |          | 'pending'::character varying
+ payment_method     | character varying(100)      |           |          |
+ paid_date          | timestamp without time zone |           |          |
+ notes              | text                        |           |          |
+ created_at         | timestamp without time zone |           | not null | now()
+ updated_at         | timestamp without time zone |           | not null | now()
+ payment_id         | character varying(255)      |           |          |
+ payment_url        | character varying(500)      |           |          |
+ fiscal_receipt_id  | character varying(255)      |           |          |
+ fiscal_receipt_url | character varying(500)      |           |          |
+ tenant_id          | character varying           |           | not null |
+ owner_id           | character varying           |           |          |
+Indexes:
+    "invoices_pkey" PRIMARY KEY, btree (id)
+    "invoices_created_at_idx" btree (created_at)
+    "invoices_due_date_idx" btree (due_date)
+    "invoices_invoice_number_unique" UNIQUE CONSTRAINT, btree (invoice_number)
+    "invoices_issue_date_idx" btree (issue_date)
+    "invoices_number_idx" btree (invoice_number)
+    "invoices_owner_id_idx" btree (owner_id)
+    "invoices_patient_id_idx" btree (patient_id)
+    "invoices_status_due_date_idx" btree (status, due_date)
+    "invoices_status_idx" btree (status)
+    "invoices_status_issue_date_idx" btree (status, issue_date)
+    "invoices_tenant_id_idx" btree (tenant_id)
+    "invoices_tenant_invoice_number_unique_idx" UNIQUE, btree (tenant_id, invoice_number)
+Check constraints:
+    "invoices_discount_check" CHECK (discount >= 0::numeric)
+    "invoices_due_date_check" CHECK (due_date IS NULL OR due_date >= issue_date)
+    "invoices_status_check" CHECK (status::text = ANY (ARRAY['draft'::character varying::text, 'pending'::character varying::text, 'paid'::character varying::text, 'overdue'::character varying::text, 'cancelled'::character varying::text]))
+    "invoices_subtotal_check" CHECK (subtotal >= 0::numeric)
+    "invoices_total_check" CHECK (total >= 0::numeric)
+Foreign-key constraints:
+    "invoices_appointment_id_appointments_id_fk" FOREIGN KEY (appointment_id) REFERENCES appointments(id)
+    "invoices_owner_id_owners_id_fk" FOREIGN KEY (owner_id) REFERENCES owners(id)
+    "invoices_patient_id_patients_id_fk" FOREIGN KEY (patient_id) REFERENCES patients(id)
+    "invoices_tenant_id_tenants_id_fk" FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+Referenced by:
+    TABLE "fiscal_receipts" CONSTRAINT "fiscal_receipts_invoice_id_invoices_id_fk" FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+    TABLE "hospital_stays" CONSTRAINT "hospital_stays_active_invoice_id_invoices_id_fk" FOREIGN KEY (active_invoice_id) REFERENCES invoices(id)
+    TABLE "invoice_items" CONSTRAINT "invoice_items_invoice_id_invoices_id_fk" FOREIGN KEY (invoice_id) REFERENCES invoices(id)
+    TABLE "payment_intents" CONSTRAINT "payment_intents_invoice_id_invoices_id_fk" FOREIGN KEY (invoice_id) REFERENCES invoices(id)
+    TABLE "sales_transactions" CONSTRAINT "sales_transactions_invoice_id_invoices_id_fk" FOREIGN KEY (invoice_id) REFERENCES invoices(id)
+
+\d: extra argument "|" ignored
+\d: extra argument "grep" ignored
+\d: extra argument "invoice_number" ignored
+root@mail:/var/www/vetsystem# DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem" \
+PGPASSWORD="ASPI6rin" \
+./node_modules/.bin/tsx scripts/migrate-medical-data.ts \
+  --tenant "cc7d6b45-4a05-425d-890e-a5cb1bd89266" \
+  --db "vetais_probiko_local" \
+  --host "localhost" \
+  --port "5432" \
+  --user "postgres" \
+  --phase "invoices" \
+  --batch "300" 2>&1
+
+psql postgresql://postgres:ASPI6rin@localhost:5432/vetsystem -c \
+  "SELECT count(*) FROM invoices WHERE tenant_id='cc7d6b45-4a05-425d-890e-a5cb1bd89266';"
+╔══════════════════════════════════════════════════════════════════════╗
+║       МИГРАЦИЯ МЕДИЦИНСКИХ ДАННЫХ ИЗ VETAIS                         ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  База Vetais : vetais_probiko_local @ localhost:5432
+  Tenant ID   : cc7d6b45-4a05-425d-890e-a5cb1bd89266
+  Фаза        : invoices
+  Batch size  : 300
+
+Fatal: error: password authentication failed for user "postgres"
+    at Parser.parseErrorMessage (/var/www/vetsystem/node_modules/pg-protocol/src/parser.ts:369:69)
+    at Parser.handlePacket (/var/www/vetsystem/node_modules/pg-protocol/src/parser.ts:187:21)
+    at Parser.parse (/var/www/vetsystem/node_modules/pg-protocol/src/parser.ts:102:30)
+    at Socket.<anonymous> (/var/www/vetsystem/node_modules/pg-protocol/src/index.ts:7:48)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:191:23) {
+  length: 104,
+  severity: 'FATAL',
+  code: '28P01',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '317',
+  routine: 'auth_failed'
+}
+ count
+-------
+   884
+(1 row)
