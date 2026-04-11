@@ -419,7 +419,7 @@ export const patients = pgTable("patients", {
     branchIdIdx: index("patients_branch_id_idx").on(table.branchId),
     tenantMicrochipUnique: index("patients_tenant_microchip_unique_idx").on(table.tenantId, table.microchipNumber),
     vetaisIdIdx: index("patients_vetais_id_idx").on(table.vetaisId), // Index for migration lookups
-    vetaisIdUnique: uniqueIndex("patients_vetais_id_unique_idx").on(table.vetaisId).where(sql`${table.vetaisId} IS NOT NULL`), // Prevent duplicate migrations
+    vetaisIdUnique: uniqueIndex("patients_tenant_vetais_id_unique_idx").on(table.tenantId, table.vetaisId).where(sql`${table.vetaisId} IS NOT NULL`), // Prevent duplicate migrations per tenant
   };
 });
 
