@@ -964,7 +964,7 @@ export const systemSettings = pgTable("system_settings", {
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
-  invoiceNumber: varchar("invoice_number", { length: 255 }).unique().notNull(),
+  invoiceNumber: varchar("invoice_number", { length: 255 }).notNull(),
   ownerId: varchar("owner_id").references(() => owners.id),
   patientId: varchar("patient_id").references(() => patients.id),
   appointmentId: varchar("appointment_id").references(() => appointments.id),
@@ -1000,6 +1000,7 @@ export const invoices = pgTable("invoices", {
     statusIssueDateIdx: index("invoices_status_issue_date_idx").on(table.status, table.issueDate),
     statusDueDateIdx: index("invoices_status_due_date_idx").on(table.status, table.dueDate),
     invoiceNumberIdx: index("invoices_number_idx").on(table.invoiceNumber),
+    invoiceNumberUnique: uniqueIndex("invoices_tenant_invoice_number_unique_idx").on(table.tenantId, table.invoiceNumber),
     createdAtIdx: index("invoices_created_at_idx").on(table.createdAt),
   };
 });
