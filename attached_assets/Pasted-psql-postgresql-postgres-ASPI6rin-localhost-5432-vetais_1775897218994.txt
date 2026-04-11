@@ -1,0 +1,103 @@
+psql "postgresql://postgres:ASPI6rin@localhost:5432/vetais_probiko_local" << 'EOF'
+-- Что за поля в file_clients?
+SELECT column_name FROM information_schema.columns
+WHERE table_name='file_clients' ORDER BY ordinal_position;
+
+-- Совпадает ли client_id с kod_kado?
+SELECT
+  ah.client_id,
+  fc_kod.kod_kado AS matched_by_kod,
+  fc_id.id_kado   AS matched_by_id
+FROM accounts_headers ah
+LEFT JOIN file_clients fc_kod ON fc_kod.kod_kado::text = ah.client_id::text
+LEFT JOIN file_clients fc_id  ON fc_id.id_kado::text   = ah.client_id::text
+LIMIT 10;
+
+-- Сколько счетов найдут владельца через kod_kado vs id_kado?
+SELECT
+  COUNT(*) FILTER (WHERE fc_kod.kod_kado IS NOT NULL) AS via_kod_kado,
+  COUNT(*) FILTER (WHERE fc_id.id_kado IS NOT NULL)   AS via_id_kado,
+  COUNT(*) AS total
+FROM accounts_headers ah
+LEFT JOIN file_clients fc_kod ON fc_kod.kod_kado::text = ah.client_id::text
+LEFT JOIN file_clients fc_id  ON fc_id.id_kado::text   = ah.client_id::text
+EOFRE ah.deleted = 0;
+         column_name
+------------------------------
+ kod_kado
+ titul
+ nazev_kado
+ poznamka_kado
+ mesto_k
+ banka_k
+ ucet_k
+ ico_k
+ dic_k
+ datum_kado
+ adresar
+ vyrazen
+ vyrazen_kdy
+ vlozen_kdy
+ k
+ id_m
+ id_k
+ telefon
+ kux
+ uzx
+ mobil
+ email
+ poznamka
+ id_ordin
+ id_censkup
+ id_mesto
+ vymaz
+ id_farma
+ jmeno
+ id_str
+ id_reg
+ blok
+ id_rajon
+ id_typ
+ id_kliniky
+ syn_server_uniq_id
+ syn_client_uniq_id
+ id_megarajon
+ syn_status
+ syn_tempaddress
+ syn_timestamp
+ no_pass
+ no_contract
+ room
+ contract_validity
+ dt_updated
+ share_tag
+ score_group_id
+ user_id
+ clinic_id
+ department_id
+ enable_lab_sending
+ date_birth
+ vh_id
+ reg_code
+ disable_business_msg
+ gender_id
+ created_clinic_id
+ created_department_id
+ created_clinic_name
+ created_department_name
+ last_cosmo_login
+ chat2desk_telegram_id
+ chat2desk_whatsapp_id
+ chat2desk_telegram_dialog_id
+ chat2desk_whatsapp_dialog_id
+ chat2desk_method_priority
+(67 rows)
+
+ERROR:  column fc_id.id_kado does not exist
+LINE 7: LEFT JOIN file_clients fc_id  ON fc_id.id_kado::text   = ah....
+                                         ^
+HINT:  Perhaps you meant to reference the column "fc_id.kod_kado".
+ERROR:  column fc_id.id_kado does not exist
+LINE 7: LEFT JOIN file_clients fc_id  ON fc_id.id_kado::text   = ah....
+                                         ^
+HINT:  Perhaps you meant to reference the column "fc_id.kod_kado".
