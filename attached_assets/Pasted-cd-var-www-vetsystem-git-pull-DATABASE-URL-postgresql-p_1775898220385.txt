@@ -1,0 +1,66 @@
+cd /var/www/vetsystem && git pull
+
+DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem" \
+PGPASSWORD="ASPI6rin" \
+./node_modules/.bin/tsx scripts/migrate-medical-data.ts \
+  --tenant "cc7d6b45-4a05-425d-890e-a5cb1bd89266" \
+  --db "vetais_probiko_local" \
+  --host "localhost" \
+  --port "5432" \
+  --user "postgres" \
+  --password "ASPI6rin" \
+  --phase "invoices" \
+  --batch "300"
+remote: Enumerating objects: 10, done.
+remote: Counting objects: 100% (10/10), done.
+remote: Compressing objects: 100% (4/4), done.
+remote: Total 8 (delta 6), reused 6 (delta 4), pack-reused 0 (from 0)
+Unpacking objects: 100% (8/8), 4.16 KiB | 852.00 KiB/s, done.
+From https://github.com/ssavin/vetsystem
+   67b9af0..ccf8d65  main       -> origin/main
+Updating 67b9af0..ccf8d65
+Fast-forward
+ ...gres-psql-c-ALTER-USER-postgr_1775898063063.txt |  64 +++++++++
+ ...ull-psql-postgresql-postgres-_1775897466726.txt | 152 +++++++++++++++++++++
+ 2 files changed, 216 insertions(+)
+ create mode 100644 attached_assets/Pasted--postgres-peer-sudo-u-postgres-psql-c-ALTER-USER-postgr_1775898063063.txt
+ create mode 100644 attached_assets/Pasted-cd-var-www-vetsystem-git-pull-psql-postgresql-postgres-_1775897466726.txt
+╔══════════════════════════════════════════════════════════════════════╗
+║       МИГРАЦИЯ МЕДИЦИНСКИХ ДАННЫХ ИЗ VETAIS                         ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  База Vetais : vetais_probiko_local @ localhost:5432
+  Tenant ID   : cc7d6b45-4a05-425d-890e-a5cb1bd89266
+  Фаза        : invoices
+  Batch size  : 300
+
+✅ Подключено!
+
+🏥 Клиника: Probiko
+
+  Дефолтный пользователь: 414497d8-5c19-40bf-ac7a-b6cd6e574321
+  Дефолтный филиал: 74f7f1f0-8d20-4ae7-b0ca-62b4ea80ac5d
+
+Fatal: error: invalid input syntax for type integer: "TEST_DEBUG_999"
+    at /var/www/vetsystem/node_modules/pg/lib/client.js:545:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async buildPatientMap (/var/www/vetsystem/scripts/migrate-medical-data.ts:174:13)
+    at async main (/var/www/vetsystem/scripts/migrate-medical-data.ts:123:22) {
+  length: 120,
+  severity: 'ERROR',
+  code: '22P02',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'numutils.c',
+  line: '615',
+  routine: 'pg_strtoint32_safe'
+}

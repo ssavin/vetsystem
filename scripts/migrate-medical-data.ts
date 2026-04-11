@@ -172,7 +172,7 @@ function printStat(label: string, s: { inserted: number; skipped: number; errors
 // ─── Маппинги ─────────────────────────────────────────────────────────────────
 async function buildPatientMap(vs: Client): Promise<Map<number, string>> {
   const r = await vs.query(
-    'SELECT vetais_id::int AS vid, id FROM patients WHERE tenant_id=$1 AND vetais_id IS NOT NULL',
+    "SELECT vetais_id::int AS vid, id FROM patients WHERE tenant_id=$1 AND vetais_id IS NOT NULL AND vetais_id ~ '^[0-9]+$'",
     [TENANT_ID]
   );
   return new Map(r.rows.map(x => [x.vid, x.id]));
@@ -180,7 +180,7 @@ async function buildPatientMap(vs: Client): Promise<Map<number, string>> {
 
 async function buildOwnerMap(vs: Client): Promise<Map<number, string>> {
   const r = await vs.query(
-    'SELECT vetais_id::int AS vid, id FROM owners WHERE tenant_id=$1 AND vetais_id IS NOT NULL',
+    "SELECT vetais_id::int AS vid, id FROM owners WHERE tenant_id=$1 AND vetais_id IS NOT NULL AND vetais_id ~ '^[0-9]+$'",
     [TENANT_ID]
   );
   return new Map(r.rows.map(x => [x.vid, x.id]));
