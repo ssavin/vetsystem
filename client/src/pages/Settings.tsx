@@ -1395,8 +1395,8 @@ export default function Settings() {
                   Добавить отделение
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]" data-testid="dialog-branch-form">
-                <DialogHeader>
+              <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col" data-testid="dialog-branch-form">
+                <DialogHeader className="flex-shrink-0">
                   <DialogTitle className="flex items-center">
                     <Building2 className="h-5 w-5 mr-2 text-primary" />
                     {editingBranch ? 'Редактировать отделение' : 'Новое отделение'}
@@ -1405,6 +1405,7 @@ export default function Settings() {
                     {editingBranch ? 'Изменение информации об отделении' : 'Добавление нового отделения клиники'}
                   </DialogDescription>
                 </DialogHeader>
+                <div className="overflow-y-auto flex-1 pr-1">
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1622,6 +1623,7 @@ export default function Settings() {
                     </div>
                   </form>
                 </Form>
+                </div>
               </DialogContent>
             </Dialog>
           </div>
