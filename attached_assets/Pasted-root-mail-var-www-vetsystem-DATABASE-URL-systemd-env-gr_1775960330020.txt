@@ -1,0 +1,44 @@
+root@mail:/var/www/vetsystem# # Найти DATABASE_URL (он в systemd-сервисе или .env)
+grep DATABASE_URL /etc/systemd/system/vetsystem.service 2>/dev/null || cat .env | grep DATABASE_URL
+
+# Экспортировать и запустить
+export DATABASE_URL="postgresql://..."   # вставьте найденное значение
+
+# Исправить владельцев у всех клиник
+./node_modules/.bin/tsx scripts/fix-patient-owners.ts
+
+# Исправить Probiko (создать филиалы + привязки)
+export VETAIS_DB_HOST=localhost VETAIS_DB_PORT=5432 VETAIS_DB_NAME=vetais_probiko_local VETAIS_DB_USER=postgres VETAIS_DB_PASSWORD=ASPI6rin
+./node_modules/.bin/tsx scripts/fix-probiko-branches.ts --host localhost --port 5432 --user postgres --password ASPI6rin --db vetais_probiko_local
+./node_modules/.bin/tsx scripts/fix-patient-branches.ts --tenant cc7d6b45-4a05-425d-890e-a5cb1bd89266 --db vetais_probiko_local --host localhost --port 5432 --user postgres --password ASPI6rin
+./node_modules/.bin/tsx scripts/fix-client-branches-fast.ts cc7d6b45-4a05-425d-890e-a5cb1bd89266
+./node_modules/.bin/tsx scripts/fix-patient-owners.ts --tenant cc7d6b45-4a05-425d-890e-a5cb1bd89266
+DATABASE_URL=postgresql://postgres:ASPI6rin@localhost:5432/vetsystem
+❌ Критическая ошибка: getaddrinfo ENOTFOUND ...
+🏥 Создание филиалов Probiko из Vetais → VetSystem
+   Vetais: localhost:5432/vetais_probiko_local
+   Тенант: cc7d6b45-4a05-425d-890e-a5cb1bd89266
+
+❌ Критическая ошибка: getaddrinfo ENOTFOUND ...
+🔧 Исправление привязки пациентов к филиалам...
+
+Error: getaddrinfo ENOTFOUND ...
+    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: '...'
+}
+╔═══════════════════════════════════════════════════════════════╗
+║   БЫСТРОЕ ИСПРАВЛЕНИЕ ПРИНАДЛЕЖНОСТИ К ФИЛИАЛАМ              ║
+╚═══════════════════════════════════════════════════════════════╝
+
+🔌 Подключение к базам данных...
+❌ Ошибка: Error: getaddrinfo ENOTFOUND ...
+    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: '...'
+}
+❌ Критическая ошибка: getaddrinfo ENOTFOUND ...
