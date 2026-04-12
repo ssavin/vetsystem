@@ -1610,7 +1610,7 @@ export const insertBranchSchema = createInsertSchema(branches).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
-  legalEntityId: z.string().uuid("Неверный формат ID юр.лица").optional().or(z.literal("")),
+  legalEntityId: z.string().uuid("Неверный формат ID юр.лица").optional().nullable().or(z.literal("")),
   status: z.enum(["active", "inactive", "maintenance"] as const).default("active"),
   phone: z.string()
     .transform(v => v.replace(/[\s\(\)\-]/g, ''))
