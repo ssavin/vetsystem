@@ -3478,8 +3478,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user?.isSuperAdmin && req.user?.role !== 'руководитель' && req.user?.role !== 'администратор' && req.user?.role !== 'admin') {
         return res.status(403).json({ error: "Доступ запрещён" });
       }
-      
-      const branch = await storage.createBranch(req.body);
+
+      // Always use tenantId from authenticated user — never trust body for security
+      const tenantId = req.user?.isSuperAdmin
+        ? req.body.tenantId
+        : (req.user?.tenantId ?? (req as any).tenantId);
+
+      const branch = await storage.createBranch({ ...req.body, tenantId });
       res.status(201).json(branch);
     } catch (error) {
       console.error("Error creating branch:", error);

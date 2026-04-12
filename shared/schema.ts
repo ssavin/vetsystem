@@ -1612,7 +1612,10 @@ export const insertBranchSchema = createInsertSchema(branches).omit({
 }).extend({
   legalEntityId: z.string().uuid("Неверный формат ID юр.лица").optional().or(z.literal("")),
   status: z.enum(["active", "inactive", "maintenance"] as const).default("active"),
-  phone: z.string().regex(/^\+?[1-9]\d{10,14}$/, "Неверный формат номера телефона").optional().or(z.literal("")),
+  phone: z.string()
+    .transform(v => v.replace(/[\s\(\)\-]/g, ''))
+    .refine(v => v === '' || /^\+?[1-9]\d{6,14}$/.test(v), "Неверный формат номера телефона")
+    .optional().or(z.literal("")),
   email: z.string().email().optional().or(z.literal("")),
 });
 
