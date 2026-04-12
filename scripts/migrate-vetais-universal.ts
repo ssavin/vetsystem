@@ -28,6 +28,7 @@
  */
 
 import { Client } from 'pg';
+import bcrypt from 'bcryptjs';
 
 // ─── CLI парсинг ───────────────────────────────────────────────────────────
 function getArg(name: string, fallback?: string): string | undefined {
@@ -140,7 +141,7 @@ function mapSex(id: number | null): { gender: string; neutered: boolean } {
 const stats = {
   owners:   { inserted: 0, skipped_exists: 0, skipped_no_name: 0, errors: 0 },
   patients: { inserted: 0, skipped_exists: 0, skipped_no_owner: 0, errors: 0, no_branch: 0 },
-  doctors:  { inserted: 0, inserted_staff: 0, skipped_exists: 0, errors: 0 },
+  doctors:  { inserted: 0, inserted_staff: 0, skipped_exists: 0, errors: 0, users_inserted: 0, users_skipped: 0 },
 };
 
 // ─── Основная функция ──────────────────────────────────────────────────────
@@ -246,10 +247,12 @@ async function main() {
     }
     if (PHASE === 'all' || PHASE === 'doctors') {
       console.log(`\n👨‍⚕️ ВРАЧИ И СОТРУДНИКИ`);
-      console.log(`   ✅ Врачей добавлено:    ${stats.doctors.inserted}`);
-      console.log(`   ✅ Сотрудников добавлено: ${stats.doctors.inserted_staff}`);
-      console.log(`   ⏭️  Уже было:           ${stats.doctors.skipped_exists}`);
-      console.log(`   ❌ Ошибок:             ${stats.doctors.errors}`);
+      console.log(`   ✅ Врачей добавлено:       ${stats.doctors.inserted}`);
+      console.log(`   ✅ Сотрудников добавлено:  ${stats.doctors.inserted_staff}`);
+      console.log(`   ⏭️  Уже было (doctors):    ${stats.doctors.skipped_exists}`);
+      console.log(`   ✅ Users создано:          ${stats.doctors.users_inserted}`);
+      console.log(`   ⏭️  Users уже были:        ${stats.doctors.users_skipped}`);
+      console.log(`   ❌ Ошибок:                ${stats.doctors.errors}`);
     }
     console.log('\n✨ Миграция завершена!\n');
 
@@ -560,7 +563,7 @@ async function migratePatients(vsDb: Client, vtDb: Client, branchMap: Map<number
 // ─── Фаза 3: Врачи ────────────────────────────────────────────────────────
 async function migrateDoctors(vsDb: Client, vtDb: Client, branchMap: Map<number, string>) {
   console.log('━'.repeat(72));
-  console.log('👨‍⚕️ ФАЗА 3: ВРАЧИ (system_users)');
+  console.log('👨‍⚕️ ФАЗА 3: ВРАЧИ (system_users → doctors + users)');
   console.log('━'.repeat(72));
 
   // Проверить наличие system_users
@@ -572,53 +575,108 @@ async function migrateDoctors(vsDb: Client, vtDb: Client, branchMap: Map<number,
     return;
   }
 
-  // Уже мигрированные врачи (по имени+тенанту, нет vetais_id в doctors)
+  // Проверить наличие колонки jmeno_prihlaseni (логин в Vetais)
+  const hasLoginCol = await vtDb.query(`
+    SELECT EXISTS (
+      SELECT FROM information_schema.columns
+      WHERE table_name='system_users' AND column_name='jmeno_prihlaseni'
+    ) AS exists
+  `);
+  const loginColSql = hasLoginCol.rows[0].exists ? ', jmeno_prihlaseni' : '';
+
   const existingRes = await vtDb.query(`
     SELECT kod_uzivatele, jmeno, prijmeni, otcestvo,
            telefon, mobile, email,
-           is_doctor, is_active, id_kliniky, vymaz
+           is_doctor, is_active, id_kliniky, vymaz${loginColSql}
     FROM system_users
     WHERE vymaz = 0
     ORDER BY kod_uzivatele
   `);
   console.log(`   Найдено пользователей в Vetais: ${existingRes.rows.length}`);
 
+  // Уже мигрированные doctors и users
   const existingDoctors = await vsDb.query(
     `SELECT name FROM doctors WHERE tenant_id = $1`, [TENANT_ID]
   );
   const existingNames = new Set(existingDoctors.rows.map(r => r.name.toLowerCase()));
 
+  const existingUsers = await vsDb.query(
+    `SELECT vetais_id FROM users WHERE tenant_id = $1 AND vetais_id IS NOT NULL`, [TENANT_ID]
+  );
+  const existingUserVetaisIds = new Set(existingUsers.rows.map(r => r.vetais_id));
+
+  // Хэш пароля user123 (вычислить один раз)
+  const passwordHash = await bcrypt.hash('user123', 10);
+
   for (const u of existingRes.rows) {
     const name = buildName(u.prijmeni, u.jmeno, u.otcestvo);
     if (!name) continue;
 
-    if (existingNames.has(name.toLowerCase())) {
-      stats.doctors.skipped_exists++;
-      continue;
-    }
-
+    const vetaisId = parseInt(u.kod_uzivatele);
     const branchId = (u.id_kliniky && branchMap.has(parseInt(u.id_kliniky)))
       ? branchMap.get(parseInt(u.id_kliniky))!
       : null;
-
     const isDoctor = u.is_doctor === 1;
+    const phone    = cleanPhone(u.mobile) || cleanPhone(u.telefon);
+    const email    = cleanEmail(u.email);
+    const isActive = u.is_active === 1;
+
+    // ─── Запись в doctors ────────────────────────────────────────────────────
+    if (!existingNames.has(name.toLowerCase())) {
+      try {
+        await vsDb.query(`
+          INSERT INTO doctors (tenant_id, branch_id, name, phone, email, is_active, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        `, [TENANT_ID, branchId, truncate(name, 255), phone, email, isActive]);
+        if (isDoctor) stats.doctors.inserted++;
+        else stats.doctors.inserted_staff++;
+        existingNames.add(name.toLowerCase());
+      } catch (e: any) {
+        stats.doctors.errors++;
+        console.error(`   ❌ ${isDoctor ? 'Врач' : 'Сотрудник'} "${name}" (doctors): ${e.message}`);
+      }
+    } else {
+      stats.doctors.skipped_exists++;
+    }
+
+    // ─── Запись в users ──────────────────────────────────────────────────────
+    if (existingUserVetaisIds.has(vetaisId)) {
+      stats.doctors.users_skipped++;
+      continue;
+    }
+
+    // Сформировать username: Vetais-логин или staff_<vetaisId>
+    const rawLogin = u.jmeno_prihlaseni?.trim();
+    const username = rawLogin
+      ? rawLogin.toLowerCase().replace(/[^a-zа-яёА-ЯЁ0-9_.-]/gi, '_').substring(0, 50)
+      : `staff_${vetaisId}`;
+
+    const role = isDoctor ? 'doctor' : 'staff';
 
     try {
+      // Проверка уникальности username в рамках тенанта
+      const existsCheck = await vsDb.query(
+        `SELECT id FROM users WHERE tenant_id = $1 AND username = $2`,
+        [TENANT_ID, username]
+      );
+      const finalUsername = existsCheck.rows.length > 0
+        ? `${username}_${vetaisId}`
+        : username;
+
       await vsDb.query(`
-        INSERT INTO doctors (tenant_id, branch_id, name, phone, email, is_active, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        INSERT INTO users (tenant_id, branch_id, username, password, full_name, role, status,
+                           phone, email, vetais_id, locale, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'ru', NOW(), NOW())
       `, [
-        TENANT_ID, branchId, truncate(name, 255),
-        cleanPhone(u.mobile) || cleanPhone(u.telefon),
-        cleanEmail(u.email),
-        u.is_active === 1,
+        TENANT_ID, branchId, finalUsername, passwordHash,
+        truncate(name, 255), role,
+        isActive ? 'active' : 'inactive',
+        phone, email, vetaisId,
       ]);
-      if (isDoctor) stats.doctors.inserted++;
-      else stats.doctors.inserted_staff++;
-      existingNames.add(name.toLowerCase());
+      stats.doctors.users_inserted++;
+      existingUserVetaisIds.add(vetaisId);
     } catch (e: any) {
-      stats.doctors.errors++;
-      console.error(`   ❌ ${isDoctor ? 'Врач' : 'Сотрудник'} "${name}": ${e.message}`);
+      console.error(`   ❌ Пользователь "${name}" (users): ${e.message}`);
     }
   }
   console.log(`   ✅ Врачи и сотрудники завершены\n`);

@@ -15,9 +15,30 @@ log() { echo "[$(date '+%H:%M:%S')] $1"; }
 log "=== ЗАПУСК МИГРАЦИИ ВАСИЛЁК ==="
 log "Тенант: $TENANT"
 
-run_phase() {
+run_universal() {
   local phase=$1
   log "--- Фаза: $phase ---"
+  ./node_modules/.bin/tsx scripts/migrate-vetais-universal.ts \
+    --tenant "$TENANT" \
+    --db "$DB" \
+    --host "$HOST" \
+    --password "$PASS" \
+    --phase "$phase" \
+    --batch "$BATCH"
+}
+
+run_branch_mapping() {
+  log "--- Маппинг филиалов ---"
+  ./node_modules/.bin/tsx scripts/setup-branch-mapping.ts \
+    --tenant "$TENANT" \
+    --db "$DB" \
+    --host "$HOST" \
+    --password "$PASS"
+}
+
+run_phase() {
+  local phase=$1
+  log "--- Фаза медданных: $phase ---"
   ./node_modules/.bin/tsx scripts/migrate-medical-data.ts \
     --tenant "$TENANT" \
     --db "$DB" \
@@ -27,15 +48,20 @@ run_phase() {
     --batch "$BATCH"
 }
 
-# Осмотры
+# ── Маппинг филиалов и создание пользователей для врачей ─────────────────────
+log ">>> Маппинг филиалов (Vetais clinic_id → VetSystem branch_id)"
+run_branch_mapping
+
+log ">>> Врачи + создание пользователей (идемпотентно)"
+run_universal doctors
+
+# ── Медицинские данные ────────────────────────────────────────────────────────
 log ">>> Медицинские записи (records)"
 run_phase records
 
-# Вакцинации
 log ">>> Вакцинации"
 run_phase vaccinations
 
-# Счета
 log ">>> Счета и позиции"
 run_phase invoices
 
@@ -44,7 +70,8 @@ log "=== МИГРАЦИЯ ЗАВЕРШЕНА ==="
 # Итоговая статистика
 psql "$DATABASE_URL" -c "
 SELECT
-  'medical_records' as table_name, COUNT(*) as count FROM medical_records WHERE tenant_id='$TENANT'
+  'users (doctors/staff)' as table_name, COUNT(*) as count FROM users WHERE tenant_id='$TENANT' AND role IN ('doctor','staff')
+UNION ALL SELECT 'medical_records', COUNT(*) FROM medical_records WHERE tenant_id='$TENANT'
 UNION ALL SELECT 'health_reminders', COUNT(*) FROM health_reminders WHERE tenant_id='$TENANT'
 UNION ALL SELECT 'invoices', COUNT(*) FROM invoices WHERE tenant_id='$TENANT'
 UNION ALL SELECT 'invoice_items', COUNT(*) FROM invoice_items ii
