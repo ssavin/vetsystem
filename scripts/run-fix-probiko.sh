@@ -6,6 +6,16 @@
 #   4. Заполнение таблицы patient_owners
 set -e
 
+# Загрузить DATABASE_URL из .env если не задан в окружении
+if [ -z "$DATABASE_URL" ] && [ -f .env ]; then
+  set -a; source .env; set +a
+fi
+
+if [ -z "$DATABASE_URL" ]; then
+  echo "❌ DATABASE_URL не задан. Добавьте в .env или экспортируйте вручную."
+  exit 1
+fi
+
 TENANT="cc7d6b45-4a05-425d-890e-a5cb1bd89266"
 HOST="localhost"
 PORT="5432"
