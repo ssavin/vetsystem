@@ -1756,7 +1756,8 @@ export class DatabaseStorage implements IStorage {
   async getPatientOwners(patientId: string): Promise<any[]> {
     return withPerformanceLogging('getPatientOwners', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        return await dbInstance
+        // Primary source: patient_owners junction table
+        const junctionOwners = await dbInstance
           .select({
             id: patientOwners.id,
             patientId: patientOwners.patientId,
@@ -1775,6 +1776,46 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(owners, eq(patientOwners.ownerId, owners.id))
           .where(eq(patientOwners.patientId, patientId))
           .orderBy(desc(patientOwners.isPrimary));
+
+        if (junctionOwners.length > 0) return junctionOwners;
+
+        // Fallback for migrated patients: check patients.owner_id directly
+        const [patientRow] = await dbInstance
+          .select({
+            ownerId: patients.ownerId,
+            ownerName: owners.name,
+            ownerPhone: owners.phone,
+            ownerEmail: owners.email,
+            ownerAddress: owners.address,
+          })
+          .from(patients)
+          .leftJoin(owners, eq(patients.ownerId, owners.id))
+          .where(eq(patients.id, patientId))
+          .limit(1);
+
+        if (!patientRow?.ownerId || !patientRow?.ownerName) return [];
+
+        // Auto-heal: create missing junction record so future reads use the table
+        const newId = randomUUID();
+        await dbInstance
+          .insert(patientOwners)
+          .values({ id: newId, patientId, ownerId: patientRow.ownerId, isPrimary: true })
+          .onConflictDoNothing();
+
+        return [{
+          id: newId,
+          patientId,
+          ownerId: patientRow.ownerId,
+          isPrimary: true,
+          createdAt: new Date(),
+          owner: {
+            id: patientRow.ownerId,
+            name: patientRow.ownerName,
+            phone: patientRow.ownerPhone,
+            email: patientRow.ownerEmail,
+            address: patientRow.ownerAddress,
+          }
+        }];
       });
     });
   }
