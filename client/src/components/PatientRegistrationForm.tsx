@@ -33,7 +33,7 @@ const patientFormSchema = z.object({
   chronicConditions: z.string().optional(),
   specialMarks: z.string().optional(),
   branchId: z.string().optional(),
-  ownerIds: z.array(z.string()).min(1, "Выберите хотя бы одного владельца"),
+  ownerIds: z.array(z.string()).default([]),
 })
 
 type PatientFormData = z.infer<typeof patientFormSchema>
@@ -448,8 +448,12 @@ export default function PatientRegistrationForm({ patient, onSuccess, onCancel }
                 ))}
               </div>
             )}
-            {form.formState.errors.ownerIds && (
-              <p className="text-sm text-destructive mt-2">{form.formState.errors.ownerIds.message}</p>
+            {selectedOwners.length === 0 && (
+              <p className="text-sm mt-2" style={{ color: isEditMode ? 'var(--amber-600, #d97706)' : 'hsl(var(--destructive))' }}>
+                {isEditMode
+                  ? "Владелец не привязан — можно сохранить и добавить позже"
+                  : "Выберите хотя бы одного владельца"}
+              </p>
             )}
           </CardContent>
         </Card>
@@ -721,7 +725,7 @@ export default function PatientRegistrationForm({ patient, onSuccess, onCancel }
           </Button>
           <Button 
             type="submit" 
-            disabled={createPatientMutation.isPending || selectedOwners.length === 0}
+            disabled={createPatientMutation.isPending || (!isEditMode && selectedOwners.length === 0)}
             data-testid="button-save-patient"
           >
             <Save className="h-4 w-4 mr-2" />
