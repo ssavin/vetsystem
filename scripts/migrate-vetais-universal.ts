@@ -140,7 +140,7 @@ function mapSex(id: number | null): { gender: string; neutered: boolean } {
 const stats = {
   owners:   { inserted: 0, skipped_exists: 0, skipped_no_name: 0, errors: 0 },
   patients: { inserted: 0, skipped_exists: 0, skipped_no_owner: 0, errors: 0, no_branch: 0 },
-  doctors:  { inserted: 0, skipped_exists: 0, errors: 0 },
+  doctors:  { inserted: 0, inserted_staff: 0, skipped_exists: 0, errors: 0 },
 };
 
 // ─── Основная функция ──────────────────────────────────────────────────────
@@ -245,8 +245,9 @@ async function main() {
       console.log(`   ❌ Ошибок:             ${stats.patients.errors}`);
     }
     if (PHASE === 'all' || PHASE === 'doctors') {
-      console.log(`\n👨‍⚕️ ВРАЧИ`);
-      console.log(`   ✅ Добавлено:          ${stats.doctors.inserted}`);
+      console.log(`\n👨‍⚕️ ВРАЧИ И СОТРУДНИКИ`);
+      console.log(`   ✅ Врачей добавлено:    ${stats.doctors.inserted}`);
+      console.log(`   ✅ Сотрудников добавлено: ${stats.doctors.inserted_staff}`);
       console.log(`   ⏭️  Уже было:           ${stats.doctors.skipped_exists}`);
       console.log(`   ❌ Ошибок:             ${stats.doctors.errors}`);
     }
@@ -588,8 +589,6 @@ async function migrateDoctors(vsDb: Client, vtDb: Client, branchMap: Map<number,
   const existingNames = new Set(existingDoctors.rows.map(r => r.name.toLowerCase()));
 
   for (const u of existingRes.rows) {
-    if (u.is_doctor !== 1) continue; // только врачи
-
     const name = buildName(u.prijmeni, u.jmeno, u.otcestvo);
     if (!name) continue;
 
@@ -602,6 +601,8 @@ async function migrateDoctors(vsDb: Client, vtDb: Client, branchMap: Map<number,
       ? branchMap.get(parseInt(u.id_kliniky))!
       : null;
 
+    const isDoctor = u.is_doctor === 1;
+
     try {
       await vsDb.query(`
         INSERT INTO doctors (tenant_id, branch_id, name, phone, email, is_active, created_at, updated_at)
@@ -612,14 +613,15 @@ async function migrateDoctors(vsDb: Client, vtDb: Client, branchMap: Map<number,
         cleanEmail(u.email),
         u.is_active === 1,
       ]);
-      stats.doctors.inserted++;
+      if (isDoctor) stats.doctors.inserted++;
+      else stats.doctors.inserted_staff++;
       existingNames.add(name.toLowerCase());
     } catch (e: any) {
       stats.doctors.errors++;
-      console.error(`   ❌ Врач "${name}": ${e.message}`);
+      console.error(`   ❌ ${isDoctor ? 'Врач' : 'Сотрудник'} "${name}": ${e.message}`);
     }
   }
-  console.log(`   ✅ Врачи завершены\n`);
+  console.log(`   ✅ Врачи и сотрудники завершены\n`);
 }
 
 main().catch(err => {
