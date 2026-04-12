@@ -643,14 +643,29 @@ async function migrateInvoices(
         if (invCols.has('branch_id')) { insertCols.push('branch_id'); vals.push(branchId); }
 
         const ph = vals.map((_, i) => `$${i + 1}`).join(',');
-        await vs.query(
-          `INSERT INTO invoices (${insertCols.join(',')}) VALUES (${ph}) ON CONFLICT DO NOTHING`,
+        // RETURNING id — получаем реальный UUID (новый или уже существующий)
+        const result = await vs.query(
+          `INSERT INTO invoices (${insertCols.join(',')}) VALUES (${ph})
+           ON CONFLICT (tenant_id, invoice_number) DO NOTHING RETURNING id`,
           vals
         );
+        let actualId: string;
+        if (result.rows.length > 0) {
+          // Реально вставлено
+          actualId = result.rows[0].id;
+          S.invoices.inserted++;
+          invoicesInserted++;
+        } else {
+          // ON CONFLICT — уже существует, берём реальный UUID из БД
+          const existing = await vs.query(
+            'SELECT id FROM invoices WHERE tenant_id=$1 AND invoice_number=$2',
+            [TENANT_ID, invNum]
+          );
+          actualId = existing.rows[0]?.id;
+          S.invoices.skipped++;
+        }
         done.add(invNum);
-        invoiceIdMap.set(r.id, newId);
-        S.invoices.inserted++;
-        invoicesInserted++;
+        if (actualId) invoiceIdMap.set(r.id, actualId);
       } catch (e: any) {
         S.invoices.errors++;
         if (S.invoices.errors <= 3) console.error(`\n   ❌ Счёт ${r.id}: ${e.message}`);
