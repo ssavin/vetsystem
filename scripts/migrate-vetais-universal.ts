@@ -507,7 +507,8 @@ async function migratePatients(vsDb: Client, vtDb: Client, branchMap: Map<number
         : null;
 
       try {
-        await vsDb.query(`
+        // Вставить пациента
+        const patRes = await vsDb.query(`
           INSERT INTO patients
             (tenant_id, branch_id, vetais_id, name, species, breed,
              gender, birth_date, microchip_number, tattoo_number,
@@ -515,6 +516,7 @@ async function migratePatients(vsDb: Client, vtDb: Client, branchMap: Map<number
              created_at, updated_at)
           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW(),NOW())
           ON CONFLICT DO NOTHING
+          RETURNING id
         `, [
           TENANT_ID, branchId, vetaisId,
           truncate(name, 255)!,
@@ -526,6 +528,17 @@ async function migratePatients(vsDb: Client, vtDb: Client, branchMap: Map<number
           status,
           primaryOwnerId,
         ]);
+
+        if (patRes.rows.length > 0) {
+          const patientId = patRes.rows[0].id;
+          // Создать запись в patient_owners (нужна для карточки пациента)
+          await vsDb.query(`
+            INSERT INTO patient_owners (id, patient_id, owner_id, is_primary, created_at)
+            VALUES (gen_random_uuid()::text, $1, $2, true, NOW())
+            ON CONFLICT DO NOTHING
+          `, [patientId, primaryOwnerId]);
+        }
+
         stats.patients.inserted++;
         existing.add(vetaisId);
       } catch (e: any) {
