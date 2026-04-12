@@ -620,8 +620,10 @@ async function migrateInvoices(
       const issueDate = safeDt(r.datetime_create) || new Date();
       const paidDate  = safeDt(r.datetime_tax);
       const total     = Math.max(0, parseFloat(r.price_to_pay) || parseFloat(r.price_sum) || 0);
-      const discount  = parseFloat(r.price_discount) || 0;
-      const subtotal  = Math.max(0, total + discount); // защита от отрицательных значений
+      // В Vetais скидка хранится как отрицательное число (e.g. -50), VetSystem требует >= 0
+      const discount  = Math.abs(parseFloat(r.price_discount) || 0);
+      // subtotal = сумма до скидки
+      const subtotal  = Math.max(0, total + discount);
 
       // status: 0=draft, 1=paid, 2=cancelled
       const statusMap: Record<number, string> = { 0: 'draft', 1: 'paid', 2: 'cancelled' };
