@@ -187,7 +187,8 @@ async function buildOwnerMap(vs: Client): Promise<Map<number, string>> {
 }
 
 async function buildDoctorMap(vs: Client, vt: Client): Promise<Map<number, string>> {
-  // Vetais system_users id → VetSystem doctor id (по имени)
+  // Vetais system_users id → VetSystem users.id (по имени)
+  // medical_records.doctor_id ссылается на users.id, не на doctors.id
   let vtDocs: { rows: any[] };
   try {
     vtDocs = await vt.query(
@@ -200,14 +201,17 @@ async function buildDoctorMap(vs: Client, vt: Client): Promise<Map<number, strin
     }
     throw e;
   }
+  // Ищем в users, т.к. medical_records.doctor_id → users.id
   const vsDocs = await vs.query(
-    'SELECT id, name FROM doctors WHERE tenant_id=$1', [TENANT_ID]
+    'SELECT id, full_name AS name FROM users WHERE tenant_id=$1 AND full_name IS NOT NULL', [TENANT_ID]
   );
-  const nameToId = new Map<string, string>(vsDocs.rows.map(r => [r.name.toLowerCase(), r.id]));
+  const nameToId = new Map<string, string>(
+    vsDocs.rows.map(r => [r.name.toLowerCase().trim(), r.id])
+  );
   const map = new Map<number, string>();
   for (const r of vtDocs.rows) {
     const fullName = [r.prijmeni, r.jmeno, r.otcestvo].filter(Boolean).join(' ').trim().toLowerCase();
-    if (nameToId.has(fullName)) map.set(parseInt(r.vid), nameToId.get(fullName)!);
+    if (fullName && nameToId.has(fullName)) map.set(parseInt(r.vid), nameToId.get(fullName)!);
   }
   return map;
 }
@@ -374,8 +378,8 @@ async function migrateRecords(
       const patId = patientMap.get(parseInt(r.id_patient));
       if (!patId) { S.records.skipped++; continue; }
 
-      // doctor_id в medical_records ссылается на users(id), а не doctors(id).
-      // Поскольку прямой связи нет — ставим NULL (поле nullable).
+      // doctor_id в medical_records ссылается на users.id (buildDoctorMap теперь возвращает users.id)
+      const doctorId = r.id_doctor ? (doctorMap.get(parseInt(r.id_doctor)) || null) : null;
       const branchId = branchMap.get(parseInt(r.id_clinic)) || DEFAULT_BRANCH_ID;
       const caseId   = r.id_case ? caseMap.get(parseInt(r.id_case)) || null : null;
       const visitDate = safeDt(r.date_created) || new Date();
@@ -400,10 +404,10 @@ async function migrateRecords(
             (id, tenant_id, branch_id, patient_id, doctor_id, appointment_id,
              visit_date, visit_type, complaints, diagnosis, treatment,
              status, notes, created_at, updated_at, vetais_id)
-          VALUES ($1,$2,$3,$4,NULL,NULL,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13)
+          VALUES ($1,$2,$3,$4,$5,NULL,$6,$7,$8,$9,$10,$11,$12,$13,$13,$14)
           ON CONFLICT DO NOTHING
         `, [
-          uuid(), TENANT_ID, branchId, patId,
+          uuid(), TENANT_ID, branchId, patId, doctorId,
           visitDate, 'visit',
           truncate(complaints, 5000),
           truncate(diagnosis, 5000),
