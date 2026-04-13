@@ -1,0 +1,66 @@
+cd /var/www/vetsystem && git pull
+
+bash scripts/run-fix-doctors.sh
+remote: Enumerating objects: 9, done.
+remote: Counting objects: 100% (9/9), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 6 (delta 3), reused 6 (delta 3), pack-reused 0 (from 0)
+Unpacking objects: 100% (6/6), 1.94 KiB | 496.00 KiB/s, done.
+From https://github.com/ssavin/vetsystem
+   3d8fe3f..addbc96  main       -> origin/main
+Updating 3d8fe3f..addbc96
+Fast-forward
+ ...ull-247k-DATABASE-URL-postgre_1776068614873.txt | 58 ++++++++++++++++++++++
+ scripts/run-fix-doctors.sh                         | 35 +++++++++++++
+ 2 files changed, 93 insertions(+)
+ create mode 100644 attached_assets/Pasted-cd-var-www-vetsystem-git-pull-247k-DATABASE-URL-postgre_1776068614873.txt
+ create mode 100644 scripts/run-fix-doctors.sh
+[08:24:58] === Динго: исправление doctor_id ===
+╔══════════════════════════════════════════════════════════════╗
+║   ИСПРАВЛЕНИЕ doctor_id В МЕДИЦИНСКИХ ЗАПИСЯХ              ║
+╚══════════════════════════════════════════════════════════════╝
+  Tenant  : e556ed34-71a7-4003-a2cd-b5cf274bae12
+  Vetais  : vetais @ 109.173.124.18:5454
+
+❌ Ошибка: SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+root@mail:/var/www/vetsystem# cd /var/www/vetsystem && git pull
+
+bash scripts/run-fix-doctors.sh
+remote: Enumerating objects: 7, done.
+remote: Counting objects: 100% (7/7), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 4 (delta 3), reused 4 (delta 3), pack-reused 0 (from 0)
+Unpacking objects: 100% (4/4), 501 bytes | 250.00 KiB/s, done.
+From https://github.com/ssavin/vetsystem
+   addbc96..144e9c9  main       -> origin/main
+Updating addbc96..144e9c9
+Fast-forward
+ scripts/run-fix-doctors.sh | 3 +++
+ 1 file changed, 3 insertions(+)
+[08:26:45] === Динго: исправление doctor_id ===
+╔══════════════════════════════════════════════════════════════╗
+║   ИСПРАВЛЕНИЕ doctor_id В МЕДИЦИНСКИХ ЗАПИСЯХ              ║
+╚══════════════════════════════════════════════════════════════╝
+  Tenant  : e556ed34-71a7-4003-a2cd-b5cf274bae12
+  Vetais  : vetais @ 109.173.124.18:5454
+
+✅ Подключено к обеим БД
+
+📋 Строим маппинг врачей (Vetais → users.id)...
+  Сопоставлено врачей: 0 из 52
+  ⚠️  Нет сопоставлений, выход.
+[08:26:45] === Динго: готово ===
+[08:26:45] === Василёк: исправление doctor_id ===
+╔══════════════════════════════════════════════════════════════╗
+║   ИСПРАВЛЕНИЕ doctor_id В МЕДИЦИНСКИХ ЗАПИСЯХ              ║
+╚══════════════════════════════════════════════════════════════╝
+  Tenant  : bd89523e-47e7-4d4b-8b94-e98c6d3e1959
+  Vetais  : vetais_vasilek @ 94.198.53.52:5454
+
+✅ Подключено к обеим БД
+
+📋 Строим маппинг врачей (Vetais → users.id)...
+  Сопоставлено врачей: 0 из 126
+  ⚠️  Нет сопоставлений, выход.
+[08:26:46] === Василёк: готово ===
+[08:26:46] Все исправления завершены!
