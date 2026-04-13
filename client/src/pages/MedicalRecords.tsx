@@ -168,6 +168,7 @@ function PatientLabOrdersPanel({ patientId, onCreateOrder }: { patientId: string
 function MedicalRecordTableRow({ record }: { record: any }) {
   const [, navigate] = useLocation()
   const [showCreateCaseDialog, setShowCreateCaseDialog] = useState(false)
+  const [isRecordFormOpen, setIsRecordFormOpen] = useState(false)
   const { toast } = useToast()
 
   const getStatusConfig = (status: string) => {
@@ -222,7 +223,16 @@ function MedicalRecordTableRow({ record }: { record: any }) {
 
   return (
     <>
-      <TableRow className="hover-elevate" data-testid={`row-medical-record-${record.id}`}>
+      <MedicalRecordForm
+        recordToEdit={record}
+        open={isRecordFormOpen}
+        onOpenChange={setIsRecordFormOpen}
+      />
+      <TableRow
+        className="hover-elevate cursor-pointer"
+        data-testid={`row-medical-record-${record.id}`}
+        onClick={() => setIsRecordFormOpen(true)}
+      >
         <TableCell data-testid={`text-record-date-${record.id}`}>{record.date}</TableCell>
         <TableCell data-testid={`text-patient-name-${record.id}`}>{record.patientName}</TableCell>
         <TableCell data-testid={`text-owner-name-${record.id}`}>{record.ownerName}</TableCell>
@@ -236,7 +246,7 @@ function MedicalRecordTableRow({ record }: { record: any }) {
             {statusConfig.text}
           </Badge>
         </TableCell>
-        <TableCell className="text-center">
+        <TableCell className="text-center" onClick={e => e.stopPropagation()}>
           <Button
             size="icon"
             variant="ghost"
@@ -247,21 +257,17 @@ function MedicalRecordTableRow({ record }: { record: any }) {
             <FileText className="h-4 w-4" />
           </Button>
         </TableCell>
-        <TableCell className="text-right">
+        <TableCell className="text-right" onClick={e => e.stopPropagation()}>
           <div className="flex gap-1 justify-end">
-            <MedicalRecordForm 
-              recordToEdit={record}
-              trigger={
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  data-testid={`button-edit-record-${record.id}`}
-                >
-                  <Edit className="h-3 w-3 mr-1" />
-                  Редактировать
-                </Button>
-              }
-            />
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid={`button-edit-record-${record.id}`}
+              onClick={() => setIsRecordFormOpen(true)}
+            >
+              <Edit className="h-3 w-3 mr-1" />
+              Редактировать
+            </Button>
             <PrintDocumentButton
               entityId={record.id}
               entityType="medical_record"
