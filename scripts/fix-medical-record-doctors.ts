@@ -74,9 +74,19 @@ async function main() {
     vsUsers.rows.map(r => [r.full_name.toLowerCase().trim(), r.id])
   );
 
+  // Отладка: показываем первые 5 имён с каждой стороны
+  console.log(`  VetSystem users (всего ${vsUsers.rows.length}), первые 5:`);
+  vsUsers.rows.slice(0, 5).forEach(r => console.log(`    "${r.full_name}"`));
+  console.log(`  Vetais system_users (всего ${vtUsers.rows.length}), первые 5 (собранное имя):`);
+  vtUsers.rows.slice(0, 5).forEach(r => {
+    const n = [r.prijmeni, r.jmeno, r.otcestvo].filter(p => p?.trim()).map(p => p.trim()).join(' ');
+    console.log(`    vid=${r.vid} → "${n}"`);
+  });
+
   const doctorMap = new Map<number, string>();
   for (const r of vtUsers.rows) {
-    const fullName = [r.prijmeni, r.jmeno, r.otcestvo].filter(Boolean).join(' ').trim().toLowerCase();
+    const fullName = [r.prijmeni, r.jmeno, r.otcestvo]
+      .filter(p => p?.trim()).map(p => p.trim()).join(' ').toLowerCase();
     if (fullName && nameToUserId.has(fullName)) {
       doctorMap.set(parseInt(r.vid), nameToUserId.get(fullName)!);
     }
@@ -84,7 +94,8 @@ async function main() {
   console.log(`  Сопоставлено врачей: ${doctorMap.size} из ${vtUsers.rows.length}`);
 
   if (doctorMap.size === 0) {
-    console.log('  ⚠️  Нет сопоставлений, выход.');
+    console.log('  ⚠️  Нет сопоставлений.');
+    console.log('  Проверьте, что doctors уже мигрированы (run_universal doctors) и имена совпадают.');
     await vs.end(); await vt.end(); return;
   }
 
