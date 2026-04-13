@@ -3,6 +3,9 @@
 # Запускать на продакшн-сервере: bash scripts/run-fix-doctors.sh
 set -e
 
+export DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem"
+export NODE_OPTIONS="--max-old-space-size=4096"
+
 log() { echo "[$(date '+%H:%M:%S')] $1"; }
 
 fix_doctors() {
