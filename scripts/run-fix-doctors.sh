@@ -3,8 +3,12 @@
 # Запускать на продакшн-сервере: bash scripts/run-fix-doctors.sh
 set -e
 
-export DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem"
 export NODE_OPTIONS="--max-old-space-size=4096"
+
+if [ -z "$DATABASE_URL" ]; then
+  echo "❌ Переменная DATABASE_URL не задана. Задайте её в окружении сервера."
+  exit 1
+fi
 
 log() { echo "[$(date '+%H:%M:%S')] $1"; }
 
