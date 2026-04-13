@@ -1,0 +1,51 @@
+journalctl -u vetsystem -n 50 --no-pager
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:     at async file:///var/www/vetsystem/dist/index.js:15070:27
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:     at async Promise.all (index 41) {
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   length: 115,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   severity: 'ERROR',
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   code: '42703',
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   detail: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   hint: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   position: '317',
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   internalPosition: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   internalQuery: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   where: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   schema: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   table: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   column: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   dataType: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   constraint: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   file: 'parse_relation.c',
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   line: '3822',
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   routine: 'errorMissingColumn'
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]: }
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]: ❌ Query failed: getOwner after 180ms: error: column "segment_manual" does not exist
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:     at /var/www/vetsystem/node_modules/pg-pool/index.js:45:11
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:     at async file:///var/www/vetsystem/node_modules/drizzle-orm/node-postgres/session.js:83:22
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:     at async file:///var/www/vetsystem/dist/index.js:4263:29
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:     at async withPerformanceLogging (file:///var/www/vetsystem/dist/index.js:3941:24)
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:     at async file:///var/www/vetsystem/dist/index.js:15070:27
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:     at async Promise.all (index 9) {
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   length: 115,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   severity: 'ERROR',
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   code: '42703',
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   detail: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   hint: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   position: '317',
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   internalPosition: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   internalQuery: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   where: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   schema: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   table: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   column: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   dataType: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   constraint: undefined,
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   file: 'parse_relation.c',
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   line: '3822',
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]:   routine: 'errorMissingColumn'
+Apr 13 07:46:16 mail.vetsystemai.ru npm[357669]: }
+Apr 13 07:46:20 mail.vetsystemai.ru npm[357669]: [Health Notifications] Running initial health check...
+Apr 13 07:46:20 mail.vetsystemai.ru npm[357669]: ⚡ Query: getUpcomingAppointments completed in 10ms
+Apr 13 07:46:20 mail.vetsystemai.ru npm[357669]: [Health Notifications] Sent 0 notifications for upcoming appointments
+Apr 13 07:46:20 mail.vetsystemai.ru npm[357669]: [Health Notifications] Initial health check completed
