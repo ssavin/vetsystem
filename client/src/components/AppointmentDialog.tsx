@@ -42,8 +42,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Plus, Calendar, Check, ChevronsUpDown } from "lucide-react"
+import { Plus, Calendar, Check, ChevronsUpDown, User, FileText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useLocation } from "wouter"
 import { queryClient, apiRequest } from "@/lib/queryClient"
 import { insertAppointmentSchema } from "@shared/schema"
 import { cn, translateSpecies } from "@/lib/utils"
@@ -90,6 +91,7 @@ export default function AppointmentDialog({
   const [ownerSearchOpen, setOwnerSearchOpen] = useState(false)
   const [patientSearchOpen, setPatientSearchOpen] = useState(false)
   const { toast } = useToast()
+  const [, navigate] = useLocation()
   const hasAutoFilledRef = useRef(false)
   
   // Store loaded owner/patient to prevent loss when defaultIds change
@@ -399,6 +401,40 @@ export default function AppointmentDialog({
           <DialogDescription>
             {selectedAppointment ? 'Измените данные записи на прием' : 'Создайте новую запись на прием для пациента'}
           </DialogDescription>
+          {selectedAppointment && (selectedAppointment.ownerId || selectedAppointment.patientId) && (
+            <div className="flex gap-2 pt-1">
+              {selectedAppointment.ownerId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setOpen(false)
+                    onClose?.()
+                    navigate(`/registry?ownerId=${selectedAppointment.ownerId}`)
+                  }}
+                >
+                  <User className="h-3 w-3 mr-1" />
+                  Карта клиента
+                </Button>
+              )}
+              {selectedAppointment.patientId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setOpen(false)
+                    onClose?.()
+                    navigate(`/medical-records?patientId=${selectedAppointment.patientId}`)
+                  }}
+                >
+                  <FileText className="h-3 w-3 mr-1" />
+                  Медкарта
+                </Button>
+              )}
+            </div>
+          )}
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

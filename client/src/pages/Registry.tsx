@@ -35,7 +35,7 @@ import { PrintDocumentButton } from "@/components/PrintDocumentButton"
 import { AIAssistantWidget } from "@/components/AIAssistantWidget"
 import { CallLogsWidget } from "@/components/CallLogsWidget"
 import { OwnerCardDialog } from "@/components/OwnerCardDialog"
-import { useLocation } from "wouter"
+import { useLocation, useSearch } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
@@ -405,6 +405,17 @@ export default function Registry() {
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null)
   const [patientToDelete, setPatientToDelete] = useState<{ id: string, name: string } | null>(null)
   const [patientToEdit, setPatientToEdit] = useState<any | null>(null)
+
+  // Auto-open owner card from URL param (e.g. /registry?ownerId=xxx)
+  const searchString = useSearch()
+  useEffect(() => {
+    const params = new URLSearchParams(searchString)
+    const ownerId = params.get('ownerId')
+    if (ownerId) {
+      setSelectedOwnerId(ownerId)
+      setOwnerCardOpen(true)
+    }
+  }, [searchString])
 
   // Debounce search term
   useEffect(() => {
