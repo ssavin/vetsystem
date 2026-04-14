@@ -605,7 +605,7 @@ export interface IStorage {
   // === CLINICAL CASES MODULE ===
   
   // Clinical Cases methods - 🔒 SECURITY: branchId required for PHI isolation
-  getClinicalCases(filters?: { search?: string; startDate?: Date; endDate?: Date; limit?: number; offset?: number }, branchId?: string): Promise<any[]>;
+  getClinicalCases(filters?: { search?: string; status?: string; startDate?: Date; endDate?: Date; limit?: number; offset?: number }, branchId?: string): Promise<{ rows: any[]; total: number }>;
   getClinicalCase(id: string): Promise<any | undefined>;
   getClinicalCasesByPatient(patientId: string, branchId: string): Promise<any[]>;
   createClinicalCase(clinicalCase: InsertClinicalCase): Promise<ClinicalCase>;
@@ -5212,64 +5212,89 @@ export class DatabaseStorage implements IStorage {
   // CLINICAL CASES MODULE METHODS
   // ========================================
 
-  async getClinicalCases(filters?: { search?: string; startDate?: Date; endDate?: Date; limit?: number; offset?: number }, branchId?: string): Promise<any[]> {
+  async getClinicalCases(filters?: { search?: string; status?: string; startDate?: Date; endDate?: Date; limit?: number; offset?: number }, branchId?: string): Promise<{ rows: any[]; total: number }> {
     return withPerformanceLogging('getClinicalCases', async () => {
       return withTenantContext(undefined, async (dbInstance) => {
-        // Build SQL conditions
+        const pageLimit = filters?.limit ?? 50;
+        const pageOffset = filters?.offset ?? 0;
+
+        // Build WHERE conditions on clinical_cases only (no join to owners yet)
         let branchCondition = branchId ? sql`AND cc.branch_id = ${branchId}` : sql``;
-        let searchCondition = filters?.search 
-          ? sql`AND (p.name ILIKE ${`%${filters.search}%`} OR COALESCE(poa.primary_owner_name, legacy_owner.name) ILIKE ${`%${filters.search}%`})`
+        let statusCondition = filters?.status && filters.status !== 'all'
+          ? sql`AND cc.status = ${filters.status}`
           : sql``;
-        let startDateCondition = filters?.startDate 
+        let startDateCondition = filters?.startDate
           ? sql`AND cc.start_date >= ${filters.startDate}`
           : sql``;
-        let endDateCondition = filters?.endDate 
+        let endDateCondition = filters?.endDate
           ? sql`AND cc.start_date <= ${filters.endDate}`
           : sql``;
-        let limitClause = filters?.limit ? sql`LIMIT ${filters.limit}` : sql``;
-        let offsetClause = filters?.offset ? sql`OFFSET ${filters.offset}` : sql``;
+        // Search applied after join — kept separate
+        const hasSearch = !!filters?.search;
+        let searchCondition = hasSearch
+          ? sql`AND (p.name ILIKE ${`%${filters!.search}%`} OR o_search.name ILIKE ${`%${filters!.search}%`} OR cc.reason_for_visit ILIKE ${`%${filters!.search}%`})`
+          : sql``;
 
-        // Use raw SQL with CTE for multi-owner support
+        // Total count query (fast — no owner join unless searching)
+        let totalResult;
+        if (hasSearch) {
+          totalResult = await dbInstance.execute(sql`
+            SELECT COUNT(*)::int AS cnt
+            FROM clinical_cases cc
+            LEFT JOIN patients p ON cc.patient_id = p.id
+            LEFT JOIN owners o_search ON p.owner_id = o_search.id
+            WHERE 1=1 ${branchCondition} ${statusCondition} ${startDateCondition} ${endDateCondition} ${searchCondition}
+          `);
+        } else {
+          totalResult = await dbInstance.execute(sql`
+            SELECT COUNT(*)::int AS cnt
+            FROM clinical_cases cc
+            WHERE 1=1 ${branchCondition} ${statusCondition} ${startDateCondition} ${endDateCondition}
+          `);
+        }
+        const total = totalResult.rows[0]?.cnt ?? 0;
+
+        // Main query: filter clinical_cases first (LIMIT early), then join owners only for those rows
         const result = await dbInstance.execute(sql`
-          WITH patient_owners_agg AS (
-            SELECT 
+          WITH filtered_cases AS (
+            SELECT cc.*
+            FROM clinical_cases cc
+            LEFT JOIN patients p ON cc.patient_id = p.id
+            LEFT JOIN owners o_search ON p.owner_id = o_search.id
+            WHERE 1=1
+              ${branchCondition}
+              ${statusCondition}
+              ${startDateCondition}
+              ${endDateCondition}
+              ${searchCondition}
+            ORDER BY cc.start_date DESC
+            LIMIT ${pageLimit} OFFSET ${pageOffset}
+          ),
+          patient_owners_agg AS (
+            SELECT
               po.patient_id,
-              COALESCE(
-                MAX(CASE WHEN po.is_primary THEN o.name END),
-                MIN(o.name)
-              ) as primary_owner_name,
-              COALESCE(
-                MAX(CASE WHEN po.is_primary THEN o.phone END),
-                MIN(o.phone)
-              ) as primary_owner_phone
+              COALESCE(MAX(CASE WHEN po.is_primary THEN o.name END), MIN(o.name)) AS primary_owner_name,
+              COALESCE(MAX(CASE WHEN po.is_primary THEN o.phone END), MIN(o.phone)) AS primary_owner_phone
             FROM patient_owners po
             JOIN owners o ON po.owner_id = o.id
+            WHERE po.patient_id IN (SELECT patient_id FROM filtered_cases)
             GROUP BY po.patient_id
           )
-          SELECT 
-            cc.*,
-            p.id as patient_id,
-            p.name as patient_name,
+          SELECT
+            fc.*,
+            p.name AS patient_name,
             p.species,
             p.breed,
-            COALESCE(poa.primary_owner_name, legacy_owner.name) as owner_name,
-            COALESCE(poa.primary_owner_phone, legacy_owner.phone) as owner_phone
-          FROM clinical_cases cc
-          LEFT JOIN patients p ON cc.patient_id = p.id
+            COALESCE(poa.primary_owner_name, legacy_owner.name) AS owner_name,
+            COALESCE(poa.primary_owner_phone, legacy_owner.phone) AS owner_phone
+          FROM filtered_cases fc
+          LEFT JOIN patients p ON fc.patient_id = p.id
           LEFT JOIN patient_owners_agg poa ON p.id = poa.patient_id
           LEFT JOIN owners legacy_owner ON p.owner_id = legacy_owner.id
-          WHERE 1=1 
-            ${branchCondition}
-            ${searchCondition}
-            ${startDateCondition}
-            ${endDateCondition}
-          ORDER BY cc.start_date DESC
-          ${limitClause}
-          ${offsetClause}
+          ORDER BY fc.start_date DESC
         `);
 
-        // Transform snake_case to camelCase for consistency
-        return result.rows.map((row: any) => ({
+        const rows = result.rows.map((row: any) => ({
           clinicalCase: {
             id: row.id,
             patientId: row.patient_id,
@@ -5294,6 +5319,8 @@ export class DatabaseStorage implements IStorage {
             phone: row.owner_phone
           }
         }));
+
+        return { rows, total };
       });
     });
   }

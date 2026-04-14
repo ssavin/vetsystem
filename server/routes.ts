@@ -8290,34 +8290,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CLINICAL CASES MODULE ROUTES
   // ========================================
 
-  // GET /api/clinical-cases - Get list of clinical cases (with filters)
+  // GET /api/clinical-cases - Get list of clinical cases (with filters + pagination)
   app.get("/api/clinical-cases", authenticateToken, async (req, res) => {
     try {
       const user = req.user!;
-      const { search, startDate, endDate, limit, offset } = req.query;
+      const { search, status, startDate, endDate, limit, offset } = req.query;
       const userBranchId = user.branchId || '';
 
       const filters = {
-        search: search as string,
+        search: search ? (search as string).trim() : undefined,
+        status: status as string | undefined,
         startDate: startDate ? new Date(startDate as string) : undefined,
         endDate: endDate ? new Date(endDate as string) : undefined,
-        limit: limit ? parseInt(limit as string) : undefined,
-        offset: offset ? parseInt(offset as string) : undefined
+        limit: limit ? parseInt(limit as string) : 50,
+        offset: offset ? parseInt(offset as string) : 0
       };
 
-      const cases = await storage.getClinicalCases(filters, userBranchId);
-      
-      // Transform nested structure to flat structure for frontend
-      const flatCases = cases.map((item: any) => ({
+      const { rows, total } = await storage.getClinicalCases(filters, userBranchId);
+
+      const cases = rows.map((item: any) => ({
         ...item.clinicalCase,
-        patientName: item.patient?.name || 'Unknown',
+        patientName: item.patient?.name || '',
         species: item.patient?.species || '',
         breed: item.patient?.breed || '',
-        ownerName: item.owner?.name || 'Unknown',
+        ownerName: item.owner?.name || '',
         ownerPhone: item.owner?.phone || ''
       }));
-      
-      res.json(flatCases);
+
+      res.json({ cases, total });
     } catch (error) {
       console.error("Error fetching clinical cases:", error);
       res.status(500).json({ error: "Failed to fetch clinical cases" });
