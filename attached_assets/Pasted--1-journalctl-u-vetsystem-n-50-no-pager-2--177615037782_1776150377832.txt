@@ -1,0 +1,104 @@
+# 1. Посмотреть ошибку приложения
+journalctl -u vetsystem -n 50 --no-pager
+
+# 2. Проверить какие таблицы доступны
+psql "postgresql://postgres:ASPI6rin@localhost:5432/vetsystem" -c "\dt"
+
+# 3. Проверить состояние ключевых таблиц
+psql "postgresql://postgres:ASPI6rin@localhost:5432/vetsystem" -c "
+SELECT table_name,
+  (SELECT COUNT(*) FROM information_schema.columns WHERE table_name=t.table_name) as col_count
+FROM information_schema.tables t
+WHERE table_schema='public' AND table_type='BASE TABLE'
+ORDER BY table_name;
+"
+Apr 14 06:30:33 mail.vetsystemai.ru npm[384733]: ⚡ Query: getBranch completed in 1ms
+Apr 14 06:30:33 mail.vetsystemai.ru npm[384733]: ⚡ Query: getTenant completed in 0ms
+Apr 14 06:30:33 mail.vetsystemai.ru npm[384733]: 6:30:33 AM [express] GET /api/auth/me 304 in 8ms
+Apr 14 06:30:33 mail.vetsystemai.ru npm[384733]: ⚡ Query: getUser completed in 3ms
+Apr 14 06:30:33 mail.vetsystemai.ru npm[384733]: ⚡ Query: getBranch completed in 4ms
+Apr 14 06:30:33 mail.vetsystemai.ru npm[384733]: ⚡ Query: getTenant completed in 1ms
+Apr 14 06:30:33 mail.vetsystemai.ru npm[384733]: 6:30:33 AM [express] GET /api/auth/me 304 in 11ms
+Apr 14 06:30:33 mail.vetsystemai.ru npm[384733]: ⚡ Query: getUser completed in 2ms
+Apr 14 06:30:34 mail.vetsystemai.ru npm[384733]: ⚡ Query: getUser completed in 2ms
+Apr 14 06:30:34 mail.vetsystemai.ru npm[384733]: ⚡ Query: getUser completed in 1ms
+Apr 14 06:30:34 mail.vetsystemai.ru npm[384733]: ⚡ Query: getTenantBranches completed in 2ms
+Apr 14 06:30:34 mail.vetsystemai.ru npm[384733]: ⚡ Query: getUserAccessibleBranches completed in 3ms
+Apr 14 06:30:34 mail.vetsystemai.ru npm[384733]: 6:30:34 AM [express] GET /api/user/available-branches 304 in 7ms
+Apr 14 06:30:34 mail.vetsystemai.ru npm[384733]: WebSocket connection rejected: No token provided
+Apr 14 06:30:35 mail.vetsystemai.ru npm[384733]: 🐌 Slow query detected: getClinicalCases took 1880ms (threshold: 100ms)
+Apr 14 06:30:37 mail.vetsystemai.ru npm[384733]: 6:30:37 AM [express] GET /api/clinical-cases 200 in 3360ms
+Apr 14 06:35:00 mail.vetsystemai.ru npm[384733]: ⚡ Query: expireOldQueueCalls completed in 10ms
+Apr 14 06:40:00 mail.vetsystemai.ru npm[384733]: ⚡ Query: expireOldQueueCalls completed in 13ms
+Apr 14 06:43:35 mail.vetsystemai.ru systemd[1]: Stopping VetSystem Application...
+Apr 14 06:43:35 mail.vetsystemai.ru systemd[1]: vetsystem.service: Killing process 384738 (node) with signal SIGKILL.
+Apr 14 06:43:35 mail.vetsystemai.ru systemd[1]: vetsystem.service: Deactivated successfully.
+Apr 14 06:43:35 mail.vetsystemai.ru systemd[1]: Stopped VetSystem Application.
+Apr 14 06:43:35 mail.vetsystemai.ru systemd[1]: vetsystem.service: Consumed 13.775s CPU time.
+Apr 14 06:43:35 mail.vetsystemai.ru systemd[1]: Started VetSystem Application.
+Apr 14 06:43:35 mail.vetsystemai.ru npm[385793]: > rest-express@1.0.0 start
+Apr 14 06:43:35 mail.vetsystemai.ru npm[385793]: > NODE_ENV=production node dist/index.js
+Apr 14 06:43:36 mail.vetsystemai.ru npm[385807]: WebSocket server initialized on /ws/socket.io
+Apr 14 06:43:36 mail.vetsystemai.ru npm[385807]: 6:43:36 AM [express] serving on port 5000
+Apr 14 06:43:36 mail.vetsystemai.ru npm[385807]: [Notification Scheduler] Started - expiration check at 9:00 AM UTC, expired check at 1:00 AM UTC
+Apr 14 06:43:36 mail.vetsystemai.ru npm[385807]: [Queue Cleanup] Started - runs every 5 minutes
+Apr 14 06:43:36 mail.vetsystemai.ru npm[385807]: [Health Notifications] Started - health check at 10:00 AM UTC (1:00 PM MSK)
+Apr 14 06:43:36 mail.vetsystemai.ru npm[385807]: [Hospital Billing] Scheduler started - runs daily at 00:00 UTC
+Apr 14 06:43:36 mail.vetsystemai.ru npm[385807]: [CRM Segments] Scheduler started - runs daily at 02:00 UTC
+Apr 14 06:43:41 mail.vetsystemai.ru npm[385807]: [Notification Scheduler] Running initial checks...
+Apr 14 06:43:41 mail.vetsystemai.ru npm[385807]: ⚡ Query: getClinicSubscriptions completed in 6ms
+Apr 14 06:43:41 mail.vetsystemai.ru npm[385807]: [Notification Scheduler] Expired subscriptions check completed: 0 subscriptions expired
+Apr 14 06:43:41 mail.vetsystemai.ru npm[385807]: ⚡ Query: getClinicSubscriptions completed in 1ms
+Apr 14 06:43:41 mail.vetsystemai.ru npm[385807]: [Notification Scheduler] Completed: 0 notifications created, 0 skipped
+Apr 14 06:43:41 mail.vetsystemai.ru npm[385807]: [Notification Scheduler] Initial checks completed
+Apr 14 06:43:41 mail.vetsystemai.ru npm[385807]: ⚡ Query: expireOldQueueCalls completed in 13ms
+Apr 14 06:43:41 mail.vetsystemai.ru npm[385807]: [Queue Cleanup] Initial cleanup completed: 0 expired calls deleted
+Apr 14 06:43:46 mail.vetsystemai.ru npm[385807]: [Health Notifications] Running initial health check...
+Apr 14 06:43:46 mail.vetsystemai.ru npm[385807]: ⚡ Query: getUpcomingAppointments completed in 4ms
+Apr 14 06:43:46 mail.vetsystemai.ru npm[385807]: [Health Notifications] Sent 0 notifications for upcoming appointments
+Apr 14 06:43:46 mail.vetsystemai.ru npm[385807]: [Health Notifications] Initial health check completed
+Apr 14 06:45:00 mail.vetsystemai.ru npm[385807]: ⚡ Query: expireOldQueueCalls completed in 14ms
+Apr 14 06:50:00 mail.vetsystemai.ru npm[385807]: ⚡ Query: expireOldQueueCalls completed in 11ms
+Apr 14 06:55:00 mail.vetsystemai.ru npm[385807]: ⚡ Query: expireOldQueueCalls completed in 10ms
+Apr 14 07:00:00 mail.vetsystemai.ru npm[385807]: ⚡ Query: expireOldQueueCalls completed in 10ms
+Apr 14 07:05:00 mail.vetsystemai.ru npm[385807]: ⚡ Query: expireOldQueueCalls completed in 10ms
+ public | invoices                  | table | postgres
+ public | lab_analyses              | table | postgres
+ public | lab_analyzers             | table | postgres
+ public | lab_orders                | table | postgres
+ public | lab_parameters            | table | postgres
+ public | lab_result_details        | table | postgres
+ public | lab_result_imports        | table | postgres
+ public | lab_results               | table | postgres
+ public | lab_studies               | table | postgres
+ public | legal_entities            | table | postgres
+ public | loyalty_settings          | table | postgres
+ public | loyalty_transactions      | table | postgres
+ public | marketing_campaigns       | table | postgres
+ public | medical_records           | table | postgres
+ public | medications               | table | postgres
+ public | messages                  | table | postgres
+ public | owners                    | table | postgres
+ public | patient_files             | table | postgres
+ public | patient_owners            | table | postgres
+ public | patients                  | table | postgres
+ public | payment_intents           | table | postgres
+ public | payment_methods           | table | postgres
+ public | products                  | table | postgres
+ public | push_tokens               | table | postgres
+ public | queue_calls               | table | postgres
+ public | queue_entries             | table | postgres
+ public | reference_ranges          | table | postgres
+ public | sales_transaction_items   | table | postgres
+ public | sales_transactions        | table | postgres
+ public | services                  | table | postgres
+ public | sms_verification_codes    | table | postgres
+ public | subscription_payments     | table | postgres
+ public | subscription_plans        | table | postgres
+ public | system_settings           | table | postgres
+ public | tenants                   | table | postgres
+ public | treatment_log             | table | postgres
+ public | user_role_assignments     | table | postgres
+ public | user_roles                | table | postgres
+ public | users                     | table | postgres
+(77 rows)
