@@ -2650,6 +2650,7 @@ export const clinicalCases = pgTable('clinical_cases', {
   statusIdx: index('clinical_cases_status_idx').on(table.status),
   startDateIdx: index('clinical_cases_start_date_idx').on(table.startDate),
   vetaisIdIdx: index('clinical_cases_vetais_id_idx').on(table.vetaisId),
+  branchStatusDateIdx: index('clinical_cases_branch_status_date_idx').on(table.branchId, table.status, table.startDate),
   statusCheck: check('clinical_cases_status_check', sql`${table.status} IN ('open', 'closed')`)
 }));
 

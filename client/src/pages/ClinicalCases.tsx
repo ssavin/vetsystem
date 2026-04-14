@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { Search, FileText, Clock, CheckCircle2, XCircle, Info, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, FileText, Clock, XCircle, Info, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
@@ -26,7 +26,7 @@ interface ClinicalCase {
   id: string
   patientId: string
   reasonForVisit: string
-  status: 'open' | 'closed' | 'resolved'
+  status: 'open' | 'closed'
   startDate: string
   closeDate?: string | null
   createdByUserId: string
@@ -77,7 +77,6 @@ export default function ClinicalCases() {
   const { data, isLoading, isFetching, error, refetch } = useQuery<ClinicalCasesResponse>({
     queryKey: ['/api/clinical-cases', debouncedSearch, statusFilter, page],
     queryFn: () => fetch(buildUrl(), { credentials: 'include' }).then(r => r.json()),
-    placeholderData: (prev) => prev,
   })
 
   useEffect(() => {
@@ -100,8 +99,6 @@ export default function ClinicalCases() {
         return <Badge variant="default" className="bg-blue-500 shrink-0"><Clock className="h-3 w-3 mr-1" />Открыт</Badge>
       case 'closed':
         return <Badge variant="secondary" className="shrink-0"><XCircle className="h-3 w-3 mr-1" />Закрыт</Badge>
-      case 'resolved':
-        return <Badge variant="default" className="bg-green-500 shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Решен</Badge>
       default:
         return <Badge variant="outline" className="shrink-0">{status}</Badge>
     }
@@ -171,7 +168,6 @@ export default function ClinicalCases() {
                 <SelectItem value="all">Все статусы</SelectItem>
                 <SelectItem value="open">Открытые</SelectItem>
                 <SelectItem value="closed">Закрытые</SelectItem>
-                <SelectItem value="resolved">Решенные</SelectItem>
               </SelectContent>
             </Select>
           </div>
