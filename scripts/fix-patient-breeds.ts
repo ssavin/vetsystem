@@ -167,7 +167,8 @@ async function main() {
 
   while (true) {
     const patients = await vs.query(
-      `SELECT id, vetais_id::int AS vetais_id FROM patients
+      `SELECT id, regexp_replace(vetais_id, '[^0-9]', '', 'g')::int AS vetais_id
+       FROM patients
        WHERE tenant_id=$1 AND (breed IS NULL OR breed='') AND vetais_id IS NOT NULL
        ORDER BY vetais_id
        LIMIT $2 OFFSET $3`,
@@ -226,7 +227,8 @@ async function fixFromDirectColumn(vs: Client, vt: Client, col: string) {
   let updated = 0, skipped = 0, offset = 0;
   while (true) {
     const patients = await vs.query(
-      `SELECT id, vetais_id::int AS vetais_id FROM patients
+      `SELECT id, regexp_replace(vetais_id, '[^0-9]', '', 'g')::int AS vetais_id
+       FROM patients
        WHERE tenant_id=$1 AND (breed IS NULL OR breed='') AND vetais_id IS NOT NULL
        ORDER BY vetais_id LIMIT $2 OFFSET $3`,
       [TENANT_ID, BATCH, offset]
