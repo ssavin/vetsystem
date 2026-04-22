@@ -235,3 +235,157 @@ SELECT
   COUNT(*) AS всего,
   COUNT(CASE WHEN no_contract IS NOT NULL AND no_contract != '' THEN 1 END) AS с_договором
 FROM file_clients WHERE vymaz = 0;
+
+
+-- =====================================================================
+-- 6. ИНСПЕКЦИЯ СХЕМЫ БД (исследование структуры)
+-- =====================================================================
+
+-- Список всех таблиц в базе
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
+
+-- Поля конкретной таблицы
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'accounts_headers'   -- заменить на нужную таблицу
+ORDER BY ordinal_position;
+
+-- Поиск таблиц по части названия
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+AND table_name ILIKE '%doc%'
+ORDER BY table_name;
+
+-- Поиск полей по части названия (во всех таблицах)
+SELECT table_name, column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = 'public'
+AND column_name ILIKE '%contract%'
+ORDER BY table_name, column_name;
+
+-- Просмотр первых строк таблицы
+SELECT * FROM patient_doc_filled LIMIT 5;
+SELECT * FROM accounts_headers   LIMIT 5;
+SELECT * FROM file_clients        LIMIT 5;
+
+
+-- =====================================================================
+-- 7. ПРОСТОЙ РЕЕСТР С АКТАМИ (без адреса и договора)
+-- =====================================================================
+-- Минимальный вариант — быстрая выгрузка для проверки данных
+
+COPY (
+  SELECT
+    fc.nazev_kado                               AS "ФИО",
+    COALESCE(fc.no_contract, '')               AS "Номер договора",
+    TO_CHAR(fc.contract_validity, 'DD.MM.YYYY') AS "Действует до",
+    ah.sequence                                 AS "Номер акта",
+    TO_CHAR(ah.datetime_create, 'DD.MM.YYYY')  AS "Дата акта",
+    ah.price_to_pay                             AS "Сумма",
+    COALESCE(fc.telefon, fc.mobil)             AS "Телефон"
+  FROM file_clients fc
+  JOIN accounts_headers ah ON ah.client_id = fc.kod_kado
+  WHERE fc.vymaz = 0
+    AND (ah.deleted IS NULL OR ah.deleted = 0)
+  ORDER BY fc.nazev_kado, ah.datetime_create
+) TO '/tmp/registry_simple.csv'
+WITH (FORMAT CSV, HEADER, DELIMITER ';', ENCODING 'UTF8');
+
+
+-- =====================================================================
+-- 8. ЗАПРОС РАЗРАБОТЧИКОВ VETAIS — КАРТОЧКА КЛИЕНТА (оригинал)
+-- =====================================================================
+-- Оригинальный запрос от разработчиков Vetais с полным набором полей.
+-- ВНИМАНИЕ: содержит fncGetIsPatientAlive() — функция только в Vetais,
+-- фильтрует клиентов у кого есть хотя бы один живой пациент.
+-- Также фильтрует по datum_kado (дата регистрации карточки).
+
+SELECT
+    DISTINCT file_clients.kod_kado             AS client_id,
+    file_clients.nazev_kado                    AS client_surname,
+    file_clients.poznamka_kado                 AS client_name,
+    file_clients.jmeno                         AS client_secname,
+    file_clients.mesto_k                       AS house_number,
+    file_clients.blok                          AS quadrant,
+    file_clients.room                          AS flat,
+    file_streets.nazev                         AS street_name,
+    file_street_types.name                     AS street_type_name,
+    file_cities.nazev_mes                      AS city_name,
+    file_cities.nazev_psc                      AS city_zip,
+    file_regions.nazev                         AS region_name,
+    file_areas.name                            AS area_name,
+    file_superareas.name                       AS superarea_name,
+    file_clients.telefon                       AS client_phone,
+    file_clients.mobil                         AS client_mobile,
+    file_clients.email                         AS client_email,
+    file_clients.datum_kado                    AS card_created_date,
+    file_clients.created_clinic_id,
+    file_clients.created_clinic_name,
+    file_clients.created_department_id,
+    file_clients.created_department_name,
+    file_clients.no_pass,
+    file_clients.date_birth                    AS date_of_birth,
+    file_clients.last_cosmo_login              AS last_login,
+    CASE
+        WHEN file_clients.gender_id = 1 THEN 'женский'
+        WHEN file_clients.gender_id = 2 THEN 'мужской'
+        ELSE ''
+    END                                        AS client_gender
+FROM public.file_bridge_clients_patients
+LEFT JOIN public.file_clients
+        ON file_clients.kod_kado = file_bridge_clients_patients.id_klient
+LEFT JOIN public.file_patients
+        ON file_patients.id_pacienta = file_bridge_clients_patients.id_pacient
+LEFT JOIN public.file_cities
+        ON file_clients.id_mesto = file_cities.kod_mes
+LEFT JOIN public.file_streets
+        ON file_clients.id_str = file_streets.id_str
+LEFT JOIN public.file_street_types
+        ON file_street_types.id = file_streets.idtypu
+LEFT JOIN public.file_areas
+        ON file_clients.id_rajon = file_areas.id
+LEFT JOIN public.file_superareas
+        ON file_clients.id_megarajon = file_superareas.id
+LEFT JOIN public.file_regions
+        ON file_clients.id_reg = file_regions.id_reg
+WHERE file_bridge_clients_patients.id_most > 0
+    AND file_clients.kod_kado > 0
+    AND file_clients.vymaz = 0
+    AND file_clients.vyrazen = 'N'
+    AND file_patients.id_pacienta > 0
+    AND file_patients.vymaz = 0
+    AND file_patients.vyrazen = 'N'
+    AND fncGetIsPatientAlive(file_patients.zemrel) = 1
+    -- Фильтр по дате регистрации карточки (подставить нужный диапазон):
+    AND file_clients.datum_kado BETWEEN '2026-01-01 00:00:00' AND '2026-03-31 23:59:59'
+ORDER BY client_surname, client_name, client_secname;
+
+
+-- =====================================================================
+-- 9. ВАЖНЫЕ НАХОДКИ / ЛОВУШКИ
+-- =====================================================================
+--
+-- 1. КЛЮЧ КЛИЕНТА: file_clients.kod_kado (НЕ id_k — поле id_k обычно NULL/0)
+--    JOIN: accounts_headers.client_id = file_clients.kod_kado
+--
+-- 2. ФИЛЬТР УДАЛЁННЫХ:
+--    file_clients:      vymaz = 0 AND vyrazen = 'N'
+--    accounts_headers:  deleted IS NULL OR deleted = 0
+--    file_patients:     vymaz = 0 AND vyrazen = 'N'
+--    patient_doc_filled: deleted = 0
+--
+-- 3. НОМЕР ДОГОВОРА: поле no_contract почти пустое (< 0.1% заполнено).
+--    Реальные договоры — в patient_doc_filled, тип 'Договор новый клиент'
+--    (фильтр: patient_doc_templates.name ILIKE '%договор%')
+--
+-- 4. НОМЕР АКТА/СЧЁТА: accounts_headers.sequence
+--
+-- 5. pricelist_vat: id=1→0%, id=2→10%, id=3→18% (НДС)
+--
+-- 6. НДС в purchase_headers: нет триггеров — после импорта прихода
+--    обязательно открыть Склад→Приходы и подтвердить документ вручную
+--
