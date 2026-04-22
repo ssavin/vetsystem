@@ -1,0 +1,78 @@
+# Задать пароль Samba (если ещё не задан)
+sudo smbpasswd -a sergey
+
+# Проверить конфиг и запустить
+testparm -s
+sudo systemctl enable --now smbd
+sudo systemctl status smbd
+New SMB password:
+Retype new SMB password:
+Load smb config files from /etc/samba/smb.conf
+Loaded services file OK.
+Weak crypto is allowed by GnuTLS (e.g. NTLM as a compatibility fallback)
+
+Server role: ROLE_STANDALONE
+
+# Global parameters
+[global]
+        log file = /var/log/samba/log.%m
+        logging = file
+        map to guest = Bad User
+        max log size = 1000
+        obey pam restrictions = Yes
+        pam password change = Yes
+        panic action = /usr/share/samba/panic-action %d
+        passwd chat = *Enter\snew\s*\spassword:* %n\n *Retype\snew\s*\spassword:* %n\n *password\supdated\ssuccessfully* .
+        passwd program = /usr/bin/passwd %u
+        server role = standalone server
+        server string = %h server (Samba, Ubuntu)
+        unix password sync = Yes
+        usershare allow guests = Yes
+        idmap config * : backend = tdb
+
+
+[printers]
+        browseable = No
+        comment = All Printers
+        create mask = 0700
+        path = /var/tmp
+        printable = Yes
+
+
+[print$]
+        comment = Printer Drivers
+        path = /var/lib/samba/printers
+
+
+[VetStorage]
+        force create mode = 0660
+        force directory mode = 0770
+        path = /var/storage
+        read only = No
+        valid users = sergey
+Synchronizing state of smbd.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
+Executing: /usr/lib/systemd/systemd-sysv-install enable smbd
+● smbd.service - Samba SMB Daemon
+     Loaded: loaded (/usr/lib/systemd/system/smbd.service; enabled; preset: ena>
+     Active: active (running) since Wed 2026-04-22 06:59:22 UTC; 3h 58min ago
+       Docs: man:smbd(8)
+             man:samba(7)
+             man:smb.conf(5)
+   Main PID: 29460 (smbd)
+     Status: "smbd: ready to serve connections..."
+      Tasks: 6 (limit: 9429)
+     Memory: 13.4M (peak: 41.6M)
+        CPU: 1min 15.042s
+     CGroup: /system.slice/smbd.service
+             ├─29460 /usr/sbin/smbd --foreground --no-process-group
+             ├─29490 "smbd: notifyd" .
+             ├─29491 "smbd: cleanupd "
+             ├─34446 "smbd: scavenger"
+             ├─34449 "smbd: client [10.0.0.2]"
+             └─38899 "smbd: client [10.0.0.2]"
+
+апр 22 10:22:12 vetaisdisk smbd[34506]: pam_unix(samba:session): session closed>
+апр 22 10:27:24 vetaisdisk smbd[34449]: pam_unix(samba:session): session closed>
+апр 22 10:27:24 vetaisdisk smbd[34449]: pam_unix(samba:session): session opened>
+апр 22 10:33:37 vetaisdisk smbd[34449]: pam_unix(samba:session): session closed>
+lines 1-23
