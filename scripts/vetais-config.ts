@@ -31,4 +31,5 @@ export const TENANT_VETAIS_MAPPING: Record<string, string> = {
   'bd89523e-47e7-4d4b-8b94-e98c6d3e1959': 'vetais_vasilek',     // Василёк (host: 94.198.53.52)
   'e556ed34-71a7-4003-a2cd-b5cf274bae12': 'vetais',             // Динго (host: 109.173.124.18)
   'cc7d6b45-4a05-425d-890e-a5cb1bd89266': 'vetais_probiko_local', // Probiko (localhost)
+  '229948ed-759c-45a5-8eb9-13ea97af495a': 'artis',              // Артис (localhost)
 };
