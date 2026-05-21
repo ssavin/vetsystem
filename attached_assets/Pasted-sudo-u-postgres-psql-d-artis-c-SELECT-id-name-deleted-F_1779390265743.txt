@@ -1,0 +1,38 @@
+sudo -u postgres psql -d artis -c "SELECT id, name, deleted FROM pricelist_stocks WHERE id_stock_type IS NOT NULL ORDER BY id"
+
+sudo -u postgres psql -d artis -c "SELECT id, name FROM clinic_info ORDER BY id" 2>/dev/null || sudo -u postgres psql -d artis -c "\dt" | grep -i "clinic\|branch\|filial"
+  id   |           name           | deleted
+-------+--------------------------+---------
+     4 | Склад на Типанова старый |       0
+ 10000 | Магазин на ЛГ            |       1
+ 10001 | Прием Котельники         |       1
+ 10002 | Склад на Пятилеток       |       0
+ 10003 | Прием Кузьминки          |       1
+ 10004 | Склад на Димитрова       |       0
+ 10005 | Прием Люблино            |       1
+ 10006 | Склад на ЛГ              |       1
+ 10007 | Прием Дзержинский        |       1
+ 10008 | Зоомагазин2              |       1
+ 10009 | Прием Бирюлево           |       1
+ 10010 | Аптека Печатники         |       1
+ 10011 | Прием Печатники          |       1
+ 10012 | Аптека Молодежная        |       1
+ 10013 | Прием Молодежная         |       1
+ 10014 | Аптека Тверская          |       1
+ 10015 | Прием Тверская           |       1
+ 10016 | Зоомагазин1              |       1
+ 10017 | Склад на Типанова новый  |       0
+ 10018 | Склад на Пятилеток новый |       0
+(20 rows)
+
+ public | balance_filter_clinic                   | table | postgres
+ public | bridge_clinic_department                | table | postgres
+ public | bridge_clinic_ecosubject                | table | postgres
+ public | chip_clinics                            | table | postgres
+ public | diary_clinic_calendar                   | table | postgres
+ public | eco_sequences_clinics                   | table | postgres
+ public | eco_stock_clinic_department             | table | postgres
+ public | epid_clinics                            | table | postgres
+ public | file_clinics                            | table | postgres
+ public | medical_hospitalization_exclinic        | table | postgres
+ public | statistic_filter_clinic                 | table | postgres
