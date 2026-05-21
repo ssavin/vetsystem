@@ -1,0 +1,45 @@
+export DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem"
+bash scripts/run-migration-artis.sh 2>&1 | tee /tmp/migration-artis.log
+[19:41:09] === ЗАПУСК ПОЛНОЙ МИГРАЦИИ АРТИС ===
+[19:41:09] Тенант: 229948ed-759c-45a5-8eb9-13ea97af495a
+[19:41:09] База: localhost:5432/artis
+[19:41:09] >>> Создание тенанта Артис в VetSystem
+ERROR:  column "is_active" of relation "tenants" does not exist
+LINE 1: INSERT INTO tenants (id, name, slug, is_active, created_at, ...
+                                             ^
+QUERY:  INSERT INTO tenants (id, name, slug, is_active, created_at, updated_at)
+    VALUES (
+      '229948ed-759c-45a5-8eb9-13ea97af495a',
+      'Артис',
+      'artis',
+      true,
+      NOW(),
+      NOW()
+    )
+CONTEXT:  PL/pgSQL function inline_code_block line 5 at SQL statement
+[19:41:09] >>> Получение списка клиник из базы artis
+ERROR:  column "deleted" does not exist
+LINE 1: SELECT id, name FROM file_clinics WHERE deleted IS NULL OR d...
+                                                ^
+root@mail:/var/www/vetsystem# export DATABASE_URL="postgresql://postgres:ASPI6rin@localhost:5432/vetsystem"
+bash scripts/run-migration-artis.sh 2>&1 | tee /tmp/migration-artis.log
+[19:41:38] === ЗАПУСК ПОЛНОЙ МИГРАЦИИ АРТИС ===
+[19:41:38] Тенант: 229948ed-759c-45a5-8eb9-13ea97af495a
+[19:41:38] База: localhost:5432/artis
+[19:41:38] >>> Создание тенанта Артис в VetSystem
+ERROR:  column "is_active" of relation "tenants" does not exist
+LINE 1: INSERT INTO tenants (id, name, slug, is_active, created_at, ...
+                                             ^
+QUERY:  INSERT INTO tenants (id, name, slug, is_active, created_at, updated_at)
+    VALUES (
+      '229948ed-759c-45a5-8eb9-13ea97af495a',
+      'Артис',
+      'artis',
+      true,
+      NOW(),
+      NOW()
+    )
+CONTEXT:  PL/pgSQL function inline_code_block line 5 at SQL statement
+[19:41:38] >>> Получение списка клиник из базы artis
+ERROR:  column "deleted" does not exist
+LINE 1: SELECT id, name FROM file_clinics WHERE deleted IS NULL OR d...

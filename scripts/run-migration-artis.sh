@@ -24,81 +24,62 @@ log "=== ЗАПУСК ПОЛНОЙ МИГРАЦИИ АРТИС ==="
 log "Тенант: $TENANT"
 log "База: $HOST:$PORT/$DB"
 
-# ── Шаг 1: Создать тенант и филиалы в VetSystem ───────────────────────────────
+# ── Шаг 1: Создать тенант в VetSystem ─────────────────────────────────────────
 log ">>> Создание тенанта Артис в VetSystem"
-psql "$DATABASE_URL" << SQL
-DO \$\$
-BEGIN
-  -- Создаём тенант если не существует
-  IF NOT EXISTS (SELECT 1 FROM tenants WHERE id = '$TENANT') THEN
-    INSERT INTO tenants (id, name, slug, is_active, created_at, updated_at)
-    VALUES (
-      '$TENANT',
-      'Артис',
-      '$SLUG',
-      true,
-      NOW(),
-      NOW()
-    );
-    RAISE NOTICE 'Тенант Артис создан';
-  ELSE
-    RAISE NOTICE 'Тенант уже существует, пропускаем';
-  END IF;
-END
-\$\$;
-SQL
+psql "$DATABASE_URL" -c "
+  INSERT INTO tenants (id, name, slug, status, created_at, updated_at)
+  VALUES (
+    '$TENANT',
+    'Артис',
+    '$SLUG',
+    'active',
+    NOW(),
+    NOW()
+  )
+  ON CONFLICT (id) DO NOTHING;"
+log "Тенант готов"
 
-# ── Шаг 2: Получить clinic_id из базы artis и создать филиалы ─────────────────
-log ">>> Получение списка клиник из базы artis"
-CLINICS=$(PGPASSWORD=$PASS psql -h $HOST -p $PORT -U $USER -d $DB -t -c \
-  "SELECT id, name FROM file_clinics WHERE deleted IS NULL OR deleted = 0 ORDER BY id")
+# ── Шаг 2: Посмотреть структуру file_clinics и создать филиалы ────────────────
+log ">>> Структура file_clinics в базе artis:"
+PGPASSWORD=$PASS psql -h $HOST -p $PORT -U $USER -d $DB -c "\d file_clinics" 2>/dev/null || \
+  log "Таблица file_clinics не найдена или нет прав"
 
-log "Клиники в базе artis:"
-echo "$CLINICS"
+log ">>> Клиники в базе artis (первые 20 строк):"
+PGPASSWORD=$PASS psql -h $HOST -p $PORT -U $USER -d $DB -c \
+  "SELECT * FROM file_clinics ORDER BY id LIMIT 20" 2>/dev/null || \
+  log "Не удалось прочитать file_clinics"
 
 log ">>> Создание филиалов в VetSystem"
-PGPASSWORD=$PASS psql -h $HOST -p $PORT -U $USER -d $DB -t -c \
-  "SELECT id, name FROM file_clinics WHERE deleted IS NULL OR deleted = 0 ORDER BY id" | \
+# Читаем id и name из file_clinics (без фильтра deleted — определим колонку выше)
+PGPASSWORD=$PASS psql -h $HOST -p $PORT -U $USER -d $DB -t -A -F'|' -c \
+  "SELECT id, name FROM file_clinics ORDER BY id" 2>/dev/null | \
 while IFS='|' read -r clinic_id clinic_name; do
   clinic_id=$(echo "$clinic_id" | xargs)
   clinic_name=$(echo "$clinic_name" | xargs)
-  if [ -n "$clinic_id" ] && [ -n "$clinic_name" ]; then
-    log "  Создаём филиал: $clinic_name (clinic_id=$clinic_id)"
-    psql "$DATABASE_URL" << SQL
-DO \$\$
-DECLARE
-  branch_id TEXT;
-BEGIN
-  -- Проверяем нет ли уже ветки для этого clinic_id
-  IF NOT EXISTS (
-    SELECT 1 FROM branches 
-    WHERE tenant_id = '$TENANT' 
-    AND vetais_clinic_id = $clinic_id
-  ) THEN
-    INSERT INTO branches (
-      id, tenant_id, name, is_active, vetais_clinic_id, created_at, updated_at
-    ) VALUES (
+  [ -z "$clinic_id" ] && continue
+  # Экранируем одинарные кавычки в имени
+  clinic_name_safe="${clinic_name//\'/\'\'}"
+  log "  Создаём филиал: $clinic_name (clinic_id=$clinic_id)"
+  psql "$DATABASE_URL" -c "
+    INSERT INTO branches (id, tenant_id, name, address, city, phone, status, vetais_clinic_id, created_at, updated_at)
+    VALUES (
       gen_random_uuid()::text,
       '$TENANT',
-      '$clinic_name',
-      true,
+      '$clinic_name_safe',
+      '',
+      '',
+      '',
+      'active',
       $clinic_id,
       NOW(),
       NOW()
     )
-    RETURNING id INTO branch_id;
-    RAISE NOTICE 'Филиал % создан: %', '$clinic_name', branch_id;
-  ELSE
-    RAISE NOTICE 'Филиал % уже существует', '$clinic_name';
-  END IF;
-END
-\$\$;
-SQL
-  fi
+    ON CONFLICT (tenant_id, name) DO UPDATE SET vetais_clinic_id = EXCLUDED.vetais_clinic_id;" \
+  && log "    OK: $clinic_name" || log "    ПРОПУСК (уже есть): $clinic_name"
 done
 
-log ">>> Проверка созданных филиалов"
-psql "$DATABASE_URL" -c "SELECT id, name, vetais_clinic_id FROM branches WHERE tenant_id='$TENANT' ORDER BY vetais_clinic_id"
+log ">>> Созданные филиалы:"
+psql "$DATABASE_URL" -c "SELECT id, name, vetais_clinic_id, status FROM branches WHERE tenant_id='$TENANT' ORDER BY vetais_clinic_id"
 
 run_universal() {
   local phase=$1
@@ -166,15 +147,14 @@ log "=== МИГРАЦИЯ ЗАВЕРШЕНА ==="
 
 # Итоговая статистика
 psql "$DATABASE_URL" -c "
-SELECT 'owners'             AS table_name, COUNT(*) AS count FROM owners        WHERE tenant_id='$TENANT'
-UNION ALL SELECT 'patients',              COUNT(*) FROM patients        WHERE tenant_id='$TENANT'
-UNION ALL SELECT 'doctors',              COUNT(*) FROM doctors         WHERE tenant_id='$TENANT'
-UNION ALL SELECT 'users',                COUNT(*) FROM users           WHERE tenant_id='$TENANT' AND role IN ('doctor','staff')
-UNION ALL SELECT 'medical_records',      COUNT(*) FROM medical_records WHERE tenant_id='$TENANT'
-UNION ALL SELECT 'invoices',             COUNT(*) FROM invoices        WHERE tenant_id='$TENANT'
-UNION ALL SELECT 'invoice_items',        COUNT(*) FROM invoice_items ii
-  JOIN invoices i ON ii.invoice_id=i.id  WHERE i.tenant_id='$TENANT';
-"
+SELECT 'owners'        AS table_name, COUNT(*) AS count FROM owners        WHERE tenant_id='$TENANT'
+UNION ALL SELECT 'patients',          COUNT(*) FROM patients               WHERE tenant_id='$TENANT'
+UNION ALL SELECT 'doctors',           COUNT(*) FROM doctors                WHERE tenant_id='$TENANT'
+UNION ALL SELECT 'users',             COUNT(*) FROM users                  WHERE tenant_id='$TENANT' AND role IN ('doctor','staff')
+UNION ALL SELECT 'medical_records',   COUNT(*) FROM medical_records        WHERE tenant_id='$TENANT'
+UNION ALL SELECT 'invoices',          COUNT(*) FROM invoices               WHERE tenant_id='$TENANT'
+UNION ALL SELECT 'invoice_items',     COUNT(*) FROM invoice_items ii
+  JOIN invoices i ON ii.invoice_id=i.id WHERE i.tenant_id='$TENANT';"
 
 log "Готово!"
 sleep infinity
