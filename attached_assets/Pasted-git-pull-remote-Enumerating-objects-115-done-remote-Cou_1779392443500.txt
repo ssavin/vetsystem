@@ -1,0 +1,66 @@
+git pull
+remote: Enumerating objects: 115, done.
+remote: Counting objects: 100% (115/115), done.
+remote: Compressing objects: 100% (37/37), done.
+remote: Total 110 (delta 81), reused 102 (delta 73), pack-reused 0 (from 0)
+Receiving objects: 100% (110/110), 9.10 MiB | 13.73 MiB/s, done.
+Resolving deltas: 100% (81/81), completed with 5 local objects.
+From https://github.com/ssavin/vetsystem
+   aaedf21..11dab48  main       -> origin/main
+Updating aaedf21..11dab48
+Fast-forward
+ ...nts-kod-kado-AS-client-id-fil_1776896365092.txt |   88 ++
+ ...asswd-a-sergey--1776855504148_1776855504149.txt |   78 ++
+ ...iles-ru-sudo-pa-1777114213879_1777114213881.txt |  105 ++
+ ...is-c-SELECT-id-name-deleted-F_1779390265743.txt |   38 +
+ attached_assets/image_1776449688447.png            |  Bin 0 -> 486810 bytes
+ attached_assets/image_1776451300665.png            |  Bin 0 -> 455072 bytes
+ attached_assets/image_1776452039053.png            |  Bin 0 -> 212634 bytes
+ attached_assets/image_1776452195986.png            |  Bin 0 -> 535849 bytes
+ attached_assets/image_1776453533116.png            |  Bin 0 -> 388176 bytes
+ attached_assets/image_1776453702482.png            |  Bin 0 -> 444188 bytes
+ attached_assets/image_1776855172131.png            |  Bin 0 -> 2041258 bytes
+ attached_assets/image_1776864072047.png            |  Bin 0 -> 331464 bytes
+ attached_assets/image_1776896774461.png            |    0
+ attached_assets/image_1776896849463.png            |  Bin 0 -> 333797 bytes
+ attached_assets/image_1777144150625.png            |  Bin 0 -> 405062 bytes
+ attached_assets/image_1777145632382.png            |  Bin 0 -> 259969 bytes
+ attached_assets/image_1777145782474.png            |  Bin 0 -> 247353 bytes
+ attached_assets/image_1777147362682.png            |  Bin 0 -> 501723 bytes
+ attached_assets/image_1777148887253.png            |  Bin 0 -> 563198 bytes
+ attached_assets/image_1777149598305.png            |  Bin 0 -> 1025977 bytes
+ attached_assets/image_1777150911751.png            |  Bin 0 -> 491467 bytes
+ attached_assets/image_1777151555521.png            |  Bin 0 -> 1035537 bytes
+ scripts/1c_nakladnaya_prikhoda_VETAIS.bsl          |  793 ++++++++++++++
+ scripts/1c_retail_report_VETAIS.bsl                |  538 +++++-----
+ scripts/1c_vetais_universal_EXCHANGE.bsl           | 1130 ++++++++++++++++++++
+ scripts/run-migration-artis.sh                     |  180 ++++
+ scripts/vetais-config.ts                           |    1 +
+ scripts/vetais-queries-reference.sql               |  391 +++++++
+ 28 files changed, 3073 insertions(+), 269 deletions(-)
+ create mode 100644 attached_assets/Pasted--SELECT-DISTINCT-file-clients-kod-kado-AS-client-id-fil_1776896365092.txt
+ create mode 100644 attached_assets/Pasted--Samba-sudo-smbpasswd-a-sergey--1776855504148_1776855504149.txt
+ create mode 100644 attached_assets/Pasted--sudo-certbot-apache-d-files-ru-sudo-pa-1777114213879_1777114213881.txt
+ create mode 100644 attached_assets/Pasted-sudo-u-postgres-psql-d-artis-c-SELECT-id-name-deleted-F_1779390265743.txt
+ create mode 100644 attached_assets/image_1776449688447.png
+ create mode 100644 attached_assets/image_1776451300665.png
+ create mode 100644 attached_assets/image_1776452039053.png
+ create mode 100644 attached_assets/image_1776452195986.png
+ create mode 100644 attached_assets/image_1776453533116.png
+ create mode 100644 attached_assets/image_1776453702482.png
+ create mode 100644 attached_assets/image_1776855172131.png
+ create mode 100644 attached_assets/image_1776864072047.png
+ create mode 100644 attached_assets/image_1776896774461.png
+ create mode 100644 attached_assets/image_1776896849463.png
+ create mode 100644 attached_assets/image_1777144150625.png
+ create mode 100644 attached_assets/image_1777145632382.png
+ create mode 100644 attached_assets/image_1777145782474.png
+ create mode 100644 attached_assets/image_1777147362682.png
+ create mode 100644 attached_assets/image_1777148887253.png
+ create mode 100644 attached_assets/image_1777149598305.png
+ create mode 100644 attached_assets/image_1777150911751.png
+ create mode 100644 attached_assets/image_1777151555521.png
+ create mode 100644 scripts/1c_nakladnaya_prikhoda_VETAIS.bsl
+ create mode 100644 scripts/1c_vetais_universal_EXCHANGE.bsl
+ create mode 100644 scripts/run-migration-artis.sh
+ create mode 100644 scripts/vetais-queries-reference.sql
