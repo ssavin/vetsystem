@@ -101,6 +101,7 @@ Preferred communication style: Simple, everyday language.
     -   `vetais` (Tenant ID: `e556ed34-71a7-4003-a2cd-b5cf274bae12`, Slug: `dingo`) — **МИГРИРОВАН**: 46,493 владельцев, 55,455 пациентов, 247,510 медзаписей, 197,706 счетов; admin: `admin_dingo` / `password`
 -   **Локальный бэкап на проде** (`localhost:5432`, User: `postgres`, Password: `ASPI6rin`)
     -   `vetais_probiko_local` (Tenant ID: `cc7d6b45-4a05-425d-890e-a5cb1bd89266`, Slug: `probiko`) — **МИГРИРОВАН**: 25,760 владельцев, 30,744 пациентов, 102,178 счетов, 298,365 позиций; файл бэкапа: `/var/www/vetsystem/downloads/vetais_dbname_old_licname_ACC1050_260408-1621.sql`; admin: `admin_probiko` / `password`
+    -   `artis` (Tenant ID: `229948ed-759c-45a5-8eb9-13ea97af495a`, Slug: `artis`) — **МИГРИРОВАН**: 22,157 владельцев, 28,430 пациентов, 107 сотрудников (32 врача + 73 сотрудника), 151,776 медзаписей, 13,026 вакцинаций, 286,137 счетов, 1,058,940 позиций; 5 филиалов (clinic_ids 10000–10004); admin: `admin_artis` / `password`
 
 ## Миграционные инструменты
 -   `scripts/migrate-vetais-universal.ts` — Универсальный идемпотентный скрипт миграции (owners/patients/doctors/all phases). CLI: `--tenant`, `--db`, `--host`, `--port`, `--user`, `--password`, `--batch`, `--phase`.
